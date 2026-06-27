@@ -122,8 +122,8 @@ export default function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
       </div>
 
       {/* Lado Direito - Formulário */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px', backgroundColor: 'white' }}>
-        <div style={{ width: '100%', maxWidth: '420px' }}>
+      <div style={{ flex: 1, display: 'flex', padding: '40px', backgroundColor: 'white', overflowY: 'auto' }}>
+        <div style={{ width: '100%', maxWidth: '420px', margin: 'auto', padding: '20px 0' }}>
           
           <div style={{ marginBottom: '32px' }}>
             <h2 style={{ fontSize: '28px', fontWeight: 800, color: '#0f172a', margin: '0 0 8px 0', letterSpacing: '-0.5px' }}>
