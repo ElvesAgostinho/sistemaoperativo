@@ -18,7 +18,7 @@ export default function AfiliadosApp() {
   const fetchData = async () => {
     try {
       const token = localStorage.getItem('os_auth_token');
-      const afRes = await fetch('http://127.0.0.1:3001/api/afiliados', {
+      const afRes = await fetch(import.meta.env.VITE_API_URL + '/api/afiliados', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (afRes.ok) {
@@ -26,7 +26,7 @@ export default function AfiliadosApp() {
         setAfiliados(afData.afiliados || []);
       }
 
-      const comRes = await fetch('http://127.0.0.1:3001/api/afiliados/comissoes', {
+      const comRes = await fetch(import.meta.env.VITE_API_URL + '/api/afiliados/comissoes', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (comRes.ok) {
@@ -34,7 +34,7 @@ export default function AfiliadosApp() {
         setComissoes(comData.comissoes || []);
       }
 
-      const matRes = await fetch('http://127.0.0.1:3001/api/afiliados/materiais');
+      const matRes = await fetch(import.meta.env.VITE_API_URL + '/api/afiliados/materiais');
       if (matRes.ok) {
         const matData = await matRes.json();
         setMateriais(matData.materiais || []);
@@ -52,7 +52,7 @@ export default function AfiliadosApp() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('os_auth_token');
-      const res = await fetch('http://127.0.0.1:3001/api/afiliados', {
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/afiliados', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(novoAfiliado)
@@ -74,7 +74,7 @@ export default function AfiliadosApp() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('os_auth_token');
-      const res = await fetch('http://127.0.0.1:3001/api/afiliados/materiais', {
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/afiliados/materiais', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(novoMaterial)
@@ -94,7 +94,7 @@ export default function AfiliadosApp() {
     if (!window.confirm('Apagar este material?')) return;
     try {
       const token = localStorage.getItem('os_auth_token');
-      const res = await fetch(`http://127.0.0.1:3001/api/afiliados/materiais/${id}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/afiliados/materiais/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -108,7 +108,7 @@ export default function AfiliadosApp() {
     if (!window.confirm('Tem a certeza que deseja aprovar esta comissão?')) return;
     try {
       const token = localStorage.getItem('os_auth_token');
-      const res = await fetch(`http://127.0.0.1:3001/api/afiliados/comissoes/${id}/aprovar`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/afiliados/comissoes/${id}/aprovar`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -122,7 +122,7 @@ export default function AfiliadosApp() {
     if (!window.confirm('Confirma que já efetuou a transferência bancária para o afiliado?')) return;
     try {
       const token = localStorage.getItem('os_auth_token');
-      const res = await fetch(`http://127.0.0.1:3001/api/afiliados/comissoes/${id}/pagar`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/afiliados/comissoes/${id}/pagar`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });

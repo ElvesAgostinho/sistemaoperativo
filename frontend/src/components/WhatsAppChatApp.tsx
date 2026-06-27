@@ -74,7 +74,7 @@ export default function WhatsAppChatApp() {
     const fetchTemplates = async () => {
         try {
             const token = localStorage.getItem('os_auth_token');
-            const res = await fetch('http://127.0.0.1:3001/api/whatsapp/templates', {
+            const res = await fetch(import.meta.env.VITE_API_URL + '/api/whatsapp/templates', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -88,7 +88,7 @@ export default function WhatsAppChatApp() {
         setIsSyncingTemplates(true);
         try {
             const token = localStorage.getItem('os_auth_token');
-            const res = await fetch('http://127.0.0.1:3001/api/whatsapp/templates/sync', {
+            const res = await fetch(import.meta.env.VITE_API_URL + '/api/whatsapp/templates/sync', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -107,7 +107,7 @@ export default function WhatsAppChatApp() {
         setMetaStatus('saving');
         try {
             const token = localStorage.getItem('os_auth_token');
-            const res = await fetch('http://127.0.0.1:3001/api/whatsapp/config/meta', {
+            const res = await fetch(import.meta.env.VITE_API_URL + '/api/whatsapp/config/meta', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -139,7 +139,7 @@ export default function WhatsAppChatApp() {
         setQrCodeData(null);
         try {
             const token = localStorage.getItem('os_auth_token');
-            const res = await fetch('http://127.0.0.1:3001/api/whatsapp/evolution/instance', {
+            const res = await fetch(import.meta.env.VITE_API_URL + '/api/whatsapp/evolution/instance', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -179,7 +179,7 @@ export default function WhatsAppChatApp() {
     const fetchConversations = async () => {
         try {
             const token = localStorage.getItem('os_auth_token');
-            const res = await fetch('http://127.0.0.1:3001/api/whatsapp/conversations', {
+            const res = await fetch(import.meta.env.VITE_API_URL + '/api/whatsapp/conversations', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -192,7 +192,7 @@ export default function WhatsAppChatApp() {
     const fetchAgents = async () => {
         try {
             const token = localStorage.getItem('os_auth_token');
-            const res = await fetch('http://127.0.0.1:3001/api/whatsapp/agents', {
+            const res = await fetch(import.meta.env.VITE_API_URL + '/api/whatsapp/agents', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -203,7 +203,7 @@ export default function WhatsAppChatApp() {
     const fetchEvolutionState = async () => {
         try {
             const token = localStorage.getItem('os_auth_token');
-            const res = await fetch('http://127.0.0.1:3001/api/whatsapp/evolution/instance/state', {
+            const res = await fetch(import.meta.env.VITE_API_URL + '/api/whatsapp/evolution/instance/state', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -230,7 +230,7 @@ export default function WhatsAppChatApp() {
         if (!confirm('Tem a certeza que deseja desconectar o WhatsApp?')) return;
         try {
             const token = localStorage.getItem('os_auth_token');
-            await fetch('http://127.0.0.1:3001/api/whatsapp/evolution/instance/logout', {
+            await fetch(import.meta.env.VITE_API_URL + '/api/whatsapp/evolution/instance/logout', {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -244,7 +244,7 @@ export default function WhatsAppChatApp() {
         setIsSyncingChats(true);
         try {
             const token = localStorage.getItem('os_auth_token');
-            const res = await fetch('http://127.0.0.1:3001/api/whatsapp/evolution/sync-chats', {
+            const res = await fetch(import.meta.env.VITE_API_URL + '/api/whatsapp/evolution/sync-chats', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -269,7 +269,7 @@ export default function WhatsAppChatApp() {
         if (!activeConv) return;
         try {
             const token = localStorage.getItem('os_auth_token');
-            await fetch(`http://127.0.0.1:3001/api/whatsapp/conversations/${activeConv.id}/assign`, {
+            await fetch(`${import.meta.env.VITE_API_URL}/api/whatsapp/conversations/${activeConv.id}/assign`, {
                 method: 'PUT',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ agent_id: agentId })
@@ -284,7 +284,7 @@ export default function WhatsAppChatApp() {
         if (!activeConv) return;
         try {
             const token = localStorage.getItem('os_auth_token');
-            const res = await fetch(`http://127.0.0.1:3001/api/whatsapp/conversations/${activeConv.id}/audit`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/whatsapp/conversations/${activeConv.id}/audit`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -307,7 +307,7 @@ export default function WhatsAppChatApp() {
         if (!activeConv) return;
         try {
             const token = localStorage.getItem('os_auth_token');
-            const res = await fetch(`http://127.0.0.1:3001/api/whatsapp/conversations/${activeConv.id}/messages`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/whatsapp/conversations/${activeConv.id}/messages`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (!res.ok) {
@@ -341,7 +341,7 @@ export default function WhatsAppChatApp() {
         if (!activeConv) return;
         try {
             const token = localStorage.getItem('os_auth_token');
-            const res = await fetch(`http://127.0.0.1:3001/api/whatsapp/bot-status/${activeConv.phone_number}`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/whatsapp/bot-status/${activeConv.phone_number}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -357,7 +357,7 @@ export default function WhatsAppChatApp() {
         if (!activeConv) return;
         try {
             const token = localStorage.getItem('os_auth_token');
-            const res = await fetch(`http://127.0.0.1:3001/api/whatsapp/toggle-bot/${activeConv.phone_number}`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/whatsapp/toggle-bot/${activeConv.phone_number}`, {
                 method: 'PUT',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ paused: !isBotPaused })
@@ -387,7 +387,7 @@ export default function WhatsAppChatApp() {
 
         try {
             const token = localStorage.getItem('os_auth_token');
-            const res = await fetch('http://127.0.0.1:3001/api/whatsapp/send', {
+            const res = await fetch(import.meta.env.VITE_API_URL + '/api/whatsapp/send', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ conversation_id: activeConv.id, content: inputText, type: 'text' })

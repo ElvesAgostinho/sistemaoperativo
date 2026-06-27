@@ -22,7 +22,7 @@ export default function EmailApp() {
 
         try {
             const token = localStorage.getItem('os_auth_token') || '';
-            const res = await fetch('http://127.0.0.1:3001/api/email/send', {
+            const res = await fetch(import.meta.env.VITE_API_URL + '/api/email/send', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

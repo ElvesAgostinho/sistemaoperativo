@@ -44,11 +44,11 @@ export default function CrmApp() {
   const fetchDados = async () => {
     setIsFetching(true);
     try {
-      const resC = await fetch('http://127.0.0.1:3001/api/crm/clientes');
+      const resC = await fetch(import.meta.env.VITE_API_URL + '/api/crm/clientes');
       const dataC = await resC.json();
       if (dataC.success) setClientes(dataC.clientes);
 
-      const resN = await fetch('http://127.0.0.1:3001/api/crm/negocios');
+      const resN = await fetch(import.meta.env.VITE_API_URL + '/api/crm/negocios');
       const dataN = await resN.json();
       if (dataN.success) setNegocios(dataN.negocios);
     } catch (err) {
@@ -66,7 +66,7 @@ export default function CrmApp() {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch('http://127.0.0.1:3001/api/crm/clientes', {
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/crm/clientes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newCliente)
@@ -88,7 +88,7 @@ export default function CrmApp() {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch('http://127.0.0.1:3001/api/crm/negocios', {
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/crm/negocios', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -113,7 +113,7 @@ export default function CrmApp() {
   const deleteCliente = async (id: number) => {
     if (!window.confirm("Atenção: Ao apagar o cliente, apagará também todos os negócios e leads associados. Deseja continuar?")) return;
     try {
-      await fetch(`http://127.0.0.1:3001/api/crm/clientes/${id}`, { method: 'DELETE' });
+      await fetch(`${import.meta.env.VITE_API_URL}/api/crm/clientes/${id}`, { method: 'DELETE' });
       fetchDados();
     } catch (err) {
       alert("Erro ao apagar cliente.");
@@ -123,7 +123,7 @@ export default function CrmApp() {
   const deleteNegocio = async (id: number) => {
     if (!window.confirm("Tem a certeza que deseja apagar este negócio? Esta ação é irreversível.")) return;
     try {
-      await fetch(`http://127.0.0.1:3001/api/crm/negocios/${id}`, { method: 'DELETE' });
+      await fetch(`${import.meta.env.VITE_API_URL}/api/crm/negocios/${id}`, { method: 'DELETE' });
       fetchDados();
     } catch (err) {
       alert("Erro ao apagar negócio.");
@@ -132,7 +132,7 @@ export default function CrmApp() {
 
   const moveFase = async (negocio_id: number, nova_fase: string) => {
     try {
-      await fetch(`http://127.0.0.1:3001/api/crm/negocios/${negocio_id}/fase`, {
+      await fetch(`${import.meta.env.VITE_API_URL}/api/crm/negocios/${negocio_id}/fase`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fase: nova_fase })
@@ -147,14 +147,14 @@ export default function CrmApp() {
     if (!showProformaModal) return;
     setLoading(true);
     try {
-      const res = await fetch(`http://127.0.0.1:3001/api/crm/negocios/${showProformaModal}/proforma`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/crm/negocios/${showProformaModal}/proforma`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ itens: proformaItens })
       });
       const data = await res.json();
       if (data.success) {
-        window.open('http://127.0.0.1:3001' + data.pdf_path, '_blank');
+        window.open(import.meta.env.VITE_API_URL + data.pdf_path, '_blank');
         setShowProformaModal(null);
         setProformaItens([{ descricao: '', qtd: 1, preco_unitario: 0 }]);
         fetchDados(); // O valor estimado vai ser atualizado pela backend com base na proforma
@@ -171,7 +171,7 @@ export default function CrmApp() {
     if (!showPagamentoModal) return;
     setLoading(true);
     try {
-      const res = await fetch(`http://127.0.0.1:3001/api/crm/negocios/${showPagamentoModal}/pagamento`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/crm/negocios/${showPagamentoModal}/pagamento`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(pagamentoData)

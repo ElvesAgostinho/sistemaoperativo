@@ -28,14 +28,14 @@ export default function PortalAfiliado() {
 
   const fetchData = async () => {
     try {
-      const statsRes = await fetch(`http://127.0.0.1:3001/api/afiliados/${afiliado.id}/portal-stats`);
+      const statsRes = await fetch(`${import.meta.env.VITE_API_URL}/api/afiliados/${afiliado.id}/portal-stats`);
       if (statsRes.ok) {
         const data = await statsRes.json();
         setStats(data.stats);
         setRecentes(data.recentes);
       }
 
-      const matRes = await fetch(`http://127.0.0.1:3001/api/afiliados/materiais`);
+      const matRes = await fetch(`${import.meta.env.VITE_API_URL}/api/afiliados/materiais`);
       if (matRes.ok) {
         const matData = await matRes.json();
         setMateriais(matData.materiais);
@@ -49,7 +49,7 @@ export default function PortalAfiliado() {
     e.preventDefault();
     setError('');
     try {
-      const res = await fetch('http://127.0.0.1:3001/api/afiliados/login', {
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/afiliados/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, senha })

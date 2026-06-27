@@ -86,7 +86,7 @@ export default function ChatApp() {
   const handleExecuteAction = async (actionType: string, payload: any) => {
     setLoading(true);
     try {
-        const response = await fetch('http://127.0.0.1:3001/api/ai/execute-action', {
+        const response = await fetch(import.meta.env.VITE_API_URL + '/api/ai/execute-action', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action_type: actionType, payload, conversaId })
@@ -321,7 +321,7 @@ export default function ChatApp() {
     setLoading(true);
 
     try {
-      const response = await fetch('http://127.0.0.1:3001/api/ai/chat', {
+      const response = await fetch(import.meta.env.VITE_API_URL + '/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: userMessage, conversaId })
@@ -359,7 +359,7 @@ export default function ChatApp() {
 
   const fetchConversations = async () => {
       try {
-          const res = await fetch('http://127.0.0.1:3001/api/ai/conversas');
+          const res = await fetch(import.meta.env.VITE_API_URL + '/api/ai/conversas');
           const data = await res.json();
           if (data.success) {
               setConversations(data.conversas);
@@ -372,7 +372,7 @@ export default function ChatApp() {
   const handleLoadConversation = async (id: number) => {
       setLoading(true);
       try {
-          const res = await fetch(`http://127.0.0.1:3001/api/ai/conversas/${id}/mensagens`);
+          const res = await fetch(`${import.meta.env.VITE_API_URL}/api/ai/conversas/${id}/mensagens`);
           const data = await res.json();
           if (data.success && data.mensagens.length > 0) {
               setConversaId(id);

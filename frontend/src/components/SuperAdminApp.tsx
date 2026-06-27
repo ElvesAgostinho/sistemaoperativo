@@ -102,7 +102,7 @@ const SuperAdminApp = () => {
     setEmpresaModulos([]); // clear while loading
     try {
       const token = localStorage.getItem('os_auth_token');
-      const res = await fetch(`http://127.0.0.1:3001/api/superadmin/empresas/${empresa.id}/modulos`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/superadmin/empresas/${empresa.id}/modulos`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();

@@ -19,13 +19,13 @@ export default function DataApp() {
       const token = localStorage.getItem('os_auth_token');
       const headers = { 'Authorization': `Bearer ${token}` };
       
-      const statsRes = await fetch('http://127.0.0.1:3001/api/data/stats', { headers });
+      const statsRes = await fetch(import.meta.env.VITE_API_URL + '/api/data/stats', { headers });
       const statsData = await statsRes.json();
       if (statsData.success) {
         setStats(statsData.stats);
       }
 
-      const insightsRes = await fetch('http://127.0.0.1:3001/api/data/insights', { headers });
+      const insightsRes = await fetch(import.meta.env.VITE_API_URL + '/api/data/insights', { headers });
       const insightsData = await insightsRes.json();
       if (insightsData.success) {
         setInsights(insightsData.insights);
@@ -51,7 +51,7 @@ export default function DataApp() {
     formData.append('file', file);
 
     try {
-      const res = await fetch('http://127.0.0.1:3001/api/data/upload', {
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/data/upload', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData

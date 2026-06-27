@@ -63,7 +63,7 @@ export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: s
 
     const fetchReunioes = async () => {
         try {
-            const res = await fetch('http://127.0.0.1:3001/api/reunioes');
+            const res = await fetch(import.meta.env.VITE_API_URL + '/api/reunioes');
             const data = await res.json();
             if (data.success) {
                 setReunioes(data.reunioes);
@@ -75,7 +75,7 @@ export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: s
 
     const fetchColaboradores = async () => {
         try {
-            const res = await fetch('http://127.0.0.1:3001/api/hr/employees');
+            const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/employees');
             const data = await res.json();
             if (data.success) {
                 setColaboradores(data.employees.filter((e: any) => e.email)); // Apenas os que têm email
@@ -95,7 +95,7 @@ export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: s
         ].join(', ');
 
         try {
-            const res = await fetch('http://127.0.0.1:3001/api/reunioes', {
+            const res = await fetch(import.meta.env.VITE_API_URL + '/api/reunioes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ titulo, data_hora: dataHora, emails_convidados: allEmails })
@@ -122,7 +122,7 @@ export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: s
         const isoStr = agora.toISOString();
         
         try {
-            const res = await fetch('http://127.0.0.1:3001/api/reunioes', {
+            const res = await fetch(import.meta.env.VITE_API_URL + '/api/reunioes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -146,7 +146,7 @@ export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: s
 
     const joinMeeting = async (id: number) => {
         try {
-            const res = await fetch(`http://127.0.0.1:3001/api/reunioes/${id}`);
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/reunioes/${id}`);
             const data = await res.json();
             if (data.success) {
                 setActiveReuniao(data.reuniao);
@@ -168,7 +168,7 @@ export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: s
         if (!activeReuniao) return;
         setLoading(true);
         try {
-            const res = await fetch(`http://127.0.0.1:3001/api/reunioes/${activeReuniao.id}/tarefas`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/reunioes/${activeReuniao.id}/tarefas`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ descricao: novaTarefaDescricao, responsavel: novaTarefaResp, prazo: novaTarefaPrazo })
@@ -256,7 +256,7 @@ export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: s
 
         setLoading(true);
         try {
-            const res = await fetch(`http://127.0.0.1:3001/api/reunioes/${activeReuniao.id}/process-transcript`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/reunioes/${activeReuniao.id}/process-transcript`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ transcricao: transcription || "Reunião curta ou sem áudio detetado." })

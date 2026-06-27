@@ -15,7 +15,7 @@ export default function KnowledgeBaseApp() {
 
   const fetchFiles = async () => {
     try {
-      const res = await fetch('http://127.0.0.1:3001/api/knowledge');
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/knowledge');
       const data = await res.json();
       if (data.success) {
         setFiles(data.files);
@@ -34,7 +34,7 @@ export default function KnowledgeBaseApp() {
     const formData = new FormData();
     formData.append('file', file);
     try {
-      const res = await fetch('http://127.0.0.1:3001/api/knowledge/upload', {
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/knowledge/upload', {
         method: 'POST',
         body: formData
       });
@@ -53,7 +53,7 @@ export default function KnowledgeBaseApp() {
   const handleDelete = async (filename: string) => {
     if (!window.confirm(`Apagar o documento "${filename}" da Base de Conhecimento?`)) return;
     try {
-      const res = await fetch(`http://127.0.0.1:3001/api/knowledge/${filename}`, { method: 'DELETE' });
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/knowledge/${filename}`, { method: 'DELETE' });
       if (res.ok) {
         fetchFiles();
       }

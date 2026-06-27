@@ -73,7 +73,7 @@ export default function SettingsApp() {
         setTestStatus('testing');
         setTestMsg('');
         try {
-            const res = await fetch('http://127.0.0.1:3001/api/knowledge/email/test', { method: 'POST' });
+            const res = await fetch(import.meta.env.VITE_API_URL + '/api/knowledge/email/test', { method: 'POST' });
             const data = await res.json();
             if (data.ok) {
                 setTestStatus('ok');
@@ -93,7 +93,7 @@ export default function SettingsApp() {
         setLoadingUsers(true);
         try {
             const token = localStorage.getItem('os_auth_token');
-            const res = await fetch('http://127.0.0.1:3001/api/users', {
+            const res = await fetch(import.meta.env.VITE_API_URL + '/api/users', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -116,7 +116,7 @@ export default function SettingsApp() {
     const handleChangeRole = async (id: string, newRole: string) => {
         try {
             const token = localStorage.getItem('os_auth_token');
-            await fetch(`http://127.0.0.1:3001/api/users/${id}/role`, {
+            await fetch(`${import.meta.env.VITE_API_URL}/api/users/${id}/role`, {
                 method: 'PUT',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ role: newRole })
@@ -130,7 +130,7 @@ export default function SettingsApp() {
     const handleChangeStatus = async (id: string, ativo: boolean) => {
         try {
             const token = localStorage.getItem('os_auth_token');
-            await fetch(`http://127.0.0.1:3001/api/users/${id}/status`, {
+            await fetch(`${import.meta.env.VITE_API_URL}/api/users/${id}/status`, {
                 method: 'PUT',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ativo })
@@ -592,7 +592,7 @@ export default function SettingsApp() {
                                     setPasswordSaving(true);
                                     try {
                                         const token = localStorage.getItem('os_auth_token');
-                                        const res = await fetch('http://127.0.0.1:3001/api/auth/update-password', {
+                                        const res = await fetch(import.meta.env.VITE_API_URL + '/api/auth/update-password', {
                                             method: 'PUT',
                                             headers: {
                                                 'Content-Type': 'application/json',

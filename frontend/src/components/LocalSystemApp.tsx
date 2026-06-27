@@ -29,7 +29,7 @@ export default function LocalSystemApp() {
     // Auto-refresh a cada 3 segundos para mostrar documentos gerados pela IA em tempo real
     const interval = setInterval(() => {
       // Usamos uma versão silenciosa do fetch para não piscar o "loading" a toda a hora
-      fetch('http://127.0.0.1:3001/api/system/documents')
+      fetch(import.meta.env.VITE_API_URL + '/api/system/documents')
         .then(res => res.json())
         .then(docsData => {
           if (docsData.documents) setDocs(docsData.documents);
@@ -45,8 +45,8 @@ export default function LocalSystemApp() {
     setErrorMsg(null);
     try {
       const [appsRes, docsRes] = await Promise.all([
-        fetch('http://127.0.0.1:3001/api/system/apps'),
-        fetch('http://127.0.0.1:3001/api/system/documents')
+        fetch(import.meta.env.VITE_API_URL + '/api/system/apps'),
+        fetch(import.meta.env.VITE_API_URL + '/api/system/documents')
       ]);
       
       if (!appsRes.ok || !docsRes.ok) {
@@ -68,7 +68,7 @@ export default function LocalSystemApp() {
 
   const launchApp = async (appId: string) => {
     try {
-      const response = await fetch('http://127.0.0.1:3001/api/system/launch', {
+      const response = await fetch(import.meta.env.VITE_API_URL + '/api/system/launch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ appId })
@@ -89,7 +89,7 @@ export default function LocalSystemApp() {
     if (!customApp.trim()) return;
     
     try {
-      await fetch('http://127.0.0.1:3001/api/system/launch', {
+      await fetch(import.meta.env.VITE_API_URL + '/api/system/launch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ customCommand: customApp })
@@ -102,7 +102,7 @@ export default function LocalSystemApp() {
 
   const openDocument = async (filePath: string) => {
     try {
-      await fetch('http://127.0.0.1:3001/api/system/launch', {
+      await fetch(import.meta.env.VITE_API_URL + '/api/system/launch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ customCommand: filePath })
@@ -116,7 +116,7 @@ export default function LocalSystemApp() {
     setAnalyzingFile(filename);
     setAnalysisResult(null);
     try {
-      const response = await fetch('http://127.0.0.1:3001/api/ai/chat', {
+      const response = await fetch(import.meta.env.VITE_API_URL + '/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: `Faz um resumo detalhado e extrai os pontos chave do ficheiro: ${filepath}` })
