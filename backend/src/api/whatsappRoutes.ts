@@ -301,6 +301,52 @@ router.delete('/evolution/instance/logout', requireAuth, async (req: AuthRequest
     }
 });
 
+// DIAGNÓSTICO: Ver resposta raw da Evolution API
+router.get('/evolution/debug-chats', requireAuth, async (req: AuthRequest, res: Response) => {
+    const empresaId = req.user?.empresa_id;
+    if (!empresaId) return res.status(400).json({ error: 'Empresa não encontrada' });
+    const instanceName = `SISTEMA_EMP_${empresaId}`;
+    const apiUrl = process.env.EVOLUTION_API_URL || 'https://evolution.topconsultores.pt';
+    const apiKey = process.env.AUTHENTICATION_API_KEY || '';
+
+    const results: any = { instanceName, apiUrl, endpoints: {} };
+
+    // Testar findChats com POST
+    try {
+        const r1 = await globalThis.fetch(`${apiUrl}/chat/findChats/${instanceName}`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+            body: JSON.stringify({ page: 1, count: 20 })
+        });
+        results.endpoints.findChats_POST = { status: r1.status, body: await r1.json() };
+    } catch(e: any) { results.endpoints.findChats_POST = { error: e.message }; }
+
+    // Testar findChats com GET
+    try {
+        const r2 = await globalThis.fetch(`${apiUrl}/chat/findChats/${instanceName}`, {
+            method: 'GET', headers: { 'apikey': apiKey }
+        });
+        results.endpoints.findChats_GET = { status: r2.status, body: await r2.json() };
+    } catch(e: any) { results.endpoints.findChats_GET = { error: e.message }; }
+
+    // Testar fetchAllGroups (apenas para ver estrutura)
+    try {
+        const r3 = await globalThis.fetch(`${apiUrl}/group/fetchAllGroups/${instanceName}?getParticipants=false`, {
+            method: 'GET', headers: { 'apikey': apiKey }
+        });
+        results.endpoints.fetchAllGroups = { status: r3.status, isArray: true, count: (await r3.json())?.length };
+    } catch(e: any) { results.endpoints.fetchAllGroups = { error: e.message }; }
+
+    // Testar connectionState
+    try {
+        const r4 = await globalThis.fetch(`${apiUrl}/instance/connectionState/${instanceName}`, {
+            headers: { 'apikey': apiKey }
+        });
+        results.endpoints.connectionState = { status: r4.status, body: await r4.json() };
+    } catch(e: any) { results.endpoints.connectionState = { error: e.message }; }
+
+    return res.json(results);
+});
+
 // Sincronizar Conversas Antigas Evolution
 router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: Response) => {
     const empresaId = req.user?.empresa_id;
