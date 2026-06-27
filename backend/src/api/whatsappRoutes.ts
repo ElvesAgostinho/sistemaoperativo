@@ -433,9 +433,11 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
         console.log(`[sync-chats] Total de chats encontrados: ${chats.length}`);
 
         for (const chat of chats) {
-            if (!chat.id || chat.id.includes('@g.us')) continue; // Ignorar grupos
+            const remoteJid = chat.remoteJid || chat.id;
+            // Ignorar grupos (@g.us), dispositivos ligados (@lid) e chats sem JID
+            if (!remoteJid || remoteJid.includes('@g.us') || remoteJid.includes('@lid')) continue;
             
-            const phoneNumber = chat.id.split('@')[0];
+            const phoneNumber = remoteJid.split('@')[0];
             const contactName = chat.pushName || chat.name || phoneNumber;
             
             // Tentar obter a foto de perfil (com timeout curto para não bloquear)
@@ -444,7 +446,7 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
                 const picRes: any = await fetchWithTimeout(`${apiUrl}/chat/fetchProfilePictureUrl/${instanceName}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
-                    body: JSON.stringify({ number: chat.id })
+                    body: JSON.stringify({ number: remoteJid })
                 }, 8000);
                 if (picRes.ok) {
                     const picData = await picRes.json();
