@@ -93,21 +93,73 @@ body {
   min-height: 80vh;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: space-between;
   padding: 0 5%;
-  background-image: 
-    linear-gradient(to right, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 25%, rgba(0,0,0,0) 55%),
-    url('/dark_hero_3d.png');
-  background-size: cover;
-  background-position: right center;
   border-bottom: 1px solid var(--border-light);
   animation: fadeUp 1s ease-out;
   box-sizing: border-box;
 }
 
 .hero-content {
-  max-width: 500px;
+  max-width: 550px;
   text-align: left;
+  flex: 1;
+}
+
+.hero-image-container {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  max-width: 600px;
+  animation: float 6s ease-in-out infinite;
+}
+
+.hero-image-container img {
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 20px 40px rgba(0,0,0,0.5));
+}
+
+.hero-checklist {
+  margin: 0 0 30px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hero-checklist li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 17px;
+  color: var(--text-main);
+  margin-bottom: 12px;
+}
+
+.hero-checklist-icon {
+  color: #3b82f6; /* Modern Blue */
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 50%;
+  padding: 4px;
+  display: inline-flex;
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-15px); }
+  100% { transform: translateY(0px); }
+}
+
+@media (max-width: 968px) {
+  .hero-section {
+    flex-direction: column;
+    padding-top: 40px;
+  }
+  .hero-image-container {
+    margin-top: 40px;
+    max-width: 100%;
+  }
 }
 
 .hero-title {

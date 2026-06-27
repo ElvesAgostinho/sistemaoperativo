@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { ArrowRight, Sparkles, Shield, Zap, Database, Users, Briefcase, MessageCircle, PieChart, Share2, Bot, Monitor, BookOpen, Mail, Settings, Globe, Video, Calculator } from 'lucide-react';
+import { ArrowRight, Sparkles, Shield, Zap, Database, Users, Briefcase, MessageCircle, PieChart, Share2, Bot, Monitor, BookOpen, Mail, Settings, Globe, Video, Calculator, CheckCircle2 } from 'lucide-react';
 import '../styles/landing.css';
+import heroImg from '../assets/hero_business_os_dark.png';
 
 const LogoSVG = () => (
   <svg width="36" height="36" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="nav-logo-svg">
@@ -72,11 +73,24 @@ export default function LandingPage({ onGoToApp }: { onGoToApp: () => void }) {
           <p className="hero-subtitle">
             Porquê pagar fortunas por um sistema inteiro quando só precisa de uma parte? Subscreva e ative ferramentas de Vendas, RH ou IA à medida que a sua empresa cresce.
           </p>
+          
+          <ul className="hero-checklist">
+            <li><span className="hero-checklist-icon"><CheckCircle2 size={16} /></span> Todos os Módulos de Gestão</li>
+            <li><span className="hero-checklist-icon"><CheckCircle2 size={16} /></span> IA & Automação Avançada</li>
+            <li><span className="hero-checklist-icon"><CheckCircle2 size={16} /></span> Colaboração em Equipa Real-time</li>
+            <li><span className="hero-checklist-icon"><CheckCircle2 size={16} /></span> Faturação Rápida Certificada</li>
+            <li><span className="hero-checklist-icon"><CheckCircle2 size={16} /></span> Relatórios Executivos</li>
+          </ul>
+
           <div className="hero-actions">
             <button className="primary-btn" onClick={onGoToApp}>
               Iniciar Sessão <ArrowRight size={16} />
             </button>
           </div>
+        </div>
+        
+        <div className="hero-image-container">
+          <img src={heroImg} alt="BusinessOS Platform Interface Preview" />
         </div>
       </section>
 
