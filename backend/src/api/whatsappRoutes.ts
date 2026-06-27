@@ -197,8 +197,11 @@ router.get('/conversations', requireAuth, async (req: AuthRequest, res: Response
     res.json({ success: true, conversations: data });
 });
 
-router.get('/agents', requireAuth, async (req: Request, res: Response) => {
-    const { data, error } = await getSupabase(req).from('perfis').select('id, nome, role');
+router.get('/agents', requireAuth, async (req: AuthRequest, res: Response) => {
+    const { data, error } = await getSupabase(req)
+        .from('perfis')
+        .select('id, nome, role')
+        .eq('empresa_id', req.user!.empresa_id);
     if (error) return res.status(500).json({ error: error.message });
     res.json({ success: true, agents: data });
 });
@@ -459,6 +462,7 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
 
             const tsMs = chat.conversationTimestamp ? chat.conversationTimestamp * 1000 : Date.now();
             const lastMsgAt = new Date(tsMs).toISOString();
+            let convId = conv?.id;
 
             if (conv) {
                 // Atualizar foto e última mensagem (opcional)
@@ -467,18 +471,44 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
                 await getSupabase(req).from('wa_conversations').update(updatePayload).eq('id', conv.id);
             } else {
                 // Inserir Nova Conversa
-                const { error: insertErr } = await getSupabase(req).from('wa_conversations').insert({
+                const { data: newConv, error: insertErr } = await getSupabase(req).from('wa_conversations').insert({
                     channel_id: channel!.id,
                     phone_number: phoneNumber,
                     contact_name: contactName,
                     contact_picture: contactPicture,
                     status: 'open',
                     last_message_at: lastMsgAt
-                });
+                }).select('id').single();
+                
                 if (insertErr) {
                     console.error(`[sync-chats] Erro ao inserir conversa ${phoneNumber}:`, insertErr.message);
                 } else {
+                    convId = newConv?.id;
                     syncCount++;
+                }
+            }
+
+            // Sync last message se existir e não estivermos a duplicar
+            if (convId && chat.lastMessage && chat.lastMessage.message) {
+                const msgContent = chat.lastMessage.message.conversation || chat.lastMessage.message.extendedTextMessage?.text || "[Mensagem Multimédia/Outro]";
+                const isFromMe = chat.lastMessage.key?.fromMe || false;
+                const msgDirection = isFromMe ? 'outbound' : 'inbound';
+                const msgTimestamp = chat.lastMessage.messageTimestamp ? new Date(chat.lastMessage.messageTimestamp * 1000).toISOString() : lastMsgAt;
+                const msgId = chat.lastMessage.key?.id;
+                
+                if (msgId) {
+                     const { data: existingMsg } = await getSupabase(req).from('wa_messages').select('id').eq('message_id', msgId).single();
+                     if (!existingMsg) {
+                          await getSupabase(req).from('wa_messages').insert({
+                              conversation_id: convId,
+                              message_id: msgId,
+                              content: msgContent,
+                              direction: msgDirection,
+                              status: isFromMe ? 'sent' : 'received',
+                              created_at: msgTimestamp,
+                              message_type: 'text'
+                          });
+                     }
                 }
             }
         }

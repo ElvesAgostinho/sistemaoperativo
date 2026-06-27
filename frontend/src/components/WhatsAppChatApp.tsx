@@ -477,7 +477,7 @@ export default function WhatsAppChatApp() {
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
                                             <span style={{ fontSize: '14px', color: '#667781', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>
-                                                {conv.phone_number}
+                                                {conv.phone_number.includes('@') ? 'Contacto WhatsApp' : conv.phone_number}
                                             </span>
                                             {conv.status === 'bot' && <span title="O Bot está a responder"><Bot size={14} color="#00a884" /></span>}
                                         </div>
@@ -656,7 +656,7 @@ export default function WhatsAppChatApp() {
                                 </div>
                                 <div>
                                     <div style={{ fontWeight: 500, color: '#111b21', fontSize: '16px' }}>{activeConv.contact_name}</div>
-                                    <div style={{ fontSize: '13px', color: '#667781' }}>{activeConv.phone_number} • {activeConv.wa_channels.name}</div>
+                                    <div style={{ fontSize: '13px', color: '#667781' }}>{activeConv.phone_number.includes('@') ? 'Contacto WhatsApp' : activeConv.phone_number} • {activeConv.wa_channels.name}</div>
                                 </div>
                             </div>
                             
