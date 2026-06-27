@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { requireAuth } from '../middleware/authMiddleware';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -56,14 +57,15 @@ router.delete('/:filename', (req, res) => {
     }
 });
 
-router.post('/email/send', async (req, res) => {
+router.post('/email/send', requireAuth, async (req, res) => {
     const { para, assunto, corpo } = req.body;
+    const empresaId = (req as any).user?.empresa_id;
     if (!para || !assunto || !corpo) {
         return res.status(400).json({ success: false, error: 'Campos para, assunto e corpo são obrigatórios.' });
     }
     try {
         const { EmailService } = require('../services/EmailService');
-        const ok = await EmailService.enviarEmailPersonalizado(para, assunto, corpo);
+        const ok = await EmailService.enviarEmailPersonalizado(para, assunto, corpo, empresaId);
         if (ok) {
             res.json({ success: true, message: `Email enviado para ${para}` });
         } else {
@@ -74,10 +76,11 @@ router.post('/email/send', async (req, res) => {
     }
 });
 
-router.post('/email/test', async (req, res) => {
+router.post('/email/test', requireAuth, async (req, res) => {
     try {
+        const empresaId = (req as any).user?.empresa_id;
         const { EmailService } = require('../services/EmailService');
-        const result = await EmailService.testarConexao();
+        const result = await EmailService.testarConexao(empresaId);
         res.json(result);
     } catch (err: any) {
         res.json({ ok: false, erro: err.message });

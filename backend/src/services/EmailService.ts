@@ -8,7 +8,7 @@ export class EmailService {
      */
     private static async getSmtpConfig(empresaId?: number): Promise<{ user: string; pass: string; host: string; port: number; secure: boolean; nome: string }> {
         try {
-            let query = supabase.from('configuracoes_sistema').select('chave, valor').like('chave', 'smtp_%');
+            let query = supabase.from('configuracoes').select('chave, valor').like('chave', 'smtp_%');
             if (empresaId) {
                 query = query.eq('empresa_id', empresaId);
             } else {
