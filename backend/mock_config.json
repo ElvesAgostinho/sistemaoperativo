@@ -1,0 +1,7 @@
+{
+  "smtp_host": "smtp.hostinger.com",
+  "smtp_port": "465",
+  "smtp_secure": "true",
+  "smtp_user": "test",
+  "smtp_pass": "test"
+}

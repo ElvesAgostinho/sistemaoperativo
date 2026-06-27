@@ -59,7 +59,12 @@ export default function SettingsApp() {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
-                if (data.success && data.config) {
+                
+                // Tenta carregar do cache local como fallback de persistência (contra reboots de servidor)
+                const localCache = localStorage.getItem('os_smtp_cache');
+                const parsedCache = localCache ? JSON.parse(localCache) : null;
+
+                if (data.success && data.config && data.config.smtp_host) {
                     setSmtp(p => ({
                         ...p,
                         smtp_nome: data.config.smtp_nome || '',
@@ -69,9 +74,20 @@ export default function SettingsApp() {
                         smtp_port: data.config.smtp_port || '587',
                         smtp_secure: data.config.smtp_secure || 'false'
                     }));
+                } else if (parsedCache) {
+                    // Se o servidor voltou vazio (por exemplo após um deploy que apagou o ficheiro temporário)
+                    setSmtp(parsedCache);
+                    // Reenvia para o backend silenciosamente para repor o ficheiro no servidor
+                    fetch(`${import.meta.env.VITE_API_URL}/api/settings`, {
+                        method: 'PUT',
+                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ configs: parsedCache })
+                    }).catch(() => {});
                 }
             } catch (err) {
                 console.error('Erro ao carregar configuracoes:', err);
+                const localCache = localStorage.getItem('os_smtp_cache');
+                if (localCache) setSmtp(JSON.parse(localCache));
             }
         };
         loadSettings();
@@ -81,6 +97,9 @@ export default function SettingsApp() {
         setSaving(true);
         setSaved(false);
         try {
+            // Guarda em cache local para que NUNCA desapareça após um Deploy/Refresh
+            localStorage.setItem('os_smtp_cache', JSON.stringify(smtp));
+            
             const token = localStorage.getItem('os_auth_token');
             const res = await fetch(`${import.meta.env.VITE_API_URL}/api/settings`, {
                 method: 'PUT',
