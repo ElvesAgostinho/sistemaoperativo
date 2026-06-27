@@ -128,7 +128,9 @@ export const executeAction = async (req: Request, res: Response) => {
        
        // 4. Email
        const mockEmail = folderName + "@businessos.com";
-       await EmailService.enviarEmailBoasVindas(mockEmail, payload.nome, empresaId);
+       const { getSupabase } = require('../lib/supabaseClient');
+       const userClient = getSupabase(req);
+       await EmailService.enviarEmailBoasVindas(mockEmail, payload.nome, empresaId, userClient);
        
        // 5. Calendario
        const daquiA3Dias = new Date();

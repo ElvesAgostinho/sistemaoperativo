@@ -6,9 +6,10 @@ export class EmailService {
      * Lê as configurações SMTP da base de dados.
      * Fallback para variáveis de ambiente (compatibilidade retroativa).
      */
-    private static async getSmtpConfig(empresaId?: number): Promise<{ user: string; pass: string; host: string; port: number; secure: boolean; nome: string }> {
+    private static async getSmtpConfig(empresaId?: number, userClient?: any): Promise<{ user: string; pass: string; host: string; port: number; secure: boolean; nome: string }> {
         try {
-            let query = supabase.from('configuracoes').select('chave, valor').like('chave', 'smtp_%');
+            const client = userClient || supabase;
+            let query = client.from('configuracoes').select('chave, valor').like('chave', 'smtp_%');
             if (empresaId) {
                 query = query.eq('empresa_id', empresaId);
             } else {
@@ -39,23 +40,23 @@ export class EmailService {
         }
     }
 
-    private static async createTransporter(empresaId?: number) {
-        const { host, port, secure, user, pass } = await this.getSmtpConfig(empresaId);
+    private static async createTransporter(empresaId?: number, userClient?: any) {
+        const { host, port, secure, user, pass } = await this.getSmtpConfig(empresaId, userClient);
         return nodemailer.createTransport({ host, port, secure, auth: { user, pass } });
     }
 
-    public static async isConfigured(empresaId?: number): Promise<boolean> {
-        const { user, pass } = await this.getSmtpConfig(empresaId);
+    public static async isConfigured(empresaId?: number, userClient?: any): Promise<boolean> {
+        const { user, pass } = await this.getSmtpConfig(empresaId, userClient);
         return !!(user && pass);
     }
 
-    public static async testarConexao(empresaId?: number): Promise<{ ok: boolean; erro?: string }> {
-        const configOK = await this.isConfigured(empresaId);
+    public static async testarConexao(empresaId?: number, userClient?: any): Promise<{ ok: boolean; erro?: string }> {
+        const configOK = await this.isConfigured(empresaId, userClient);
         if (!configOK) {
             return { ok: false, erro: 'Credenciais SMTP não configuradas. Configure em Definições > Email.' };
         }
         try {
-            const transporter = await this.createTransporter(empresaId);
+            const transporter = await this.createTransporter(empresaId, userClient);
             await transporter.verify();
             return { ok: true };
         } catch (err: any) {
@@ -63,18 +64,18 @@ export class EmailService {
         }
     }
 
-    public static async enviarEmailPersonalizado(para: string, assunto: string, corpo: string, empresaId?: number): Promise<boolean> {
+    public static async enviarEmailPersonalizado(para: string, assunto: string, corpo: string, empresaId?: number, userClient?: any): Promise<boolean> {
         if (!para || para.trim() === '') return false;
         
-        const configOK = await this.isConfigured(empresaId);
+        const configOK = await this.isConfigured(empresaId, userClient);
         if (!configOK) {
             console.error('[EmailService] SMTP não configurado.');
             return false;
         }
         
-        const { user, nome } = await this.getSmtpConfig(empresaId);
+        const { user, nome } = await this.getSmtpConfig(empresaId, userClient);
         try {
-            const transporter = await this.createTransporter(empresaId);
+            const transporter = await this.createTransporter(empresaId, userClient);
             const info = await transporter.sendMail({
                 from: `"${nome}" <${user}>`,
                 to: para,
@@ -90,13 +91,13 @@ export class EmailService {
         }
     }
 
-    public static async enviarRecibo(emailDestino: string, nomeFuncionario: string, mesAno: string, pdfPath: string, empresaId?: number): Promise<boolean> {
-        const configOK = await this.isConfigured(empresaId);
+    public static async enviarRecibo(emailDestino: string, nomeFuncionario: string, mesAno: string, pdfPath: string, empresaId?: number, userClient?: any): Promise<boolean> {
+        const configOK = await this.isConfigured(empresaId, userClient);
         if (!configOK) return false;
         
-        const { user, nome } = await this.getSmtpConfig(empresaId);
+        const { user, nome } = await this.getSmtpConfig(empresaId, userClient);
         try {
-            const transporter = await this.createTransporter(empresaId);
+            const transporter = await this.createTransporter(empresaId, userClient);
             await transporter.sendMail({
                 from: `"${nome} RH" <${user}>`,
                 to: emailDestino,
@@ -111,15 +112,15 @@ export class EmailService {
         }
     }
 
-    public static async notificarCandidatoAprovado(emailDestino: string, nomeCandidato: string, requisitosVaga: string, empresaId?: number): Promise<boolean> {
+    public static async notificarCandidatoAprovado(emailDestino: string, nomeCandidato: string, requisitosVaga: string, empresaId?: number, userClient?: any): Promise<boolean> {
         if (!emailDestino) return false;
         
-        const configOK = await this.isConfigured(empresaId);
+        const configOK = await this.isConfigured(empresaId, userClient);
         if (!configOK) return false;
         
-        const { user, nome } = await this.getSmtpConfig(empresaId);
+        const { user, nome } = await this.getSmtpConfig(empresaId, userClient);
         try {
-            const transporter = await this.createTransporter(empresaId);
+            const transporter = await this.createTransporter(empresaId, userClient);
             await transporter.sendMail({
                 from: `"${nome} Recrutamento" <${user}>`,
                 to: emailDestino,
@@ -133,12 +134,13 @@ export class EmailService {
         }
     }
 
-    public static async enviarEmailBoasVindas(emailDestino: string, nomeFuncionario: string, empresaId?: number): Promise<boolean> {
+    public static async enviarEmailBoasVindas(emailDestino: string, nomeFuncionario: string, empresaId?: number, userClient?: any): Promise<boolean> {
         return this.enviarEmailPersonalizado(
             emailDestino,
             `Bem-vindo(a), ${nomeFuncionario}!`,
             `<p>Olá <strong>${nomeFuncionario}</strong>, seja bem-vindo(a) à equipa!</p>`,
-            empresaId
+            empresaId,
+            userClient
         );
     }
 }

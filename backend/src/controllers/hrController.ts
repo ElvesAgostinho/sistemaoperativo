@@ -82,7 +82,9 @@ export const analisarCurriculos = async (req: Request, res: Response) => {
         for (const cand of candidatosAprovados) {
             if (cand.email && cand.email.includes('@')) {
                 const empresaId = (req as any).user?.empresa_id;
-                await EmailService.notificarCandidatoAprovado(cand.email, cand.nome, requisitosVaga, empresaId);
+                const { getSupabase } = require('../lib/supabaseClient');
+                const userClient = getSupabase(req);
+                await EmailService.notificarCandidatoAprovado(cand.email, cand.nome, requisitosVaga, empresaId, userClient);
             }
         }
 

@@ -79,8 +79,10 @@ router.post('/email/send', requireAuth, async (req, res) => {
 router.post('/email/test', requireAuth, async (req, res) => {
     try {
         const empresaId = (req as any).user?.empresa_id;
+        const { getSupabase } = require('../lib/supabaseClient');
+        const userClient = getSupabase(req);
         const { EmailService } = require('../services/EmailService');
-        const result = await EmailService.testarConexao(empresaId);
+        const result = await EmailService.testarConexao(empresaId, userClient);
         res.json(result);
     } catch (err: any) {
         res.json({ ok: false, erro: err.message });

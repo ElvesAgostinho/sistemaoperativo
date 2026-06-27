@@ -1,0 +1,1 @@
+require('dotenv').config(); import { supabase } from './src/lib/supabaseClient'; async function check() { const { data } = await supabase.from('configuracoes').select('*'); console.log('Configs:', data); } check();
