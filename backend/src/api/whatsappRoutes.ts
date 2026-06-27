@@ -434,11 +434,11 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
 
         for (const chat of chats) {
             const remoteJid = chat.remoteJid || chat.id;
-            // Ignorar grupos (@g.us), dispositivos ligados (@lid) e chats sem JID
-            if (!remoteJid || remoteJid.includes('@g.us') || remoteJid.includes('@lid')) continue;
+            // Ignorar grupos (@g.us) e chats sem JID. Vamos PERMITIR @lid porque em algumas instâncias (WhatsApp Cloud/Multi-Device) os IDs vêm mascarados.
+            if (!remoteJid || remoteJid.includes('@g.us')) continue;
             
             const phoneNumber = remoteJid.split('@')[0];
-            const contactName = chat.pushName || chat.name || phoneNumber;
+            const contactName = chat.pushName || chat.name || chat.verifiedName || phoneNumber;
             
             // Tentar obter a foto de perfil (com timeout curto para não bloquear)
             let contactPicture: string | null = null;
