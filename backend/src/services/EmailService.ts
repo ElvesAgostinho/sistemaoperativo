@@ -50,17 +50,26 @@ export class EmailService {
         return !!(user && pass);
     }
 
-    public static async testarConexao(empresaId?: number, userClient?: any): Promise<{ ok: boolean; erro?: string }> {
-        const configOK = await this.isConfigured(empresaId, userClient);
+    public static async testarConexao(empresaId?: number | string, userClient?: any): Promise<{ ok: boolean; erro?: string; debug?: any }> {
+        const configOK = await this.isConfigured(empresaId as any, userClient);
         if (!configOK) {
             return { ok: false, erro: 'Credenciais SMTP não configuradas. Configure em Definições > Email.' };
         }
+        const cfg = await this.getSmtpConfig(empresaId as any, userClient);
         try {
-            const transporter = await this.createTransporter(empresaId, userClient);
+            const transporter = nodemailer.createTransport({
+                host: cfg.host,
+                port: cfg.port,
+                secure: cfg.secure,
+                auth: { user: cfg.user, pass: cfg.pass },
+                tls: { rejectUnauthorized: false } // Para lidar com potenciais problemas de certificados
+            });
             await transporter.verify();
             return { ok: true };
         } catch (err: any) {
-            return { ok: false, erro: err.message };
+            const safeCfg = { ...cfg, pass: '***' };
+            console.error('[EmailService] SMTP Test Error:', err, 'Config:', safeCfg);
+            return { ok: false, erro: err.message, debug: { error: err.toString(), config: safeCfg } };
         }
     }
 
