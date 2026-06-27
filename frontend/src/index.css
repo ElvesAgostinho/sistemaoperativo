@@ -6,7 +6,7 @@
   --odoo-purple-hover: #5d3d55;
   --odoo-teal: #017E84;
   --odoo-teal-hover: #006b70;
-  --odoo-bg-gray: #F9F9F9;
+  --odoo-bg-gray: #FFFFFF;
   --odoo-sheet-bg: #FFFFFF;
   --odoo-border: #E0E0E0;
   --odoo-text-dark: #212529;
@@ -33,13 +33,13 @@ body {
 
 /* Odoo Topbar */
 .odoo-topbar {
-  background-color: var(--odoo-sheet-bg);
-  color: var(--odoo-text-dark);
+  background: linear-gradient(135deg, #0f172a 0%, #1e40af 100%);
+  color: white;
   display: flex;
   align-items: center;
   height: 46px;
   padding: 0 16px;
-  border-bottom: 1px solid var(--odoo-border);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   z-index: 1000;
 }
 
@@ -53,7 +53,7 @@ body {
   border-radius: 4px;
 }
 .odoo-app-switcher:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: rgba(255, 255, 255, 0.1);
 }
 .odoo-app-switcher svg {
   width: 20px;
