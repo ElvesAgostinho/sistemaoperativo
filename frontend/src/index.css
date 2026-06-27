@@ -1,0 +1,308 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+
+:root {
+  /* Odoo Official Color Palette */
+  --odoo-purple: #714B67;
+  --odoo-purple-hover: #5d3d55;
+  --odoo-teal: #017E84;
+  --odoo-teal-hover: #006b70;
+  --odoo-bg-gray: #F9F9F9;
+  --odoo-sheet-bg: #FFFFFF;
+  --odoo-border: #E0E0E0;
+  --odoo-text-dark: #212529;
+  --odoo-text-muted: #666666;
+  --odoo-danger: #DC3545;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: var(--odoo-bg-gray);
+  color: var(--odoo-text-dark);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Odoo Main Layout */
+.odoo-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Odoo Topbar */
+.odoo-topbar {
+  background: linear-gradient(135deg, #0f172a 0%, #1e40af 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  height: 46px;
+  padding: 0 16px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  z-index: 1000;
+}
+
+.odoo-app-switcher {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  margin-right: 16px;
+  border-radius: 4px;
+}
+.odoo-app-switcher:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+.odoo-app-switcher svg {
+  width: 20px;
+  height: 20px;
+  fill: white;
+}
+
+.odoo-topbar-brand {
+  font-size: 16px;
+  font-weight: 500;
+  margin-right: 32px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.odoo-topnav {
+  display: flex;
+  gap: 4px;
+}
+
+.odoo-nav-link {
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 14px;
+  cursor: pointer;
+  border-radius: 6px;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+.odoo-nav-link:hover {
+  color: white;
+  background-color: rgba(255, 255, 255, 0.15);
+}
+.odoo-nav-link.active {
+  color: white;
+  background-color: rgba(255, 255, 255, 0.25);
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+/* Odoo App Dashboard (Grid of Icons) */
+.odoo-dashboard {
+  background-color: var(--odoo-bg-gray);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 60px;
+}
+.odoo-apps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 120px));
+  gap: 30px;
+  justify-content: center;
+  max-width: 800px;
+  width: 100%;
+}
+.odoo-app-icon-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  text-align: center;
+  transition: transform 0.2s;
+}
+.odoo-app-icon-container:hover {
+  transform: translateY(-3px);
+}
+.odoo-app-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  margin-bottom: 12px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+.odoo-app-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--odoo-text-dark);
+}
+
+/* Submenu Bar (Control Panel) */
+.odoo-control-panel {
+  background-color: var(--odoo-sheet-bg);
+  border-bottom: 1px solid var(--odoo-border);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 40px;
+}
+.odoo-breadcrumb {
+  font-size: 20px;
+  font-weight: 400;
+  color: var(--odoo-text-dark);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.odoo-control-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Main Content Area */
+.odoo-content-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  justify-content: center;
+}
+
+/* Form Sheet (A4 Paper Style) */
+.odoo-form-sheet {
+  background-color: var(--odoo-sheet-bg);
+  border: 1px solid var(--odoo-border);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  width: 100%;
+  max-width: 900px;
+  padding: 24px 32px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Status Bar in Form */
+.odoo-statusbar {
+  display: flex;
+  justify-content: flex-end;
+  border-bottom: 1px solid var(--odoo-border);
+  margin: -24px -32px 24px -32px;
+  padding: 8px 32px;
+  background-color: #f8f9fa;
+}
+.odoo-status-badge {
+  padding: 6px 16px;
+  background-color: transparent;
+  color: var(--odoo-text-muted);
+  font-size: 13px;
+  text-transform: uppercase;
+  font-weight: 500;
+  border-left: 1px solid var(--odoo-border);
+  position: relative;
+}
+.odoo-status-badge.active {
+  color: var(--odoo-teal);
+  font-weight: 700;
+}
+
+/* Buttons */
+.odoo-btn {
+  background-color: var(--odoo-sheet-bg);
+  color: var(--odoo-text-dark);
+  border: 1px solid var(--odoo-border);
+  padding: 6px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  border-radius: 3px;
+  font-weight: 500;
+  transition: background-color 0.1s;
+}
+.odoo-btn:hover {
+  background-color: #E2E2E2;
+}
+.odoo-btn-primary {
+  background-color: var(--odoo-teal);
+  color: white;
+  border-color: var(--odoo-teal);
+}
+.odoo-btn-primary:hover {
+  background-color: var(--odoo-teal-hover);
+}
+
+/* Form Groups & Inputs (Border Bottom Only) */
+.odoo-form-group {
+  display: flex;
+  margin-bottom: 12px;
+  align-items: center;
+}
+.odoo-label {
+  width: 30%;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--odoo-text-dark);
+  padding-right: 16px;
+  text-align: left;
+}
+.odoo-input, .odoo-textarea {
+  flex: 1;
+  border: none;
+  border-bottom: 1px solid var(--odoo-border);
+  padding: 6px 0;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--odoo-text-dark);
+  background: transparent;
+  transition: border-bottom-color 0.2s;
+}
+.odoo-input:focus, .odoo-textarea:focus {
+  outline: none;
+  border-bottom: 1px solid #1e40af;
+}
+.odoo-textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+.odoo-input[type="file"] {
+  border-bottom: none;
+  font-size: 13px;
+}
+
+/* Tabelas (List View) */
+.odoo-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: white;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  margin-top: 16px;
+}
+.odoo-table th {
+  background-color: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+  text-align: left;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 13px;
+  text-transform: uppercase;
+}
+.odoo-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #e2e8f0;
+  color: #334155;
+  font-size: 14px;
+  vertical-align: middle;
+}
+.odoo-table tr:last-child td {
+  border-bottom: none;
+}
+.odoo-table tr:hover {
+  background-color: #f1f5f9;
+}

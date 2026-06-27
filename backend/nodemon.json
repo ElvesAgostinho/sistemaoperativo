@@ -1,0 +1,4 @@
+{
+  "ignore": ["tmp/*", "uploads/*", "*.db", "*.sqlite", "data/*", "*.log"],
+  "watch": ["src/"]
+}

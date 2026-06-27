@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: businessos-backend
+    container_name: businessos_backend
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENCLAW_VPS_URL=${OPENCLAW_VPS_URL}
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: businessos-frontend
+    container_name: businessos_frontend
+    ports:
+      - "80:80" # Pode mudar para outra porta como 3000 se usar 80 noutro serviço
+    restart: unless-stopped
