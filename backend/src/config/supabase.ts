@@ -10,4 +10,9 @@ if (supabaseUrl === 'https://dummy.supabase.co') {
   console.warn('⚠️ SUPABASE_URL or SUPABASE_KEY is missing. Ensure your .env file is configured.');
 }
 
+if (typeof globalThis.WebSocket === 'undefined') {
+  (globalThis as any).WebSocket = require('ws');
+}
+
 export const supabase = createClient(supabaseUrl, supabaseKey);
+

@@ -4,6 +4,10 @@ import { Request } from 'express';
 const supabaseUrl = process.env.SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_KEY || '';
 
+if (typeof globalThis.WebSocket === 'undefined') {
+  (globalThis as any).WebSocket = require('ws');
+}
+
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
 export const getSupabase = (req: Request) => {
