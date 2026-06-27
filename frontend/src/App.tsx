@@ -386,7 +386,7 @@ function App() {
 
       {/* Main Content Areas */}
       {activeModule !== 'home' && (
-        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', backgroundColor: '#ffffff' }}>
           {activeModule === 'hr' && <HrApp />}
           {activeModule === 'pc' && <LocalSystemApp />}
           {activeModule === 'crm' && <CrmApp />}

@@ -150,7 +150,7 @@ const SuperAdminApp = () => {
     <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto', width: '100%', fontFamily: 'Inter, sans-serif' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
         <Shield size={32} color="#fbbf24" />
-        <h1 style={{ margin: 0, color: '#ffffff', fontSize: '24px' }}>Gestão Global SaaS</h1>
+        <h1 style={{ margin: 0, color: '#1e293b', fontSize: '24px' }}>Gestão Global SaaS</h1>
       </div>
 
       <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', borderBottom: '1px solid #e2e8f0' }}>
