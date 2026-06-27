@@ -395,7 +395,14 @@ function App() {
           {activeModule === 'kb' && <KnowledgeBaseApp />}
           {activeModule === 'email' && <EmailApp />}
           {activeModule === 'settings' && <SettingsApp />}
-          {activeModule === 'superadmin' && <SuperAdminApp />}
+          {activeModule === 'superadmin' && user?.role === 'superadmin' && <SuperAdminApp />}
+          {activeModule === 'superadmin' && user?.role !== 'superadmin' && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '16px' }}>
+              <Shield size={48} color="#ef4444" />
+              <h2 style={{ color: '#0f172a', margin: 0 }}>Acesso Restrito</h2>
+              <p style={{ color: '#64748b' }}>Esta área é exclusiva para SuperAdmins.</p>
+            </div>
+          )}
           {activeModule === 'reunioes' && <ReunioesApp initialMeetingId={meetingIdFromUrl} />}
           {activeModule === 'data' && <DataApp />}
           {activeModule === 'afiliados' && <AfiliadosApp />}
