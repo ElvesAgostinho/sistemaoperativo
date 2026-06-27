@@ -436,9 +436,10 @@ router.post('/evolution/instance', requireAuth, async (req: AuthRequest, res: Re
             });
         } catch(e) {}
 
-        const { data: channel } = await supabase.from('wa_channels').select('id').eq('provider', 'evolution').single();
+        const userClient = getSupabase(req);
+        const { data: channel } = await userClient.from('wa_channels').select('id').eq('provider', 'evolution').maybeSingle();
         if (!channel) {
-            await supabase.from('wa_channels').insert({ name: 'Evolution API', provider: 'evolution', status: 'connected', credentials: { instanceName } });
+            await userClient.from('wa_channels').insert({ name: 'Evolution API', provider: 'evolution', status: 'connected', credentials: { instanceName } });
         }
 
         if (connectData.base64) {
