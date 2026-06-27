@@ -78,7 +78,6 @@ export default function LandingPage({ onGoToApp }: { onGoToApp: () => void }) {
             <li><span className="hero-checklist-icon"><CheckCircle2 size={16} /></span> Todos os Módulos de Gestão</li>
             <li><span className="hero-checklist-icon"><CheckCircle2 size={16} /></span> IA & Automação Avançada</li>
             <li><span className="hero-checklist-icon"><CheckCircle2 size={16} /></span> Colaboração em Equipa Real-time</li>
-            <li><span className="hero-checklist-icon"><CheckCircle2 size={16} /></span> Faturação Rápida Certificada</li>
             <li><span className="hero-checklist-icon"><CheckCircle2 size={16} /></span> Relatórios Executivos</li>
           </ul>
 
