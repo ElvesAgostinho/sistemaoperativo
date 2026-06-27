@@ -60,12 +60,14 @@ router.put('/', requireAuth, async (req, res) => {
         const supabase = getSupabase(req);
         const empresa_id = (req as any).user?.empresa_id;
         
-        const upsertData = Object.entries(configs).map(([chave, valor]) => ({
-            empresa_id,
-            chave,
-            valor,
-            atualizado_em: new Date().toISOString()
-        }));
+        const upsertData = Object.entries(configs)
+            .filter(([_, valor]) => valor !== '•••••••••••••')
+            .map(([chave, valor]) => ({
+                empresa_id,
+                chave,
+                valor,
+                atualizado_em: new Date().toISOString()
+            }));
 
         const { error } = await supabase.from('configuracoes').upsert(upsertData, { onConflict: 'empresa_id,chave' });
         if (error) throw error;
