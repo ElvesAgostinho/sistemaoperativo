@@ -101,11 +101,13 @@ router.post('/login', async (req: Request, res: Response) => {
     }
 
     // Se não for superadmin, verificamos se a empresa está ativa
-    if (perfil?.role !== 'superadmin' && perfil?.empresas) {
-        // Ignoramos o erro typescript aqui se as tipagens não estiverem exatas
+    if (perfil?.role !== 'superadmin') {
+        if (!perfil?.empresas) {
+            return res.status(403).json({ error: 'Nenhuma empresa associada ou conta pendente. Contacte o suporte.' });
+        }
         const empresa = perfil.empresas as any;
         if (empresa.status !== 'active') {
-             return res.status(403).json({ error: 'A subscrição da sua empresa está pendente ou suspensa. Contacte o suporte.' });
+            return res.status(403).json({ error: 'A subscrição da sua empresa está pendente ou suspensa. Contacte o suporte.' });
         }
     }
 

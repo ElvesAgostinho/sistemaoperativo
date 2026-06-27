@@ -33,13 +33,13 @@ body {
 
 /* Odoo Topbar */
 .odoo-topbar {
-  background: linear-gradient(135deg, #0f172a 0%, #1e40af 100%);
-  color: white;
+  background-color: var(--odoo-sheet-bg);
+  color: var(--odoo-text-dark);
   display: flex;
   align-items: center;
   height: 46px;
   padding: 0 16px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  border-bottom: 1px solid var(--odoo-border);
   z-index: 1000;
 }
 
@@ -53,7 +53,7 @@ body {
   border-radius: 4px;
 }
 .odoo-app-switcher:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(0, 0, 0, 0.05);
 }
 .odoo-app-switcher svg {
   width: 20px;

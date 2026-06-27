@@ -24,17 +24,6 @@ export const requireAuth = async (req: AuthRequest, res: Response, next: NextFun
 
     const token = authHeader.split(' ')[1];
 
-    // MVP Mock Token Bypass
-    if (token === 'mock-access-token') {
-        req.user = {
-            id: 'mock-1',
-            email: 'mock@example.com',
-            role: 'superadmin',
-            empresa_id: 'mock-empresa-1',
-        };
-        return next();
-    }
-
     try {
         const { data, error } = await supabase.auth.getUser(token);
 
@@ -42,9 +31,8 @@ export const requireAuth = async (req: AuthRequest, res: Response, next: NextFun
             return res.status(401).json({ error: 'Token inválido ou expirado.' });
         }
 
-        // Buscar role do perfil com o token do user para passar no RLS
-        const userClient = getSupabase(req);
-        const { data: perfil } = await userClient
+        // Buscar role do perfil com o token do user
+        const { data: perfil } = await supabase
             .from('perfis')
             .select('role, empresa_id')
             .eq('id', data.user.id)
