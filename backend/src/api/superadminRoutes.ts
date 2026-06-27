@@ -79,7 +79,8 @@ router.get('/users', requireAuth, requireSuperAdmin, async (req: AuthRequest, re
 router.get('/empresas/:id/modulos', requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
-        const { data: row, error } = await supabase.from('configuracoes').select('valor').eq('empresa_id', id).eq('chave', `modulos_empresa`).single();
+        const db = getClientForUser(req);
+        const { data: row, error } = await db.from('configuracoes').select('valor').eq('empresa_id', id).eq('chave', `modulos_empresa`).single();
         
         let modulos = ['hr', 'crm', 'reunioes']; // default básico
         if (row && row.valor) {
@@ -96,12 +97,13 @@ router.put('/empresas/:id/modulos', requireAuth, requireSuperAdmin, async (req: 
     try {
         const { id } = req.params;
         const { modulos } = req.body;
+        const db = getClientForUser(req);
         
         if (!Array.isArray(modulos)) {
             return res.status(400).json({ error: 'Módulos deve ser um array.' });
         }
 
-        const { error } = await supabase.from('configuracoes').upsert({
+        const { error } = await db.from('configuracoes').upsert({
             empresa_id: id,
             chave: 'modulos_empresa',
             valor: JSON.stringify(modulos),
