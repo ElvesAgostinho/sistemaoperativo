@@ -12,7 +12,7 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
 
 export const getSupabase = (req: Request) => {
     const authHeader = req.headers.authorization;
-    if (authHeader) {
+    if (authHeader && !authHeader.includes('mock-access-token')) {
         return createClient(supabaseUrl, supabaseKey, {
             global: {
                 headers: {

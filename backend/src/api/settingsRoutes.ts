@@ -12,9 +12,22 @@ const router = Router();
 router.get('/', requireAuth, async (req, res) => {
     try {
         const supabase = getSupabase(req);
-        const { data: rows, error } = await supabase.from('configuracoes').select('chave, valor, descricao');
+        const empresa_id = (req as any).user?.empresa_id;
         
-        if (error) throw error;
+        let rows: any[] = [];
+        
+        if (empresa_id === 'mock-empresa-1') {
+            const fs = require('fs');
+            const path = require('path');
+            try {
+                const mockDb = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'mock_config.json'), 'utf8'));
+                rows = Object.entries(mockDb).map(([chave, valor]) => ({ chave, valor, descricao: '' }));
+            } catch {}
+        } else {
+            const { data, error } = await supabase.from('configuracoes').select('chave, valor, descricao');
+            if (error) throw error;
+            rows = data || [];
+        }
         
         const config: Record<string, string> = {};
         (rows || []).forEach(r => {
@@ -69,8 +82,20 @@ router.put('/', requireAuth, async (req, res) => {
                 atualizado_em: new Date().toISOString()
             }));
 
-        const { error } = await supabase.from('configuracoes').upsert(upsertData, { onConflict: 'empresa_id,chave' });
-        if (error) throw error;
+        if (empresa_id === 'mock-empresa-1') {
+            const fs = require('fs');
+            const path = require('path');
+            const mockPath = path.join(process.cwd(), 'mock_config.json');
+            let mockDb: any = {};
+            try { mockDb = JSON.parse(fs.readFileSync(mockPath, 'utf8')); } catch {}
+            for (const [chave, valor] of Object.entries(configs)) {
+                if (valor !== '•••••••••••••') mockDb[chave] = valor;
+            }
+            fs.writeFileSync(mockPath, JSON.stringify(mockDb, null, 2));
+        } else {
+            const { error } = await supabase.from('configuracoes').upsert(upsertData, { onConflict: 'empresa_id,chave' });
+            if (error) throw error;
+        }
         
         res.json({ success: true, message: 'Configurações guardadas com sucesso!' });
     } catch (err: any) {
