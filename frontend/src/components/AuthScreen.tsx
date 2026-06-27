@@ -40,44 +40,42 @@ export default function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
     setSuccess('');
 
     try {
-      // Mocked Backend Login for MVP Design Phase (No server needed right now)
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const isTopia = email.toLowerCase() === 'geral@topia.solutions';
-      
-      // Verificar se o cliente foi aprovado pelo SuperAdmin (TOP IA)
-      if (!isTopia) {
-        const stored = localStorage.getItem('mock_empresas');
-        let isPending = true; // Assume pending by default
-        if (stored) {
-            const empresas = JSON.parse(stored);
-            const topC = empresas.find((e: any) => e.id === '2'); // ID 2 = TopConsultores
-            if (topC && topC.status === 'active') {
-                isPending = false; // Foi aprovado!
-            }
+      if (isLogin) {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || 'Erro ao iniciar sessão.');
         }
         
-        if (isPending) {
-            throw new Error('Acesso Bloqueado: A sua conta (TopConsultores) encontra-se pendente. Aguarde a aprovação da TOP IA.');
-        }
-      }
-
-      const mockUser = {
-        id: '1',
-        nome: isTopia ? 'Administrador TOP IA' : (nome || 'Elves (Cliente)'),
-        email: email,
-        role: isTopia ? 'superadmin' : 'admin',
-        empresaId: isTopia ? 'topia-master-1' : 'client-tenant-1'
-      };
-
-      if (isLogin) {
-        onLogin(mockUser, 'mock-access-token');
+        onLogin(data.user, data.access_token);
       } else {
-        setSuccess('Registo efetuado com sucesso! Redirecionando...');
-        setTimeout(() => onLogin(mockUser, 'mock-access-token'), 1500);
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            email, 
+            password, 
+            nome, 
+            empresaNome: isCompany ? empresaNome : undefined,
+            codigoConvite: !isCompany ? codigoConvite : undefined
+          })
+        });
+        
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'Erro ao registar.');
+        }
+        
+        setSuccess('Registo efetuado com sucesso! Pode agora fazer login.');
+        setTimeout(() => setIsLogin(true), 2000);
       }
     } catch (err: any) {
-      setError(err.message || 'Erro inesperado.');
+      setError(err.message || 'Erro inesperado. Verifique a sua ligação.');
     } finally {
       setLoading(false);
     }
