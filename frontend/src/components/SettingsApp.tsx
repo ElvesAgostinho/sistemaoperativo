@@ -119,7 +119,11 @@ export default function SettingsApp() {
                 setTestMsg('Conexão SMTP estabelecida com sucesso! O email está pronto para enviar.');
             } else {
                 setTestStatus('error');
-                setTestMsg(data.erro || 'Falha na conexão SMTP.');
+                let errMsg = data.erro || data.error || 'Falha na conexão SMTP.';
+                if (data.debug) {
+                    errMsg += `\n[DEBUG INFO]: ${JSON.stringify(data.debug, null, 2)}`;
+                }
+                setTestMsg(errMsg);
             }
         } catch {
             setTestStatus('error');
@@ -341,7 +345,8 @@ export default function SettingsApp() {
                         )}
                         {testStatus === 'error' && (
                             <div style={{ padding: '14px 18px', backgroundColor: '#fff1f2', border: '1px solid #fda4af', borderRadius: '10px', display: 'flex', alignItems: 'flex-start', gap: '10px', color: '#be123c', marginBottom: '16px', fontSize: '14px' }}>
-                                <AlertCircle size={18} style={{ marginTop: '1px', flexShrink: 0 }} /> {testMsg}
+                                <AlertCircle size={18} style={{ marginTop: '1px', flexShrink: 0 }} /> 
+                                <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>{testMsg}</pre>
                             </div>
                         )}
 
