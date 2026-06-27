@@ -50,20 +50,55 @@ export default function SettingsApp() {
     const [loadingUsers, setLoadingUsers] = useState(false);
     const currentUser = JSON.parse(localStorage.getItem('os_auth_user') || '{}');
 
-    // Carrega configurações actuais (Mocked)
+    // Carrega configuracoes actuais
     useEffect(() => {
-        // Ignorado por estar em modo MVP
+        const loadSettings = async () => {
+            try {
+                const token = localStorage.getItem('os_auth_token');
+                const res = await fetch(`${import.meta.env.VITE_API_URL}/api/settings`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success && data.configuracoes) {
+                    setSmtp(p => ({
+                        ...p,
+                        smtp_nome: data.configuracoes.smtp_nome || '',
+                        smtp_user: data.configuracoes.smtp_user || '',
+                        smtp_pass: data.configuracoes.smtp_pass || '',
+                        smtp_host: data.configuracoes.smtp_host || 'smtp.gmail.com',
+                        smtp_port: data.configuracoes.smtp_port || '587',
+                        smtp_secure: data.configuracoes.smtp_secure || 'false'
+                    }));
+                }
+            } catch (err) {
+                console.error('Erro ao carregar configuracoes:', err);
+            }
+        };
+        loadSettings();
     }, []);
 
     const handleSave = async () => {
         setSaving(true);
         setSaved(false);
         try {
-            await new Promise(r => setTimeout(r, 800)); // Mock delay
-            setSaved(true);
-            setTimeout(() => setSaved(false), 3000);
+            const token = localStorage.getItem('os_auth_token');
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/settings`, {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify(smtp)
+            });
+            const data = await res.json();
+            if (data.success) {
+                setSaved(true);
+                setTimeout(() => setSaved(false), 3000);
+            } else {
+                setTestStatus('error');
+                setTestMsg(data.error || 'Erro ao guardar configurações');
+            }
         } catch (err) {
             console.error(err);
+            setTestStatus('error');
+            setTestMsg('Erro de rede ao guardar configurações.');
         } finally {
             setSaving(false);
         }
@@ -73,7 +108,11 @@ export default function SettingsApp() {
         setTestStatus('testing');
         setTestMsg('');
         try {
-            const res = await fetch(import.meta.env.VITE_API_URL + '/api/knowledge/email/test', { method: 'POST' });
+            const token = localStorage.getItem('os_auth_token');
+            const res = await fetch(import.meta.env.VITE_API_URL + '/api/knowledge/email/test', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
             const data = await res.json();
             if (data.ok) {
                 setTestStatus('ok');
