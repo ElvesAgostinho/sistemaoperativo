@@ -469,7 +469,6 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
                 // Inserir Nova Conversa
                 const { error: insertErr } = await getSupabase(req).from('wa_conversations').insert({
                     channel_id: channel!.id,
-                    client_phone: phoneNumber,
                     phone_number: phoneNumber,
                     contact_name: contactName,
                     contact_picture: contactPicture,
@@ -596,11 +595,12 @@ router.post('/templates/sync', requireAuth, async (req: Request, res: Response) 
 router.post('/templates/send', requireAuth, async (req: AuthRequest, res: Response) => {
     try {
         const { conversation_id, template_name, language_code } = req.body;
-        const { data: conv } = await getSupabase(req).from('wa_conversations').select('*').eq('id', conversation_id).single();
-        if (!conv) return res.status(404).json({ error: 'Conversa não encontrada' });
+        const { data: convData } = await getSupabase(req).from('wa_conversations').select('*').eq('id', conversation_id).single();
+        if (!convData) return res.status(404).json({ error: 'Conversa não encontrada' });
 
+        const conv = convData;
         const { WhatsAppChannelManager } = require('../services/WhatsAppChannelManager');
-        const sent = await WhatsAppChannelManager.sendTemplateMessage(conv.channel_id, conv.client_phone, template_name, language_code);
+        const sent = await WhatsAppChannelManager.sendTemplateMessage(conv.channel_id, conv.phone_number, template_name, language_code);
 
         if (sent) {
             // Guardar mensagem na BD
@@ -657,7 +657,7 @@ router.post('/send', requireAuth, async (req: AuthRequest, res: Response) => {
 
     // 2. Chamar a API externa fisicamente (Evolution ou Meta)
     const { WhatsAppChannelManager } = require('../services/WhatsAppChannelManager');
-    const sent = await WhatsAppChannelManager.sendMessage(conv.channel_id, conv.client_phone, content);
+    const sent = await WhatsAppChannelManager.sendMessage(conv.channel_id, conv.phone_number, content);
     
     if (sent) {
         await getSupabase(req).from('wa_messages').update({ status: 'delivered' }).eq('id', newMsg!.id);
@@ -668,7 +668,9 @@ router.post('/send', requireAuth, async (req: AuthRequest, res: Response) => {
     await getSupabase(req).from('wa_conversations').update({ last_message_at: new Date().toISOString() }).eq('id', conversation_id);
 
     try {
-        await getSupabase(req).from('clientes').update({ bot_paused: true }).eq('telefone', conv.client_phone);
+        if (req.body.pause_bot) {
+            await getSupabase(req).from('clientes').update({ bot_paused: true }).eq('telefone', conv.phone_number);
+        }
     } catch(err) {
         console.error("Erro ao pausar bot localmente", err);
     }
