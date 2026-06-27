@@ -1,8 +1,27 @@
 import { Router, Request, Response } from 'express';
-import { supabase } from '../lib/supabaseClient';
+import { createClient } from '@supabase/supabase-js';
 import { requireAuth, AuthRequest } from '../middleware/authMiddleware';
 
 const router = Router();
+
+// Helper: criar cliente com o token do utilizador autenticado (respeita RLS superadmin)
+const getClientForUser = (req: AuthRequest) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const serviceKey = process.env.SUPABASE_SERVICE_KEY;
+    
+    // Se tiver service key, usa para contornar RLS completamente
+    if (serviceKey) {
+        return createClient(process.env.SUPABASE_URL || '', serviceKey, {
+            auth: { persistSession: false, autoRefreshToken: false }
+        });
+    }
+    
+    // Caso contrário, usa o token do utilizador (RLS policy de superadmin deve permitir)
+    return createClient(process.env.SUPABASE_URL || '', process.env.SUPABASE_KEY || '', {
+        global: { headers: { Authorization: `Bearer ${token}` } },
+        auth: { persistSession: false, autoRefreshToken: false }
+    });
+};
 
 // Middleware para verificar se é superadmin
 const requireSuperAdmin = (req: AuthRequest, res: Response, next: Function) => {
@@ -14,7 +33,8 @@ const requireSuperAdmin = (req: AuthRequest, res: Response, next: Function) => {
 
 // Obter todas as empresas
 router.get('/empresas', requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
-    const { data, error } = await supabase
+    const db = getClientForUser(req);
+    const { data, error } = await db
         .from('empresas')
         .select('*')
         .order('criado_em', { ascending: false });
@@ -26,11 +46,12 @@ router.get('/empresas', requireAuth, requireSuperAdmin, async (req: AuthRequest,
 // Aprovar/Suspender empresa
 router.put('/empresas/:id/status', requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
-    const { status } = req.body; // 'active', 'pending', 'suspended'
+    const { status } = req.body;
 
     if (!status) return res.status(400).json({ error: 'O status é obrigatório.' });
 
-    const { error } = await supabase
+    const db = getClientForUser(req);
+    const { error } = await db
         .from('empresas')
         .update({ status })
         .eq('id', id);
@@ -41,7 +62,8 @@ router.put('/empresas/:id/status', requireAuth, requireSuperAdmin, async (req: A
 
 // Listar todos os utilizadores (apenas leitura para superadmin)
 router.get('/users', requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
-    const { data, error } = await supabase
+    const db = getClientForUser(req);
+    const { data, error } = await db
         .from('perfis')
         .select(`*, empresas ( nome )`)
         .order('criado_em', { ascending: false });
@@ -49,6 +71,7 @@ router.get('/users', requireAuth, requireSuperAdmin, async (req: AuthRequest, re
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ success: true, users: data });
 });
+
 
 // removed sqlite import
 

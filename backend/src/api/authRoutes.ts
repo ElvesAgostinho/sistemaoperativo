@@ -84,10 +84,23 @@ router.post('/login', async (req: Request, res: Response) => {
 
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (error || !data.user) return res.status(401).json({ error: 'Credenciais inválidas.' });
+    if (error || !data.user || !data.session) {
+        return res.status(401).json({ error: 'Credenciais inválidas.' });
+    }
+
+    // Usar o token do próprio utilizador para respeitar o RLS (cada utilizador pode ler o seu próprio perfil)
+    const { createClient } = await import('@supabase/supabase-js');
+    const userClient = createClient(
+        process.env.SUPABASE_URL || '',
+        process.env.SUPABASE_KEY || '',
+        {
+            global: { headers: { Authorization: `Bearer ${data.session.access_token}` } },
+            auth: { persistSession: false, autoRefreshToken: false }
+        }
+    );
 
     // Buscar perfil com role e dados da empresa
-    const { data: perfil } = await supabase
+    const { data: perfil, error: perfilError } = await userClient
         .from('perfis')
         .select(`
             nome, role, ativo, empresa_id,
@@ -96,14 +109,50 @@ router.post('/login', async (req: Request, res: Response) => {
         .eq('id', data.user.id)
         .single();
 
+    console.log(`[Login] user=${email}, perfilError=${JSON.stringify(perfilError)}, role=${perfil?.role}`);
+
     if (perfil && !perfil.ativo) {
         return res.status(403).json({ error: 'Conta desactivada. Contacte o administrador.' });
     }
 
+    // Se o perfil não foi encontrado, pode ser problema de RLS ou trigger não criou o perfil
+    if (!perfil || perfilError) {
+        console.error('[Login] Perfil não encontrado para userId:', data.user.id, perfilError);
+        // Tentar com service key se disponível
+        const serviceKey = process.env.SUPABASE_SERVICE_KEY;
+        if (serviceKey) {
+            const adminClient = createClient(process.env.SUPABASE_URL || '', serviceKey, {
+                auth: { persistSession: false, autoRefreshToken: false }
+            });
+            const { data: perfilAdmin } = await adminClient
+                .from('perfis')
+                .select(`nome, role, ativo, empresa_id, empresas ( status, nome, codigo_convite )`)
+                .eq('id', data.user.id)
+                .single();
+            if (!perfilAdmin) {
+                return res.status(403).json({ error: 'Perfil de utilizador não encontrado. Contacte o suporte.' });
+            }
+            // Usar perfilAdmin para continuar
+            return processLogin(res, data, perfilAdmin, email);
+        }
+        return res.status(403).json({ error: 'Perfil não encontrado. Verifique se confirmou o seu email e aguarde aprovação.' });
+    }
+
+    return processLogin(res, data, perfil, email);
+});
+
+async function processLogin(res: any, data: any, perfil: any, email: string) {
+    const role = perfil?.role || 'pending';
+
+    // Bloquear contas pendentes (não superadmin)
+    if (role === 'pending') {
+        return res.status(403).json({ error: 'A sua conta está a aguardar aprovação pelo administrador.' });
+    }
+
     // Se não for superadmin, verificamos se a empresa está ativa
-    if (perfil?.role !== 'superadmin') {
+    if (role !== 'superadmin') {
         if (!perfil?.empresas) {
-            return res.status(403).json({ error: 'Nenhuma empresa associada ou conta pendente. Contacte o suporte.' });
+            return res.status(403).json({ error: 'Nenhuma empresa associada. Contacte o suporte.' });
         }
         const empresa = perfil.empresas as any;
         if (empresa.status !== 'active') {
@@ -111,24 +160,25 @@ router.post('/login', async (req: Request, res: Response) => {
         }
     }
 
-    // Se o user não tiver empresa_id mas for superadmin, ele passa. Se for normal sem empresa, fica pendente
-    let role = perfil?.role || 'pending';
-
-    // Actualizar último acesso
-    await supabase.from('perfis').update({ ultimo_acesso: new Date().toISOString() }).eq('id', data.user.id);
-
-    // Fetch contracted modules from SQLite db
-    let modulos = ['hr', 'crm', 'reunioes']; // default básico
+    // Fetch contracted modules
+    let modulos = ['hr', 'crm', 'reunioes', 'auto', 'wa', 'kb', 'email', 'data', 'chat', 'pc', 'afiliados', 'contabilidade'];
     if (perfil?.empresa_id) {
         try {
-            const { data: row } = await supabase.from('configuracoes_sistema')
+            const { createClient } = await import('@supabase/supabase-js');
+            const adminClient = createClient(
+                process.env.SUPABASE_URL || '',
+                process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY || '',
+                { auth: { persistSession: false, autoRefreshToken: false } }
+            );
+            const { data: row } = await adminClient.from('configuracoes')
                 .select('valor')
-                .eq('chave', `modulos_empresa_${perfil.empresa_id}`)
+                .eq('empresa_id', perfil.empresa_id)
+                .eq('chave', 'modulos_empresa')
                 .single();
             if (row && row.valor) {
                 modulos = JSON.parse(row.valor);
             }
-        } catch(e) { console.error(e) }
+        } catch(e) { console.error('[Login] Erro ao buscar módulos:', e); }
     }
 
     return res.json({
@@ -146,7 +196,9 @@ router.post('/login', async (req: Request, res: Response) => {
             modulos_contratados: modulos,
         },
     });
-});
+}
+
+
 
 // ─── Auth: Logout ─────────────────────────────────────────────────────────────
 router.post('/logout', requireAuth, async (req: AuthRequest, res: Response) => {

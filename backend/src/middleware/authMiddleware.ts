@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { supabase, getSupabase } from '../lib/supabaseClient';
+import { createClient } from '@supabase/supabase-js';
 
 export interface AuthRequest extends Request {
     user?: {
@@ -9,6 +9,24 @@ export interface AuthRequest extends Request {
         empresa_id: string | null;
     };
 }
+
+const supabaseUrl = process.env.SUPABASE_URL || '';
+const supabaseKey = process.env.SUPABASE_KEY || '';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY || '';
+
+/**
+ * Cliente administrativo - usa service_role key se disponível para
+ * contornar o RLS e fazer leituras privilegiadas de perfis.
+ * Se não houver SUPABASE_SERVICE_KEY, usa o token do utilizador.
+ */
+const getAdminClient = () => {
+    return createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+            persistSession: false,
+            autoRefreshToken: false,
+        }
+    });
+};
 
 /**
  * Middleware de autenticação via Supabase JWT.
@@ -25,28 +43,71 @@ export const requireAuth = async (req: AuthRequest, res: Response, next: NextFun
     const token = authHeader.split(' ')[1];
 
     try {
-        const { data, error } = await supabase.auth.getUser(token);
+        // Validar o token com o cliente admin
+        const adminClient = getAdminClient();
+        const { data, error } = await adminClient.auth.getUser(token);
 
         if (error || !data.user) {
             return res.status(401).json({ error: 'Token inválido ou expirado.' });
         }
 
-        // Buscar role do perfil com o token do user
-        const { data: perfil } = await supabase
+        const userId = data.user.id;
+
+        // Buscar role do perfil usando cliente autenticado com o token do próprio utilizador
+        // Isto garante que o RLS permite a leitura do próprio perfil
+        const userClient = createClient(supabaseUrl, supabaseKey, {
+            global: {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            },
+            auth: {
+                persistSession: false,
+                autoRefreshToken: false,
+            }
+        });
+
+        const { data: perfil, error: perfilError } = await userClient
             .from('perfis')
             .select('role, empresa_id')
-            .eq('id', data.user.id)
+            .eq('id', userId)
             .single();
 
+        // Se o perfil não existir ou RLS bloquear, tentamos via admin client
+        let role = 'pending';
+        let empresa_id = null;
+
+        if (!perfilError && perfil) {
+            role = perfil.role || 'pending';
+            empresa_id = perfil.empresa_id || null;
+        } else {
+            // Fallback: tentar com admin client (service_role bypassa RLS)
+            const { data: perfilAdmin } = await adminClient
+                .from('perfis')
+                .select('role, empresa_id')
+                .eq('id', userId)
+                .single();
+
+            if (perfilAdmin) {
+                role = perfilAdmin.role || 'pending';
+                empresa_id = perfilAdmin.empresa_id || null;
+            } else {
+                // Último fallback: ler dos user_metadata do token (definido no registo)
+                const meta = data.user.user_metadata as any;
+                role = meta?.role || 'pending';
+            }
+        }
+
         req.user = {
-            id: data.user.id,
+            id: userId,
             email: data.user.email || '',
-            role: perfil?.role || 'pending',
-            empresa_id: perfil?.empresa_id || null,
+            role,
+            empresa_id,
         };
 
         next();
     } catch (err) {
+        console.error('[Auth Middleware Error]:', err);
         return res.status(500).json({ error: 'Erro ao validar autenticação.' });
     }
 };
