@@ -20,7 +20,7 @@ export class EmailService {
             if (error) throw error;
             
             const cfg: Record<string, string> = {};
-            (rows || []).forEach(r => { cfg[r.chave] = r.valor; });
+            (rows || []).forEach((r: any) => { cfg[r.chave] = r.valor; });
 
             return {
                 host:   cfg['smtp_host']   || 'smtp.gmail.com',
