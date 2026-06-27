@@ -1,39 +1,28 @@
 import express from 'express';
-import nodemailer from 'nodemailer';
+import { requireAuth } from '../middleware/authMiddleware';
+import { getSupabase } from '../lib/supabaseClient';
+import { EmailService } from '../services/EmailService';
 
 const router = express.Router();
 
-router.post('/send', async (req, res) => {
+router.post('/send', requireAuth, async (req, res) => {
     const { para, assunto, corpo } = req.body;
     
-    const user = process.env.EMAIL_USER;
-    const pass = process.env.EMAIL_PASS;
-    const host = process.env.SMTP_HOST || 'smtp.gmail.com';
-    const port = parseInt(process.env.SMTP_PORT || '587');
-    
-    if (!user || !pass) {
-        return res.status(400).json({ success: false, error: 'Configure EMAIL_USER e EMAIL_PASS no ficheiro .env do backend.' });
+    if (!para || !assunto || !corpo) {
+        return res.status(400).json({ success: false, error: 'Campos para, assunto e corpo são obrigatórios.' });
     }
 
     try {
-        const transporter = nodemailer.createTransport({
-            host,
-            port,
-            secure: port === 465, // true for 465, false for other ports
-            auth: {
-                user,
-                pass
-            }
-        });
+        const empresaId = (req as any).user?.empresa_id;
+        const userClient = getSupabase(req);
+        
+        const enviado = await EmailService.enviarEmailPersonalizado(para, assunto, corpo, empresaId, userClient);
 
-        await transporter.sendMail({
-            from: `"Sistema TOP IA" <${user}>`,
-            to: para,
-            subject: assunto,
-            text: corpo
-        });
-
-        res.json({ success: true, message: 'Email enviado com sucesso!' });
+        if (enviado) {
+            res.json({ success: true, message: 'Email enviado com sucesso!' });
+        } else {
+            res.status(500).json({ success: false, error: 'Falha ao enviar o email. Verifique as suas configurações SMTP.' });
+        }
     } catch (err: any) {
         console.error('Erro ao enviar email:', err);
         res.status(500).json({ success: false, error: 'Falha ao enviar o email: ' + err.message });
