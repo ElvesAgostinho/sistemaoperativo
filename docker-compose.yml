@@ -22,8 +22,10 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL}
     image: businessos-frontend
     container_name: businessos_frontend
     ports:
-      - "80:80" # Pode mudar para outra porta como 3000 se usar 80 noutro serviço
+      - "80:80"
     restart: unless-stopped
