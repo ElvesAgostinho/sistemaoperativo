@@ -31,11 +31,11 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
 
                 // Para já, assumimos um channel_id fixo ou buscamos pelo ID da instância no req.body
                 // Vamos simular buscar o channel Evolution
-                const { data: channel } = await supabase.from('wa_channels').select('id').eq('provider', 'evolution').limit(1).single();
-                if (!channel) continue;
+                const { data: channelId } = await supabase.rpc('get_wa_channel_id', { p_provider: 'evolution' });
+                if (!channelId) continue;
 
                 await WorkflowEngine.processIncomingMessage({
-                    channel_id: channel.id,
+                    channel_id: channelId,
                     phone_number: phoneNumber,
                     contact_name: contactName,
                     content: content,
@@ -93,11 +93,11 @@ router.post('/webhook/meta', async (req: Request, res: Response) => {
                 const content = msg.text?.body || '';
                 const contactName = contact?.profile?.name || 'Desconhecido';
 
-                const { data: channel } = await supabase.from('wa_channels').select('id').eq('provider', 'meta').limit(1).single();
+                const { data: channelId } = await supabase.rpc('get_wa_channel_id', { p_provider: 'meta' });
 
-                if (channel) {
+                if (channelId) {
                     await WorkflowEngine.processIncomingMessage({
-                        channel_id: channel.id,
+                        channel_id: channelId,
                         phone_number: phoneNumber,
                         contact_name: contactName,
                         content: content,
@@ -310,11 +310,12 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
     const apiKey = process.env.AUTHENTICATION_API_KEY || '';
 
     try {
+        const userClient = getSupabase(req);
         // 1. Obter ou Criar o Canal Evolution
-        let { data: channel, error: channelError } = await supabase.from('wa_channels').select('id').eq('provider', 'evolution').single();
+        let { data: channel, error: channelError } = await userClient.from('wa_channels').select('id').eq('provider', 'evolution').maybeSingle();
         
         if (!channel) {
-            const { data, error: insertError } = await supabase.from('wa_channels')
+            const { data, error: insertError } = await userClient.from('wa_channels')
                 .insert({ name: 'Evolution API', provider: 'evolution', status: 'connected', credentials: { instanceName } })
                 .select('id').single();
             if (insertError) throw new Error('Erro ao criar canal: ' + insertError.message);
