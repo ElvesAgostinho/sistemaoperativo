@@ -163,7 +163,7 @@ body {
 }
 
 .hero-title {
-  font-size: 52px;
+  font-size: 40px;
   font-weight: 800;
   line-height: 1.15;
   letter-spacing: -0.03em;
@@ -513,7 +513,7 @@ details[open] .faq-answer {
 }
 
 @media (max-width: 768px) {
-  .hero-title { font-size: 36px; }
+  .hero-title { font-size: 28px; }
   .hero-section { background-position: center; padding: 40px 24px; }
   .modules-grid { grid-template-columns: repeat(2, 1fr); }
 }
