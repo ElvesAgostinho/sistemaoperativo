@@ -52,29 +52,24 @@ const SuperAdminApp = () => {
     setLoading(true);
     setError('');
     try {
-      // Mock for MVP design phase
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
+      const token = localStorage.getItem('os_auth_token');
       if (activeTab === 'empresas') {
-        const stored = localStorage.getItem('mock_empresas');
-        if (stored) {
-          setEmpresas(JSON.parse(stored));
-        } else {
-          const initial = [
-            { id: '1', nome: 'TOP IA (Sua Empresa)', status: 'active', criado_em: new Date().toISOString() },
-            { id: '2', nome: 'TopConsultores', status: 'pending', criado_em: new Date().toISOString() }
-          ];
-          setEmpresas(initial);
-          localStorage.setItem('mock_empresas', JSON.stringify(initial));
-        }
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/superadmin/empresas`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        setEmpresas(data.empresas || []);
       } else {
-        setUsers([
-          { id: '1', email: 'geral@topia.solutions', nome: 'Administrador TOP IA', role: 'superadmin', ativo: true, criado_em: new Date().toISOString(), empresas: { nome: 'TOP IA' } },
-          { id: '2', email: 'elvessacapuri57@gmail.com', nome: 'Elves Sacapuri', role: 'admin', ativo: true, criado_em: new Date().toISOString(), empresas: { nome: 'TopConsultores' } }
-        ]);
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/superadmin/users`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        setUsers(data.users || []);
       }
     } catch (err: any) {
-      setError('Erro inesperado.');
+      setError(err.message || 'Erro inesperado.');
     } finally {
       setLoading(false);
     }
@@ -82,17 +77,21 @@ const SuperAdminApp = () => {
 
   const updateEmpresaStatus = async (id: string, status: string) => {
     try {
-      // Mock for MVP
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Atualizar lista localmente
-      setEmpresas(prev => {
-        const updated = prev.map(emp => emp.id === id ? { ...emp, status: status as any } : emp);
-        localStorage.setItem('mock_empresas', JSON.stringify(updated));
-        return updated;
+      const token = localStorage.getItem('os_auth_token');
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/superadmin/empresas/${id}/status`, {
+        method: 'PUT',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json' 
+        },
+        body: JSON.stringify({ status })
       });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      
+      setEmpresas(prev => prev.map(emp => emp.id === id ? { ...emp, status: status as any } : emp));
     } catch (err: any) {
-      alert('Erro inesperado.');
+      alert(err.message || 'Erro inesperado ao atualizar status.');
     }
   };
 
@@ -118,13 +117,22 @@ const SuperAdminApp = () => {
     if (!editingEmpresa) return;
     setSavingModulos(true);
     try {
-      // Mock for MVP
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const token = localStorage.getItem('os_auth_token');
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/superadmin/empresas/${editingEmpresa.id}/modulos`, {
+        method: 'PUT',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json' 
+        },
+        body: JSON.stringify({ modulos: empresaModulos })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
       
       setShowModal(false);
       alert('Licenciamento atualizado com sucesso!');
     } catch (err: any) {
-      alert('Erro inesperado.');
+      alert(err.message || 'Erro inesperado ao salvar módulos.');
     } finally {
       setSavingModulos(false);
     }
