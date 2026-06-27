@@ -106,6 +106,7 @@ function App() {
     setUser(null);
     setToken(null);
     setShowLanding(true);
+    setActiveModule('home');
     localStorage.removeItem('os_auth_token');
     localStorage.removeItem('os_auth_user');
   };
