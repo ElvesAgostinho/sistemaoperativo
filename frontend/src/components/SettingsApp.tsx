@@ -59,15 +59,15 @@ export default function SettingsApp() {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
-                if (data.success && data.configuracoes) {
+                if (data.success && data.config) {
                     setSmtp(p => ({
                         ...p,
-                        smtp_nome: data.configuracoes.smtp_nome || '',
-                        smtp_user: data.configuracoes.smtp_user || '',
-                        smtp_pass: data.configuracoes.smtp_pass || '',
-                        smtp_host: data.configuracoes.smtp_host || 'smtp.gmail.com',
-                        smtp_port: data.configuracoes.smtp_port || '587',
-                        smtp_secure: data.configuracoes.smtp_secure || 'false'
+                        smtp_nome: data.config.smtp_nome || '',
+                        smtp_user: data.config.smtp_user || '',
+                        smtp_pass: data.config.smtp_pass || '',
+                        smtp_host: data.config.smtp_host || 'smtp.gmail.com',
+                        smtp_port: data.config.smtp_port || '587',
+                        smtp_secure: data.config.smtp_secure || 'false'
                     }));
                 }
             } catch (err) {
@@ -85,7 +85,7 @@ export default function SettingsApp() {
             const res = await fetch(`${import.meta.env.VITE_API_URL}/api/settings`, {
                 method: 'PUT',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify(smtp)
+                body: JSON.stringify({ configs: smtp })
             });
             const data = await res.json();
             if (data.success) {
