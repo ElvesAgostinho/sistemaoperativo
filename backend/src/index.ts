@@ -67,6 +67,11 @@ app.get('/health', (req, res) => {
   res.json({ status: 'OK', service: 'BusinessOS API' });
 });
 
+// Root route
+app.get('/', (req, res) => {
+  res.send('BusinessOS API Backend is running successfully!');
+});
+
 // Start server
 app.listen(port, () => {
   console.log(`[server]: Server is running at http://localhost:${port}`);
