@@ -1,8 +1,27 @@
 import { Router, Request, Response } from 'express';
+import { createClient } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabaseClient';
 import { requireAuth, AuthRequest } from '../middleware/authMiddleware';
 import { rotearEExecutar } from '../services/AIRouterService';
+
 const router = Router();
+
+// Helper: criar cliente Supabase autenticado com o token do utilizador (respeita RLS)
+const makeUserClient = (accessToken: string) => createClient(
+    process.env.SUPABASE_URL || '',
+    process.env.SUPABASE_KEY || '',
+    {
+        global: { headers: { Authorization: `Bearer ${accessToken}` } },
+        auth: { persistSession: false, autoRefreshToken: false }
+    }
+);
+
+// Helper: cliente admin (usa service key se disponível, senão anon key)
+const makeAdminClient = () => createClient(
+    process.env.SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY || '',
+    { auth: { persistSession: false, autoRefreshToken: false } }
+);
 
 // ─── Auth: Registo ────────────────────────────────────────────────────────────
 router.post('/register', async (req: Request, res: Response) => {
@@ -82,60 +101,80 @@ router.post('/login', async (req: Request, res: Response) => {
         return res.status(400).json({ error: 'Email e password são obrigatórios.' });
     }
 
+    // Autenticar via Supabase Auth
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error || !data.user || !data.session) {
         return res.status(401).json({ error: 'Credenciais inválidas.' });
     }
 
-    // Usar o token do próprio utilizador para respeitar o RLS (cada utilizador pode ler o seu próprio perfil)
-    const { createClient } = await import('@supabase/supabase-js');
-    const userClient = createClient(
-        process.env.SUPABASE_URL || '',
-        process.env.SUPABASE_KEY || '',
-        {
-            global: { headers: { Authorization: `Bearer ${data.session.access_token}` } },
-            auth: { persistSession: false, autoRefreshToken: false }
+    const userId = data.user.id;
+    const accessToken = data.session.access_token;
+    let perfil: any = null;
+
+    // 1ª tentativa: função SECURITY DEFINER (bypassa RLS sem precisar de service_role key)
+    try {
+        const { data: fnResult, error: fnError } = await supabase
+            .rpc('get_perfil_by_id', { user_id: userId });
+
+        if (!fnError && fnResult && fnResult.length > 0) {
+            const row = fnResult[0];
+            perfil = {
+                nome: row.nome,
+                role: row.role,
+                ativo: row.ativo,
+                empresa_id: row.empresa_id,
+                empresas: row.empresa_nome ? {
+                    status: row.empresa_status,
+                    nome: row.empresa_nome,
+                    codigo_convite: row.codigo_convite,
+                } : null,
+            };
+            console.log(`[Login] rpc ok: user=${email}, role=${perfil.role}`);
+        } else {
+            console.warn(`[Login] rpc falhou: ${JSON.stringify(fnError)}`);
         }
-    );
-
-    // Buscar perfil com role e dados da empresa
-    const { data: perfil, error: perfilError } = await userClient
-        .from('perfis')
-        .select(`
-            nome, role, ativo, empresa_id,
-            empresas ( status, nome, codigo_convite )
-        `)
-        .eq('id', data.user.id)
-        .single();
-
-    console.log(`[Login] user=${email}, perfilError=${JSON.stringify(perfilError)}, role=${perfil?.role}`);
-
-    if (perfil && !perfil.ativo) {
-        return res.status(403).json({ error: 'Conta desactivada. Contacte o administrador.' });
+    } catch (rpcEx) {
+        console.error('[Login] rpc exception:', rpcEx);
     }
 
-    // Se o perfil não foi encontrado, pode ser problema de RLS ou trigger não criou o perfil
-    if (!perfil || perfilError) {
-        console.error('[Login] Perfil não encontrado para userId:', data.user.id, perfilError);
-        // Tentar com service key se disponível
-        const serviceKey = process.env.SUPABASE_SERVICE_KEY;
-        if (serviceKey) {
-            const adminClient = createClient(process.env.SUPABASE_URL || '', serviceKey, {
-                auth: { persistSession: false, autoRefreshToken: false }
-            });
-            const { data: perfilAdmin } = await adminClient
-                .from('perfis')
-                .select(`nome, role, ativo, empresa_id, empresas ( status, nome, codigo_convite )`)
-                .eq('id', data.user.id)
-                .single();
-            if (!perfilAdmin) {
-                return res.status(403).json({ error: 'Perfil de utilizador não encontrado. Contacte o suporte.' });
-            }
-            // Usar perfilAdmin para continuar
-            return processLogin(res, data, perfilAdmin, email);
+    // 2ª tentativa: userClient com token (respeita RLS via auth.uid())
+    if (!perfil) {
+        const userClient = makeUserClient(accessToken);
+        const { data: perfilDirect, error: perfilError } = await userClient
+            .from('perfis')
+            .select(`nome, role, ativo, empresa_id, empresas ( status, nome, codigo_convite )`)
+            .eq('id', userId)
+            .single();
+
+        if (perfilDirect) {
+            perfil = perfilDirect;
+            console.log(`[Login] userClient ok: user=${email}, role=${perfil.role}`);
+        } else {
+            console.error(`[Login] userClient falhou: ${JSON.stringify(perfilError)}`);
         }
-        return res.status(403).json({ error: 'Perfil não encontrado. Verifique se confirmou o seu email e aguarde aprovação.' });
+    }
+
+    // 3ª tentativa: admin client com service_role key
+    if (!perfil && process.env.SUPABASE_SERVICE_KEY) {
+        const adminClient = makeAdminClient();
+        const { data: perfilAdmin } = await adminClient
+            .from('perfis')
+            .select(`nome, role, ativo, empresa_id, empresas ( status, nome, codigo_convite )`)
+            .eq('id', userId)
+            .single();
+        if (perfilAdmin) {
+            perfil = perfilAdmin;
+            console.log(`[Login] adminClient ok: user=${email}, role=${perfil.role}`);
+        }
+    }
+
+    if (!perfil) {
+        return res.status(403).json({ error: 'Perfil de utilizador não encontrado. Verifique se confirmou o seu email.' });
+    }
+
+    if (!perfil.ativo) {
+        return res.status(403).json({ error: 'Conta desactivada. Contacte o administrador.' });
     }
 
     return processLogin(res, data, perfil, email);
@@ -164,12 +203,7 @@ async function processLogin(res: any, data: any, perfil: any, email: string) {
     let modulos = ['hr', 'crm', 'reunioes', 'auto', 'wa', 'kb', 'email', 'data', 'chat', 'pc', 'afiliados', 'contabilidade'];
     if (perfil?.empresa_id) {
         try {
-            const { createClient } = await import('@supabase/supabase-js');
-            const adminClient = createClient(
-                process.env.SUPABASE_URL || '',
-                process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY || '',
-                { auth: { persistSession: false, autoRefreshToken: false } }
-            );
+            const adminClient = makeAdminClient();
             const { data: row } = await adminClient.from('configuracoes')
                 .select('valor')
                 .eq('empresa_id', perfil.empresa_id)
@@ -197,8 +231,6 @@ async function processLogin(res: any, data: any, perfil: any, email: string) {
         },
     });
 }
-
-
 
 // ─── Auth: Logout ─────────────────────────────────────────────────────────────
 router.post('/logout', requireAuth, async (req: AuthRequest, res: Response) => {
