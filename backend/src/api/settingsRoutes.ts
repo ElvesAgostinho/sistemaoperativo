@@ -74,7 +74,7 @@ router.put('/', requireAuth, async (req, res) => {
         const empresa_id = (req as any).user?.empresa_id;
         
         const upsertData = Object.entries(configs)
-            .filter(([_, valor]) => valor !== '•••••••••••••')
+            .filter(([_, valor]) => typeof valor === 'string' && !valor.includes('••••'))
             .map(([chave, valor]) => ({
                 empresa_id,
                 chave,
@@ -89,7 +89,7 @@ router.put('/', requireAuth, async (req, res) => {
             let mockDb: any = {};
             try { mockDb = JSON.parse(fs.readFileSync(mockPath, 'utf8')); } catch {}
             for (const [chave, valor] of Object.entries(configs)) {
-                if (valor !== '•••••••••••••') mockDb[chave] = valor;
+                if (typeof valor === 'string' && !valor.includes('••••')) mockDb[chave] = valor;
             }
             fs.writeFileSync(mockPath, JSON.stringify(mockDb, null, 2));
         } else {
