@@ -309,6 +309,15 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
     const apiUrl = process.env.EVOLUTION_API_URL || 'https://evolution.topconsultores.pt';
     const apiKey = process.env.AUTHENTICATION_API_KEY || '';
 
+    console.log(`[sync-chats] Iniciando sincronização para instância: ${instanceName}`);
+
+    // Helper: fetch com timeout (usa globalThis.fetch para evitar conflito com Express Response)
+    const fetchWithTimeout = (url: string, options: RequestInit, timeoutMs = 15000) => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        return globalThis.fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer));
+    };
+
     try {
         const userClient = getSupabase(req);
         // 1. Obter ou Criar o Canal Evolution
@@ -326,22 +335,40 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
             throw new Error('Falha catastrófica: Canal Evolution não encontrado nem criado.');
         }
 
-        // 2. Fetch Chats from Evolution
-        const chatsRes = await fetch(`${apiUrl}/chat/findChats/${instanceName}`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': apiKey }, body: JSON.stringify({ page: 1, count: 50 }) // Puxar 50 mais recentes
-        });
-        
-        if (!chatsRes.ok) throw new Error('Falha ao buscar chats: ' + await chatsRes.text());
+        // 2. Fetch Chats from Evolution (com timeout de 20s)
+        console.log(`[sync-chats] A buscar chats em ${apiUrl}/chat/findChats/${instanceName}`);
+        let chatsRes: any;
+        try {
+            chatsRes = await fetchWithTimeout(`${apiUrl}/chat/findChats/${instanceName}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+                body: JSON.stringify({ page: 1, count: 50 })
+            }, 20000);
+        } catch (fetchErr: any) {
+            const msg = fetchErr.name === 'AbortError'
+                ? 'Timeout ao contactar a Evolution API (findChats). Verifique se a instância está online.'
+                : `Erro de rede ao contactar Evolution API: ${fetchErr.message}`;
+            console.error('[sync-chats]', msg);
+            return res.status(502).json({ error: msg });
+        }
+
+        if (!chatsRes.ok) {
+            const errText = await chatsRes.text();
+            console.error(`[sync-chats] findChats retornou status ${chatsRes.status}:`, errText);
+            throw new Error(`Falha ao buscar chats (HTTP ${chatsRes.status}): ${errText}`);
+        }
+
         const chatsData = await chatsRes.json();
+        console.log('[sync-chats] Resposta findChats recebida, tipo:', typeof chatsData, Array.isArray(chatsData) ? `array[${chatsData.length}]` : 'objeto');
         
         let syncCount = 0;
         
         // Obter domínios do request para Webhook local se aplicável
-        const publicUrl = req.headers.origin || `http://${req.headers.host}`;
+        const publicUrl = process.env.BACKEND_PUBLIC_URL || req.headers.origin || `http://${req.headers.host}`;
 
         // Definir Webhook na Evolution para receber novas mensagens
         try {
-            await fetch(`${apiUrl}/webhook/set/${instanceName}`, {
+            await fetchWithTimeout(`${apiUrl}/webhook/set/${instanceName}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
                 body: JSON.stringify({
@@ -352,10 +379,12 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
                         events: ["MESSAGES_UPSERT"]
                     }
                 })
-            });
-        } catch(e) { console.error("Erro a definir webhook:", e); }
+            }, 10000);
+            console.log('[sync-chats] Webhook configurado em:', `${publicUrl}/api/whatsapp/webhook/evolution`);
+        } catch(e) { console.error("[sync-chats] Erro a definir webhook:", e); }
 
-        const chats = chatsData.records || chatsData.chats || chatsData || [];
+        const chats: any[] = chatsData.records || chatsData.chats || (Array.isArray(chatsData) ? chatsData : []);
+        console.log(`[sync-chats] Total de chats encontrados: ${chats.length}`);
 
         for (const chat of chats) {
             if (!chat.id || chat.id.includes('@g.us')) continue; // Ignorar grupos
@@ -363,41 +392,53 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
             const phoneNumber = chat.id.split('@')[0];
             const contactName = chat.pushName || chat.name || phoneNumber;
             
-            // Tentar obter a foto de perfil
-            let contactPicture = null;
+            // Tentar obter a foto de perfil (com timeout curto para não bloquear)
+            let contactPicture: string | null = null;
             try {
-                const picRes = await fetch(`${apiUrl}/chat/fetchProfilePictureUrl/${instanceName}`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+                const picRes: any = await fetchWithTimeout(`${apiUrl}/chat/fetchProfilePictureUrl/${instanceName}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
                     body: JSON.stringify({ number: chat.id })
-                });
-                const picData = await picRes.json();
-                if (picData.profilePictureUrl) contactPicture = picData.profilePictureUrl;
-            } catch (e) { /* silent fail */ }
+                }, 8000);
+                if (picRes.ok) {
+                    const picData = await picRes.json();
+                    if (picData.profilePictureUrl) contactPicture = picData.profilePictureUrl;
+                }
+            } catch (e) { /* silent fail - foto não é crítica */ }
 
             // Verifica se a conversa já existe
             const { data: conv } = await getSupabase(req).from('wa_conversations').select('id').eq('phone_number', phoneNumber).single();
 
+            const tsMs = chat.conversationTimestamp ? chat.conversationTimestamp * 1000 : Date.now();
+            const lastMsgAt = new Date(tsMs).toISOString();
+
             if (conv) {
                 // Atualizar foto e última mensagem (opcional)
-                if (contactPicture) {
-                    await getSupabase(req).from('wa_conversations').update({ contact_picture: contactPicture, updated_at: new Date().toISOString() }).eq('id', conv.id);
-                }
+                const updatePayload: any = { updated_at: new Date().toISOString() };
+                if (contactPicture) updatePayload.contact_picture = contactPicture;
+                await getSupabase(req).from('wa_conversations').update(updatePayload).eq('id', conv.id);
             } else {
                 // Inserir Nova Conversa
-                await getSupabase(req).from('wa_conversations').insert({
+                const { error: insertErr } = await getSupabase(req).from('wa_conversations').insert({
                     channel_id: channel!.id,
                     client_phone: phoneNumber,
                     phone_number: phoneNumber,
                     contact_name: contactName,
                     contact_picture: contactPicture,
                     status: 'open',
-                    last_message_at: new Date(chat.conversationTimestamp * 1000 || Date.now()).toISOString()
+                    last_message_at: lastMsgAt
                 });
-                syncCount++;
+                if (insertErr) {
+                    console.error(`[sync-chats] Erro ao inserir conversa ${phoneNumber}:`, insertErr.message);
+                } else {
+                    syncCount++;
+                }
             }
         }
+        console.log(`[sync-chats] Sincronização concluída. Novas conversas: ${syncCount}`);
         res.json({ success: true, count: syncCount });
     } catch (err: any) {
+        console.error('[sync-chats] Erro geral:', err.message);
         res.status(500).json({ error: err.message });
     }
 });

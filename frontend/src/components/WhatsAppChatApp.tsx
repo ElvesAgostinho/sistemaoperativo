@@ -244,19 +244,31 @@ export default function WhatsAppChatApp() {
         setIsSyncingChats(true);
         try {
             const token = localStorage.getItem('os_auth_token');
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
             const res = await fetch(import.meta.env.VITE_API_URL + '/api/whatsapp/evolution/sync-chats', {
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: { 'Authorization': `Bearer ${token}` },
+                signal: controller.signal
             });
+            clearTimeout(timeoutId);
             const data = await res.json();
             if (data.success) {
                 alert(`Foram sincronizadas ${data.count} conversas antigas.`);
                 fetchConversations();
             } else {
-                alert('Erro: ' + data.error);
+                alert('Erro ao sincronizar: ' + (data.error || 'Resposta inesperada do servidor.'));
             }
-        } catch(err) { console.error(err); }
-        setIsSyncingChats(false);
+        } catch(err: any) {
+            if (err.name === 'AbortError') {
+                alert('A sincronização demorou demasiado tempo (timeout). Verifique a ligação à Evolution API.');
+            } else {
+                alert('Erro de ligação ao sincronizar conversas. Verifique a consola para detalhes.');
+                console.error('[handleSyncChats]', err);
+            }
+        } finally {
+            setIsSyncingChats(false);
+        }
     };
 
     useEffect(() => {
