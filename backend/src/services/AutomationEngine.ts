@@ -138,7 +138,7 @@ export class AutomationEngine {
                     if (emailTo && emailSubject && emailBody) {
                         try {
                             const { EmailService } = require('./EmailService');
-                            await EmailService.enviarEmailPersonalizado(emailTo, emailSubject, emailBody);
+                            await EmailService.enviarEmailPersonalizado(emailTo, emailSubject, emailBody, empresa_id);
                             console.log(`[AUTOPILOT] Email enviado para ${emailTo}`);
                         } catch(e) {
                             console.error('[AUTOPILOT] Erro ao enviar email:', e);

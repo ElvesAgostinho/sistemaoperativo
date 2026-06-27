@@ -81,7 +81,8 @@ export const analisarCurriculos = async (req: Request, res: Response) => {
         const candidatosAprovados = candidatosAnalisados.sort((a, b) => b.pontuacao_adequacao - a.pontuacao_adequacao).slice(0, 5);
         for (const cand of candidatosAprovados) {
             if (cand.email && cand.email.includes('@')) {
-                await EmailService.notificarCandidatoAprovado(cand.email, cand.nome, requisitosVaga);
+                const empresaId = (req as any).user?.empresa_id;
+                await EmailService.notificarCandidatoAprovado(cand.email, cand.nome, requisitosVaga, empresaId);
             }
         }
 
