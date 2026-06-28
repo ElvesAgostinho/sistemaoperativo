@@ -16,11 +16,19 @@ const router = Router();
 router.post('/webhook/evolution', async (req: Request, res: Response) => {
     try {
         const body = req.body;
+        console.log('[Webhook Evolution] Recebido payload:', JSON.stringify(body, null, 2));
         // Estrutura básica Evolution API
         if (body.event === 'messages.upsert') {
-            const msgs = body.data?.messages || [];
+            let msgs: any[] = [];
+            if (Array.isArray(body.data)) msgs = body.data;
+            else if (body.data?.messages) msgs = body.data.messages;
+            else if (body.data?.key) msgs = [body.data];
+            else if (body.data?.message && body.data?.message?.key) msgs = [body.data.message];
+            else if (body.data) msgs = [body.data];
+            
             for (const msg of msgs) {
                 // Ignorar mensagens enviadas por nós mesmos
+                if (!msg?.key) continue;
                 if (msg.key.fromMe) continue;
 
                 const phoneNumber = msg.key.remoteJid?.split('@')[0];
