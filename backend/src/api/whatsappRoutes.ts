@@ -468,14 +468,15 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
                 headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
                 body: JSON.stringify({
                     webhook: {
-                        url: `${publicUrl}/api/whatsapp/webhook/evolution`,
+                        url: webhookUrl,
+                        enabled: true,
                         byEvents: false,
                         base64: true,
                         events: ["MESSAGES_UPSERT"]
                     }
                 })
             }, 10000);
-            console.log('[sync-chats] Webhook configurado em:', `${publicUrl}/api/whatsapp/webhook/evolution`);
+            console.log('[sync-chats] Webhook configurado em:', webhookUrl);
         } catch(e) { console.error("[sync-chats] Erro a definir webhook:", e); }
 
         const chats: any[] = chatsData.records || chatsData.chats || (Array.isArray(chatsData) ? chatsData : []);
@@ -623,7 +624,7 @@ router.post('/evolution/instance', requireAuth, async (req: AuthRequest, res: Re
         try {
             await fetch(`${apiUrl}/webhook/set/${instanceName}`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
-                body: JSON.stringify({ webhook: { url: `${publicUrl}/api/whatsapp/webhook/evolution`, byEvents: false, base64: true, events: ["MESSAGES_UPSERT"] } })
+                body: JSON.stringify({ webhook: { url: `${publicUrl}/api/whatsapp/webhook/evolution`, enabled: true, byEvents: false, base64: true, events: ["MESSAGES_UPSERT"] } })
             });
         } catch(e) {}
 
