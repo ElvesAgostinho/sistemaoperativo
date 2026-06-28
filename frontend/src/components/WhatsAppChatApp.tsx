@@ -71,6 +71,34 @@ export default function WhatsAppChatApp() {
         if (storedUser) setCurrentUser(JSON.parse(storedUser));
     }, []);
 
+    const formatPhoneNumber = (phone: string) => {
+        if (!phone) return '';
+        // Special internal numbers
+        if (phone === '0' || phone === 'WhatsApp') return 'WhatsApp';
+        if (phone.includes('@')) return phone.split('@')[0];
+        
+        // Formato Angola (+244)
+        if (phone.startsWith('244') && phone.length === 12) {
+            return `+244 ${phone.slice(3, 6)} ${phone.slice(6, 9)} ${phone.slice(9)}`;
+        }
+        // Formato Portugal (+351)
+        if (phone.startsWith('351') && phone.length === 12) {
+            return `+351 ${phone.slice(3, 6)} ${phone.slice(6, 9)} ${phone.slice(9)}`;
+        }
+        // Formato Brasil (+55)
+        if (phone.startsWith('55') && phone.length >= 12) {
+            const ddd = phone.slice(2, 4);
+            const part1 = phone.slice(4, 9);
+            const part2 = phone.slice(9);
+            return `+55 ${ddd} ${part1}-${part2}`;
+        }
+        // Outros
+        if (phone.length >= 8 && !phone.startsWith('+')) {
+            return '+' + phone;
+        }
+        return phone;
+    };
+
     const fetchTemplates = async () => {
         try {
             const token = localStorage.getItem('os_auth_token');
@@ -477,7 +505,7 @@ export default function WhatsAppChatApp() {
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
                                             <span style={{ fontSize: '14px', color: '#667781', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>
-                                                {conv.phone_number.includes('@') ? 'Contacto WhatsApp' : conv.phone_number}
+                                                {formatPhoneNumber(conv.phone_number)}
                                             </span>
                                             {conv.status === 'bot' && <span title="O Bot está a responder"><Bot size={14} color="#00a884" /></span>}
                                         </div>
@@ -656,7 +684,7 @@ export default function WhatsAppChatApp() {
                                 </div>
                                 <div>
                                     <div style={{ fontWeight: 500, color: '#111b21', fontSize: '16px' }}>{activeConv.contact_name}</div>
-                                    <div style={{ fontSize: '13px', color: '#667781' }}>{activeConv.phone_number.includes('@') ? 'Contacto WhatsApp' : activeConv.phone_number} • {activeConv.wa_channels.name}</div>
+                                    <div style={{ fontSize: '13px', color: '#667781' }}>{formatPhoneNumber(activeConv.phone_number)} • {activeConv.wa_channels.name}</div>
                                 </div>
                             </div>
                             
