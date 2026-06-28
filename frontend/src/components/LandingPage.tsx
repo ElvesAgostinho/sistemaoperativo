@@ -56,7 +56,7 @@ export default function LandingPage({ onGoToApp }: { onGoToApp: () => void }) {
             <a href="#modulos">Os Seus Módulos</a>
             <a href="#orcamento">Orçamento</a>
             <a href="#faq">FAQ</a>
-            <a href="https://lmxuixmmrglrqxjrhpgn.supabase.co/storage/v1/object/public/downloads/OpenClaw%20OS%20Setup%201.0.0.exe" download className="download-link" style={{ color: '#00e676', fontWeight: 'bold' }}>
+            <a href="https://SEU-DOMINIO-AQUI.com/downloads/OpenClaw_OS_Setup_1.0.0.exe" download className="download-link" style={{ color: '#00e676', fontWeight: 'bold' }}>
               ⬇ Download Windows
             </a>
           </div>
