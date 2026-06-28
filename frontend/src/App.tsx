@@ -16,7 +16,7 @@ import DataApp from './components/DataApp';
 import AfiliadosApp from './components/AfiliadosApp';
 import ContabilidadeApp from './components/ContabilidadeApp';
 import PortalAfiliado from './components/PortalAfiliado';
-import { LayoutGrid, Users, Briefcase, PieChart, Bot, Monitor, Zap, LogOut, MessageSquare, BookOpen, Mail, Settings, Clock, Globe, Video, Share2, Calculator } from 'lucide-react';
+import { LayoutGrid, Users, Briefcase, PieChart, Bot, Monitor, Zap, LogOut, MessageSquare, BookOpen, Mail, Settings, Clock, Globe, Video, Share2, Calculator, Shield } from 'lucide-react';
 
 const IS_AFFILIATE_PORTAL = window.location.pathname === '/portal-afiliado';
 

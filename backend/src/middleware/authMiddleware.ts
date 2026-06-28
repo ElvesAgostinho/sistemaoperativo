@@ -46,23 +46,22 @@ export const requireAuth = async (req: AuthRequest, res: Response, next: NextFun
     const token = authHeader.split(' ')[1];
 
     try {
-        // Validar o token JWT localmente
-        const jwtSecret = process.env.JWT_SECRET || '';
-        let decoded: any;
-        try {
-            decoded = jwt.verify(token, jwtSecret);
-        } catch (jwtErr) {
+        const anonClient = getAnonClient();
+        const { data: authData, error: authError } = await anonClient.auth.getUser(token);
+        
+        if (authError || !authData?.user) {
             return res.status(401).json({ error: 'Token inválido ou expirado.' });
         }
 
-        const userId = decoded.sub;
-        if (!userId) {
-            return res.status(401).json({ error: 'Token inválido ou expirado.' });
-        }
+        const userId = authData.user.id;
+        let decoded: any = {};
+        try {
+            // Apenas para extrair email e outras infos (a assinatura já foi validada pelo Supabase)
+            decoded = jwt.decode(token) || {};
+        } catch (e) {}
 
         let role = '';
         let empresa_id: string | null = null;
-        const anonClient = getAnonClient();
 
         // ── 1ª tentativa: RPC SECURITY DEFINER (bypassa RLS sem service_role key) ──
         try {

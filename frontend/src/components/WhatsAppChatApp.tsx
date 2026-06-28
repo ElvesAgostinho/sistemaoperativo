@@ -315,7 +315,7 @@ export default function WhatsAppChatApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeConv?.id]);
 
-    const fetchMessages = async () => {
+    async function fetchMessages() {
         if (!activeConv) return;
         try {
             const token = localStorage.getItem('os_auth_token');
@@ -347,9 +347,9 @@ export default function WhatsAppChatApp() {
             ];
             setMessages(dummyMsgs);
         }
-    };
+    }
 
-    const fetchBotStatus = async () => {
+    async function fetchBotStatus() {
         if (!activeConv) return;
         try {
             const token = localStorage.getItem('os_auth_token');
@@ -363,9 +363,9 @@ export default function WhatsAppChatApp() {
         } catch (err) {
             console.error('Failed to fetch bot status:', err);
         }
-    };
+    }
 
-    const toggleBotStatus = async () => {
+    async function toggleBotStatus() {
         if (!activeConv) return;
         try {
             const token = localStorage.getItem('os_auth_token');
@@ -381,7 +381,7 @@ export default function WhatsAppChatApp() {
         } catch (err) {
             console.error('Failed to toggle bot status:', err);
         }
-    };
+    }
 
     const handleSend = async () => {
         if (!inputText.trim() || !activeConv) return;

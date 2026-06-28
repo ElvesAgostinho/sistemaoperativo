@@ -44,24 +44,24 @@ router.post('/employees/:id/declaracao', generateDeclaracao);
 router.delete('/employees/:id', deleteEmployee);
 
 // Dossier do Funcionário
-router.get('/employees/:id/documents', (req, res) => {
+router.get('/employees/:id/documents', async (req, res) => {
     try {
         const id = Number(req.params.id);
-        const docs = require('../services/EmployeeService').EmployeeService.listarDocumentos(id);
+        const docs = await require('../services/EmployeeService').EmployeeService.listarDocumentos(req, id);
         res.json({ success: true, documents: docs });
     } catch (err: any) {
         res.status(500).json({ success: false, error: err.message });
     }
 });
 
-router.post('/employees/:id/documents', upload.single('documento'), (req, res) => {
+router.post('/employees/:id/documents', upload.single('documento'), async (req, res) => {
     try {
         const id = Number(req.params.id);
         const { categoria, titulo } = req.body;
         const filePath = req.file ? req.file.path : null;
         if (!filePath) return res.status(400).json({ error: 'Nenhum ficheiro recebido.' });
         
-        const docId = require('../services/EmployeeService').EmployeeService.adicionarDocumento({
+        const docId = await require('../services/EmployeeService').EmployeeService.adicionarDocumento(req, {
             colaborador_id: id,
             categoria,
             titulo,
@@ -75,25 +75,25 @@ router.post('/employees/:id/documents', upload.single('documento'), (req, res) =
 });
 
 // Gestão de Departamentos
-router.get('/departamentos', (req, res) => {
+router.get('/departamentos', async (req, res) => {
     try {
-        const deptos = require('../services/EmployeeService').EmployeeService.listarDepartamentos();
+        const deptos = await require('../services/EmployeeService').EmployeeService.listarDepartamentos(req);
         res.json({ success: true, departamentos: deptos });
     } catch(err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-router.post('/departamentos', (req, res) => {
+router.post('/departamentos', async (req, res) => {
     try {
-        require('../services/EmployeeService').EmployeeService.criarDepartamento(req.body);
+        await require('../services/EmployeeService').EmployeeService.criarDepartamento(req, req.body);
         res.json({ success: true });
     } catch(err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 router.delete('/departamentos/:id', deleteDepartamento);
 // Gestão de Presenças e Faltas
-router.get('/ausencias', (req, res) => {
+router.get('/ausencias', async (req, res) => {
     try {
         const colaborador_id = req.query.colaborador_id ? Number(req.query.colaborador_id) : undefined;
-        const ausencias = require('../services/EmployeeService').EmployeeService.listarAusencias(colaborador_id);
+        const ausencias = await require('../services/EmployeeService').EmployeeService.listarAusencias(req, colaborador_id);
         res.json({ success: true, ausencias });
     } catch(err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
@@ -101,21 +101,21 @@ router.get('/ausencias', (req, res) => {
 router.get('/attendance-template', baixarTemplatePonto);
 router.post('/attendance-bulk', upload.single('loteExcel'), processarPontoEmMassa);
 
-router.post('/ausencias', upload.single('comprovativo'), (req, res) => {
+router.post('/ausencias', upload.single('comprovativo'), async (req, res) => {
     try {
         const { colaborador_id, tipo, data_inicio, data_fim, justificada } = req.body;
         const filePath = req.file ? req.file.path : null;
-        require('../services/EmployeeService').EmployeeService.registrarAusencia(
-            Number(colaborador_id), tipo, data_inicio, data_fim, 
+        await require('../services/EmployeeService').EmployeeService.registrarAusencia(
+            req, Number(colaborador_id), tipo, data_inicio, data_fim, 
             justificada === 'true', filePath
         );
         res.json({ success: true });
     } catch(err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-router.put('/ausencias/:id/estado', (req, res) => {
+router.put('/ausencias/:id/estado', async (req, res) => {
     try {
-        require('../services/EmployeeService').EmployeeService.atualizarEstadoAusencia(Number(req.params.id), req.body.estado);
+        await require('../services/EmployeeService').EmployeeService.atualizarEstadoAusencia(req, Number(req.params.id), req.body.estado);
         res.json({ success: true });
     } catch(err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
@@ -126,46 +126,46 @@ router.get('/processamento/:mes/:ano', visualizarProcessamento);
 router.get('/recibo/:recibo_id/pdf', gerarRecibo);
 
 // Edição de Recibo e Fecho Oficial do Lote
-router.put('/recibo/:id', (req, res) => {
+router.put('/recibo/:id', async (req, res) => {
     try {
-        require('../services/EmployeeService').EmployeeService.atualizarReciboManual(Number(req.params.id), req.body);
+        await require('../services/EmployeeService').EmployeeService.atualizarReciboManual(req, Number(req.params.id), req.body);
         res.json({ success: true });
     } catch(err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-router.post('/processamento/:id/fechar', (req, res) => {
+router.post('/processamento/:id/fechar', async (req, res) => {
     try {
-        require('../services/EmployeeService').EmployeeService.fecharProcessamento(Number(req.params.id));
+        await require('../services/EmployeeService').EmployeeService.fecharProcessamento(req, Number(req.params.id));
         res.json({ success: true });
     } catch(err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 
 // Adiantamentos (Vales)
-router.get('/adiantamentos', (req, res) => {
+router.get('/adiantamentos', async (req, res) => {
     try {
-        const result = require('../services/EmployeeService').EmployeeService.listarAdiantamentos();
+        const result = await require('../services/EmployeeService').EmployeeService.listarAdiantamentos(req);
         res.json({ success: true, adiantamentos: result });
     } catch(err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-router.post('/adiantamentos', (req, res) => {
+router.post('/adiantamentos', async (req, res) => {
     try {
-        require('../services/EmployeeService').EmployeeService.criarAdiantamento(req.body);
+        await require('../services/EmployeeService').EmployeeService.criarAdiantamento(req, req.body);
         res.json({ success: true });
     } catch(err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 
 // Avaliações de Desempenho
-router.get('/avaliacoes', (req, res) => {
+router.get('/avaliacoes', async (req, res) => {
     try {
-        const result = require('../services/EmployeeService').EmployeeService.listarAvaliacoes();
+        const result = await require('../services/EmployeeService').EmployeeService.listarAvaliacoes(req);
         res.json({ success: true, avaliacoes: result });
     } catch(err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-router.post('/avaliacoes', (req, res) => {
+router.post('/avaliacoes', async (req, res) => {
     try {
-        require('../services/EmployeeService').EmployeeService.criarAvaliacao(req.body);
+        await require('../services/EmployeeService').EmployeeService.criarAvaliacao(req, req.body);
         res.json({ success: true });
     } catch(err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
