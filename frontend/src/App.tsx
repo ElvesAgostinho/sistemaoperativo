@@ -43,12 +43,44 @@ function App() {
     // Intercetador Global de fetch para lidar com 401 Token Expirado
     const originalFetch = window.fetch;
     window.fetch = async (...args) => {
-      const response = await originalFetch(...args);
+      let response = await originalFetch(...args);
       if (response.status === 401) {
         try {
           const clone = response.clone();
           const data = await clone.json();
           if (data.error === 'Token inválido ou expirado.') {
+            // Tentar renovar token
+            const storedRefreshToken = localStorage.getItem('os_refresh_token');
+            if (storedRefreshToken) {
+              const refreshRes = await originalFetch(import.meta.env.VITE_API_URL + '/api/auth/refresh', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ refresh_token: storedRefreshToken })
+              });
+              if (refreshRes.ok) {
+                const refreshData = await refreshRes.json();
+                if (refreshData.success) {
+                  localStorage.setItem('os_auth_token', refreshData.access_token);
+                  localStorage.setItem('os_refresh_token', refreshData.refresh_token);
+                  
+                  // Atualiza o estado da App (embora o state do React não seja atualizado aqui neste scope sincrono, atualiza o localStorage)
+                  setToken(refreshData.access_token);
+
+                  // Repetir pedido original com o novo token
+                  const [url, options] = args;
+                  const newOptions = {
+                    ...options,
+                    headers: {
+                      ...(options?.headers || {}),
+                      Authorization: `Bearer ${refreshData.access_token}`
+                    }
+                  };
+                  response = await originalFetch(url, newOptions);
+                  return response;
+                }
+              }
+            }
+            // Se falhar, logout
             window.dispatchEvent(new Event('auth-expired'));
           }
         } catch(e) {}
@@ -132,10 +164,11 @@ function App() {
     return () => clearInterval(interval);
   }, [user, token, activeModule]);
 
-  const handleLogin = (userData: any, authToken: string) => {
+  const handleLogin = (userData: any, authToken: string, refreshToken?: string) => {
     setUser(userData);
     setToken(authToken);
     localStorage.setItem('os_auth_token', authToken);
+    if (refreshToken) localStorage.setItem('os_refresh_token', refreshToken);
     localStorage.setItem('os_auth_user', JSON.stringify(userData));
   };
 
@@ -145,6 +178,7 @@ function App() {
     setShowLanding(true);
     setActiveModule('home');
     localStorage.removeItem('os_auth_token');
+    localStorage.removeItem('os_refresh_token');
     localStorage.removeItem('os_auth_user');
   };
 

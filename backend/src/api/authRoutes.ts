@@ -238,6 +238,26 @@ async function processLogin(res: any, data: any, perfil: any, email: string) {
     });
 }
 
+// ─── Auth: Refresh Token ──────────────────────────────────────────────────────
+router.post('/refresh', async (req: Request, res: Response) => {
+    const { refresh_token } = req.body;
+    if (!refresh_token) {
+        return res.status(400).json({ error: 'Refresh token é obrigatório.' });
+    }
+
+    const { data, error } = await supabase.auth.refreshSession({ refresh_token });
+
+    if (error || !data.session) {
+        return res.status(401).json({ error: 'Refresh token inválido ou expirado.' });
+    }
+
+    return res.json({
+        success: true,
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token
+    });
+});
+
 // ─── Auth: Logout ─────────────────────────────────────────────────────────────
 router.post('/logout', requireAuth, async (req: AuthRequest, res: Response) => {
     await supabase.auth.signOut();

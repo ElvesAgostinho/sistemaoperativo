@@ -28,16 +28,21 @@ export const launchApp = (req: Request, res: Response) => {
   if (customCommand) {
     const isDir = fs.existsSync(customCommand) && fs.statSync(customCommand).isDirectory();
     
-    exec(`explorer "${customCommand}"`, (error) => {
-        if (error) {
-            console.error("Explorer launch failed:", error);
-            if (!isDir) {
-                exec(`explorer /select,"${customCommand}"`);
+    if (isDir) {
+        exec(`explorer "${customCommand}"`);
+    } else {
+        // Use 'start' to open the file with its default program on Windows
+        // The empty quotes "" handle paths with spaces correctly in start command
+        exec(`start "" "${customCommand}"`, (error) => {
+            if (error) {
+                console.error("File launch failed:", error);
+                // Fallback to open package
+                open(customCommand).catch(e => console.error(e));
             }
-        }
-    });
+        });
+    }
     
-    return res.json({ message: `${customCommand} launched successfully via Explorer.` });
+    return res.json({ message: `${customCommand} launched successfully.` });
   }
 
   const appToLaunch = apps.find(a => a.id === appId);

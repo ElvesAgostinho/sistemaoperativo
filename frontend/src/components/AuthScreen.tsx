@@ -17,7 +17,7 @@ const LogoSVG = () => (
 );
 
 interface AuthScreenProps {
-  onLogin: (user: any, token: string) => void;
+  onLogin: (user: any, token: string, refreshToken?: string) => void;
   onBack: () => void;
 }
 
@@ -52,7 +52,7 @@ export default function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
           throw new Error(data.error || 'Erro ao iniciar sessão.');
         }
         
-        onLogin(data.user, data.access_token);
+        onLogin(data.user, data.access_token, data.refresh_token);
       } else {
         const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/register`, {
           method: 'POST',
