@@ -350,7 +350,7 @@ export default function HrApp() {
   const [vagas, setVagas] = useState<any[]>([]);
   const [candidaturas, setCandidaturas] = useState<any[]>([]);
   const [showNovaVagaModal, setShowNovaVagaModal] = useState(false);
-  const [novaVaga, setNovaVaga] = useState({ titulo: '', criterios: '' });
+  const [novaVaga, setNovaVaga] = useState({ titulo: '', departamento: '', tipo: 'Tempo Inteiro', localizacao: 'Luanda, Angola', descricao: '', criterios: '' });
   
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [novaCandidatura, setNovaCandidatura] = useState({ vaga_id: '', nome: '', email: '', telefone: '' });
@@ -388,7 +388,7 @@ export default function HrApp() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(novaVaga)
       });
-      setNovaVaga({ titulo: '', criterios: '' });
+      setNovaVaga({ titulo: '', departamento: '', tipo: 'Tempo Inteiro', localizacao: 'Luanda, Angola', descricao: '', criterios: '' });
       setShowNovaVagaModal(false);
       fetchVagas();
     } catch (err) { alert('Erro ao criar vaga'); }
@@ -444,6 +444,20 @@ export default function HrApp() {
     } catch (err) {
       alert('Erro ao tomar decisão');
     }
+  };
+
+  const handleContratarCandidato = (c: any) => {
+    setNewEmployee({
+      nome: c.nome || '', genero: 'Masculino', data_nascimento: '', estado_civil: 'Solteiro(a)', nacionalidade: 'Angolana', numero_dependentes: 0,
+      endereco: '', telefone: c.telefone || '', email: c.email || '', contato_emergencia: '',
+      bi: '', nif: '', niss: '', validade_documento: '', validade_carta_conducao: '', data_emissao_documento: '', data_emissao_carta_conducao: '',
+      departamento_id: '', cargo: c.vaga_titulo || '', 
+      salario_base: '', sub_alimentacao_contrato: 30000, sub_transporte_contrato: 20000,
+      banco: '', iban: '',
+      tipo_contrato: 'Tempo Indeterminado', data_inicio: new Date().toISOString().split('T')[0], data_fim: ''
+    });
+    setActiveTab('colaboradores');
+    setShowNewEmployeeModal(true);
   };
 
   // --- Estados de Salários ---
@@ -2060,6 +2074,13 @@ export default function HrApp() {
                               <button onClick={() => handleDecisaoCandidatura(c.id, 'Aprovado')} className="odoo-btn" style={{ fontSize: '12px', padding: '4px 12px', backgroundColor: '#28a745', color: 'white', border: 'none' }}>Aprovar (Avançar)</button>
                             </div>
                           )}
+                          {c.estado === 'Aprovado' && (
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <button onClick={() => handleContratarCandidato(c)} className="odoo-btn" style={{ fontSize: '12px', padding: '4px 12px', backgroundColor: 'var(--odoo-teal)', color: 'white', border: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <Briefcase size={14} /> Contratar
+                                </button>
+                            </div>
+                          )}
                         </div>
 
                       </div>
@@ -2082,9 +2103,32 @@ export default function HrApp() {
                   <label className="odoo-label">Título da Vaga *</label>
                   <input required type="text" className="odoo-input" placeholder="Ex: Desenvolvedor Frontend React" value={novaVaga.titulo} onChange={e => setNovaVaga({...novaVaga, titulo: e.target.value})} />
                 </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                  <div className="odoo-form-group">
+                    <label className="odoo-label">Departamento</label>
+                    <input type="text" className="odoo-input" placeholder="Ex: TI" value={novaVaga.departamento} onChange={e => setNovaVaga({...novaVaga, departamento: e.target.value})} />
+                  </div>
+                  <div className="odoo-form-group">
+                    <label className="odoo-label">Tipo de Contrato</label>
+                    <select className="odoo-input" value={novaVaga.tipo} onChange={e => setNovaVaga({...novaVaga, tipo: e.target.value})}>
+                        <option value="Tempo Inteiro">Tempo Inteiro</option>
+                        <option value="Meio Tempo">Meio Tempo</option>
+                        <option value="Estágio">Estágio</option>
+                        <option value="Freelance">Freelance</option>
+                    </select>
+                  </div>
+                  <div className="odoo-form-group">
+                    <label className="odoo-label">Localização</label>
+                    <input type="text" className="odoo-input" placeholder="Ex: Luanda" value={novaVaga.localizacao} onChange={e => setNovaVaga({...novaVaga, localizacao: e.target.value})} />
+                  </div>
+                </div>
+                <div className="odoo-form-group" style={{ marginBottom: '16px' }}>
+                  <label className="odoo-label">Descrição Pública da Função *</label>
+                  <textarea required className="odoo-input" rows={4} placeholder="Descreva as responsabilidades, benefícios, etc..." value={novaVaga.descricao} onChange={e => setNovaVaga({...novaVaga, descricao: e.target.value})} />
+                </div>
                 <div className="odoo-form-group" style={{ marginBottom: '24px' }}>
-                  <label className="odoo-label">Critérios de Avaliação (Para a IA) *</label>
-                  <textarea required className="odoo-input" rows={6} placeholder="Ex: Tem de ter no mínimo 3 anos de experiência em React. É obrigatório saber Inglês. Valoriza-se conhecimento de NodeJS." value={novaVaga.criterios} onChange={e => setNovaVaga({...novaVaga, criterios: e.target.value})} />
+                  <label className="odoo-label">Critérios Ocultos para a IA *</label>
+                  <textarea required className="odoo-input" rows={4} placeholder="Ex: Tem de ter no mínimo 3 anos de experiência em React. É obrigatório saber Inglês. Valoriza-se conhecimento de NodeJS." value={novaVaga.criterios} onChange={e => setNovaVaga({...novaVaga, criterios: e.target.value})} />
                   <div style={{ fontSize: '11px', color: 'var(--odoo-text-muted)', marginTop: '4px' }}>
                     Estes critérios serão lidos pela IA para atribuir um Fit Score ao CV do candidato.
                   </div>

@@ -18,6 +18,7 @@ import afiliadosRoutes from './api/afiliadosRoutes';
 import recrutamentoRoutes from './api/recrutamentoRoutes';
 import accountingRoutes from './api/accountingRoutes';
 import emailRoutes from './api/emailRoutes';
+import publicRoutes from './api/publicRoutes';
 
 dotenv.config();
 
@@ -61,6 +62,7 @@ app.use('/api/afiliados', afiliadosRoutes);
 app.use('/api/recrutamento', recrutamentoRoutes);
 app.use('/api/accounting', accountingRoutes);
 app.use('/api/email', emailRoutes);
+app.use('/api/public', publicRoutes);
 
 // Basic health check route
 app.get('/health', (req, res) => {

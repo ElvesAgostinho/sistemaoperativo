@@ -16,6 +16,8 @@ import DataApp from './components/DataApp';
 import AfiliadosApp from './components/AfiliadosApp';
 import ContabilidadeApp from './components/ContabilidadeApp';
 import PortalAfiliado from './components/PortalAfiliado';
+import PortalCarreiras from './pages/public/PortalCarreiras';
+import CandidaturaForm from './pages/public/CandidaturaForm';
 import { LayoutGrid, Users, Briefcase, PieChart, Bot, Monitor, Zap, LogOut, MessageSquare, BookOpen, Mail, Settings, Clock, Globe, Video, Share2, Calculator, Shield } from 'lucide-react';
 
 const IS_AFFILIATE_PORTAL = window.location.pathname === '/portal-afiliado';
@@ -113,6 +115,14 @@ function App() {
 
   if (IS_AFFILIATE_PORTAL) {
     return <PortalAfiliado />;
+  }
+
+  const pathname = window.location.pathname;
+  if (pathname.startsWith('/carreiras')) {
+    if (pathname.includes('/vaga/')) {
+        return <CandidaturaForm />;
+    }
+    return <PortalCarreiras />;
   }
 
   if (!user || !token) {
