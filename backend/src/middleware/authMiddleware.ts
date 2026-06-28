@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { createClient } from '@supabase/supabase-js';
+import jwt from 'jsonwebtoken';
 
 export interface AuthRequest extends Request {
     user?: {
@@ -45,17 +46,23 @@ export const requireAuth = async (req: AuthRequest, res: Response, next: NextFun
     const token = authHeader.split(' ')[1];
 
     try {
-        // Validar o token JWT com Supabase Auth
-        const anonClient = getAnonClient();
-        const { data, error } = await anonClient.auth.getUser(token);
-
-        if (error || !data.user) {
+        // Validar o token JWT localmente
+        const jwtSecret = process.env.JWT_SECRET || '';
+        let decoded: any;
+        try {
+            decoded = jwt.verify(token, jwtSecret);
+        } catch (jwtErr) {
             return res.status(401).json({ error: 'Token inválido ou expirado.' });
         }
 
-        const userId = data.user.id;
+        const userId = decoded.sub;
+        if (!userId) {
+            return res.status(401).json({ error: 'Token inválido ou expirado.' });
+        }
+
         let role = '';
         let empresa_id: string | null = null;
+        const anonClient = getAnonClient();
 
         // ── 1ª tentativa: RPC SECURITY DEFINER (bypassa RLS sem service_role key) ──
         try {
@@ -114,14 +121,14 @@ export const requireAuth = async (req: AuthRequest, res: Response, next: NextFun
 
         // ── 4ª tentativa: user_metadata do JWT (último recurso) ──
         if (!role) {
-            const meta = data.user.user_metadata as any;
+            const meta = decoded.user_metadata as any || {};
             role = meta?.role || 'pending';
             console.warn(`[Auth] fallback user_metadata: userId=${userId}, role=${role}`);
         }
 
         req.user = {
             id: userId,
-            email: data.user.email || '',
+            email: decoded.email || '',
             role,
             empresa_id,
         };
