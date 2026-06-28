@@ -467,7 +467,7 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
         let syncCount = 0;
         
         // Obter domínios do request para Webhook local se aplicável
-        const publicUrl = process.env.BACKEND_PUBLIC_URL || req.headers.origin || `http://${req.headers.host}`;
+        const publicUrl = process.env.BACKEND_PUBLIC_URL || `https://${req.headers.host}`;
 
         // Definir Webhook na Evolution para receber novas mensagens
         try {
@@ -628,7 +628,7 @@ router.post('/evolution/instance', requireAuth, async (req: AuthRequest, res: Re
         const connectData = await connectRes.json();
 
         // Ensure Webhook is set
-        const publicUrl = req.headers.origin || `http://${req.headers.host}`;
+        const publicUrl = process.env.BACKEND_PUBLIC_URL || `https://${req.headers.host}`;
         try {
             await fetch(`${apiUrl}/webhook/set/${instanceName}`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
