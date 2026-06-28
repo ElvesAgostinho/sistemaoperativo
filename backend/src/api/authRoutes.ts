@@ -101,11 +101,17 @@ router.post('/login', async (req: Request, res: Response) => {
         return res.status(400).json({ error: 'Email e password são obrigatórios.' });
     }
 
-    // Autenticar via Supabase Auth
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (error || !data.user || !data.session) {
-        return res.status(401).json({ error: 'Credenciais inválidas.' });
+    if (error) {
+        if (error.message.toLowerCase().includes('email not confirmed')) {
+            return res.status(403).json({ error: 'Por favor, confirme a sua conta através do link enviado para o seu email.' });
+        }
+        return res.status(401).json({ error: 'Credenciais inválidas ou conta não encontrada.' });
+    }
+
+    if (!data.user || !data.session) {
+        return res.status(401).json({ error: 'Falha na autenticação.' });
     }
 
     const userId = data.user.id;

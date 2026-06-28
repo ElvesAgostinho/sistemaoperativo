@@ -71,7 +71,7 @@ export default function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
           throw new Error(data.error || 'Erro ao registar.');
         }
         
-        setSuccess('Registo efetuado com sucesso! Pode agora fazer login.');
+        setSuccess(data.message + ' Verifique a sua caixa de entrada e confirme o email antes de fazer login.');
         setTimeout(() => setIsLogin(true), 2000);
       }
     } catch (err: any) {
