@@ -37,31 +37,33 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 import path from 'path';
 app.use('/tmp', express.static(path.join(__dirname, '..', 'tmp')));
 
+import { requireAuth } from './middleware/authMiddleware';
+
 import authRoutes from './api/authRoutes';
 import openclawRoutes from './api/openclawRoutes';
 import agentWebhookRoutes from './api/agentWebhookRoutes';
 
 // Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/documents', documentRoutes);
-app.use('/api/system', systemRoutes);
-app.use('/api/ai', aiRoutes);
-app.use('/api/hr', hrRoutes);
-app.use('/api/crm', crmRoutes);
-app.use('/api/data', dataRoutes);
-app.use('/api/automation', automationRoutes);
-app.use('/api/whatsapp', whatsappRoutes);
+app.use('/api/documents', requireAuth, documentRoutes);
+app.use('/api/system', requireAuth, systemRoutes);
+app.use('/api/ai', requireAuth, aiRoutes);
+app.use('/api/hr', requireAuth, hrRoutes);
+app.use('/api/crm', requireAuth, crmRoutes);
+app.use('/api/data', requireAuth, dataRoutes);
+app.use('/api/automation', requireAuth, automationRoutes);
+app.use('/api/whatsapp', whatsappRoutes); // WhatsApp internal routes handle auth per endpoint
 app.use('/api/openclaw', openclawRoutes); // Frontend -> VPS 1 -> VPS 2
 app.use('/api/agent', agentWebhookRoutes); // VPS 2 -> VPS 1
-app.use('/api/knowledge', knowledgeRoutes);
-app.use('/api/settings', settingsRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/superadmin', superadminRoutes);
-app.use('/api/reunioes', reunioesRoutes);
-app.use('/api/afiliados', afiliadosRoutes);
-app.use('/api/recrutamento', recrutamentoRoutes);
-app.use('/api/accounting', accountingRoutes);
-app.use('/api/email', emailRoutes);
+app.use('/api/knowledge', requireAuth, knowledgeRoutes);
+app.use('/api/settings', requireAuth, settingsRoutes);
+app.use('/api/users', requireAuth, userRoutes);
+app.use('/api/superadmin', requireAuth, superadminRoutes);
+app.use('/api/reunioes', requireAuth, reunioesRoutes);
+app.use('/api/afiliados', requireAuth, afiliadosRoutes);
+app.use('/api/recrutamento', requireAuth, recrutamentoRoutes);
+app.use('/api/accounting', requireAuth, accountingRoutes);
+app.use('/api/email', requireAuth, emailRoutes);
 app.use('/api/public', publicRoutes);
 
 // Basic health check route
