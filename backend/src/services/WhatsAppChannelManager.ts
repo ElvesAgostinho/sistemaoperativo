@@ -28,10 +28,16 @@ export class WhatsAppChannelManager {
         if (!phoneNumberId || !accessToken) throw new Error('Credenciais da Meta incompletas (falta phoneNumberId ou accessToken)');
 
         const url = `https://graph.facebook.com/v20.0/${phoneNumberId}/messages`;
+        
+        let formattedPhone = phone_number.replace(/\D/g, '');
+        if (formattedPhone.length === 9) {
+            formattedPhone = `351${formattedPhone}`;
+        }
+
         const payload = {
             messaging_product: 'whatsapp',
             recipient_type: 'individual',
-            to: phone_number,
+            to: formattedPhone,
             type: 'text',
             text: {
                 preview_url: false,
@@ -67,8 +73,14 @@ export class WhatsAppChannelManager {
         }
 
         const url = `${evolutionUrl}/message/sendText/${instanceName}`;
+        
+        let formattedPhone = phone_number.replace(/\D/g, '');
+        if (formattedPhone.length === 9) {
+            formattedPhone = `351${formattedPhone}`;
+        }
+
         const payload = {
-            number: phone_number,
+            number: formattedPhone,
             options: {
                 delay: 1200,
                 presence: 'composing'
@@ -103,9 +115,15 @@ export class WhatsAppChannelManager {
 
             const { phoneNumberId, accessToken } = channel.credentials;
             const url = `https://graph.facebook.com/v20.0/${phoneNumberId}/messages`;
+            
+            let formattedPhone = phone_number.replace(/\D/g, '');
+            if (formattedPhone.length === 9) {
+                formattedPhone = `351${formattedPhone}`;
+            }
+
             const payload = {
                 messaging_product: 'whatsapp',
-                to: phone_number,
+                to: formattedPhone,
                 type: 'template',
                 template: {
                     name: template_name,

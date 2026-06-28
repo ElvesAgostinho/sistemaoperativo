@@ -711,8 +711,35 @@ export default function WhatsAppChatApp() {
                                         boxShadow: '0 1px 0.5px rgba(11,20,26,.13)',
                                         position: 'relative'
                                     }}>
-                                        <div style={{ fontSize: '14.2px', color: '#111b21', lineHeight: '19px', paddingRight: '40px', wordWrap: 'break-word' }}>
-                                            {msg.content}
+                                        <div style={{ fontSize: '14.2px', color: '#111b21', lineHeight: '19px', paddingRight: '40px', wordWrap: 'break-word', whiteSpace: 'pre-wrap' }}>
+                                            {(() => {
+                                                const content = msg.content || '';
+                                                const mediaMatch = content.match(/\[MEDIA_BASE64:(data:([^;]+);base64,.*?)\]/);
+                                                if (mediaMatch) {
+                                                    const cleanText = content.replace(mediaMatch[0], '').trim();
+                                                    const dataUri = mediaMatch[1];
+                                                    const mimeType = mediaMatch[2];
+                                                    
+                                                    let mediaElement = null;
+                                                    if (mimeType.startsWith('image/')) {
+                                                        mediaElement = <img src={dataUri} alt="media" style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', marginTop: cleanText ? '8px' : '0' }} />;
+                                                    } else if (mimeType.startsWith('video/')) {
+                                                        mediaElement = <video src={dataUri} controls style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', marginTop: cleanText ? '8px' : '0' }} />;
+                                                    } else if (mimeType.startsWith('audio/')) {
+                                                        mediaElement = <audio src={dataUri} controls style={{ maxWidth: '100%', marginTop: cleanText ? '8px' : '0' }} />;
+                                                    } else {
+                                                        mediaElement = <a href={dataUri} download="ficheiro" style={{ display: 'block', marginTop: cleanText ? '8px' : '0', color: '#027eb5', textDecoration: 'underline' }}>Descarregar Anexo</a>;
+                                                    }
+
+                                                    return (
+                                                        <>
+                                                            {cleanText && <div>{cleanText}</div>}
+                                                            {mediaElement}
+                                                        </>
+                                                    );
+                                                }
+                                                return content;
+                                            })()}
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
                                             {msg.direction === 'outbound' && msg.agent_id && (

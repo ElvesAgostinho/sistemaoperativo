@@ -24,7 +24,31 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                 if (msg.key.fromMe) continue;
 
                 const phoneNumber = msg.key.remoteJid?.split('@')[0];
-                const content = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
+                let content = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
+                
+                if (!content) {
+                    if (msg.message?.imageMessage) {
+                        content = msg.message.imageMessage.caption || '[Imagem]';
+                        if (msg.message.base64) content += `\n\n[MEDIA_BASE64:data:${msg.message.imageMessage.mimetype || 'image/jpeg'};base64,${msg.message.base64}]`;
+                    } else if (msg.message?.videoMessage) {
+                        content = msg.message.videoMessage.caption || '[Vídeo]';
+                        if (msg.message.base64) content += `\n\n[MEDIA_BASE64:data:${msg.message.videoMessage.mimetype || 'video/mp4'};base64,${msg.message.base64}]`;
+                    } else if (msg.message?.audioMessage) {
+                        content = '[Áudio]';
+                        if (msg.message.base64) content += `\n\n[MEDIA_BASE64:data:${msg.message.audioMessage.mimetype || 'audio/ogg'};base64,${msg.message.base64}]`;
+                    } else if (msg.message?.documentMessage) {
+                        content = msg.message.documentMessage.fileName ? `[Documento] ${msg.message.documentMessage.fileName}` : '[Documento]';
+                        if (msg.message.base64) content += `\n\n[MEDIA_BASE64:data:${msg.message.documentMessage.mimetype || 'application/octet-stream'};base64,${msg.message.base64}]`;
+                    } else if (msg.message?.stickerMessage) {
+                        content = '[Sticker]';
+                        if (msg.message.base64) content += `\n\n[MEDIA_BASE64:data:${msg.message.stickerMessage.mimetype || 'image/webp'};base64,${msg.message.base64}]`;
+                    } else if (msg.message?.locationMessage) {
+                        content = '[Localização]';
+                    } else if (Object.keys(msg.message || {}).length > 0) {
+                        content = '[Media]';
+                    }
+                }
+                
                 const contactName = msg.pushName || 'Desconhecido';
 
                 if (!phoneNumber || !content) continue;
@@ -424,7 +448,7 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
                     webhook: {
                         url: `${publicUrl}/api/whatsapp/webhook/evolution`,
                         byEvents: false,
-                        base64: false,
+                        base64: true,
                         events: ["MESSAGES_UPSERT"]
                     }
                 })
@@ -437,10 +461,36 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
 
         for (const chat of chats) {
             const remoteJid = chat.remoteJid || chat.id;
-            // Ignorar grupos (@g.us) e chats sem JID. Vamos PERMITIR @lid porque em algumas instâncias (WhatsApp Cloud/Multi-Device) os IDs vêm mascarados.
-            if (!remoteJid || remoteJid.includes('@g.us')) continue;
             
-            const phoneNumber = remoteJid.split('@')[0];
+            // Tentar descobrir o número real caso seja um @lid
+            let realJid = remoteJid;
+            if (remoteJid?.includes('@lid')) {
+                if (chat.lastMessage?.key?.remoteJidAlt) {
+                    realJid = chat.lastMessage.key.remoteJidAlt;
+                } else {
+                    // Fallback: Chamar fetchProfile para obter o wuid real
+                    try {
+                        const profileRes = await fetch(`${apiUrl}/chat/fetchProfile/${instanceName}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+                            body: JSON.stringify({ number: remoteJid })
+                        });
+                        if (profileRes.ok) {
+                            const profileData = await profileRes.json();
+                            if (profileData.wuid) {
+                                realJid = profileData.wuid;
+                            }
+                        }
+                    } catch (e) {
+                        console.error(`[sync-chats] Falha ao resolver @lid para ${remoteJid}:`, e);
+                    }
+                }
+            }
+            
+            // Ignorar grupos (@g.us) e chats sem JID
+            if (!realJid || realJid.includes('@g.us')) continue; 
+            
+            const phoneNumber = realJid.split('@')[0];
             const contactName = chat.pushName || chat.name || chat.verifiedName || phoneNumber;
             
             // Tentar obter a foto de perfil (com timeout curto para não bloquear)
@@ -551,7 +601,7 @@ router.post('/evolution/instance', requireAuth, async (req: AuthRequest, res: Re
         try {
             await fetch(`${apiUrl}/webhook/set/${instanceName}`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
-                body: JSON.stringify({ webhook: { url: `${publicUrl}/api/whatsapp/webhook/evolution`, byEvents: false, base64: false, events: ["MESSAGES_UPSERT"] } })
+                body: JSON.stringify({ webhook: { url: `${publicUrl}/api/whatsapp/webhook/evolution`, byEvents: false, base64: true, events: ["MESSAGES_UPSERT"] } })
             });
         } catch(e) {}
 
