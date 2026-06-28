@@ -85,9 +85,7 @@ export class WhatsAppChannelManager {
                 delay: 1200,
                 presence: 'composing'
             },
-            textMessage: {
-                text: content
-            }
+            text: content
         };
 
         const response = await fetch(url, {
