@@ -468,15 +468,15 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
                 headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
                 body: JSON.stringify({
                     webhook: {
-                        url: webhookUrl,
+                        url: `${publicUrl}/api/whatsapp/webhook/evolution`,
                         enabled: true,
                         byEvents: false,
                         base64: true,
-                        events: ["MESSAGES_UPSERT"]
+                        events: ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "SEND_MESSAGE"]
                     }
                 })
             }, 10000);
-            console.log('[sync-chats] Webhook configurado em:', webhookUrl);
+            console.log('[sync-chats] Webhook configurado em:', `${publicUrl}/api/whatsapp/webhook/evolution`);
         } catch(e) { console.error("[sync-chats] Erro a definir webhook:", e); }
 
         const chats: any[] = chatsData.records || chatsData.chats || (Array.isArray(chatsData) ? chatsData : []);
