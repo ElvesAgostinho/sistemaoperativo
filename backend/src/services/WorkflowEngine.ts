@@ -108,7 +108,13 @@ export class WorkflowEngine {
         }
 
         if (existing) {
-            // Atualiza last_message_at e possivelmente last_client_message_at
+            // Se recebemos um nome real (que não é apenas o número de telefone), vamos atualizar
+            if (message.contact_name && message.contact_name !== message.phone_number) {
+                // Idealmente só deveríamos atualizar se o nome atual for o telefone, mas como não carregamos o nome anterior aqui, 
+                // atualizar sempre que houver um pushName válido mantém a lista atualizada com o perfil do WhatsApp.
+                updates.contact_name = message.contact_name;
+            }
+            // Atualiza last_message_at e possivelmente last_client_message_at e contact_name
             await supabase.from('wa_conversations').update(updates).eq('id', existing.id);
             return existing.id;
         }

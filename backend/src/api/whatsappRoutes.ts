@@ -31,7 +31,11 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                 if (!msg?.key) continue;
                 if (msg.key.fromMe) continue;
 
-                const phoneNumber = msg.key.remoteJid?.split('@')[0];
+                let phoneNumber = msg.key.remoteJid?.split('@')[0];
+                if (phoneNumber && phoneNumber.includes(':')) {
+                    phoneNumber = phoneNumber.split(':')[0];
+                }
+                if (phoneNumber) phoneNumber = phoneNumber.replace(/\D/g, ''); // Somente números
                 let content = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
                 
                 if (!content) {
@@ -143,7 +147,8 @@ router.post('/webhook/meta', async (req: Request, res: Response) => {
                 const msg = change.messages[0];
                 const contact = change.contacts?.[0];
 
-                const phoneNumber = msg.from;
+                let phoneNumber = msg.from;
+                if (phoneNumber) phoneNumber = phoneNumber.replace(/\D/g, ''); // Remove +, espaços, etc.
                 const content = msg.text?.body || '';
                 const contactName = contact?.profile?.name || phoneNumber;
 
