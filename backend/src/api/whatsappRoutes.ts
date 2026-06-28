@@ -49,7 +49,29 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                     }
                 }
                 
-                const contactName = msg.pushName || phoneNumber;
+                let contactName = msg.pushName;
+                if (!contactName) {
+                    const instanceName = body.instance || req.body?.instance;
+                    const evolutionUrl = process.env.EVOLUTION_API_URL || 'https://evolution.topconsultores.pt';
+                    const apikey = process.env.AUTHENTICATION_API_KEY || '';
+                    if (instanceName && apikey) {
+                        try {
+                            const profileRes = await fetch(`${evolutionUrl}/chat/fetchProfile/${instanceName}`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'apikey': apikey },
+                                body: JSON.stringify({ number: msg.key.remoteJid })
+                            });
+                            if (profileRes.ok) {
+                                const profileData = await profileRes.json();
+                                if (profileData.name) contactName = profileData.name;
+                                else if (profileData.pushName) contactName = profileData.pushName;
+                            }
+                        } catch (e) {
+                            console.error('Erro ao buscar perfil da Evolution API:', e);
+                        }
+                    }
+                }
+                contactName = contactName || phoneNumber;
 
                 if (!phoneNumber || !content) continue;
 
