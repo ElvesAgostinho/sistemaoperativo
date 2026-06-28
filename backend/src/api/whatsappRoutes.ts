@@ -39,21 +39,22 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                 let content = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
                 
                 if (!content) {
+                    const b64 = msg.message?.base64 || msg.base64 || msg.message?.imageMessage?.base64 || msg.message?.videoMessage?.base64 || msg.message?.audioMessage?.base64 || msg.message?.documentMessage?.base64 || msg.message?.stickerMessage?.base64;
                     if (msg.message?.imageMessage) {
                         content = msg.message.imageMessage.caption || '[Imagem]';
-                        if (msg.message.base64) content += `\n\n[MEDIA_BASE64:data:${msg.message.imageMessage.mimetype || 'image/jpeg'};base64,${msg.message.base64}]`;
+                        if (b64) content += `\n\n[MEDIA_BASE64:data:${msg.message.imageMessage.mimetype || 'image/jpeg'};base64,${b64}]`;
                     } else if (msg.message?.videoMessage) {
                         content = msg.message.videoMessage.caption || '[Vídeo]';
-                        if (msg.message.base64) content += `\n\n[MEDIA_BASE64:data:${msg.message.videoMessage.mimetype || 'video/mp4'};base64,${msg.message.base64}]`;
+                        if (b64) content += `\n\n[MEDIA_BASE64:data:${msg.message.videoMessage.mimetype || 'video/mp4'};base64,${b64}]`;
                     } else if (msg.message?.audioMessage) {
                         content = '[Áudio]';
-                        if (msg.message.base64) content += `\n\n[MEDIA_BASE64:data:${msg.message.audioMessage.mimetype || 'audio/ogg'};base64,${msg.message.base64}]`;
+                        if (b64) content += `\n\n[MEDIA_BASE64:data:${msg.message.audioMessage.mimetype || 'audio/ogg'};base64,${b64}]`;
                     } else if (msg.message?.documentMessage) {
                         content = msg.message.documentMessage.fileName ? `[Documento] ${msg.message.documentMessage.fileName}` : '[Documento]';
-                        if (msg.message.base64) content += `\n\n[MEDIA_BASE64:data:${msg.message.documentMessage.mimetype || 'application/octet-stream'};base64,${msg.message.base64}]`;
+                        if (b64) content += `\n\n[MEDIA_BASE64:data:${msg.message.documentMessage.mimetype || 'application/octet-stream'};base64,${b64}]`;
                     } else if (msg.message?.stickerMessage) {
                         content = '[Sticker]';
-                        if (msg.message.base64) content += `\n\n[MEDIA_BASE64:data:${msg.message.stickerMessage.mimetype || 'image/webp'};base64,${msg.message.base64}]`;
+                        if (b64) content += `\n\n[MEDIA_BASE64:data:${msg.message.stickerMessage.mimetype || 'image/webp'};base64,${b64}]`;
                     } else if (msg.message?.locationMessage) {
                         content = '[Localização]';
                     } else if (Object.keys(msg.message || {}).length > 0) {
@@ -746,12 +747,17 @@ router.get('/templates', requireAuth, async (req: Request, res: Response) => {
 router.post('/send', requireAuth, async (req: AuthRequest, res: Response) => {
     const { conversation_id, content, type = 'text', templateData } = req.body;
     
-    // Buscar detalhes da conversa
-    const { data: conv } = await getSupabase(req).from('wa_conversations').select('*').eq('id', conversation_id).single();
+    // Buscar detalhes da conversa com o channel
+    const { data: conv } = await getSupabase(req)
+        .from('wa_conversations')
+        .select('*, wa_channels(provider)')
+        .eq('id', conversation_id)
+        .single();
+        
     if (!conv) return res.status(404).json({ error: 'Conversa não encontrada' });
 
-    // VERIFICAÇÃO 24 HORAS
-    if (type !== 'template') {
+    // VERIFICAÇÃO 24 HORAS Apenas para META
+    if (type !== 'template' && conv.wa_channels?.provider === 'meta') {
         if (!conv.last_client_message_at) {
             return res.status(403).json({ error: 'A janela de 24 horas está fechada. O cliente nunca enviou uma mensagem.' });
         }
@@ -760,7 +766,6 @@ router.post('/send', requireAuth, async (req: AuthRequest, res: Response) => {
             return res.status(403).json({ error: 'A janela de 24 horas expirou. Deve utilizar um Template da Meta para iniciar a conversa.' });
         }
     }
-    if (!conv) return res.status(404).json({ error: 'Conversa não encontrada' });
 
     // 1. Guardar na BD local
     const { data: newMsg } = await getSupabase(req).from('wa_messages').insert({

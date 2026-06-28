@@ -436,9 +436,14 @@ export default function WhatsAppChatApp() {
             if (data.success) {
                 setMessages(prev => prev.map(m => m.id === newMsg.id ? { ...m, status: 'delivered' } : m));
                 setIsBotPaused(true); // Humano respondeu, bot é pausado automaticamente
+            } else {
+                alert('Erro ao enviar mensagem: ' + (data.error || 'Erro desconhecido.'));
+                setMessages(prev => prev.map(m => m.id === newMsg.id ? { ...m, status: 'failed' } : m));
             }
         } catch (err) {
             console.error(err);
+            alert('Erro de rede ao enviar mensagem.');
+            setMessages(prev => prev.map(m => m.id === newMsg.id ? { ...m, status: 'failed' } : m));
         }
     };
 
@@ -742,7 +747,7 @@ export default function WhatsAppChatApp() {
                                         <div style={{ fontSize: '14.2px', color: '#111b21', lineHeight: '19px', paddingRight: '40px', wordWrap: 'break-word', whiteSpace: 'pre-wrap' }}>
                                             {(() => {
                                                 const content = msg.content || '';
-                                                const mediaMatch = content.match(/\[MEDIA_BASE64:(data:([^;]+);base64,.*?)\]/);
+                                                const mediaMatch = content.match(/\[MEDIA_BASE64:(data:([^;]+);base64,[\s\S]*?)\]/);
                                                 if (mediaMatch) {
                                                     const cleanText = content.replace(mediaMatch[0], '').trim();
                                                     const dataUri = mediaMatch[1];
