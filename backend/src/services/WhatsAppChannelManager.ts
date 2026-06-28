@@ -151,4 +151,79 @@ export class WhatsAppChannelManager {
             return false;
         }
     }
+
+    public static async sendMediaMessage(channel_id: string, phone_number: string, base64Data: string, fileName: string): Promise<boolean> {
+        try {
+            const { data: channel } = await supabase.from('wa_channels').select('*').eq('id', channel_id).single();
+            if (!channel) throw new Error('Canal não encontrado');
+
+            // Formatar número de telefone
+            let formattedPhone = phone_number.replace(/\D/g, '');
+            if (formattedPhone.length === 9) {
+                formattedPhone = `351${formattedPhone}`;
+            }
+
+            if (channel.provider === 'evolution') {
+                const { apiUrl, apiKey, instanceName } = channel.credentials;
+                const endpoint = `${apiUrl}/message/sendMediaBase64/${instanceName}`;
+                
+                // base64Data comes as "data:image/png;base64,iVBORw0K..."
+                // Evolution API requires mimetype and base64 without the prefix
+                const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+                if (!matches || matches.length !== 3) {
+                    throw new Error('Formato base64 inválido');
+                }
+                const mimetype = matches[1];
+                const base64Str = matches[2];
+
+                // Mapear mimetype para mediatype suportado pela Evolution API (image, video, audio, document)
+                let mediaType = 'document';
+                if (mimetype.startsWith('image/')) mediaType = 'image';
+                if (mimetype.startsWith('video/')) mediaType = 'video';
+                if (mimetype.startsWith('audio/')) mediaType = 'audio';
+
+                const payload = {
+                    number: formattedPhone,
+                    options: {
+                        delay: 1200,
+                        presence: 'composing'
+                    },
+                    mediaMessage: {
+                        mediatype: mediaType,
+                        fileName: fileName,
+                        media: base64Str
+                    }
+                };
+
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': apiKey,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+                if (!response.ok) {
+                    console.error('[Evolution API Media Error]', data);
+                    return false;
+                }
+                return true;
+
+            } else if (channel.provider === 'meta') {
+                // Para Meta API, o ideal seria fazer upload para o endpoint /media com form-data
+                // e usar o ID retornado. Pela complexidade do multipart/form-data em Node puro com fetch,
+                // vamos levantar um erro claro se for Meta por enquanto, 
+                // a menos que alojemos o ficheiro num Storage e enviemos a URL.
+                console.error('[Meta API] Envio de mídia direta por Base64 ainda não suportado nativamente. Requer Storage URL ou Multipart form-data.');
+                return false;
+            }
+
+            return false;
+        } catch (error) {
+            console.error('[WhatsAppChannelManager] Erro ao enviar mídia:', error);
+            return false;
+        }
+    }
 }

@@ -799,6 +799,66 @@ router.post('/send', requireAuth, async (req: AuthRequest, res: Response) => {
     res.json({ success: true, message: newMsg });
 });
 
+// Rota para envio de Mídia (Base64)
+router.post('/send-media', requireAuth, async (req: AuthRequest, res: Response) => {
+    const { conversation_id, mediaBase64, fileName } = req.body;
+    
+    const { data: conv } = await getSupabase(req)
+        .from('wa_conversations')
+        .select('*, wa_channels(provider)')
+        .eq('id', conversation_id)
+        .single();
+        
+    if (!conv) return res.status(404).json({ error: 'Conversa não encontrada' });
+
+    // VERIFICAÇÃO 24 HORAS Apenas para META
+    if (conv.wa_channels?.provider === 'meta') {
+        if (!conv.last_client_message_at) {
+            return res.status(403).json({ error: 'A janela de 24 horas está fechada.' });
+        }
+        const hoursSinceLastClientMessage = (new Date().getTime() - new Date(conv.last_client_message_at).getTime()) / (1000 * 60 * 60);
+        if (hoursSinceLastClientMessage > 24) {
+            return res.status(403).json({ error: 'A janela de 24 horas expirou.' });
+        }
+    }
+
+    // 1. Guardar na BD local com o placeholder
+    const { data: newMsg } = await getSupabase(req).from('wa_messages').insert({
+        conversation_id,
+        direction: 'outbound',
+        content: `[MEDIA_BASE64:${mediaBase64}]`,
+        status: 'sending',
+        agent_id: req.user!.id
+    }).select().single();
+
+    // 2. Chamar a API externa fisicamente (Evolution ou Meta)
+    const { WhatsAppChannelManager } = require('../services/WhatsAppChannelManager');
+    
+    // Supondo que você criou ou vai criar sendMediaMessage
+    let sent = false;
+    try {
+        sent = await WhatsAppChannelManager.sendMediaMessage(conv.channel_id, conv.phone_number, mediaBase64, fileName);
+    } catch(err) {
+        console.error("Erro ao enviar mídia via API", err);
+    }
+    
+    if (sent) {
+        await getSupabase(req).from('wa_messages').update({ status: 'delivered' }).eq('id', newMsg!.id);
+    } else {
+        await getSupabase(req).from('wa_messages').update({ status: 'failed' }).eq('id', newMsg!.id);
+    }
+    
+    await getSupabase(req).from('wa_conversations').update({ last_message_at: new Date().toISOString() }).eq('id', conversation_id);
+
+    try {
+        await getSupabase(req).from('clientes').update({ bot_paused: true }).eq('telefone', conv.phone_number);
+    } catch(err) {
+        console.error("Erro ao pausar bot localmente", err);
+    }
+
+    res.json({ success: true, message: newMsg });
+});
+
 // Rota para alternar o estado de bot_paused de um cliente
 router.put('/toggle-bot/:telefone', requireAuth, async (req: Request, res: Response) => {
     const telefone = req.params.telefone;

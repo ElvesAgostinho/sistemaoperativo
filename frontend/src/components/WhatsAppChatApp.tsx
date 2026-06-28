@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MessageSquare, Phone, MoreVertical, Search, Paperclip, Smile, Send, Bot, Settings, QrCode, Key, Plus, UserPlus, ClipboardList, Filter, Check, CheckCheck, Clock, AlertCircle } from 'lucide-react';
+import EmojiPicker from 'emoji-picker-react';
 
 interface Conversation {
     id: string;
@@ -34,6 +35,10 @@ export default function WhatsAppChatApp() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputText, setInputText] = useState('');
     const [loading, setLoading] = useState(false);
+    
+    // Emoji e Media
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     
     // View state: 'chats' ou 'settings'
     const [currentView, setCurrentView] = useState<'chats' | 'settings'>('chats');
@@ -447,6 +452,61 @@ export default function WhatsAppChatApp() {
         }
     };
 
+    const handleSendMedia = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || e.target.files.length === 0 || !activeConv) return;
+        
+        const file = e.target.files[0];
+        
+        // Limita a 16MB
+        if (file.size > 16 * 1024 * 1024) {
+            alert('O ficheiro excede o limite de 16MB.');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            const base64Str = event.target?.result as string;
+            // The result looks like: "data:image/png;base64,iVBORw..."
+            // We can send this entirely and let the backend handle it.
+            
+            const newMsg: Message = {
+                id: Date.now().toString(),
+                content: `[MEDIA_BASE64:${base64Str}]`,
+                direction: 'outbound',
+                created_at: new Date().toISOString(),
+                status: 'sending'
+            };
+            
+            setMessages([...messages, newMsg]);
+            
+            try {
+                const token = localStorage.getItem('os_auth_token');
+                const res = await fetch(import.meta.env.VITE_API_URL + '/api/whatsapp/send-media', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        conversation_id: activeConv.id, 
+                        mediaBase64: base64Str,
+                        fileName: file.name
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    setMessages(prev => prev.map(m => m.id === newMsg.id ? { ...m, status: 'delivered' } : m));
+                    setIsBotPaused(true);
+                } else {
+                    alert('Erro ao enviar anexo: ' + (data.error || 'Erro desconhecido.'));
+                    setMessages(prev => prev.map(m => m.id === newMsg.id ? { ...m, status: 'failed' } : m));
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Erro de rede ao enviar anexo.');
+                setMessages(prev => prev.map(m => m.id === newMsg.id ? { ...m, status: 'failed' } : m));
+            }
+        };
+        reader.readAsDataURL(file);
+    };
+
     return (
         <div style={{ display: 'flex', height: '100%', width: '100%', backgroundColor: '#f0f2f5' }}>
             
@@ -828,8 +888,20 @@ export default function WhatsAppChatApp() {
                                     </div>
                                 ) : (
                                     <>
-                                        <Smile size={24} color="#54656f" style={{ cursor: 'pointer' }} />
-                                        <Paperclip size={24} color="#54656f" style={{ cursor: 'pointer' }} />
+                                        <div style={{ position: 'relative' }}>
+                                            <Smile size={24} color={showEmojiPicker ? '#00a884' : '#54656f'} style={{ cursor: 'pointer' }} onClick={() => setShowEmojiPicker(!showEmojiPicker)} />
+                                            {showEmojiPicker && (
+                                                <div style={{ position: 'absolute', bottom: '40px', left: 0, zIndex: 100 }}>
+                                                    <EmojiPicker 
+                                                        onEmojiClick={(emojiData) => setInputText(prev => prev + emojiData.emoji)}
+                                                        width={300}
+                                                        height={400}
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleSendMedia} accept="image/*,video/*,audio/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+                                        <Paperclip size={24} color="#54656f" style={{ cursor: 'pointer' }} onClick={() => fileInputRef.current?.click()} />
                                         {activeConv?.wa_channels?.provider === 'meta' && (
                                             <button 
                                                 onClick={() => setShowTemplateModal(true)}
