@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MessageSquare, Phone, MoreVertical, Search, Paperclip, Smile, Send, Bot, Settings, QrCode, Key, Plus, UserPlus, ClipboardList, Filter } from 'lucide-react';
+import { MessageSquare, Phone, MoreVertical, Search, Paperclip, Smile, Send, Bot, Settings, QrCode, Key, Plus, UserPlus, ClipboardList, Filter, Check, CheckCheck, Clock, AlertCircle } from 'lucide-react';
 
 interface Conversation {
     id: string;
@@ -783,9 +783,14 @@ export default function WhatsAppChatApp() {
                                             <span style={{ fontSize: '11px', color: '#667781', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                 {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 {msg.direction === 'outbound' && (
-                                                    <svg viewBox="0 0 16 11" width="16" height="11">
-                                                        <path fill={msg.status === 'read' ? '#53bdeb' : '#8696a0'} d="M11.832 0l-5.694 6.136L3.921 3.521 2.378 5.21l3.761 4.053L13.374 1.68z"></path>
-                                                    </svg>
+                                                    <>
+                                                        {msg.status === 'sending' && <Clock size={12} color="#8696a0" />}
+                                                        {msg.status === 'sent' && <Check size={14} color="#8696a0" />}
+                                                        {(msg.status === 'delivered' || msg.status === 'read' || !msg.status) && (
+                                                            <CheckCheck size={15} color={msg.status === 'read' ? '#53bdeb' : '#8696a0'} />
+                                                        )}
+                                                        {msg.status === 'failed' && <AlertCircle size={14} color="#f87171" />}
+                                                    </>
                                                 )}
                                             </span>
                                         </div>
