@@ -49,7 +49,7 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                     }
                 }
                 
-                const contactName = msg.pushName || 'Desconhecido';
+                const contactName = msg.pushName || phoneNumber;
 
                 if (!phoneNumber || !content) continue;
 
@@ -115,7 +115,7 @@ router.post('/webhook/meta', async (req: Request, res: Response) => {
 
                 const phoneNumber = msg.from;
                 const content = msg.text?.body || '';
-                const contactName = contact?.profile?.name || 'Desconhecido';
+                const contactName = contact?.profile?.name || phoneNumber;
 
                 const { data: channelId } = await supabase.rpc('get_wa_channel_id', { p_provider: 'meta' });
 

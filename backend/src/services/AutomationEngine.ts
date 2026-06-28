@@ -68,8 +68,8 @@ export class AutomationEngine {
                     const clientPhone = this.parseString(step.config.telefone, context);
                     
                     const clientData = {
-                        empresa_id, // ensure multi-tenant
-                        nome: clientName || 'Desconhecido',
+                        empresa_id,
+                        nome: clientName || clientPhone || 'Sem Nome',
                         telefone: clientPhone
                     };
                     
