@@ -67,11 +67,10 @@ export default function LandingPage({ onGoToApp }: { onGoToApp: () => void }) {
       <section className="hero-section">
         <div className="hero-content">
           <h1 className="hero-title">
-            O seu negócio. As suas regras.<br/>
-            <span className="text-gradient">Pague apenas pelos módulos que utiliza.</span>
+            O seu negócio. <span className="text-gradient">As suas regras.</span>
           </h1>
           <p className="hero-subtitle">
-            Porquê pagar fortunas por um sistema inteiro quando só precisa de uma parte? Subscreva e ative ferramentas de Vendas, RH ou IA à medida que a sua empresa cresce.
+            Pague apenas pelo que usa. Ative módulos de Vendas, RH ou IA apenas quando precisar, à medida que a sua empresa cresce.
           </p>
           
           <ul className="hero-checklist">
