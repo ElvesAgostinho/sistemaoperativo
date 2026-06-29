@@ -289,8 +289,11 @@ router.put('/update-password', requireAuth, async (req: AuthRequest, res: Respon
 
 // ─── Auth: Perfil do utilizador atual ────────────────────────────────────────
 router.get('/me', requireAuth, async (req: AuthRequest, res: Response) => {
-    const adminClient = makeAdminClient();
-    const { data: perfil } = await adminClient
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.replace('Bearer ', '');
+    const userClient = makeUserClient(token);
+    
+    const { data: perfil } = await userClient
         .from('perfis')
         .select('*')
         .eq('id', req.user!.id)
@@ -299,8 +302,7 @@ router.get('/me', requireAuth, async (req: AuthRequest, res: Response) => {
     let modulos = ['hr', 'crm', 'reunioes', 'auto', 'wa', 'kb', 'email', 'data', 'chat', 'pc', 'afiliados', 'contabilidade'];
     if (perfil?.empresa_id) {
         try {
-            const adminClient = makeAdminClient();
-            const { data: row } = await adminClient.from('configuracoes')
+            const { data: row } = await userClient.from('configuracoes')
                 .select('valor')
                 .eq('empresa_id', perfil.empresa_id)
                 .eq('chave', 'modulos_empresa')
