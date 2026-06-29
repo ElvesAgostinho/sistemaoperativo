@@ -638,6 +638,17 @@ router.post('/evolution/instance', requireAuth, async (req: AuthRequest, res: Re
             signal: controller.signal
         });
 
+        // Se existir mas estiver presa (ex: connecting sem dar QR), vamos apagar para forçar recriação
+        if (stateRes.status === 200) {
+            const stateData = await stateRes.json();
+            if (stateData?.instance?.state === 'connecting' || stateData?.instance?.state === 'close') {
+                await fetch(`${apiUrl}/instance/delete/${instanceName}`, {
+                    method: 'DELETE', headers: { 'apikey': apiKey }, signal: controller.signal
+                });
+                stateRes = { status: 404 } as any; // Força recriação abaixo
+            }
+        }
+
         if (stateRes.status === 404) {
             await fetch(`${apiUrl}/instance/create`, {
                 method: 'POST',

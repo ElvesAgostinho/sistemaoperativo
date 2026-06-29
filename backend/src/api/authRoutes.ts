@@ -8,8 +8,8 @@ const router = Router();
 
 // Helper: criar cliente Supabase autenticado com o token do utilizador (respeita RLS)
 const makeUserClient = (accessToken: string) => createClient(
-    process.env.SUPABASE_URL || '',
-    process.env.SUPABASE_KEY || '',
+    process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
+    process.env.SUPABASE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '',
     {
         global: { headers: { Authorization: `Bearer ${accessToken}` } },
         auth: { persistSession: false, autoRefreshToken: false }
@@ -184,10 +184,10 @@ async function processLogin(res: any, data: any, perfil: any, email: string) {
 
     // Fetch contracted modules
     let modulos = ['hr', 'crm', 'reunioes', 'auto', 'wa', 'kb', 'email', 'data', 'chat', 'pc', 'afiliados', 'contabilidade'];
-    if (perfil?.empresa_id) {
+    if (perfil?.empresa_id && data?.session?.access_token) {
         try {
-            const adminClient = makeAdminClient();
-            const { data: row } = await adminClient.from('configuracoes')
+            const userClient = makeUserClient(data.session.access_token);
+            const { data: row } = await userClient.from('configuracoes')
                 .select('valor')
                 .eq('empresa_id', perfil.empresa_id)
                 .eq('chave', 'modulos_empresa')
