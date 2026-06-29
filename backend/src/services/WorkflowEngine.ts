@@ -133,6 +133,15 @@ export class WorkflowEngine {
             .select('id')
             .single();
 
+        // Garantir que o cliente existe no CRM
+        const { data: checkCliente } = await supabase.from('clientes').select('id').eq('telefone', message.phone_number).maybeSingle();
+        if (!checkCliente) {
+            await supabase.from('clientes').insert({
+                nome: message.contact_name || message.phone_number,
+                telefone: message.phone_number
+            });
+        }
+
         return newConv!.id;
     }
 
