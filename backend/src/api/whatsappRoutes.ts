@@ -595,6 +595,15 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
                 if (contactPicture) updatePayload.contact_picture = contactPicture;
                 if (contactName && contactName !== phoneNumber) updatePayload.contact_name = contactName;
                 await getSupabase(req).from('wa_conversations').update(updatePayload).eq('id', conv.id);
+
+                // Garantir que o cliente existe no CRM
+                const { data: checkCliente } = await getSupabase(req).from('clientes').select('id').eq('telefone', phoneNumber).maybeSingle();
+                if (!checkCliente) {
+                    await getSupabase(req).from('clientes').insert({
+                        nome: contactName || phoneNumber,
+                        telefone: phoneNumber
+                    });
+                }
             } else {
                 // Inserir Nova Conversa
                 const { data: newConv, error: insertErr } = await getSupabase(req).from('wa_conversations').insert({
@@ -605,6 +614,17 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
                     status: 'open',
                     last_message_at: lastMsgAt
                 }).select('id').single();
+                
+                if (newConv) convId = newConv.id;
+
+                // Garantir que o cliente existe no CRM
+                const { data: checkCliente } = await getSupabase(req).from('clientes').select('id').eq('telefone', phoneNumber).maybeSingle();
+                if (!checkCliente) {
+                    await getSupabase(req).from('clientes').insert({
+                        nome: contactName || phoneNumber,
+                        telefone: phoneNumber
+                    });
+                }
                 
                 if (insertErr) {
                     console.error(`[sync-chats] Erro ao inserir conversa ${phoneNumber}:`, insertErr.message);
