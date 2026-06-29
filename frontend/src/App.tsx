@@ -132,34 +132,38 @@ function App() {
   // Sincronização Automática (Polling) de Módulos Contratados
   useEffect(() => {
     let interval: any;
-    if (user && token) {
-      interval = setInterval(async () => {
-        try {
-          const res = await fetch(import.meta.env.VITE_API_URL + '/api/auth/me', {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          if (res.ok) {
-            const data = await res.json();
-            if (data.success && data.user) {
-              const prevModules = JSON.stringify(user.modulos_contratados);
-              const newModules = JSON.stringify(data.user.modulos_contratados);
+    
+    const syncUser = async () => {
+      try {
+        const res = await fetch(import.meta.env.VITE_API_URL + '/api/auth/me', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.user) {
+            const prevModules = JSON.stringify(user.modulos_contratados);
+            const newModules = JSON.stringify(data.user.modulos_contratados);
+            
+            if (prevModules !== newModules || user.role !== data.user.role || user.nome !== data.user.nome) {
+              setUser(data.user);
+              localStorage.setItem('os_auth_user', JSON.stringify(data.user));
               
-              if (prevModules !== newModules || user.role !== data.user.role) {
-                setUser(data.user);
-                localStorage.setItem('os_auth_user', JSON.stringify(data.user));
-                
-                // Se o módulo ativo deixar de ser permitido, volta silenciosamente para o Home
-                let companyModules = data.user.modulos_contratados || [];
-                const safeModules = [...companyModules, 'home', 'settings', 'superadmin'];
-                
-                if (data.user.role !== 'superadmin' && !safeModules.includes(activeModule) && !ROLE_PERMISSIONS[data.user.role]?.includes(activeModule)) {
-                  setActiveModule('home');
-                }
+              // Se o módulo ativo deixar de ser permitido, volta silenciosamente para o Home
+              let companyModules = data.user.modulos_contratados || [];
+              const safeModules = [...companyModules, 'home', 'settings', 'superadmin'];
+              
+              if (data.user.role !== 'superadmin' && !safeModules.includes(activeModule) && !ROLE_PERMISSIONS[data.user.role]?.includes(activeModule)) {
+                setActiveModule('home');
               }
             }
           }
-        } catch (err) {}
-      }, 30000); // 30 segundos
+        }
+      } catch (err) {}
+    };
+
+    if (user && token) {
+      syncUser(); // Run immediately on mount or when token/user changes initially
+      interval = setInterval(syncUser, 30000); // 30 segundos
     }
     return () => clearInterval(interval);
   }, [user, token, activeModule]);

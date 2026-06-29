@@ -289,7 +289,8 @@ router.put('/update-password', requireAuth, async (req: AuthRequest, res: Respon
 
 // ─── Auth: Perfil do utilizador atual ────────────────────────────────────────
 router.get('/me', requireAuth, async (req: AuthRequest, res: Response) => {
-    const { data: perfil } = await supabase
+    const adminClient = makeAdminClient();
+    const { data: perfil } = await adminClient
         .from('perfis')
         .select('*')
         .eq('id', req.user!.id)
@@ -388,7 +389,8 @@ router.get('/ai/logs', requireAuth, async (req: AuthRequest, res: Response) => {
         return res.status(403).json({ error: 'Acesso negado.' });
     }
 
-    const { data } = await supabase
+    const adminClient = makeAdminClient();
+    const { data } = await adminClient
         .from('ai_router_logs')
         .select('*')
         .order('criado_em', { ascending: false })
