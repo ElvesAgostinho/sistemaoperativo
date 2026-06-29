@@ -643,14 +643,26 @@ router.post('/evolution/instance', requireAuth, async (req: AuthRequest, res: Re
         } catch(e) {}
 
         // Agora criamos uma instância limpa
-        const createRes = await fetch(`${apiUrl}/instance/create`, {
+        let createRes = await fetch(`${apiUrl}/instance/create`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
             body: JSON.stringify({ instanceName: instanceName, integration: 'WHATSAPP-BAILEYS', qrcode: true }),
             signal: controller.signal
         });
         
-        if (!createRes.ok) {
+        // A Evolution API às vezes demora 1-2 segundos a apagar fisicamente a instância antiga
+        // Se der 403 (Already in use), esperamos um bocado e tentamos de novo
+        if (createRes.status === 403) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            createRes = await fetch(`${apiUrl}/instance/create`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+                body: JSON.stringify({ instanceName: instanceName, integration: 'WHATSAPP-BAILEYS', qrcode: true }),
+                signal: controller.signal
+            });
+        }
+        
+        if (!createRes.ok && createRes.status !== 403) {
             const createErr = await createRes.text();
             clearTimeout(timeoutId);
             return res.status(400).json({ error: `Erro ao criar instância: ${createErr}` });
