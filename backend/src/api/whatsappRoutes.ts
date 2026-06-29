@@ -593,6 +593,7 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
                 // Atualizar foto e última mensagem (opcional)
                 const updatePayload: any = { updated_at: new Date().toISOString() };
                 if (contactPicture) updatePayload.contact_picture = contactPicture;
+                if (contactName && contactName !== phoneNumber) updatePayload.contact_name = contactName;
                 await getSupabase(req).from('wa_conversations').update(updatePayload).eq('id', conv.id);
             } else {
                 // Inserir Nova Conversa
