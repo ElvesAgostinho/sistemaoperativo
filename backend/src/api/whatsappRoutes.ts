@@ -832,13 +832,20 @@ router.post('/send', requireAuth, async (req: AuthRequest, res: Response) => {
     }
 
     // 1. Guardar na BD local
-    const { data: newMsg } = await getSupabase(req).from('wa_messages').insert({
+    const tempMessageId = 'out_' + Date.now() + Math.floor(Math.random() * 1000);
+    const { data: newMsg, error: insertErr } = await getSupabase(req).from('wa_messages').insert({
         conversation_id,
+        message_id: tempMessageId,
         direction: 'outbound',
         content,
         status: 'sending',
         agent_id: req.user!.id
     }).select().single();
+
+    if (insertErr || !newMsg) {
+        console.error('Erro ao inserir mensagem:', insertErr);
+        return res.status(500).json({ error: 'Falha ao guardar mensagem na base de dados.' });
+    }
 
     // 2. Chamar a API externa fisicamente (Evolution ou Meta)
     const { WhatsAppChannelManager } = require('../services/WhatsAppChannelManager');
@@ -887,13 +894,20 @@ router.post('/send-media', requireAuth, async (req: AuthRequest, res: Response) 
     }
 
     // 1. Guardar na BD local com o placeholder
-    const { data: newMsg } = await getSupabase(req).from('wa_messages').insert({
+    const tempMessageId = 'out_media_' + Date.now() + Math.floor(Math.random() * 1000);
+    const { data: newMsg, error: insertErr } = await getSupabase(req).from('wa_messages').insert({
         conversation_id,
+        message_id: tempMessageId,
         direction: 'outbound',
         content: `[MEDIA_BASE64:${mediaBase64}]`,
         status: 'sending',
         agent_id: req.user!.id
     }).select().single();
+
+    if (insertErr || !newMsg) {
+        console.error('Erro ao inserir mensagem de mídia:', insertErr);
+        return res.status(500).json({ error: 'Falha ao guardar mensagem de mídia na base de dados.' });
+    }
 
     // 2. Chamar a API externa fisicamente (Evolution ou Meta)
     const { WhatsAppChannelManager } = require('../services/WhatsAppChannelManager');
