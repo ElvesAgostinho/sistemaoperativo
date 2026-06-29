@@ -633,31 +633,23 @@ router.post('/evolution/instance', requireAuth, async (req: AuthRequest, res: Re
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
         
-        let stateRes = await fetch(`${apiUrl}/instance/connectionState/${instanceName}`, { 
-            headers: { 'apikey': apiKey },
+        // Se estamos a pedir um novo QR code, é porque a ligação antiga caiu, está presa, ou o utilizador quer um novo.
+        // A forma mais resiliente é APAGAR fisicamente a instância antiga e criar uma nova a 100% limpa.
+        try {
+            await fetch(`${apiUrl}/instance/logout/${instanceName}`, { method: 'DELETE', headers: { 'apikey': apiKey }, signal: controller.signal });
+        } catch(e) {}
+        try {
+            await fetch(`${apiUrl}/instance/delete/${instanceName}`, { method: 'DELETE', headers: { 'apikey': apiKey }, signal: controller.signal });
+        } catch(e) {}
+
+        // Agora criamos uma instância limpa
+        await fetch(`${apiUrl}/instance/create`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+            body: JSON.stringify({ instanceName: instanceName, integration: 'WHATSAPP-BAILEYS', qrcode: true }),
             signal: controller.signal
         });
-
-        // Se existir mas estiver presa (ex: connecting sem dar QR), vamos apagar para forçar recriação
-        if (stateRes.status === 200) {
-            const stateData = await stateRes.json();
-            if (stateData?.instance?.state === 'connecting' || stateData?.instance?.state === 'close') {
-                await fetch(`${apiUrl}/instance/delete/${instanceName}`, {
-                    method: 'DELETE', headers: { 'apikey': apiKey }, signal: controller.signal
-                });
-                stateRes = { status: 404 } as any; // Força recriação abaixo
-            }
-        }
-
-        if (stateRes.status === 404) {
-            await fetch(`${apiUrl}/instance/create`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
-                body: JSON.stringify({ instanceName: instanceName, integration: 'WHATSAPP-BAILEYS', qrcode: true }),
-                signal: controller.signal
-            });
-            await new Promise(resolve => setTimeout(resolve, 1000));
-        }
+        await new Promise(resolve => setTimeout(resolve, 1500));
 
         const connectRes = await fetch(`${apiUrl}/instance/connect/${instanceName}`, { 
             headers: { 'apikey': apiKey },
