@@ -68,7 +68,7 @@ BEGIN
     
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Recriar o trigger
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
@@ -155,6 +155,58 @@ CREATE POLICY "Allow read own configuracoes"
             SELECT 1 FROM public.perfis WHERE id = auth.uid() AND role = 'superadmin'
         )
     );
+
+-- ─── Tabelas de Reuniões e Tarefas ───────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.reunioes (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    empresa_id uuid REFERENCES public.empresas(id) ON DELETE CASCADE,
+    titulo text NOT NULL,
+    data_hora timestamp with time zone NOT NULL,
+    link_jitsi text,
+    emails_convidados text,
+    estado text DEFAULT 'Agendada',
+    transcricao_raw text,
+    resumo_ia text,
+    pontos_altos jsonb,
+    pontos_baixos jsonb,
+    recomendacoes jsonb,
+    criado_em timestamp with time zone DEFAULT now(),
+    atualizado_em timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.reunioes_tarefas (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    empresa_id uuid REFERENCES public.empresas(id) ON DELETE CASCADE,
+    reuniao_id uuid REFERENCES public.reunioes(id) ON DELETE CASCADE,
+    descricao text NOT NULL,
+    responsavel text DEFAULT 'Não definido',
+    prazo text DEFAULT 'Sem prazo',
+    criado_em timestamp with time zone DEFAULT now()
+);
+
+ALTER TABLE public.reunioes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.reunioes_tarefas ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view reunioes of their company" ON public.reunioes;
+CREATE POLICY "Users can view reunioes of their company"
+    ON public.reunioes FOR SELECT
+    USING (empresa_id IN (SELECT empresa_id FROM public.perfis WHERE id = auth.uid()) OR EXISTS (SELECT 1 FROM public.perfis WHERE id = auth.uid() AND role = 'superadmin'));
+
+DROP POLICY IF EXISTS "Users can manage reunioes of their company" ON public.reunioes;
+CREATE POLICY "Users can manage reunioes of their company"
+    ON public.reunioes FOR ALL
+    USING (empresa_id IN (SELECT empresa_id FROM public.perfis WHERE id = auth.uid()) OR EXISTS (SELECT 1 FROM public.perfis WHERE id = auth.uid() AND role = 'superadmin'));
+
+DROP POLICY IF EXISTS "Users can view tarefas of their company" ON public.reunioes_tarefas;
+CREATE POLICY "Users can view tarefas of their company"
+    ON public.reunioes_tarefas FOR SELECT
+    USING (empresa_id IN (SELECT empresa_id FROM public.perfis WHERE id = auth.uid()) OR EXISTS (SELECT 1 FROM public.perfis WHERE id = auth.uid() AND role = 'superadmin'));
+
+DROP POLICY IF EXISTS "Users can manage tarefas of their company" ON public.reunioes_tarefas;
+CREATE POLICY "Users can manage tarefas of their company"
+    ON public.reunioes_tarefas FOR ALL
+    USING (empresa_id IN (SELECT empresa_id FROM public.perfis WHERE id = auth.uid()) OR EXISTS (SELECT 1 FROM public.perfis WHERE id = auth.uid() AND role = 'superadmin'));
+
 
 -- ─── 6. CORREÇÃO MANUAL: Definir o utilizador Elves como superadmin ──────────
 -- (Substitua pelo email correto se necessário)
