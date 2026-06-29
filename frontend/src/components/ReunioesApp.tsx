@@ -118,7 +118,7 @@ export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: s
                 setEmailsExternos('');
                 setSelectedInternos([]);
                 fetchReunioes();
-                alert('Reunião agendada com sucesso! Links enviados por email (simulação).');
+                alert('Reunião agendada com sucesso! Os convites foram enviados por email.');
             } else {
                 alert('Erro ao agendar reunião: ' + (data.error || 'Erro desconhecido'));
                 console.error(data.error);

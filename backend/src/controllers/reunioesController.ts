@@ -49,9 +49,21 @@ export const criarReuniao = async (req: Request, res: Response) => {
         const novaReuniaoId = info.id;
 
         if (emails_convidados) {
-            const listaEmails = emails_convidados.split(',').map((e: string) => e.trim());
+            const listaEmails = emails_convidados.split(',').map((e: string) => e.trim()).filter((e: string) => e);
             for (const email of listaEmails) {
-                console.log(`[EmailService] A enviar convite para ${email}: Link da reunião - http://localhost:4000/meetings/${novaReuniaoId}`);
+                const assunto = `Convite para Reunião: ${titulo}`;
+                const corpo = `<div style="font-family:Arial,sans-serif">
+                    <h2>Olá!</h2>
+                    <p>Foi convidado(a) para a reunião <strong>${titulo}</strong>.</p>
+                    <p><strong>Data/Hora:</strong> ${new Date(data_hora).toLocaleString('pt-PT')}</p>
+                    <p><strong>Link da Reunião (Jitsi):</strong> <a href="${linkJitsi}">${linkJitsi}</a></p>
+                    <br/>
+                    <p>Atentamente,<br/>A sua equipa do BusinessOS</p>
+                </div>`;
+                
+                await EmailService.enviarEmailPersonalizado(email, assunto, corpo, empresa_id, supabase).catch(e => {
+                    console.error(`Falha ao enviar email para ${email}`, e);
+                });
             }
         }
 
