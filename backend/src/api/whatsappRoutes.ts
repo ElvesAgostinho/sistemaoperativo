@@ -367,7 +367,7 @@ router.delete('/evolution/instance/logout', requireAuth, async (req: AuthRequest
     const apiKey = process.env.AUTHENTICATION_API_KEY || '';
 
     try {
-        await fetch(`${apiUrl}/instance/logout/${instanceName}`, { method: 'DELETE', headers: { 'apikey': apiKey } });
+        await fetch(`${apiUrl}/instance/delete/${instanceName}`, { method: 'DELETE', headers: { 'apikey': apiKey } });
         await getSupabase(req).from('wa_channels').update({ status: 'disconnected' }).eq('provider', 'evolution');
         return res.json({ success: true });
     } catch (e: any) {
