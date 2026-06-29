@@ -35,13 +35,15 @@ router.post('/register', async (req: Request, res: Response) => {
 
     // Se for funcionário, validar o código de convite antes de criar a conta
     if (!empresaNome && codigoConvite) {
-        const { data: empresaEncontrada, error: empBuscaError } = await supabase
+        const adminClient = makeAdminClient();
+        const { data: empresaEncontrada, error: empBuscaError } = await adminClient
             .from('empresas')
             .select('id')
             .eq('codigo_convite', codigoConvite)
             .single();
 
         if (empBuscaError || !empresaEncontrada) {
+            console.error('[Register] Erro ao buscar codigo de convite:', empBuscaError);
             return res.status(400).json({ error: 'Código de convite inválido ou empresa não encontrada.' });
         }
         empresaId = empresaEncontrada.id;
@@ -68,12 +70,17 @@ router.post('/register', async (req: Request, res: Response) => {
         // Gerar código de convite único
         const uniqueCode = 'EMP-' + Math.random().toString(36).substring(2, 8).toUpperCase();
         
-        // Criar a nova empresa com status pending
-        const { data: novaEmpresa, error: empError } = await supabase
+        // Criar a nova empresa com status pending (Usar adminClient para ultrapassar RLS)
+        const adminClient = makeAdminClient();
+        const { data: novaEmpresa, error: empError } = await adminClient
             .from('empresas')
             .insert({ nome: empresaNome, status: 'pending', codigo_convite: uniqueCode })
             .select()
             .single();
+
+        if (empError) {
+            console.error('[Register] Erro ao criar empresa:', empError);
+        }
 
         if (!empError && novaEmpresa) {
             empresaId = novaEmpresa.id;
@@ -83,7 +90,8 @@ router.post('/register', async (req: Request, res: Response) => {
     // Atualizar o perfil do utilizador acabado de criar pelo trigger do supabase (ou criar se não existir trigger)
     // O trigger do supabase cria a linha em 'perfis' com base nos metadados. Vamos fazer UPDATE para colocar o empresa_id
     if (empresaId) {
-        await supabase.from('perfis').update({ empresa_id: empresaId }).eq('id', userId);
+        const adminClient = makeAdminClient();
+        await adminClient.from('perfis').update({ empresa_id: empresaId }).eq('id', userId);
     }
 
     return res.json({
