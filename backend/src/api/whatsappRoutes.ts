@@ -87,7 +87,7 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                 if (!contactName) {
                     const instanceName = body.instance || req.body?.instance;
                     const evolutionUrl = process.env.EVOLUTION_API_URL || 'https://evolution.topconsultores.pt';
-                    const apikey = process.env.AUTHENTICATION_API_KEY || '';
+                    const apikey = process.env.AUTHENTICATION_API_KEY || 'lXNRduSBn1GY3f0me7JQJFkR2VTMfgCNo0TDUmchX6gedO0o9BOPjupThv0cwsKOXUXOfcJ1q7ahphpplBVd5bQDY1CXA69nHYY2n3JpeUpbPHApQb2tWrIuj3xOg5hMJhHED3U045Mj12vKpt81IuS9CLzBlUwUkG6EHY6qUeBa6QXNPNsrjsh9JXeMfyEapuStkhi6Llt8waNE1IRJjsXA6R4ga3gRgVWXFYt3B0giAb5WSZZXWu7lzAFPkBp8';
                     if (instanceName && apikey) {
                         try {
                             const profileRes = await fetch(`${evolutionUrl}/chat/fetchProfile/${instanceName}`, {
@@ -357,7 +357,7 @@ router.get('/evolution/instance/state', requireAuth, async (req: AuthRequest, re
     if (!empresaId) return res.status(400).json({ error: 'Empresa não encontrada' });
     const instanceName = `SISTEMA_EMP_${empresaId}`;
     const apiUrl = process.env.EVOLUTION_API_URL || 'https://evolution.topconsultores.pt';
-    const apiKey = process.env.AUTHENTICATION_API_KEY || '';
+    const apiKey = process.env.AUTHENTICATION_API_KEY || 'lXNRduSBn1GY3f0me7JQJFkR2VTMfgCNo0TDUmchX6gedO0o9BOPjupThv0cwsKOXUXOfcJ1q7ahphpplBVd5bQDY1CXA69nHYY2n3JpeUpbPHApQb2tWrIuj3xOg5hMJhHED3U045Mj12vKpt81IuS9CLzBlUwUkG6EHY6qUeBa6QXNPNsrjsh9JXeMfyEapuStkhi6Llt8waNE1IRJjsXA6R4ga3gRgVWXFYt3B0giAb5WSZZXWu7lzAFPkBp8';
 
     try {
         const controller = new AbortController();
@@ -386,7 +386,7 @@ router.delete('/evolution/instance/logout', requireAuth, async (req: AuthRequest
     if (!empresaId) return res.status(400).json({ error: 'Empresa não encontrada' });
     const instanceName = `SISTEMA_EMP_${empresaId}`;
     const apiUrl = process.env.EVOLUTION_API_URL || 'https://evolution.topconsultores.pt';
-    const apiKey = process.env.AUTHENTICATION_API_KEY || '';
+    const apiKey = process.env.AUTHENTICATION_API_KEY || 'lXNRduSBn1GY3f0me7JQJFkR2VTMfgCNo0TDUmchX6gedO0o9BOPjupThv0cwsKOXUXOfcJ1q7ahphpplBVd5bQDY1CXA69nHYY2n3JpeUpbPHApQb2tWrIuj3xOg5hMJhHED3U045Mj12vKpt81IuS9CLzBlUwUkG6EHY6qUeBa6QXNPNsrjsh9JXeMfyEapuStkhi6Llt8waNE1IRJjsXA6R4ga3gRgVWXFYt3B0giAb5WSZZXWu7lzAFPkBp8';
 
     try {
         await fetch(`${apiUrl}/instance/logout/${instanceName}`, { method: 'DELETE', headers: { 'apikey': apiKey } });
@@ -408,7 +408,7 @@ router.get('/evolution/debug-chats', requireAuth, async (req: AuthRequest, res: 
     if (!empresaId) return res.status(400).json({ error: 'Empresa não encontrada' });
     const instanceName = `SISTEMA_EMP_${empresaId}`;
     const apiUrl = process.env.EVOLUTION_API_URL || 'https://evolution.topconsultores.pt';
-    const apiKey = process.env.AUTHENTICATION_API_KEY || '';
+    const apiKey = process.env.AUTHENTICATION_API_KEY || 'lXNRduSBn1GY3f0me7JQJFkR2VTMfgCNo0TDUmchX6gedO0o9BOPjupThv0cwsKOXUXOfcJ1q7ahphpplBVd5bQDY1CXA69nHYY2n3JpeUpbPHApQb2tWrIuj3xOg5hMJhHED3U045Mj12vKpt81IuS9CLzBlUwUkG6EHY6qUeBa6QXNPNsrjsh9JXeMfyEapuStkhi6Llt8waNE1IRJjsXA6R4ga3gRgVWXFYt3B0giAb5WSZZXWu7lzAFPkBp8';
 
     const results: any = { instanceName, apiUrl, endpoints: {} };
 
@@ -454,7 +454,7 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
     if (!empresaId) return res.status(400).json({ error: 'Empresa não encontrada' });
     const instanceName = `SISTEMA_EMP_${empresaId}`;
     const apiUrl = process.env.EVOLUTION_API_URL || 'https://evolution.topconsultores.pt';
-    const apiKey = process.env.AUTHENTICATION_API_KEY || '';
+    const apiKey = process.env.AUTHENTICATION_API_KEY || 'lXNRduSBn1GY3f0me7JQJFkR2VTMfgCNo0TDUmchX6gedO0o9BOPjupThv0cwsKOXUXOfcJ1q7ahphpplBVd5bQDY1CXA69nHYY2n3JpeUpbPHApQb2tWrIuj3xOg5hMJhHED3U045Mj12vKpt81IuS9CLzBlUwUkG6EHY6qUeBa6QXNPNsrjsh9JXeMfyEapuStkhi6Llt8waNE1IRJjsXA6R4ga3gRgVWXFYt3B0giAb5WSZZXWu7lzAFPkBp8';
 
     console.log(`[sync-chats] Iniciando sincronização para instância: ${instanceName}`);
 
@@ -652,7 +652,7 @@ router.post('/evolution/instance', requireAuth, async (req: AuthRequest, res: Re
 
     const instanceName = `SISTEMA_EMP_${empresaId}`;
     const apiUrl = process.env.EVOLUTION_API_URL || 'https://evolution.topconsultores.pt';
-    const apiKey = process.env.AUTHENTICATION_API_KEY || '';
+    const apiKey = process.env.AUTHENTICATION_API_KEY || 'lXNRduSBn1GY3f0me7JQJFkR2VTMfgCNo0TDUmchX6gedO0o9BOPjupThv0cwsKOXUXOfcJ1q7ahphpplBVd5bQDY1CXA69nHYY2n3JpeUpbPHApQb2tWrIuj3xOg5hMJhHED3U045Mj12vKpt81IuS9CLzBlUwUkG6EHY6qUeBa6QXNPNsrjsh9JXeMfyEapuStkhi6Llt8waNE1IRJjsXA6R4ga3gRgVWXFYt3B0giAb5WSZZXWu7lzAFPkBp8';
 
     if (!apiKey) return res.status(500).json({ error: 'AUTHENTICATION_API_KEY não configurada no servidor' });
 
