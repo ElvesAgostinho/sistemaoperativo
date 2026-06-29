@@ -295,12 +295,14 @@ router.get('/me', requireAuth, async (req: AuthRequest, res: Response) => {
         .eq('id', req.user!.id)
         .single();
 
-    let modulos = ['hr', 'crm', 'reunioes']; // default
+    let modulos = ['hr', 'crm', 'reunioes', 'auto', 'wa', 'kb', 'email', 'data', 'chat', 'pc', 'afiliados', 'contabilidade'];
     if (perfil?.empresa_id) {
         try {
-            const { data: row } = await supabase.from('configuracoes_sistema')
+            const adminClient = makeAdminClient();
+            const { data: row } = await adminClient.from('configuracoes')
                 .select('valor')
-                .eq('chave', `modulos_empresa_${perfil.empresa_id}`)
+                .eq('empresa_id', perfil.empresa_id)
+                .eq('chave', 'modulos_empresa')
                 .single();
             if (row && row.valor) {
                 modulos = JSON.parse(row.valor);

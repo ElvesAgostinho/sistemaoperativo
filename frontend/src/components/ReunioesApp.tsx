@@ -326,8 +326,8 @@ export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: s
                     <div style={{ flex: 1, position: 'relative' }}>
                         <iframe 
                             ref={iframeRef}
-                            src={`https://meet.jit.si/${roomName}#userInfo.displayName="Participante BusinessOS"`}
-                            allow="camera; microphone; fullscreen; display-capture; autoplay"
+                            src={`${activeReuniao.link_jitsi}#config.prejoinPageEnabled=false`}
+                            allow="camera *; microphone *; fullscreen *; display-capture *; autoplay *"
                             style={{ width: '100%', height: '100%', border: 'none' }}
                         />
                     </div>
@@ -558,8 +558,8 @@ export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: s
                                         <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={14} /> {new Date(r.data_hora).toLocaleString('pt-PT')}</span>
                                         <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }} title={r.emails_convidados}><UserPlus size={14} /> Convidados</span>
                                         <span style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', color: '#3b82f6' }} onClick={() => {
-                                            navigator.clipboard.writeText(`${window.location.origin}/?meetingId=${r.id}`);
-                                            alert("Link copiado!");
+                                            navigator.clipboard.writeText(r.link_jitsi);
+                                            alert("Link da reunião copiado!");
                                         }}><LinkIcon size={14} /> Copiar Link</span>
                                     </div>
                                 </div>
