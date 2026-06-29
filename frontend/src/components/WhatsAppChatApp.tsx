@@ -268,6 +268,7 @@ export default function WhatsAppChatApp() {
             });
             setEvolutionStatus('disconnected');
             setShowQr(false);
+            fetchMessages(); // Refresh UI to hide archived messages
             alert('WhatsApp desconectado com sucesso.');
         } catch(err) { console.error(err); }
     };
