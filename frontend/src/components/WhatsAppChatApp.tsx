@@ -78,28 +78,27 @@ export default function WhatsAppChatApp() {
 
     const formatPhoneNumber = (phone: string) => {
         if (!phone) return '';
-        // Special internal numbers
         if (phone === '0' || phone === 'WhatsApp') return 'WhatsApp';
-        if (phone.includes('@')) return phone.split('@')[0];
+        let cleanPhone = phone.split('@')[0].replace(/\D/g, '');
         
         // Formato Angola (+244)
-        if (phone.startsWith('244') && phone.length === 12) {
-            return `+244 ${phone.slice(3, 6)} ${phone.slice(6, 9)} ${phone.slice(9)}`;
+        if (cleanPhone.startsWith('244') && cleanPhone.length === 12) {
+            return `+244 ${cleanPhone.slice(3, 6)} ${cleanPhone.slice(6, 9)} ${cleanPhone.slice(9)}`;
         }
         // Formato Portugal (+351)
-        if (phone.startsWith('351') && phone.length === 12) {
-            return `+351 ${phone.slice(3, 6)} ${phone.slice(6, 9)} ${phone.slice(9)}`;
+        if (cleanPhone.startsWith('351') && cleanPhone.length === 12) {
+            return `+351 ${cleanPhone.slice(3, 6)} ${cleanPhone.slice(6, 9)} ${cleanPhone.slice(9)}`;
         }
         // Formato Brasil (+55)
-        if (phone.startsWith('55') && phone.length >= 12) {
-            const ddd = phone.slice(2, 4);
-            const part1 = phone.slice(4, 9);
-            const part2 = phone.slice(9);
+        if (cleanPhone.startsWith('55') && cleanPhone.length >= 12) {
+            const ddd = cleanPhone.slice(2, 4);
+            const part1 = cleanPhone.slice(4, cleanPhone.length - 4);
+            const part2 = cleanPhone.slice(cleanPhone.length - 4);
             return `+55 ${ddd} ${part1}-${part2}`;
         }
         // Outros
-        if (phone.length >= 8 && !phone.startsWith('+')) {
-            return '+' + phone;
+        if (cleanPhone.length >= 8) {
+            return '+' + cleanPhone;
         }
         return phone;
     };
@@ -308,6 +307,13 @@ export default function WhatsAppChatApp() {
         fetchConversations();
         fetchAgents();
         fetchEvolutionState();
+        
+        // Polling para simular Realtime (Sincronização a cada 2.5s)
+        const pollInterval = setInterval(() => {
+            fetchConversations();
+        }, 2500);
+        
+        return () => clearInterval(pollInterval);
     }, []);
 
     const handleAssign = async (agentId: string) => {
@@ -344,6 +350,11 @@ export default function WhatsAppChatApp() {
         if (activeConv) {
             fetchMessages();
             fetchBotStatus();
+            
+            const msgInterval = setInterval(() => {
+                fetchMessages();
+            }, 2500);
+            return () => clearInterval(msgInterval);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeConv?.id]);

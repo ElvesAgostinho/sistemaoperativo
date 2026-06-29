@@ -17,7 +17,27 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
     try {
         const body = req.body;
         console.log('[Webhook Evolution] Recebido payload:', JSON.stringify(body, null, 2));
-        // Estrutura básica Evolution API
+        
+        // --- ATUALIZAÇÃO DE STATUS (LIDO, ENTREGUE, etc) ---
+        if (body.event === 'messages.update') {
+            let msgs: any[] = [];
+            if (Array.isArray(body.data)) msgs = body.data;
+            else if (body.data) msgs = [body.data];
+
+            for (const msg of msgs) {
+                if (!msg.key?.id) continue;
+                let newStatus = 'delivered'; // fallback
+                if (msg.update?.status === 3 || msg.update?.status === 'READ') newStatus = 'read';
+                else if (msg.update?.status === 2 || msg.update?.status === 'DELIVERY_ACK') newStatus = 'delivered';
+                else if (msg.update?.status === 1 || msg.update?.status === 'SERVER_ACK') newStatus = 'sent';
+
+                // Usamos o Supabase service role ou normal client se houver
+                await supabase.from('wa_messages').update({ status: newStatus }).eq('message_id', msg.key.id);
+            }
+            return res.status(200).send('OK');
+        }
+
+        // --- MENSAGENS RECEBIDAS (UPSERT) ---
         if (body.event === 'messages.upsert') {
             let msgs: any[] = [];
             if (Array.isArray(body.data)) msgs = body.data;
@@ -31,11 +51,11 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                 if (!msg?.key) continue;
                 if (msg.key.fromMe) continue;
 
-                let phoneNumber = msg.key.remoteJid?.split('@')[0];
-                if (phoneNumber && phoneNumber.includes(':')) {
+                let phoneNumber = msg.key.remoteJid?.split('@')[0] || '';
+                if (phoneNumber.includes(':')) {
                     phoneNumber = phoneNumber.split(':')[0];
                 }
-                if (phoneNumber) phoneNumber = phoneNumber.replace(/\D/g, ''); // Somente números
+                phoneNumber = phoneNumber.replace(/\D/g, ''); // Limpeza profunda
                 let content = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
                 
                 if (!content) {
@@ -62,7 +82,7 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                     }
                 }
                 
-                let contactName = msg.pushName;
+                let contactName = msg.pushName || body.data?.pushName || msg.message?.pushName || '';
                 if (!contactName) {
                     const instanceName = body.instance || req.body?.instance;
                     const evolutionUrl = process.env.EVOLUTION_API_URL || 'https://evolution.topconsultores.pt';
@@ -246,6 +266,7 @@ router.get('/conversations', requireAuth, async (req: AuthRequest, res: Response
     let query = getSupabase(req)
         .from('wa_conversations')
         .select('*, wa_channels(name, provider)')
+        .neq('status', 'archived')
         .order('last_message_at', { ascending: false });
 
     if (req.user && req.user.role !== 'admin' && req.user.role !== 'supervisor' && req.user.role !== 'superadmin') {
@@ -367,8 +388,13 @@ router.delete('/evolution/instance/logout', requireAuth, async (req: AuthRequest
     const apiKey = process.env.AUTHENTICATION_API_KEY || '';
 
     try {
-        await fetch(`${apiUrl}/instance/delete/${instanceName}`, { method: 'DELETE', headers: { 'apikey': apiKey } });
-        await getSupabase(req).from('wa_channels').update({ status: 'disconnected' }).eq('provider', 'evolution');
+        await fetch(`${apiUrl}/instance/logout/${instanceName}`, { method: 'DELETE', headers: { 'apikey': apiKey } });
+        const userClient = getSupabase(req);
+        const { data: channel } = await userClient.from('wa_channels').select('id').eq('provider', 'evolution').maybeSingle();
+        if (channel) {
+            await userClient.from('wa_conversations').update({ status: 'archived' }).eq('channel_id', channel.id);
+        }
+        await userClient.from('wa_channels').update({ status: 'disconnected' }).eq('provider', 'evolution');
         return res.json({ success: true });
     } catch (e: any) {
         return res.status(500).json({ error: e.message });
@@ -675,7 +701,7 @@ router.post('/evolution/instance', requireAuth, async (req: AuthRequest, res: Re
         try {
             await fetch(`${apiUrl}/webhook/set/${instanceName}`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
-                body: JSON.stringify({ webhook: { url: `${publicUrl}/api/whatsapp/webhook/evolution`, enabled: true, byEvents: false, base64: true, events: ["MESSAGES_UPSERT"] } })
+                body: JSON.stringify({ webhook: { url: `${publicUrl}/api/whatsapp/webhook/evolution`, enabled: true, byEvents: false, base64: true, events: ["MESSAGES_UPSERT", "MESSAGES_UPDATE"] } })
             });
         } catch(e) {}
 
