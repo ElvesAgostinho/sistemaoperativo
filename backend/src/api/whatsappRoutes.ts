@@ -643,12 +643,19 @@ router.post('/evolution/instance', requireAuth, async (req: AuthRequest, res: Re
         } catch(e) {}
 
         // Agora criamos uma instância limpa
-        await fetch(`${apiUrl}/instance/create`, {
+        const createRes = await fetch(`${apiUrl}/instance/create`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
             body: JSON.stringify({ instanceName: instanceName, integration: 'WHATSAPP-BAILEYS', qrcode: true }),
             signal: controller.signal
         });
+        
+        if (!createRes.ok) {
+            const createErr = await createRes.text();
+            clearTimeout(timeoutId);
+            return res.status(400).json({ error: `Erro ao criar instância: ${createErr}` });
+        }
+
         await new Promise(resolve => setTimeout(resolve, 1500));
 
         const connectRes = await fetch(`${apiUrl}/instance/connect/${instanceName}`, { 
@@ -657,6 +664,11 @@ router.post('/evolution/instance', requireAuth, async (req: AuthRequest, res: Re
         });
         clearTimeout(timeoutId);
         
+        if (!connectRes.ok) {
+            const connectErr = await connectRes.text();
+            return res.status(400).json({ error: `Erro ao conectar instância: ${connectErr}` });
+        }
+
         const connectData = await connectRes.json();
 
         // Ensure Webhook is set
