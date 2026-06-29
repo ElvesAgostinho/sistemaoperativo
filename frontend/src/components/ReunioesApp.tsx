@@ -558,7 +558,7 @@ export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: s
                                         <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={14} /> {new Date(r.data_hora).toLocaleString('pt-PT')}</span>
                                         <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }} title={r.emails_convidados}><UserPlus size={14} /> Convidados</span>
                                         <span style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', color: '#3b82f6' }} onClick={() => {
-                                            navigator.clipboard.writeText(`http://localhost:4000/?meetingId=${r.id}`);
+                                            navigator.clipboard.writeText(`${window.location.origin}/?meetingId=${r.id}`);
                                             alert("Link copiado!");
                                         }}><LinkIcon size={14} /> Copiar Link</span>
                                     </div>
