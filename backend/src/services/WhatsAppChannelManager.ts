@@ -65,8 +65,8 @@ export class WhatsAppChannelManager {
 
     private static async sendEvolutionMessage(credentials: any, phone_number: string, content: string): Promise<boolean> {
         const instanceName = credentials.instanceName;
-        const evolutionUrl = process.env.EVOLUTION_API_URL;
-        const apikey = process.env.AUTHENTICATION_API_KEY;
+        const evolutionUrl = process.env.EVOLUTION_API_URL || 'https://evolution.topconsultores.pt';
+        const apikey = process.env.AUTHENTICATION_API_KEY || '***REMOVED_EVOLUTION_API_KEY***';
 
         if (!evolutionUrl || !apikey || !instanceName) {
             throw new Error('Configuração Evolution incompleta');
