@@ -23,6 +23,17 @@ interface Tarefa {
     estado: string;
 }
 
+const fetchWithAuth = async (url: string, options: any = {}) => {
+    const token = localStorage.getItem('os_auth_token');
+    return fetch(url, {
+        ...options,
+        headers: {
+            ...options.headers,
+            'Authorization': `Bearer ${token}`
+        }
+    });
+};
+
 export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: string }) {
     const [view, setView] = useState<'list' | 'room' | 'summary'>('list');
     const [reunioes, setReunioes] = useState<Reuniao[]>([]);
@@ -63,7 +74,7 @@ export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: s
 
     const fetchReunioes = async () => {
         try {
-            const res = await fetch(import.meta.env.VITE_API_URL + '/api/reunioes');
+            const res = await fetchWithAuth(import.meta.env.VITE_API_URL + '/api/reunioes');
             const data = await res.json();
             if (data.success) {
                 setReunioes(data.reunioes);
@@ -75,7 +86,7 @@ export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: s
 
     const fetchColaboradores = async () => {
         try {
-            const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/employees');
+            const res = await fetchWithAuth(import.meta.env.VITE_API_URL + '/api/hr/employees');
             const data = await res.json();
             if (data.success) {
                 setColaboradores(data.employees.filter((e: any) => e.email)); // Apenas os que têm email
@@ -95,7 +106,7 @@ export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: s
         ].join(', ');
 
         try {
-            const res = await fetch(import.meta.env.VITE_API_URL + '/api/reunioes', {
+            const res = await fetchWithAuth(import.meta.env.VITE_API_URL + '/api/reunioes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ titulo, data_hora: dataHora, emails_convidados: allEmails })
@@ -108,8 +119,12 @@ export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: s
                 setSelectedInternos([]);
                 fetchReunioes();
                 alert('Reunião agendada com sucesso! Links enviados por email (simulação).');
+            } else {
+                alert('Erro ao agendar reunião: ' + (data.error || 'Erro desconhecido'));
+                console.error(data.error);
             }
-        } catch (e) {
+        } catch (e: any) {
+            alert('Erro de rede ao agendar reunião: ' + e.message);
             console.error(e);
         } finally {
             setLoading(false);
@@ -122,7 +137,7 @@ export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: s
         const isoStr = agora.toISOString();
         
         try {
-            const res = await fetch(import.meta.env.VITE_API_URL + '/api/reunioes', {
+            const res = await fetchWithAuth(import.meta.env.VITE_API_URL + '/api/reunioes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -135,10 +150,12 @@ export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: s
             if (data.success) {
                 fetchReunioes();
                 joinMeeting(data.id);
+            } else {
+                alert('Erro ao criar reunião instantânea: ' + (data.error || 'Erro desconhecido'));
             }
-        } catch (e) {
+        } catch (e: any) {
             console.error(e);
-            alert('Erro ao criar reunião instantânea.');
+            alert('Erro de rede ao criar reunião instantânea: ' + e.message);
         } finally {
             setLoading(false);
         }
@@ -146,7 +163,7 @@ export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: s
 
     const joinMeeting = async (id: number) => {
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/reunioes/${id}`);
+            const res = await fetchWithAuth(`${import.meta.env.VITE_API_URL}/api/reunioes/${id}`);
             const data = await res.json();
             if (data.success) {
                 setActiveReuniao(data.reuniao);
@@ -168,7 +185,7 @@ export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: s
         if (!activeReuniao) return;
         setLoading(true);
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/reunioes/${activeReuniao.id}/tarefas`, {
+            const res = await fetchWithAuth(`${import.meta.env.VITE_API_URL}/api/reunioes/${activeReuniao.id}/tarefas`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ descricao: novaTarefaDescricao, responsavel: novaTarefaResp, prazo: novaTarefaPrazo })
@@ -256,7 +273,7 @@ export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: s
 
         setLoading(true);
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/reunioes/${activeReuniao.id}/process-transcript`, {
+            const res = await fetchWithAuth(`${import.meta.env.VITE_API_URL}/api/reunioes/${activeReuniao.id}/process-transcript`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ transcricao: transcription || "Reunião curta ou sem áudio detetado." })
