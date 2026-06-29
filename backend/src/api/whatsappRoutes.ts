@@ -338,12 +338,23 @@ router.get('/evolution/instance/state', requireAuth, async (req: AuthRequest, re
     const apiKey = process.env.AUTHENTICATION_API_KEY || '';
 
     try {
-        const stateRes = await fetch(`${apiUrl}/instance/connectionState/${instanceName}`, { headers: { 'apikey': apiKey } });
-        if (stateRes.status === 404) return res.json({ success: true, state: 'disconnected' });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+        const stateRes = await fetch(`${apiUrl}/instance/connectionState/${instanceName}`, { 
+            headers: { 'apikey': apiKey },
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (stateRes.status === 404) {
+            return res.json({ success: true, state: 'disconnected', message: 'Instância não encontrada' });
+        }
+
         const stateData = await stateRes.json();
-        return res.json({ success: true, state: stateData.instance?.state || 'disconnected' });
-    } catch (e: any) {
-        return res.status(500).json({ error: e.message });
+        return res.json({ success: true, state: stateData.instance?.state || 'unknown' });
+    } catch (err: any) {
+        return res.status(500).json({ error: err.name === 'AbortError' ? 'Timeout ao contactar Evolution API' : err.message });
     }
 });
 
@@ -619,18 +630,30 @@ router.post('/evolution/instance', requireAuth, async (req: AuthRequest, res: Re
     if (!apiKey) return res.status(500).json({ error: 'AUTHENTICATION_API_KEY não configurada no servidor' });
 
     try {
-        let stateRes = await fetch(`${apiUrl}/instance/connectionState/${instanceName}`, { headers: { 'apikey': apiKey } });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+        
+        let stateRes = await fetch(`${apiUrl}/instance/connectionState/${instanceName}`, { 
+            headers: { 'apikey': apiKey },
+            signal: controller.signal
+        });
 
         if (stateRes.status === 404) {
             await fetch(`${apiUrl}/instance/create`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
-                body: JSON.stringify({ instanceName: instanceName, integration: 'WHATSAPP-BAILEYS', qrcode: true })
+                body: JSON.stringify({ instanceName: instanceName, integration: 'WHATSAPP-BAILEYS', qrcode: true }),
+                signal: controller.signal
             });
             await new Promise(resolve => setTimeout(resolve, 1000));
         }
 
-        const connectRes = await fetch(`${apiUrl}/instance/connect/${instanceName}`, { headers: { 'apikey': apiKey } });
+        const connectRes = await fetch(`${apiUrl}/instance/connect/${instanceName}`, { 
+            headers: { 'apikey': apiKey },
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        
         const connectData = await connectRes.json();
 
         // Ensure Webhook is set
@@ -654,7 +677,7 @@ router.post('/evolution/instance', requireAuth, async (req: AuthRequest, res: Re
             return res.json({ success: true, state: connectData.instance?.state || 'connected', message: 'Já ligado ou a aguardar' });
         }
     } catch (err: any) {
-        return res.status(500).json({ error: err.message });
+        return res.status(500).json({ error: err.name === 'AbortError' ? 'Timeout ao contactar Evolution API' : err.message });
     }
 });
 

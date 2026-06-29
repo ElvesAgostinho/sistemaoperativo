@@ -50,7 +50,13 @@ export class EmailService {
 
     private static async createTransporter(empresaId?: number, userClient?: any) {
         const { host, port, secure, user, pass } = await this.getSmtpConfig(empresaId, userClient);
-        return nodemailer.createTransport({ host, port, secure, auth: { user, pass } });
+        return nodemailer.createTransport({ 
+            host, 
+            port, 
+            secure, 
+            auth: { user, pass },
+            tls: { rejectUnauthorized: false }
+        });
     }
 
     public static async isConfigured(empresaId?: number, userClient?: any): Promise<boolean> {
