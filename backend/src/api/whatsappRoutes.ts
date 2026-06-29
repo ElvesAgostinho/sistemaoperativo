@@ -633,42 +633,29 @@ router.post('/evolution/instance', requireAuth, async (req: AuthRequest, res: Re
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
         
-        // Se estamos a pedir um novo QR code, é porque a ligação antiga caiu, está presa, ou o utilizador quer um novo.
-        // A forma mais resiliente é APAGAR fisicamente a instância antiga e criar uma nova a 100% limpa.
-        try {
-            await fetch(`${apiUrl}/instance/logout/${instanceName}`, { method: 'DELETE', headers: { 'apikey': apiKey }, signal: controller.signal });
-        } catch(e) {}
-        try {
-            await fetch(`${apiUrl}/instance/delete/${instanceName}`, { method: 'DELETE', headers: { 'apikey': apiKey }, signal: controller.signal });
-        } catch(e) {}
-
-        // Agora criamos uma instância limpa
+        // Tentar criar a instância (se não existir, cria. se existir, dá 403)
         let createRes = await fetch(`${apiUrl}/instance/create`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
             body: JSON.stringify({ instanceName: instanceName, integration: 'WHATSAPP-BAILEYS', qrcode: true }),
             signal: controller.signal
         });
-        
-        // A Evolution API às vezes demora 1-2 segundos a apagar fisicamente a instância antiga
-        // Se der 403 (Already in use), esperamos um bocado e tentamos de novo
+
         if (createRes.status === 403) {
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            createRes = await fetch(`${apiUrl}/instance/create`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
-                body: JSON.stringify({ instanceName: instanceName, integration: 'WHATSAPP-BAILEYS', qrcode: true }),
-                signal: controller.signal
-            });
-        }
-        
-        if (!createRes.ok && createRes.status !== 403) {
+            // A instância já existe. Em vez de apagar (o que pode causar bloqueios e demorar), 
+            // fazemos apenas logout para garantir que ela fica limpa e pronta para um novo QR Code.
+            try {
+                await fetch(`${apiUrl}/instance/logout/${instanceName}`, { method: 'DELETE', headers: { 'apikey': apiKey }, signal: controller.signal });
+            } catch(e) {}
+        } else if (!createRes.ok) {
+            // Se falhou por outro motivo (ex: erro interno da Evolution)
             const createErr = await createRes.text();
             clearTimeout(timeoutId);
             return res.status(400).json({ error: `Erro ao criar instância: ${createErr}` });
         }
 
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        // Uma pequena pausa para a Evolution API respirar após o logout/create
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
         const connectRes = await fetch(`${apiUrl}/instance/connect/${instanceName}`, { 
             headers: { 'apikey': apiKey },
