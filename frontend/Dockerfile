@@ -17,7 +17,7 @@ RUN npm ci
 COPY . .
 
 # Build de produção
-RUN npm run build
+RUN npx vite build
 
 # Production stage
 FROM nginx:alpine
