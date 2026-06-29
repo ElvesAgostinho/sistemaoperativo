@@ -31,32 +31,31 @@ router.post('/register', async (req: Request, res: Response) => {
         return res.status(400).json({ error: 'Email, password e nome são obrigatórios.' });
     }
 
-    let empresaId = null;
-
-    // Se for funcionário, validar o código de convite antes de criar a conta
+    // Se for funcionário, validar o código de convite ANTES de registar o utilizador
     if (!empresaNome && codigoConvite) {
-        const adminClient = makeAdminClient();
-        const { data: empresaEncontrada, error: empBuscaError } = await adminClient
-            .from('empresas')
-            .select('id')
-            .eq('codigo_convite', codigoConvite)
-            .single();
-
-        if (empBuscaError || !empresaEncontrada) {
-            console.error('[Register] Erro ao buscar codigo de convite:', empBuscaError);
+        // Usar a RPC criada na BD que faz a verificação sem precisar de Service Key
+        const { data: isValid, error: rpcError } = await supabase.rpc('check_invite_code', { codigo: codigoConvite });
+        
+        if (rpcError || !isValid) {
+            console.error('[Register] Erro ao validar codigo de convite:', rpcError);
             return res.status(400).json({ error: 'Código de convite inválido ou empresa não encontrada.' });
         }
-        empresaId = empresaEncontrada.id;
     } else if (!empresaNome && !codigoConvite) {
         return res.status(400).json({ error: 'É obrigatório informar o nome da empresa ou o código de convite.' });
     }
 
     // Registo do utilizador no Auth
+    // O Trigger handle_new_user na Base de Dados tratará da criação da empresa e associação do perfil
     const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-            data: { nome, role: empresaNome ? 'admin' : 'pending' }, // admin se for nova empresa, pending se for funcionário
+            data: { 
+                nome, 
+                role: empresaNome ? 'admin' : 'pending',
+                empresaNome: empresaNome || null,
+                codigoConvite: codigoConvite || null
+            },
         },
     });
 
@@ -64,40 +63,10 @@ router.post('/register', async (req: Request, res: Response) => {
         return res.status(400).json({ error: authError?.message || 'Erro ao criar utilizador.' });
     }
 
-    const userId = authData.user.id;
-
-    if (empresaNome) {
-        // Gerar código de convite único
-        const uniqueCode = 'EMP-' + Math.random().toString(36).substring(2, 8).toUpperCase();
-        
-        // Criar a nova empresa com status pending (Usar adminClient para ultrapassar RLS)
-        const adminClient = makeAdminClient();
-        const { data: novaEmpresa, error: empError } = await adminClient
-            .from('empresas')
-            .insert({ nome: empresaNome, status: 'pending', codigo_convite: uniqueCode })
-            .select()
-            .single();
-
-        if (empError) {
-            console.error('[Register] Erro ao criar empresa:', empError);
-        }
-
-        if (!empError && novaEmpresa) {
-            empresaId = novaEmpresa.id;
-        }
-    }
-
-    // Atualizar o perfil do utilizador acabado de criar pelo trigger do supabase (ou criar se não existir trigger)
-    // O trigger do supabase cria a linha em 'perfis' com base nos metadados. Vamos fazer UPDATE para colocar o empresa_id
-    if (empresaId) {
-        const adminClient = makeAdminClient();
-        await adminClient.from('perfis').update({ empresa_id: empresaId }).eq('id', userId);
-    }
-
     return res.json({
         success: true,
         message: empresaNome ? 'Empresa registada com sucesso. Aguarde aprovação do SuperAdmin.' : 'Utilizador registado. Aguarde aprovação do seu Admin.',
-        user: { id: userId, email: authData.user.email },
+        user: { id: authData.user.id, email: authData.user.email },
     });
 });
 
