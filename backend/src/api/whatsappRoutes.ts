@@ -50,7 +50,7 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                 // Ignorar mensagens enviadas por nós mesmos
                 if (!msg?.key) continue;
                 if (msg.key.fromMe) continue;
-                if (msg.key.remoteJid?.includes('@g.us') || msg.key.remoteJid?.includes('@lid')) continue;
+                if (msg.key.remoteJid?.includes('@g.us')) continue;
 
                 let phoneNumber = msg.key.remoteJid?.split('@')[0] || '';
                 if (phoneNumber.includes(':')) {
@@ -568,8 +568,8 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
                 }
             }
             
-            // Ignorar grupos (@g.us) e chats em formato @lid para evitar contactos duplicados
-            if (!realJid || realJid.includes('@g.us') || realJid.includes('@lid')) continue; 
+            // Ignorar apenas grupos (@g.us) para evitar misturar com os chats normais
+            if (!realJid || realJid.includes('@g.us')) continue; 
             
             const phoneNumber = realJid.split('@')[0].replace(/\D/g, ''); // Garantir limpeza
             const contactName = chat.pushName || chat.name || chat.verifiedName || phoneNumber;

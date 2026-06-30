@@ -1079,6 +1079,22 @@ export default function WhatsAppChatApp() {
                     </div>
                 </div>
             )}
+
+            {isSyncingChats && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ backgroundColor: '#fff', padding: '30px', borderRadius: '12px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '320px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+                            <div style={{ width: '20px', height: '20px', border: '3px solid #f3f3f3', borderTop: '3px solid #10b981', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                            <h3 style={{ margin: 0, color: '#0f172a', fontSize: '18px' }}>
+                                A Sincronizar Contactos...
+                            </h3>
+                        </div>
+                        <div style={{ width: '256px', height: '140px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                            <span style={{ color: '#64748b', fontSize: '14px', textAlign: 'center', padding: '0 10px' }}>A puxar mensagens e fotos antigas. Isto pode demorar alguns segundos.</span>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
