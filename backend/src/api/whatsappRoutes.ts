@@ -118,8 +118,9 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                 if (!phoneNumber || !content) continue;
 
                 // Para já, assumimos um channel_id fixo ou buscamos pelo ID da instância no req.body
-                // Vamos simular buscar o channel Evolution
-                const { data: channelId } = await supabase.rpc('get_wa_channel_id', { p_provider: 'evolution' });
+                // Vamos buscar o channel Evolution diretamente da tabela wa_channels
+                const { data: channelData } = await supabase.from('wa_channels').select('id').eq('provider', 'evolution').order('created_at', { ascending: false }).limit(1).maybeSingle();
+                const channelId = channelData?.id;
                 if (!channelId) continue;
 
                 await WorkflowEngine.processIncomingMessage({
@@ -182,7 +183,8 @@ router.post('/webhook/meta', async (req: Request, res: Response) => {
                 const content = msg.text?.body || '';
                 const contactName = contact?.profile?.name || phoneNumber;
 
-                const { data: channelId } = await supabase.rpc('get_wa_channel_id', { p_provider: 'meta' });
+                const { data: channelData } = await supabase.from('wa_channels').select('id').eq('provider', 'meta').order('created_at', { ascending: false }).limit(1).maybeSingle();
+                const channelId = channelData?.id;
 
                 if (channelId) {
                     await WorkflowEngine.processIncomingMessage({
