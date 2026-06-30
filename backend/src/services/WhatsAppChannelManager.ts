@@ -31,7 +31,8 @@ export class WhatsAppChannelManager {
         
         let formattedPhone = phone_number.replace(/\D/g, '');
         if (formattedPhone.length === 9) {
-            formattedPhone = `351${formattedPhone}`;
+            const defaultCountry = process.env.DEFAULT_COUNTRY_CODE || '244';
+            formattedPhone = `${defaultCountry}${formattedPhone}`;
         }
 
         const payload = {
@@ -78,7 +79,8 @@ export class WhatsAppChannelManager {
         if (!formattedPhone.includes('@lid')) {
             formattedPhone = formattedPhone.replace(/\D/g, '');
             if (formattedPhone.length === 9) {
-                formattedPhone = `351${formattedPhone}`;
+                const defaultCountry = process.env.DEFAULT_COUNTRY_CODE || '244';
+                formattedPhone = `${defaultCountry}${formattedPhone}`;
             }
         }
 
@@ -122,7 +124,8 @@ export class WhatsAppChannelManager {
             
             let formattedPhone = phone_number.replace(/\D/g, '');
             if (formattedPhone.length === 9) {
-                formattedPhone = `351${formattedPhone}`;
+                const defaultCountry = process.env.DEFAULT_COUNTRY_CODE || '244';
+                formattedPhone = `${defaultCountry}${formattedPhone}`;
             }
 
             const payload = {
@@ -166,7 +169,8 @@ export class WhatsAppChannelManager {
             // Formatar número de telefone
             let formattedPhone = phone_number.replace(/\D/g, '');
             if (formattedPhone.length === 9) {
-                formattedPhone = `351${formattedPhone}`;
+                const defaultCountry = process.env.DEFAULT_COUNTRY_CODE || '244';
+                formattedPhone = `${defaultCountry}${formattedPhone}`;
             }
 
             if (channel.provider === 'evolution') {
