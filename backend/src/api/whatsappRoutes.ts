@@ -693,7 +693,7 @@ router.post('/evolution/instance', requireAuth, async (req: AuthRequest, res: Re
         let createRes = await fetch(`${apiUrl}/instance/create`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
-            body: JSON.stringify({ instanceName: instanceName, qrcode: true }),
+            body: JSON.stringify({ instanceName: instanceName, integration: 'WHATSAPP-BAILEYS', qrcode: true }),
             signal: controller.signal
         });
 
