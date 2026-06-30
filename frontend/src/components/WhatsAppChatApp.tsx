@@ -642,31 +642,9 @@ export default function WhatsAppChatApp() {
                                     </div>
                                 </div>
                             ) : (
-                                <>
-                                    {showQr ? (
-                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', backgroundColor: '#f8fafc', padding: '20px', borderRadius: '8px' }}>
-                                            <div style={{ width: '220px', height: '220px', backgroundColor: '#fff', border: qrCodeData ? 'none' : '2px dashed #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', borderRadius: '8px', overflow: 'hidden' }}>
-                                                {qrCodeData ? (
-                                                    <img src={qrCodeData} alt="QR Code" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                                                ) : (
-                                                    <span>[A Carregar...]</span>
-                                                )}
-                                            </div>
-                                            <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 500, textAlign: 'center' }}>{qrStatus}</span>
-                                            <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                                                <button onClick={handleGenerateQr} style={{ padding: '6px 12px', border: '1px solid #00a884', background: '#00a884', color: 'white', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.59-11.12l5.67 5.67"/></svg>
-                                                    Atualizar QR Code
-                                                </button>
-                                                <button onClick={() => setShowQr(false)} style={{ padding: '6px 12px', border: '1px solid #e2e8f0', background: 'white', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}>Fechar / Cancelar</button>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <button onClick={handleGenerateQr} style={{ width: '100%', padding: '10px', backgroundColor: '#00a884', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 500, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
-                                            <Plus size={16} /> Gerar QR Code
-                                        </button>
-                                    )}
-                                </>
+                                <button onClick={handleGenerateQr} style={{ width: '100%', padding: '10px', backgroundColor: '#00a884', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 500, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+                                    <Plus size={16} /> {showQr ? 'A abrir QR Code...' : 'Gerar QR Code'}
+                                </button>
                             )}
                         </div>
 
@@ -1055,6 +1033,48 @@ export default function WhatsAppChatApp() {
                                     </div>
                                 ))
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Seguro QR Code */}
+            {showQr && evolutionStatus !== 'connected' && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, backdropFilter: 'blur(4px)' }}>
+                    <div style={{ backgroundColor: 'white', width: '380px', borderRadius: '16px', padding: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+                            <div style={{ backgroundColor: '#e2e8f0', padding: '8px', borderRadius: '50%' }}>
+                                <QrCode size={24} color="#0f172a" />
+                            </div>
+                            <h3 style={{ margin: 0, fontSize: '20px', color: '#0f172a' }}>Ligar WhatsApp</h3>
+                        </div>
+                        
+                        <div style={{ width: '260px', height: '260px', backgroundColor: '#f8fafc', border: qrCodeData ? 'none' : '2px dashed #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', borderRadius: '12px', overflow: 'hidden', marginBottom: '20px', position: 'relative' }}>
+                            {qrCodeData ? (
+                                <img src={qrCodeData} alt="QR Code" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                                    <div className="spinner" style={{ width: '24px', height: '24px', border: '3px solid #cbd5e1', borderTopColor: '#00a884', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                                    <span style={{ fontSize: '14px', fontWeight: 500 }}>A gerar QR Code...</span>
+                                    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                                </div>
+                            )}
+                        </div>
+                        
+                        <div style={{ width: '100%', padding: '12px', backgroundColor: '#f1f5f9', borderRadius: '8px', marginBottom: '24px' }}>
+                            <span style={{ fontSize: '14px', color: '#334155', fontWeight: 500, textAlign: 'center', display: 'block' }}>
+                                {qrStatus || 'Aguarde um momento...'}
+                            </span>
+                        </div>
+                        
+                        <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
+                            <button onClick={() => setShowQr(false)} style={{ flex: 1, padding: '12px', border: '1px solid #e2e8f0', background: 'white', color: '#475569', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 500 }}>
+                                Cancelar
+                            </button>
+                            <button onClick={handleGenerateQr} style={{ flex: 1, padding: '12px', border: 'none', background: '#00a884', color: 'white', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.59-11.12l5.67 5.67"/></svg>
+                                Atualizar
+                            </button>
                         </div>
                     </div>
                 </div>
