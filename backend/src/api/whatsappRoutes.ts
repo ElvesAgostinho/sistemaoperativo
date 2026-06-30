@@ -907,7 +907,12 @@ router.post('/send', requireAuth, async (req: AuthRequest, res: Response) => {
     const sent = await WhatsAppChannelManager.sendMessage(conv.channel_id, conv.phone_number, content);
     
     if (sent) {
-        await getSupabase(req).from('wa_messages').update({ status: 'delivered' }).eq('id', newMsg!.id);
+        const updateData: any = { status: 'delivered' };
+        if (typeof sent === 'string') {
+            updateData.message_id = sent;
+            newMsg.message_id = sent;
+        }
+        await getSupabase(req).from('wa_messages').update(updateData).eq('id', newMsg!.id);
     } else {
         await getSupabase(req).from('wa_messages').update({ status: 'failed' }).eq('id', newMsg!.id);
     }

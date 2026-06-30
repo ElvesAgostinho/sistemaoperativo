@@ -4,7 +4,7 @@ export class WhatsAppChannelManager {
     /**
      * Envia uma mensagem física (texto) usando a API oficial da Meta ou Evolution
      */
-    public static async sendMessage(channel_id: string, phone_number: string, content: string): Promise<boolean> {
+    public static async sendMessage(channel_id: string, phone_number: string, content: string): Promise<string | boolean> {
         try {
             // Buscar credenciais do canal
             const { data: channel } = await supabase.from('wa_channels').select('*').eq('id', channel_id).single();
@@ -23,7 +23,7 @@ export class WhatsAppChannelManager {
         }
     }
 
-    private static async sendMetaMessage(credentials: any, phone_number: string, content: string): Promise<boolean> {
+    private static async sendMetaMessage(credentials: any, phone_number: string, content: string): Promise<string | boolean> {
         const { phoneNumberId, accessToken } = credentials;
         if (!phoneNumberId || !accessToken) throw new Error('Credenciais da Meta incompletas (falta phoneNumberId ou accessToken)');
 
@@ -61,10 +61,14 @@ export class WhatsAppChannelManager {
             return false;
         }
 
+        if (data.messages && data.messages.length > 0) {
+            return data.messages[0].id;
+        }
+
         return true;
     }
 
-    private static async sendEvolutionMessage(credentials: any, phone_number: string, content: string): Promise<boolean> {
+    private static async sendEvolutionMessage(credentials: any, phone_number: string, content: string): Promise<string | boolean> {
         const instanceName = credentials.instanceName;
         const evolutionUrl = process.env.EVOLUTION_API_URL || 'https://evolution.topconsultores.pt';
         const apikey = process.env.AUTHENTICATION_API_KEY || 'lXNRduSBn1GY3f0me7JQJFkR2VTMfgCNo0TDUmchX6gedO0o9BOPjupThv0cwsKOXUXOfcJ1q7ahphpplBVd5bQDY1CXA69nHYY2n3JpeUpbPHApQb2tWrIuj3xOg5hMJhHED3U045Mj12vKpt81IuS9CLzBlUwUkG6EHY6qUeBa6QXNPNsrjsh9JXeMfyEapuStkhi6Llt8waNE1IRJjsXA6R4ga3gRgVWXFYt3B0giAb5WSZZXWu7lzAFPkBp8';
@@ -109,6 +113,10 @@ export class WhatsAppChannelManager {
         if (!response.ok) {
             console.error('[Evolution API Error]', data);
             return false;
+        }
+
+        if (data.key && data.key.id) {
+            return data.key.id;
         }
 
         return true;
