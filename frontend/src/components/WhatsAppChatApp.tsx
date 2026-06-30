@@ -79,14 +79,16 @@ export default function WhatsAppChatApp() {
     const formatPhoneNumber = (phone: string) => {
         if (!phone) return '';
         if (phone === '0' || phone === 'WhatsApp') return 'WhatsApp';
-        let cleanPhone = phone.split('@')[0].replace(/\D/g, '');
+        if (phone.includes('@lid')) return 'ID Oculto (Anúncio)';
+        
+        let cleanPhone = phone.replace(/\D/g, '');
         
         // Formato Angola (+244)
         if (cleanPhone.startsWith('244') && cleanPhone.length === 12) {
             return `+244 ${cleanPhone.slice(3, 6)} ${cleanPhone.slice(6, 9)} ${cleanPhone.slice(9)}`;
         }
         // Formato Portugal (+351)
-        if (cleanPhone.startsWith('351') && cleanPhone.length === 12) {
+        if (cleanPhone.startsWith('351') && cleanPhone.length >= 12) {
             return `+351 ${cleanPhone.slice(3, 6)} ${cleanPhone.slice(6, 9)} ${cleanPhone.slice(9)}`;
         }
         // Formato Brasil (+55)
@@ -101,6 +103,12 @@ export default function WhatsAppChatApp() {
             return '+' + cleanPhone;
         }
         return phone;
+    };
+
+    const displayContactName = (name: string, phone: string) => {
+        if (!name) return formatPhoneNumber(phone);
+        if (name.includes('@lid')) return 'Cliente Oculto (Anúncio Meta)';
+        return name;
     };
 
     const fetchTemplates = async () => {
@@ -572,12 +580,12 @@ export default function WhatsAppChatApp() {
                                         {conv.contact_picture ? (
                                             <img src={conv.contact_picture} alt={conv.contact_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                         ) : (
-                                            <UserIcon name={conv.contact_name} />
+                                            <UserIcon name={displayContactName(conv.contact_name, conv.phone_number)} />
                                         )}
                                     </div>
                                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <span style={{ fontSize: '16px', color: '#111b21', fontWeight: 500 }}>{conv.contact_name}</span>
+                                            <span style={{ fontSize: '16px', color: '#111b21', fontWeight: 500 }}>{displayContactName(conv.contact_name, conv.phone_number)}</span>
                                             <span style={{ fontSize: '12px', color: '#667781' }}>{new Date(conv.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
@@ -732,13 +740,13 @@ export default function WhatsAppChatApp() {
                             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                                 <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#dfe5e7', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                                     {activeConv.contact_picture ? (
-                                        <img src={activeConv.contact_picture} alt={activeConv.contact_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        <img src={activeConv.contact_picture} alt={displayContactName(activeConv.contact_name, activeConv.phone_number)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                     ) : (
-                                        <UserIcon name={activeConv.contact_name} />
+                                        <UserIcon name={displayContactName(activeConv.contact_name, activeConv.phone_number)} />
                                     )}
                                 </div>
-                                <div>
-                                    <div style={{ fontWeight: 500, color: '#111b21', fontSize: '16px' }}>{activeConv.contact_name}</div>
+                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <div style={{ fontWeight: 500, color: '#111b21', fontSize: '16px' }}>{displayContactName(activeConv.contact_name, activeConv.phone_number)}</div>
                                     <div style={{ fontSize: '13px', color: '#667781' }}>{formatPhoneNumber(activeConv.phone_number)} • {activeConv.wa_channels.name}</div>
                                 </div>
                             </div>

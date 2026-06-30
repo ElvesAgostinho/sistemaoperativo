@@ -563,7 +563,26 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
                 phoneNumber = phoneNumber.split('@')[0].replace(/\D/g, '');
             }
             
-            const contactName = chat.pushName || chat.name || chat.verifiedName || phoneNumber;
+            let contactName = chat.pushName || chat.name || chat.verifiedName || '';
+
+            // Se não houver nome, tentar buscar o perfil
+            if (!contactName) {
+                try {
+                    const profileRes: any = await fetchWithTimeout(`${apiUrl}/chat/fetchProfile/${instanceName}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+                        body: JSON.stringify({ number: remoteJid })
+                    }, 2000);
+                    if (profileRes.ok) {
+                        const profileData = await profileRes.json();
+                        contactName = profileData.name || profileData.pushName || '';
+                    }
+                } catch (e) { /* silent fail */ }
+            }
+
+            if (!contactName) {
+                contactName = phoneNumber.includes('@lid') ? 'Cliente Oculto' : phoneNumber;
+            }
             
             // FOTOS DE PERFIL - tentar logo do objecto para evitar chamadas de rede extra
             let contactPicture: string | null = chat.profilePicUrl || chat.picture || null;
