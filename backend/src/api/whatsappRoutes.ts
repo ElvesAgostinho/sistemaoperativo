@@ -53,11 +53,12 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                 if (msg.key.remoteJid?.includes('@g.us')) continue;
 
                 let realJid = msg.key.remoteJidAlt || msg.key.remoteJid;
-                let phoneNumber = realJid?.split('@')[0] || '';
-                if (phoneNumber.includes(':')) {
-                    phoneNumber = phoneNumber.split(':')[0];
+                let phoneNumber = realJid || '';
+                if (!phoneNumber.includes('@lid')) {
+                    phoneNumber = phoneNumber.split('@')[0];
+                    if (phoneNumber.includes(':')) phoneNumber = phoneNumber.split(':')[0];
+                    phoneNumber = phoneNumber.replace(/\D/g, '');
                 }
-                phoneNumber = phoneNumber.replace(/\D/g, ''); // Limpeza profunda
                 let content = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
                 
                 if (!content) {
@@ -555,7 +556,11 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
             // Ignorar apenas grupos (@g.us) para evitar misturar com os chats normais
             if (!realJid || realJid.includes('@g.us')) continue; 
             
-            const phoneNumber = realJid.split('@')[0].replace(/\D/g, ''); // Garantir limpeza
+            let phoneNumber = realJid;
+            if (!phoneNumber.includes('@lid')) {
+                phoneNumber = phoneNumber.split('@')[0].replace(/\D/g, '');
+            }
+            
             const contactName = chat.pushName || chat.name || chat.verifiedName || phoneNumber;
             
             // FOTOS DE PERFIL - tentar logo do objecto para evitar chamadas de rede extra
