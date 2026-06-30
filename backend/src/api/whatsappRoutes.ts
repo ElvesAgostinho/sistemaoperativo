@@ -52,7 +52,8 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                 if (msg.key.fromMe) continue;
                 if (msg.key.remoteJid?.includes('@g.us')) continue;
 
-                let phoneNumber = msg.key.remoteJid?.split('@')[0] || '';
+                let realJid = msg.key.remoteJidAlt || msg.key.remoteJid;
+                let phoneNumber = realJid?.split('@')[0] || '';
                 if (phoneNumber.includes(':')) {
                     phoneNumber = phoneNumber.split(':')[0];
                 }
@@ -548,23 +549,6 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
             if (remoteJid?.includes('@lid')) {
                 if (chat.lastMessage?.key?.remoteJidAlt) {
                     realJid = chat.lastMessage.key.remoteJidAlt;
-                } else {
-                    // Fallback: Chamar fetchProfile para obter o wuid real
-                    try {
-                        const profileRes = await fetch(`${apiUrl}/chat/fetchProfile/${instanceName}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
-                            body: JSON.stringify({ number: remoteJid })
-                        });
-                        if (profileRes.ok) {
-                            const profileData = await profileRes.json();
-                            if (profileData.wuid) {
-                                realJid = profileData.wuid;
-                            }
-                        }
-                    } catch (e) {
-                        console.error(`[sync-chats] Falha ao resolver @lid para ${remoteJid}:`, e);
-                    }
                 }
             }
             
@@ -574,19 +558,21 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
             const phoneNumber = realJid.split('@')[0].replace(/\D/g, ''); // Garantir limpeza
             const contactName = chat.pushName || chat.name || chat.verifiedName || phoneNumber;
             
-            // Tentar obter a foto de perfil (com timeout curto para não bloquear)
-            let contactPicture: string | null = null;
-            try {
-                const picRes: any = await fetchWithTimeout(`${apiUrl}/chat/fetchProfilePictureUrl/${instanceName}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
-                    body: JSON.stringify({ number: remoteJid })
-                }, 8000);
-                if (picRes.ok) {
-                    const picData = await picRes.json();
-                    if (picData.profilePictureUrl) contactPicture = picData.profilePictureUrl;
-                }
-            } catch (e) { /* silent fail - foto não é crítica */ }
+            // FOTOS DE PERFIL - tentar logo do objecto para evitar chamadas de rede extra
+            let contactPicture: string | null = chat.profilePicUrl || chat.picture || null;
+            if (!contactPicture) {
+                try {
+                    const picRes: any = await fetchWithTimeout(`${apiUrl}/chat/fetchProfilePictureUrl/${instanceName}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+                        body: JSON.stringify({ number: remoteJid })
+                    }, 2000); // timeout bem curto para não encravar a sincronização
+                    if (picRes.ok) {
+                        const picData = await picRes.json();
+                        if (picData.profilePictureUrl) contactPicture = picData.profilePictureUrl;
+                    }
+                } catch (e) { /* silent fail */ }
+            }
 
             // Verifica se a conversa já existe
             const { data: conv } = await getSupabase(req).from('wa_conversations').select('id').eq('phone_number', phoneNumber).single();
