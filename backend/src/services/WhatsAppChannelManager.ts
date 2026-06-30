@@ -85,7 +85,9 @@ export class WhatsAppChannelManager {
                 delay: 1200,
                 presence: 'composing'
             },
-            text: content
+            textMessage: {
+                text: content
+            }
         };
 
         const response = await fetch(url, {
@@ -165,7 +167,11 @@ export class WhatsAppChannelManager {
 
             if (channel.provider === 'evolution') {
                 const { apiUrl, apiKey, instanceName } = channel.credentials;
-                const endpoint = `${apiUrl}/message/sendMediaBase64/${instanceName}`;
+                // Em Evolution API v2 usa-se o endpoint genérico sendMedia
+                const evolutionUrl = process.env.EVOLUTION_API_URL || apiUrl || 'https://evolution.topconsultores.pt';
+                const apiK = process.env.AUTHENTICATION_API_KEY || apiKey || 'lXNRduSBn1GY3f0me7JQJFkR2VTMfgCNo0TDUmchX6gedO0o9BOPjupThv0cwsKOXUXOfcJ1q7ahphpplBVd5bQDY1CXA69nHYY2n3JpeUpbPHApQb2tWrIuj3xOg5hMJhHED3U045Mj12vKpt81IuS9CLzBlUwUkG6EHY6qUeBa6QXNPNsrjsh9JXeMfyEapuStkhi6Llt8waNE1IRJjsXA6R4ga3gRgVWXFYt3B0giAb5WSZZXWu7lzAFPkBp8';
+                
+                const endpoint = `${evolutionUrl}/message/sendMedia/${instanceName}`;
                 
                 // base64Data comes as "data:image/png;base64,iVBORw0K..."
                 // Evolution API requires mimetype and base64 without the prefix
@@ -176,7 +182,6 @@ export class WhatsAppChannelManager {
                 const mimetype = matches[1];
                 const base64Str = matches[2];
 
-                // Mapear mimetype para mediatype suportado pela Evolution API (image, video, audio, document)
                 let mediaType = 'document';
                 if (mimetype.startsWith('image/')) mediaType = 'image';
                 if (mimetype.startsWith('video/')) mediaType = 'video';
@@ -198,7 +203,7 @@ export class WhatsAppChannelManager {
                 const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: {
-                        'apikey': apiKey,
+                        'apikey': apiK,
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(payload)
