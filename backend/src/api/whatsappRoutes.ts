@@ -685,7 +685,7 @@ router.post('/evolution/instance', requireAuth, async (req: AuthRequest, res: Re
 
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+        const timeoutId = setTimeout(() => controller.abort(), 25000); // 25s timeout
         
         let connectData: any = {};
         let finalQrBase64: string | undefined;
@@ -698,14 +698,13 @@ router.post('/evolution/instance', requireAuth, async (req: AuthRequest, res: Re
         });
 
         if (createRes.status === 403) {
-            // A instância já existe. Em vez de apagar (o que pode causar bloqueios e demorar), 
-            // fazemos apenas logout para garantir que ela fica limpa e pronta para um novo QR Code.
+            // A instância já existe. Fazemos logout para forçar a geração de um novo QR Code.
             try {
                 await fetch(`${apiUrl}/instance/logout/${instanceName}`, { method: 'DELETE', headers: { 'apikey': apiKey }, signal: controller.signal });
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                await new Promise(resolve => setTimeout(resolve, 1500));
             } catch(e) {}
             
-            const connectRes = await fetch(`${apiUrl}/instance/connect/${instanceName}`, { 
+            let connectRes = await fetch(`${apiUrl}/instance/connect/${instanceName}`, { 
                 headers: { 'apikey': apiKey },
                 signal: controller.signal
             });
@@ -715,6 +714,20 @@ router.post('/evolution/instance', requireAuth, async (req: AuthRequest, res: Re
                 return res.status(400).json({ error: `Erro ao conectar instância: ${connectErr}` });
             }
             connectData = await connectRes.json();
+
+            // Polling: se a API não retornar logo o QR Code, tenta buscar a cada 2 segs (max 5 vezes)
+            let attempts = 0;
+            while (!connectData.base64 && !connectData.qrcode?.base64 && connectData.instance?.state !== 'open' && attempts < 5) {
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                connectRes = await fetch(`${apiUrl}/instance/connect/${instanceName}`, { 
+                    headers: { 'apikey': apiKey },
+                    signal: controller.signal
+                });
+                if (connectRes.ok) {
+                    connectData = await connectRes.json();
+                }
+                attempts++;
+            }
         } else if (!createRes.ok) {
             // Se falhou por outro motivo (ex: erro interno da Evolution)
             const createErr = await createRes.text();
@@ -726,11 +739,22 @@ router.post('/evolution/instance', requireAuth, async (req: AuthRequest, res: Re
             if (connectData.qrcode?.base64) {
                 finalQrBase64 = connectData.qrcode.base64;
             } else if (!connectData.base64 && connectData.instance?.state !== 'open') {
-                const connectRes = await fetch(`${apiUrl}/instance/connect/${instanceName}`, { 
+                let connectRes = await fetch(`${apiUrl}/instance/connect/${instanceName}`, { 
                     headers: { 'apikey': apiKey },
                     signal: controller.signal
                 });
                 if (connectRes.ok) connectData = await connectRes.json();
+                
+                let attempts = 0;
+                while (!connectData.base64 && !connectData.qrcode?.base64 && connectData.instance?.state !== 'open' && attempts < 5) {
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    connectRes = await fetch(`${apiUrl}/instance/connect/${instanceName}`, { 
+                        headers: { 'apikey': apiKey },
+                        signal: controller.signal
+                    });
+                    if (connectRes.ok) connectData = await connectRes.json();
+                    attempts++;
+                }
             }
         }
         
