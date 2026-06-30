@@ -74,9 +74,12 @@ export class WhatsAppChannelManager {
 
         const url = `${evolutionUrl}/message/sendText/${instanceName}`;
         
-        let formattedPhone = phone_number.replace(/\D/g, '');
-        if (formattedPhone.length === 9) {
-            formattedPhone = `351${formattedPhone}`;
+        let formattedPhone = phone_number;
+        if (!formattedPhone.includes('@lid')) {
+            formattedPhone = formattedPhone.replace(/\D/g, '');
+            if (formattedPhone.length === 9) {
+                formattedPhone = `351${formattedPhone}`;
+            }
         }
 
         const payload = {
@@ -87,7 +90,8 @@ export class WhatsAppChannelManager {
             },
             textMessage: {
                 text: content
-            }
+            },
+            text: content // v2 compatibility
         };
 
         const response = await fetch(url, {
