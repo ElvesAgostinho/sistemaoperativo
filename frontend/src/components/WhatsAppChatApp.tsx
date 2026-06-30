@@ -819,21 +819,23 @@ export default function WhatsAppChatApp() {
                                         <div style={{ fontSize: '14.2px', color: '#111b21', lineHeight: '19px', paddingRight: '40px', wordWrap: 'break-word', whiteSpace: 'pre-wrap' }}>
                                             {(() => {
                                                 const content = msg.content || '';
-                                                const mediaMatch = content.match(/\[MEDIA_BASE64:(data:([^;]+);base64,[\s\S]*?)\]/);
+                                                const mediaMatch = content.match(/\[MEDIA_BASE64:(data:([^;]+)(?:;name=([^;]+))?;base64,[\s\S]*?)\]/);
                                                 if (mediaMatch) {
                                                     const cleanText = content.replace(mediaMatch[0], '').trim();
                                                     const dataUri = mediaMatch[1];
                                                     const mimeType = mediaMatch[2];
+                                                    const fileNameParam = mediaMatch[3];
+                                                    const downloadName = fileNameParam ? decodeURIComponent(fileNameParam) : 'ficheiro';
                                                     
                                                     let mediaElement = null;
                                                     if (mimeType.startsWith('image/')) {
-                                                        mediaElement = <img src={dataUri} alt="media" style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', marginTop: cleanText ? '8px' : '0' }} />;
+                                                        mediaElement = <img src={dataUri} alt="media" title={downloadName} style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', marginTop: cleanText ? '8px' : '0' }} />;
                                                     } else if (mimeType.startsWith('video/')) {
                                                         mediaElement = <video src={dataUri} controls style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', marginTop: cleanText ? '8px' : '0' }} />;
                                                     } else if (mimeType.startsWith('audio/')) {
                                                         mediaElement = <audio src={dataUri} controls style={{ maxWidth: '100%', marginTop: cleanText ? '8px' : '0' }} />;
                                                     } else {
-                                                        mediaElement = <a href={dataUri} download="ficheiro" style={{ display: 'block', marginTop: cleanText ? '8px' : '0', color: '#027eb5', textDecoration: 'underline' }}>Descarregar Anexo</a>;
+                                                        mediaElement = <a href={dataUri} download={downloadName} style={{ display: 'block', marginTop: cleanText ? '8px' : '0', color: '#027eb5', textDecoration: 'underline' }}>Descarregar {downloadName}</a>;
                                                     }
 
                                                     return (

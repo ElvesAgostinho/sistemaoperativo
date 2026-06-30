@@ -19,7 +19,7 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
         console.log('[Webhook Evolution] Recebido payload:', JSON.stringify(body, null, 2));
         
         // --- ATUALIZAÇÃO DE STATUS (LIDO, ENTREGUE, etc) ---
-        if (body.event === 'messages.update') {
+        if (body.event === 'messages.update' || body.event === 'MESSAGES_UPDATE') {
             let msgs: any[] = [];
             if (Array.isArray(body.data)) msgs = body.data;
             else if (body.data) msgs = [body.data];
@@ -38,7 +38,7 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
         }
 
         // --- MENSAGENS RECEBIDAS (UPSERT) ---
-        if (body.event === 'messages.upsert') {
+        if (body.event === 'messages.upsert' || body.event === 'MESSAGES_UPSERT') {
             let msgs: any[] = [];
             if (Array.isArray(body.data)) msgs = body.data;
             else if (body.data?.messages) msgs = body.data.messages;
@@ -63,19 +63,25 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                     const b64 = msg.message?.base64 || msg.base64 || msg.message?.imageMessage?.base64 || msg.message?.videoMessage?.base64 || msg.message?.audioMessage?.base64 || msg.message?.documentMessage?.base64 || msg.message?.stickerMessage?.base64;
                     if (msg.message?.imageMessage) {
                         content = msg.message.imageMessage.caption || '[Imagem]';
-                        if (b64) content += `\n\n[MEDIA_BASE64:data:${msg.message.imageMessage.mimetype || 'image/jpeg'};base64,${b64}]`;
+                        const fileName = encodeURIComponent('imagem.jpg');
+                        if (b64) content += `\n\n[MEDIA_BASE64:data:${msg.message.imageMessage.mimetype || 'image/jpeg'};name=${fileName};base64,${b64}]`;
                     } else if (msg.message?.videoMessage) {
                         content = msg.message.videoMessage.caption || '[Vídeo]';
-                        if (b64) content += `\n\n[MEDIA_BASE64:data:${msg.message.videoMessage.mimetype || 'video/mp4'};base64,${b64}]`;
+                        const fileName = encodeURIComponent('video.mp4');
+                        if (b64) content += `\n\n[MEDIA_BASE64:data:${msg.message.videoMessage.mimetype || 'video/mp4'};name=${fileName};base64,${b64}]`;
                     } else if (msg.message?.audioMessage) {
                         content = '[Áudio]';
-                        if (b64) content += `\n\n[MEDIA_BASE64:data:${msg.message.audioMessage.mimetype || 'audio/ogg'};base64,${b64}]`;
+                        const fileName = encodeURIComponent('audio.ogg');
+                        if (b64) content += `\n\n[MEDIA_BASE64:data:${msg.message.audioMessage.mimetype || 'audio/ogg'};name=${fileName};base64,${b64}]`;
                     } else if (msg.message?.documentMessage) {
-                        content = msg.message.documentMessage.fileName ? `[Documento] ${msg.message.documentMessage.fileName}` : '[Documento]';
-                        if (b64) content += `\n\n[MEDIA_BASE64:data:${msg.message.documentMessage.mimetype || 'application/octet-stream'};base64,${b64}]`;
+                        const originalName = msg.message.documentMessage.fileName || 'ficheiro';
+                        content = `[Documento] ${originalName}`;
+                        const fileName = encodeURIComponent(originalName);
+                        if (b64) content += `\n\n[MEDIA_BASE64:data:${msg.message.documentMessage.mimetype || 'application/octet-stream'};name=${fileName};base64,${b64}]`;
                     } else if (msg.message?.stickerMessage) {
                         content = '[Sticker]';
-                        if (b64) content += `\n\n[MEDIA_BASE64:data:${msg.message.stickerMessage.mimetype || 'image/webp'};base64,${b64}]`;
+                        const fileName = encodeURIComponent('sticker.webp');
+                        if (b64) content += `\n\n[MEDIA_BASE64:data:${msg.message.stickerMessage.mimetype || 'image/webp'};name=${fileName};base64,${b64}]`;
                     } else if (msg.message?.locationMessage) {
                         content = '[Localização]';
                     } else if (Object.keys(msg.message || {}).length > 0) {
@@ -681,11 +687,13 @@ router.post('/evolution/instance', requireAuth, async (req: AuthRequest, res: Re
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
         
-        // Tentar criar a instância (se não existir, cria. se existir, dá 403)
+        let connectData: any = {};
+        let finalQrBase64: string | undefined;
+
         let createRes = await fetch(`${apiUrl}/instance/create`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
-            body: JSON.stringify({ instanceName: instanceName, integration: 'WHATSAPP-BAILEYS', qrcode: true }),
+            body: JSON.stringify({ instanceName: instanceName, qrcode: true }),
             signal: controller.signal
         });
 
@@ -694,36 +702,47 @@ router.post('/evolution/instance', requireAuth, async (req: AuthRequest, res: Re
             // fazemos apenas logout para garantir que ela fica limpa e pronta para um novo QR Code.
             try {
                 await fetch(`${apiUrl}/instance/logout/${instanceName}`, { method: 'DELETE', headers: { 'apikey': apiKey }, signal: controller.signal });
+                await new Promise(resolve => setTimeout(resolve, 1000));
             } catch(e) {}
+            
+            const connectRes = await fetch(`${apiUrl}/instance/connect/${instanceName}`, { 
+                headers: { 'apikey': apiKey },
+                signal: controller.signal
+            });
+            if (!connectRes.ok) {
+                const connectErr = await connectRes.text();
+                clearTimeout(timeoutId);
+                return res.status(400).json({ error: `Erro ao conectar instância: ${connectErr}` });
+            }
+            connectData = await connectRes.json();
         } else if (!createRes.ok) {
             // Se falhou por outro motivo (ex: erro interno da Evolution)
             const createErr = await createRes.text();
             clearTimeout(timeoutId);
             return res.status(400).json({ error: `Erro ao criar instância: ${createErr}` });
+        } else {
+            connectData = await createRes.json();
+            // Na v2, a API de create já devolve o QR code se 'qrcode: true' no payload
+            if (connectData.qrcode?.base64) {
+                finalQrBase64 = connectData.qrcode.base64;
+            } else if (!connectData.base64 && connectData.instance?.state !== 'open') {
+                const connectRes = await fetch(`${apiUrl}/instance/connect/${instanceName}`, { 
+                    headers: { 'apikey': apiKey },
+                    signal: controller.signal
+                });
+                if (connectRes.ok) connectData = await connectRes.json();
+            }
         }
-
-        // Uma pequena pausa para a Evolution API respirar após o logout/create
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        const connectRes = await fetch(`${apiUrl}/instance/connect/${instanceName}`, { 
-            headers: { 'apikey': apiKey },
-            signal: controller.signal
-        });
-        clearTimeout(timeoutId);
         
-        if (!connectRes.ok) {
-            const connectErr = await connectRes.text();
-            return res.status(400).json({ error: `Erro ao conectar instância: ${connectErr}` });
-        }
-
-        const connectData = await connectRes.json();
+        clearTimeout(timeoutId);
+        finalQrBase64 = finalQrBase64 || connectData.base64 || connectData.qrcode?.base64;
 
         // Ensure Webhook is set
         const publicUrl = process.env.BACKEND_PUBLIC_URL || `https://${req.headers.host}`;
         try {
             await fetch(`${apiUrl}/webhook/set/${instanceName}`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
-                body: JSON.stringify({ webhook: { url: `${publicUrl}/api/whatsapp/webhook/evolution`, enabled: true, byEvents: false, base64: true, events: ["MESSAGES_UPSERT", "MESSAGES_UPDATE"] } })
+                body: JSON.stringify({ webhook: { url: `${publicUrl}/api/whatsapp/webhook/evolution`, enabled: true, byEvents: false, base64: true, events: ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "SEND_MESSAGE"] } })
             });
         } catch(e) {}
 
@@ -733,8 +752,8 @@ router.post('/evolution/instance', requireAuth, async (req: AuthRequest, res: Re
             await userClient.from('wa_channels').insert({ name: 'Evolution API', provider: 'evolution', status: 'connected', credentials: { instanceName } });
         }
 
-        if (connectData.base64) {
-            return res.json({ success: true, qr: connectData.base64, state: 'connecting' });
+        if (finalQrBase64) {
+            return res.json({ success: true, qr: finalQrBase64, state: 'connecting' });
         } else {
             return res.json({ success: true, state: connectData.instance?.state || 'connected', message: 'Já ligado ou a aguardar' });
         }
