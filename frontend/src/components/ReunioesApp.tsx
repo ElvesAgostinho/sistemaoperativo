@@ -68,7 +68,7 @@ export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: s
 
     useEffect(() => {
         if (initialMeetingId) {
-            joinMeeting(parseInt(initialMeetingId));
+            joinMeeting(initialMeetingId);
         }
     }, [initialMeetingId]);
 
@@ -161,7 +161,7 @@ export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: s
         }
     };
 
-    const joinMeeting = async (id: number) => {
+    const joinMeeting = async (id: string) => {
         try {
             const res = await fetchWithAuth(`${import.meta.env.VITE_API_URL}/api/reunioes/${id}`);
             const data = await res.json();
