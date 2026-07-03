@@ -5,6 +5,54 @@ import { WorkflowEngine } from '../services/WorkflowEngine';
 
 const router = Router();
 
+// ============================================================
+// HELPER: Upload de mídia para Supabase Storage
+// ============================================================
+async function uploadMediaToStorage(base64Data: string, fileName: string, mimeType: string): Promise<string | null> {
+    try {
+        const base64Str = base64Data.includes(',') ? base64Data.split(',')[1] : base64Data;
+        const buffer = Buffer.from(base64Str, 'base64');
+        const safeFileName = `${Date.now()}_${fileName.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+        const filePath = `messages/${safeFileName}`;
+        
+        const { error } = await supabase.storage
+            .from('whatsapp-media')
+            .upload(filePath, buffer, { contentType: mimeType, upsert: false });
+        
+        if (error) {
+            console.error('[Storage] Erro ao fazer upload:', error.message);
+            return null;
+        }
+        
+        const { data: urlData } = supabase.storage.from('whatsapp-media').getPublicUrl(filePath);
+        return urlData?.publicUrl || null;
+    } catch (e: any) {
+        console.error('[Storage] Erro inesperado no upload:', e.message);
+        return null;
+    }
+}
+
+// HELPER: Download de mídia da Evolution API
+async function downloadMediaFromEvolution(instanceName: string, messageKey: any): Promise<{ base64: string, mimeType: string } | null> {
+    const evolutionUrl = process.env.EVOLUTION_API_URL || 'https://evolution.topconsultores.pt';
+    const apikey = process.env.AUTHENTICATION_API_KEY || '';
+    try {
+        const res = await fetch(`${evolutionUrl}/chat/getBase64FromMediaMessage/${instanceName}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'apikey': apikey },
+            body: JSON.stringify({ message: { key: messageKey }, convertToMp4: false })
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (data.base64) {
+            return { base64: data.base64, mimeType: data.mimetype || 'application/octet-stream' };
+        }
+        return null;
+    } catch {
+        return null;
+    }
+}
+
 // ==============================================================
 // WEBHOOKS DE RECEPÇÃO DE MENSAGENS (Públicos)
 // ==============================================================
@@ -52,6 +100,7 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                 if (msg.key.fromMe) continue;
                 if (msg.key.remoteJid?.includes('@g.us')) continue;
 
+                // FIX #1 — Extrair número limpo (sem @lid, sem @s.whatsapp.net)
                 let realJid = msg.key.remoteJidAlt || msg.key.remoteJid;
                 let phoneNumber = realJid || '';
                 if (!phoneNumber.includes('@lid')) {
@@ -59,31 +108,80 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                     if (phoneNumber.includes(':')) phoneNumber = phoneNumber.split(':')[0];
                     phoneNumber = phoneNumber.replace(/\D/g, '');
                 }
+
+                // FIX #6 — Processar conteúdo de mídia com download se necessário
                 let content = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
+                let mediaUrl: string | null = null;
+                let mediaType: string | null = null;
+                let mediaFilename: string | null = null;
+                const instanceName = body.instance || req.body?.instance;
                 
                 if (!content) {
-                    const b64 = msg.message?.base64 || msg.base64 || msg.message?.imageMessage?.base64 || msg.message?.videoMessage?.base64 || msg.message?.audioMessage?.base64 || msg.message?.documentMessage?.base64 || msg.message?.stickerMessage?.base64;
+                    // Tentar ler base64 inline primeiro (quando Evolution envia directamente)
+                    const b64 = msg.message?.base64 || msg.base64 ||
+                        msg.message?.imageMessage?.base64 ||
+                        msg.message?.videoMessage?.base64 ||
+                        msg.message?.audioMessage?.base64 ||
+                        msg.message?.documentMessage?.base64 ||
+                        msg.message?.stickerMessage?.base64;
+
                     if (msg.message?.imageMessage) {
+                        const mime = msg.message.imageMessage.mimetype || 'image/jpeg';
+                        const fname = 'imagem.jpg';
                         content = msg.message.imageMessage.caption || '[Imagem]';
-                        const fileName = encodeURIComponent('imagem.jpg');
-                        if (b64) content += `\n\n[MEDIA_BASE64:data:${msg.message.imageMessage.mimetype || 'image/jpeg'};name=${fileName};base64,${b64}]`;
+                        mediaType = 'image';
+                        mediaFilename = fname;
+                        if (b64) {
+                            mediaUrl = await uploadMediaToStorage(b64, fname, mime);
+                        } else if (instanceName) {
+                            const dl = await downloadMediaFromEvolution(instanceName, msg.key);
+                            if (dl) mediaUrl = await uploadMediaToStorage(dl.base64, fname, dl.mimeType);
+                        }
+                        if (mediaUrl) content += `\n[MEDIA_URL:${mediaUrl}]`;
                     } else if (msg.message?.videoMessage) {
+                        const mime = msg.message.videoMessage.mimetype || 'video/mp4';
+                        const fname = `video_${Date.now()}.mp4`;
                         content = msg.message.videoMessage.caption || '[Vídeo]';
-                        const fileName = encodeURIComponent('video.mp4');
-                        if (b64) content += `\n\n[MEDIA_BASE64:data:${msg.message.videoMessage.mimetype || 'video/mp4'};name=${fileName};base64,${b64}]`;
+                        mediaType = 'video';
+                        mediaFilename = fname;
+                        if (b64) {
+                            mediaUrl = await uploadMediaToStorage(b64, fname, mime);
+                        } else if (instanceName) {
+                            const dl = await downloadMediaFromEvolution(instanceName, msg.key);
+                            if (dl) mediaUrl = await uploadMediaToStorage(dl.base64, fname, dl.mimeType);
+                        }
+                        if (mediaUrl) content += `\n[MEDIA_URL:${mediaUrl}]`;
                     } else if (msg.message?.audioMessage) {
+                        const mime = msg.message.audioMessage.mimetype || 'audio/ogg';
+                        const fname = `audio_${Date.now()}.ogg`;
                         content = '[Áudio]';
-                        const fileName = encodeURIComponent('audio.ogg');
-                        if (b64) content += `\n\n[MEDIA_BASE64:data:${msg.message.audioMessage.mimetype || 'audio/ogg'};name=${fileName};base64,${b64}]`;
+                        mediaType = 'audio';
+                        mediaFilename = fname;
+                        if (b64) {
+                            mediaUrl = await uploadMediaToStorage(b64, fname, mime);
+                        } else if (instanceName) {
+                            const dl = await downloadMediaFromEvolution(instanceName, msg.key);
+                            if (dl) mediaUrl = await uploadMediaToStorage(dl.base64, fname, dl.mimeType);
+                        }
+                        if (mediaUrl) content += `\n[MEDIA_URL:${mediaUrl}]`;
                     } else if (msg.message?.documentMessage) {
                         const originalName = msg.message.documentMessage.fileName || 'ficheiro';
+                        const mime = msg.message.documentMessage.mimetype || 'application/octet-stream';
                         content = `[Documento] ${originalName}`;
-                        const fileName = encodeURIComponent(originalName);
-                        if (b64) content += `\n\n[MEDIA_BASE64:data:${msg.message.documentMessage.mimetype || 'application/octet-stream'};name=${fileName};base64,${b64}]`;
+                        mediaType = 'document';
+                        mediaFilename = originalName;
+                        if (b64) {
+                            mediaUrl = await uploadMediaToStorage(b64, originalName, mime);
+                        } else if (instanceName) {
+                            const dl = await downloadMediaFromEvolution(instanceName, msg.key);
+                            if (dl) mediaUrl = await uploadMediaToStorage(dl.base64, originalName, dl.mimeType);
+                        }
+                        if (mediaUrl) content += `\n[MEDIA_URL:${mediaUrl}]`;
                     } else if (msg.message?.stickerMessage) {
                         content = '[Sticker]';
-                        const fileName = encodeURIComponent('sticker.webp');
-                        if (b64) content += `\n\n[MEDIA_BASE64:data:${msg.message.stickerMessage.mimetype || 'image/webp'};name=${fileName};base64,${b64}]`;
+                        mediaType = 'image';
+                        if (b64) mediaUrl = await uploadMediaToStorage(b64, 'sticker.webp', 'image/webp');
+                        if (mediaUrl) content += `\n[MEDIA_URL:${mediaUrl}]`;
                     } else if (msg.message?.locationMessage) {
                         content = '[Localização]';
                     } else if (Object.keys(msg.message || {}).length > 0) {
@@ -91,22 +189,21 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                     }
                 }
                 
+                // FIX #1 — Usar número limpo (phoneNumber) para buscar perfil, não o JID raw
                 let contactName = msg.pushName || body.data?.pushName || msg.message?.pushName || '';
-                if (!contactName) {
-                    const instanceName = body.instance || req.body?.instance;
+                if (!contactName && phoneNumber && !phoneNumber.includes('@lid')) {
                     const evolutionUrl = process.env.EVOLUTION_API_URL || 'https://evolution.topconsultores.pt';
-                    const apikey = process.env.AUTHENTICATION_API_KEY || '***REMOVED_EVOLUTION_API_KEY***';
+                    const apikey = process.env.AUTHENTICATION_API_KEY || '';
                     if (instanceName && apikey) {
                         try {
                             const profileRes = await fetch(`${evolutionUrl}/chat/fetchProfile/${instanceName}`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json', 'apikey': apikey },
-                                body: JSON.stringify({ number: msg.key.remoteJid })
+                                body: JSON.stringify({ number: phoneNumber }) // USA NÚMERO LIMPO, não o JID
                             });
                             if (profileRes.ok) {
                                 const profileData = await profileRes.json();
-                                if (profileData.name) contactName = profileData.name;
-                                else if (profileData.pushName) contactName = profileData.pushName;
+                                contactName = profileData.name || profileData.pushName || '';
                             }
                         } catch (e) {
                             console.error('Erro ao buscar perfil da Evolution API:', e);
@@ -403,10 +500,12 @@ router.delete('/evolution/instance/logout', requireAuth, async (req: AuthRequest
         const userClient = getSupabase(req);
         const { data: channel } = await userClient.from('wa_channels').select('id').eq('provider', 'evolution').maybeSingle();
         if (channel) {
+            // FIX #4 — Arquivar todas as conversas do canal ao desconectar
             await userClient.from('wa_conversations').update({ status: 'archived' }).eq('channel_id', channel.id);
         }
         await userClient.from('wa_channels').update({ status: 'disconnected' }).eq('provider', 'evolution');
-        return res.json({ success: true });
+        // Retornar cleared:true para o frontend limpar o estado local
+        return res.json({ success: true, cleared: true });
     } catch (e: any) {
         return res.status(500).json({ error: e.message });
     }
@@ -600,8 +699,12 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
                 } catch (e) { /* silent fail */ }
             }
 
-            // Verifica se a conversa já existe
-            const { data: conv } = await getSupabase(req).from('wa_conversations').select('id').eq('phone_number', phoneNumber).single();
+            // FIX #3 — Verifica se a conversa já existe (usar maybeSingle para evitar erro, filtrar por channel_id E phone_number)
+            const { data: conv } = await getSupabase(req).from('wa_conversations')
+                .select('id')
+                .eq('channel_id', channel!.id)
+                .eq('phone_number', phoneNumber)
+                .maybeSingle();
 
             const tsMs = chat.conversationTimestamp ? chat.conversationTimestamp * 1000 : Date.now();
             const lastMsgAt = new Date(tsMs).toISOString();

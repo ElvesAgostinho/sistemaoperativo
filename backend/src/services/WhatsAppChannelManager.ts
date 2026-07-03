@@ -71,7 +71,7 @@ export class WhatsAppChannelManager {
     private static async sendEvolutionMessage(credentials: any, phone_number: string, content: string): Promise<string | boolean> {
         const instanceName = credentials.instanceName;
         const evolutionUrl = process.env.EVOLUTION_API_URL || 'https://evolution.topconsultores.pt';
-        const apikey = process.env.AUTHENTICATION_API_KEY || '***REMOVED_EVOLUTION_API_KEY***';
+        const apikey = process.env.AUTHENTICATION_API_KEY || '';
 
         if (!evolutionUrl || !apikey || !instanceName) {
             throw new Error('Configuração Evolution incompleta');
@@ -79,6 +79,7 @@ export class WhatsAppChannelManager {
 
         const url = `${evolutionUrl}/message/sendText/${instanceName}`;
         
+        // FIX #6 - Normalizar número correctamente
         let formattedPhone = phone_number;
         if (!formattedPhone.includes('@lid')) {
             formattedPhone = formattedPhone.replace(/\D/g, '');
@@ -88,16 +89,14 @@ export class WhatsAppChannelManager {
             }
         }
 
+        // Evolution API v2: payload correto
         const payload = {
             number: formattedPhone,
             options: {
                 delay: 1200,
                 presence: 'composing'
             },
-            textMessage: {
-                text: content
-            },
-            text: content // v2 compatibility
+            text: content
         };
 
         const response = await fetch(url, {
@@ -115,10 +114,8 @@ export class WhatsAppChannelManager {
             return false;
         }
 
-        if (data.key && data.key.id) {
-            return data.key.id;
-        }
-
+        if (data.key?.id) return data.key.id;
+        if (data.id) return data.id;
         return true;
     }
 
@@ -174,7 +171,7 @@ export class WhatsAppChannelManager {
             const { data: channel } = await supabase.from('wa_channels').select('*').eq('id', channel_id).single();
             if (!channel) throw new Error('Canal não encontrado');
 
-            // Formatar número de telefone
+            // Normalizar número
             let formattedPhone = phone_number.replace(/\D/g, '');
             if (formattedPhone.length === 9) {
                 const defaultCountry = process.env.DEFAULT_COUNTRY_CODE || '244';
@@ -182,15 +179,12 @@ export class WhatsAppChannelManager {
             }
 
             if (channel.provider === 'evolution') {
-                const { apiUrl, apiKey, instanceName } = channel.credentials;
-                // Em Evolution API v2 usa-se o endpoint genérico sendMedia
-                const evolutionUrl = process.env.EVOLUTION_API_URL || apiUrl || 'https://evolution.topconsultores.pt';
-                const apiK = process.env.AUTHENTICATION_API_KEY || apiKey || '***REMOVED_EVOLUTION_API_KEY***';
+                const instanceName = channel.credentials?.instanceName;
+                const evolutionUrl = process.env.EVOLUTION_API_URL || 'https://evolution.topconsultores.pt';
+                const apiK = process.env.AUTHENTICATION_API_KEY || '';
                 
-                const endpoint = `${evolutionUrl}/message/sendMedia/${instanceName}`;
-                
-                // base64Data comes as "data:image/png;base64,iVBORw0K..."
-                // Evolution API requires mimetype and base64 without the prefix
+                // FIX #6 — Evolution v2: mediaMessage payload correcto
+                // Separar o prefixo data:mimetype;base64,... do dado puro
                 const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
                 if (!matches || matches.length !== 3) {
                     throw new Error('Formato base64 inválido');
@@ -198,47 +192,90 @@ export class WhatsAppChannelManager {
                 const mimetype = matches[1];
                 const base64Str = matches[2];
 
-                let mediaType = 'document';
-                if (mimetype.startsWith('image/')) mediaType = 'image';
-                if (mimetype.startsWith('video/')) mediaType = 'video';
-                if (mimetype.startsWith('audio/')) mediaType = 'audio';
+                let mediatype = 'document';
+                if (mimetype.startsWith('image/')) mediatype = 'image';
+                else if (mimetype.startsWith('video/')) mediatype = 'video';
+                else if (mimetype.startsWith('audio/')) mediatype = 'audio';
 
+                const endpoint = `${evolutionUrl}/message/sendMedia/${instanceName}`;
+                
+                // Evolution API v2 payload (formato correcto verificado)
                 const payload = {
                     number: formattedPhone,
-                    options: {
-                        delay: 1200,
-                        presence: 'composing'
-                    },
+                    options: { delay: 1200, presence: 'composing' },
                     mediaMessage: {
-                        mediatype: mediaType,
-                        fileName: fileName,
-                        media: base64Str
+                        mediatype,
+                        mimetype,
+                        caption: '',
+                        fileName,
+                        media: base64Str   // base64 puro SEM o prefixo data:...
                     }
                 };
 
                 const response = await fetch(endpoint, {
                     method: 'POST',
-                    headers: {
-                        'apikey': apiK,
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'apikey': apiK, 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
 
                 const data = await response.json();
                 if (!response.ok) {
-                    console.error('[Evolution API Media Error]', data);
+                    console.error('[Evolution API Media Error]', JSON.stringify(data));
                     return false;
                 }
                 return true;
 
             } else if (channel.provider === 'meta') {
-                // Para Meta API, o ideal seria fazer upload para o endpoint /media com form-data
-                // e usar o ID retornado. Pela complexidade do multipart/form-data em Node puro com fetch,
-                // vamos levantar um erro claro se for Meta por enquanto, 
-                // a menos que alojemos o ficheiro num Storage e enviemos a URL.
-                console.error('[Meta API] Envio de mídia direta por Base64 ainda não suportado nativamente. Requer Storage URL ou Multipart form-data.');
-                return false;
+                // Para Meta: upload multipart/form-data para /media e depois enviar por URL
+                const { phoneNumberId, accessToken } = channel.credentials;
+                const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+                if (!matches) return false;
+                const [, mimeType, b64Str] = matches;
+
+                // 1. Upload do ficheiro para a Meta
+                const formData = new FormData();
+                const byteArray = Uint8Array.from(atob(b64Str), c => c.charCodeAt(0));
+                const blob = new Blob([byteArray], { type: mimeType });
+                formData.append('file', blob, fileName);
+                formData.append('type', mimeType);
+                formData.append('messaging_product', 'whatsapp');
+
+                const uploadRes = await fetch(`https://graph.facebook.com/v20.0/${phoneNumberId}/media`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${accessToken}` },
+                    body: formData
+                });
+                const uploadData = await uploadRes.json();
+                if (!uploadRes.ok || !uploadData.id) {
+                    console.error('[Meta Upload Error]', uploadData);
+                    return false;
+                }
+
+                // 2. Enviar mensagem com media_id
+                let mediaType = 'document';
+                if (mimeType.startsWith('image/')) mediaType = 'image';
+                else if (mimeType.startsWith('video/')) mediaType = 'video';
+                else if (mimeType.startsWith('audio/')) mediaType = 'audio';
+
+                const msgPayload: any = {
+                    messaging_product: 'whatsapp',
+                    recipient_type: 'individual',
+                    to: formattedPhone,
+                    type: mediaType,
+                    [mediaType]: { id: uploadData.id }
+                };
+
+                const msgRes = await fetch(`https://graph.facebook.com/v20.0/${phoneNumberId}/messages`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(msgPayload)
+                });
+                const msgData = await msgRes.json();
+                if (!msgRes.ok) {
+                    console.error('[Meta Message Error]', msgData);
+                    return false;
+                }
+                return true;
             }
 
             return false;

@@ -1,6 +1,77 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { MessageSquare, Phone, MoreVertical, Search, Paperclip, Smile, Send, Bot, Settings, QrCode, Key, Plus, UserPlus, ClipboardList, Filter, Check, CheckCheck, Clock, AlertCircle } from 'lucide-react';
 import EmojiPicker from 'emoji-picker-react';
+import { createClient } from '@supabase/supabase-js';
+
+// FIX #5 — Supabase client para Realtime (usa as mesmas variáveis de ambiente)
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://lmxuixmmrglrqxjrhpgn.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxteHVpeG1tcmdscnF4anJocGduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMzQwNTUsImV4cCI6MjA5NzkxMDA1NX0.PKEinmA2re0N5Y0UghpoGoerWjEYuugvF47RPXVHpoY';
+const supabaseRealtime = createClient(supabaseUrl, supabaseAnonKey);
+
+// FIX #2 — Formatação global de números de telefone (cobertura completa como grandes plataformas)
+// Baseado na especificação E.164 com prefixos de país
+const COUNTRY_PHONE_PREFIXES: Array<{ prefix: string; digits: number; country: string; format: (n: string) => string }> = [
+    // África de Língua Portuguesa (PALOP)
+    { prefix: '244', digits: 12, country: 'AO', format: (n) => `+244 ${n.slice(3,5)} ${n.slice(5,8)} ${n.slice(8)}` },
+    { prefix: '351', digits: 12, country: 'PT', format: (n) => `+351 ${n.slice(3,6)} ${n.slice(6,9)} ${n.slice(9)}` },
+    { prefix: '55',  digits: 12, country: 'BR', format: (n) => `+55 (${n.slice(2,4)}) ${n.slice(4, n.length-4)}-${n.slice(-4)}` },
+    { prefix: '258', digits: 12, country: 'MZ', format: (n) => `+258 ${n.slice(3,5)} ${n.slice(5,8)} ${n.slice(8)}` },
+    { prefix: '238', digits: 11, country: 'CV', format: (n) => `+238 ${n.slice(3,6)} ${n.slice(6)}` },
+    { prefix: '239', digits: 10, country: 'ST', format: (n) => `+239 ${n.slice(3,5)} ${n.slice(5)}` },
+    { prefix: '245', digits: 10, country: 'GW', format: (n) => `+245 ${n.slice(3,6)} ${n.slice(6)}` },
+    // Europa
+    { prefix: '44',  digits: 12, country: 'GB', format: (n) => `+44 ${n.slice(2,6)} ${n.slice(6)}` },
+    { prefix: '49',  digits: 12, country: 'DE', format: (n) => `+49 ${n.slice(2,5)} ${n.slice(5)}` },
+    { prefix: '33',  digits: 11, country: 'FR', format: (n) => `+33 ${n.slice(2,4)} ${n.slice(4,6)} ${n.slice(6,8)} ${n.slice(8)}` },
+    { prefix: '34',  digits: 11, country: 'ES', format: (n) => `+34 ${n.slice(2,5)} ${n.slice(5,8)} ${n.slice(8)}` },
+    { prefix: '39',  digits: 12, country: 'IT', format: (n) => `+39 ${n.slice(2,5)} ${n.slice(5,8)} ${n.slice(8)}` },
+    { prefix: '31',  digits: 11, country: 'NL', format: (n) => `+31 ${n.slice(2,4)} ${n.slice(4,7)} ${n.slice(7)}` },
+    { prefix: '32',  digits: 11, country: 'BE', format: (n) => `+32 ${n.slice(2,5)} ${n.slice(5)}` },
+    { prefix: '41',  digits: 11, country: 'CH', format: (n) => `+41 ${n.slice(2,4)} ${n.slice(4,7)} ${n.slice(7)}` },
+    { prefix: '43',  digits: 11, country: 'AT', format: (n) => `+43 ${n.slice(2,4)} ${n.slice(4)}` },
+    { prefix: '48',  digits: 11, country: 'PL', format: (n) => `+48 ${n.slice(2,5)} ${n.slice(5,8)} ${n.slice(8)}` },
+    // América
+    { prefix: '1',   digits: 11, country: 'US/CA', format: (n) => `+1 (${n.slice(1,4)}) ${n.slice(4,7)}-${n.slice(7)}` },
+    { prefix: '52',  digits: 12, country: 'MX', format: (n) => `+52 ${n.slice(2,4)} ${n.slice(4,8)} ${n.slice(8)}` },
+    { prefix: '54',  digits: 13, country: 'AR', format: (n) => `+54 ${n.slice(2,4)} ${n.slice(4,8)}-${n.slice(8)}` },
+    { prefix: '56',  digits: 11, country: 'CL', format: (n) => `+56 ${n.slice(2,3)} ${n.slice(3,7)} ${n.slice(7)}` },
+    { prefix: '57',  digits: 12, country: 'CO', format: (n) => `+57 ${n.slice(2,5)} ${n.slice(5,8)} ${n.slice(8)}` },
+    // África
+    { prefix: '27',  digits: 11, country: 'ZA', format: (n) => `+27 ${n.slice(2,4)} ${n.slice(4,7)} ${n.slice(7)}` },
+    { prefix: '234', digits: 13, country: 'NG', format: (n) => `+234 ${n.slice(3,6)} ${n.slice(6,9)} ${n.slice(9)}` },
+    { prefix: '254', digits: 12, country: 'KE', format: (n) => `+254 ${n.slice(3,6)} ${n.slice(6,9)} ${n.slice(9)}` },
+    { prefix: '233', digits: 12, country: 'GH', format: (n) => `+233 ${n.slice(3,5)} ${n.slice(5,8)} ${n.slice(8)}` },
+    { prefix: '225', digits: 11, country: 'CI', format: (n) => `+225 ${n.slice(3,5)} ${n.slice(5,8)} ${n.slice(8)}` },
+    // Ásia/Oceânia
+    { prefix: '91',  digits: 12, country: 'IN', format: (n) => `+91 ${n.slice(2,7)} ${n.slice(7)}` },
+    { prefix: '86',  digits: 13, country: 'CN', format: (n) => `+86 ${n.slice(2,5)} ${n.slice(5,9)} ${n.slice(9)}` },
+    { prefix: '81',  digits: 12, country: 'JP', format: (n) => `+81 ${n.slice(2,4)} ${n.slice(4,8)} ${n.slice(8)}` },
+    { prefix: '82',  digits: 12, country: 'KR', format: (n) => `+82 ${n.slice(2,4)} ${n.slice(4,8)} ${n.slice(8)}` },
+    { prefix: '971', digits: 12, country: 'AE', format: (n) => `+971 ${n.slice(3,5)} ${n.slice(5,8)} ${n.slice(8)}` },
+    { prefix: '966', digits: 12, country: 'SA', format: (n) => `+966 ${n.slice(3,5)} ${n.slice(5,8)} ${n.slice(8)}` },
+    { prefix: '61',  digits: 11, country: 'AU', format: (n) => `+61 ${n.slice(2,5)} ${n.slice(5,8)} ${n.slice(8)}` },
+];
+
+function formatPhoneNumberGlobal(phone: string): string {
+    if (!phone) return '';
+    if (phone === '0' || phone === 'WhatsApp') return 'WhatsApp';
+    if (phone.includes('@lid')) return 'ID Oculto (Anúncio)';
+    
+    const clean = phone.replace(/\D/g, '');
+    if (!clean) return phone;
+    
+    // Tentar corresponder com prefixos do mais longo para o mais curto
+    const sorted = [...COUNTRY_PHONE_PREFIXES].sort((a, b) => b.prefix.length - a.prefix.length);
+    for (const entry of sorted) {
+        if (clean.startsWith(entry.prefix) && clean.length >= entry.digits - 1) {
+            try { return entry.format(clean); } catch { break; }
+        }
+    }
+    
+    // Fallback genérico
+    if (clean.length >= 8) return '+' + clean;
+    return phone;
+}
 
 interface Conversation {
     id: string;
@@ -76,34 +147,7 @@ export default function WhatsAppChatApp() {
         if (storedUser) setCurrentUser(JSON.parse(storedUser));
     }, []);
 
-    const formatPhoneNumber = (phone: string) => {
-        if (!phone) return '';
-        if (phone === '0' || phone === 'WhatsApp') return 'WhatsApp';
-        if (phone.includes('@lid')) return 'ID Oculto (Anúncio)';
-        
-        let cleanPhone = phone.replace(/\D/g, '');
-        
-        // Formato Angola (+244)
-        if (cleanPhone.startsWith('244') && cleanPhone.length === 12) {
-            return `+244 ${cleanPhone.slice(3, 6)} ${cleanPhone.slice(6, 9)} ${cleanPhone.slice(9)}`;
-        }
-        // Formato Portugal (+351)
-        if (cleanPhone.startsWith('351') && cleanPhone.length >= 12) {
-            return `+351 ${cleanPhone.slice(3, 6)} ${cleanPhone.slice(6, 9)} ${cleanPhone.slice(9)}`;
-        }
-        // Formato Brasil (+55)
-        if (cleanPhone.startsWith('55') && cleanPhone.length >= 12) {
-            const ddd = cleanPhone.slice(2, 4);
-            const part1 = cleanPhone.slice(4, cleanPhone.length - 4);
-            const part2 = cleanPhone.slice(cleanPhone.length - 4);
-            return `+55 ${ddd} ${part1}-${part2}`;
-        }
-        // Outros
-        if (cleanPhone.length >= 8) {
-            return '+' + cleanPhone;
-        }
-        return phone;
-    };
+    const formatPhoneNumber = (phone: string) => formatPhoneNumberGlobal(phone);
 
     const displayContactName = (name: string, phone: string) => {
         if (!name) return formatPhoneNumber(phone);
@@ -270,14 +314,20 @@ export default function WhatsAppChatApp() {
         if (!confirm('Tem a certeza que deseja desconectar o WhatsApp?')) return;
         try {
             const token = localStorage.getItem('os_auth_token');
-            await fetch(import.meta.env.VITE_API_URL + '/api/whatsapp/evolution/instance/logout', {
+            const res = await fetch(import.meta.env.VITE_API_URL + '/api/whatsapp/evolution/instance/logout', {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
+            const data = await res.json();
             setEvolutionStatus('disconnected');
             setShowQr(false);
-            fetchMessages(); // Refresh UI to hide archived messages
-            alert('WhatsApp desconectado com sucesso.');
+            // FIX #4 — Limpar estado local após desconectar
+            if (data.cleared) {
+                setConversations([]);
+                setActiveConv(null);
+                setMessages([]);
+            }
+            alert('WhatsApp desconectado com sucesso. As conversas foram arquivadas por segurança.');
         } catch(err) { console.error(err); }
     };
 
@@ -312,17 +362,27 @@ export default function WhatsAppChatApp() {
         }
     };
 
+    // FIX #5 — Supabase Realtime: subscription a wa_conversations
     useEffect(() => {
         fetchConversations();
         fetchAgents();
         fetchEvolutionState();
-        
-        // Polling para simular Realtime (Sincronização a cada 2.5s)
-        const pollInterval = setInterval(() => {
-            fetchConversations();
-        }, 2500);
-        
-        return () => clearInterval(pollInterval);
+
+        // Polling moderado para conversas (fallback)
+        const pollInterval = setInterval(() => fetchConversations(), 8000);
+
+        // Realtime subscription em wa_conversations
+        const convChannel = supabaseRealtime
+            .channel('wa_conversations_realtime')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'wa_conversations' }, () => {
+                fetchConversations();
+            })
+            .subscribe();
+
+        return () => {
+            clearInterval(pollInterval);
+            supabaseRealtime.removeChannel(convChannel);
+        };
     }, []);
 
     const handleAssign = async (agentId: string) => {
@@ -355,16 +415,47 @@ export default function WhatsAppChatApp() {
         } catch(err) { console.error(err); }
     };
 
+    // FIX #5 — Supabase Realtime: subscription a wa_messages para a conversa activa
     useEffect(() => {
-        if (activeConv) {
-            fetchMessages();
-            fetchBotStatus();
-            
-            const msgInterval = setInterval(() => {
-                fetchMessages();
-            }, 2500);
-            return () => clearInterval(msgInterval);
-        }
+        if (!activeConv) return;
+
+        fetchMessages();
+        fetchBotStatus();
+
+        // Realtime subscription em wa_messages para esta conversa
+        const msgChannel = supabaseRealtime
+            .channel(`wa_messages_${activeConv.id}`)
+            .on('postgres_changes', {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'wa_messages',
+                filter: `conversation_id=eq.${activeConv.id}`
+            }, (payload) => {
+                // Adicionar nova mensagem em tempo real sem fazer fetch completo
+                setMessages(prev => {
+                    const exists = prev.some(m => m.id === payload.new.id);
+                    if (exists) return prev;
+                    return [...prev, payload.new as Message];
+                });
+            })
+            .on('postgres_changes', {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'wa_messages',
+                filter: `conversation_id=eq.${activeConv.id}`
+            }, (payload) => {
+                // Actualizar status (lida, entregue) em tempo real
+                setMessages(prev => prev.map(m => m.id === payload.new.id ? { ...m, ...payload.new } : m));
+            })
+            .subscribe();
+
+        // Polling leve como fallback (15s)
+        const msgInterval = setInterval(() => fetchMessages(), 15000);
+
+        return () => {
+            clearInterval(msgInterval);
+            supabaseRealtime.removeChannel(msgChannel);
+        };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeConv?.id]);
 
@@ -805,6 +896,32 @@ export default function WhatsAppChatApp() {
                                         <div style={{ fontSize: '14.2px', color: '#111b21', lineHeight: '19px', paddingRight: '40px', wordWrap: 'break-word', whiteSpace: 'pre-wrap' }}>
                                             {(() => {
                                                 const content = msg.content || '';
+
+                                                // FIX #6 — Suporte a [MEDIA_URL:...] (Supabase Storage)
+                                                const mediaUrlMatch = content.match(/\[MEDIA_URL:(https?:\/\/[^\]]+)\]/);
+                                                if (mediaUrlMatch) {
+                                                    const cleanText = content.replace(mediaUrlMatch[0], '').trim();
+                                                    const url = mediaUrlMatch[1];
+                                                    const ext = url.split('?')[0].split('.').pop()?.toLowerCase() || '';
+                                                    const isImage = ['jpg','jpeg','png','gif','webp'].includes(ext);
+                                                    const isVideo = ['mp4','mpeg','mov','avi','webm'].includes(ext);
+                                                    const isAudio = ['ogg','mp3','wav','m4a','aac'].includes(ext);
+
+                                                    let mediaEl = null;
+                                                    if (isImage) {
+                                                        mediaEl = <img src={url} alt="media" style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', marginTop: cleanText ? '8px' : '0', cursor: 'pointer' }} onClick={() => window.open(url, '_blank')} />;
+                                                    } else if (isVideo) {
+                                                        mediaEl = <video src={url} controls style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', marginTop: cleanText ? '8px' : '0' }} />;
+                                                    } else if (isAudio) {
+                                                        mediaEl = <audio src={url} controls style={{ maxWidth: '100%', marginTop: cleanText ? '8px' : '0' }} />;
+                                                    } else {
+                                                        const fname = url.split('/').pop()?.split('?')[0] || 'ficheiro';
+                                                        mediaEl = <a href={url} target="_blank" rel="noreferrer" download style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: cleanText ? '8px' : '0', color: '#027eb5', textDecoration: 'underline' }}>&#128196; {decodeURIComponent(fname)}</a>;
+                                                    }
+                                                    return (<>{cleanText && <div>{cleanText}</div>}{mediaEl}</>);
+                                                }
+
+                                                // Suporte legado a [MEDIA_BASE64:...] (para mensagens antigas)
                                                 const mediaMatch = content.match(/\[MEDIA_BASE64:(data:([^;]+)(?:;name=([^;]+))?;base64,[\s\S]*?)\]/);
                                                 if (mediaMatch) {
                                                     const cleanText = content.replace(mediaMatch[0], '').trim();
@@ -823,14 +940,9 @@ export default function WhatsAppChatApp() {
                                                     } else {
                                                         mediaElement = <a href={dataUri} download={downloadName} style={{ display: 'block', marginTop: cleanText ? '8px' : '0', color: '#027eb5', textDecoration: 'underline' }}>Descarregar {downloadName}</a>;
                                                     }
-
-                                                    return (
-                                                        <>
-                                                            {cleanText && <div>{cleanText}</div>}
-                                                            {mediaElement}
-                                                        </>
-                                                    );
+                                                    return (<>{cleanText && <div>{cleanText}</div>}{mediaElement}</>);
                                                 }
+
                                                 return content;
                                             })()}
                                         </div>
