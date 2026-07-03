@@ -4,11 +4,11 @@ export class WhatsAppChannelManager {
     /**
      * Envia uma mensagem física (texto) usando a API oficial da Meta ou Evolution
      */
-    public static async sendMessage(channel_id: string, phone_number: string, content: string): Promise<string | boolean> {
+    public static async sendMessage(supabaseClient: any, channel_id: string, phone_number: string, content: string): Promise<string | boolean> {
         try {
-            // Buscar credenciais do canal
-            const { data: channel } = await supabase.from('wa_channels').select('*').eq('id', channel_id).single();
-            if (!channel) throw new Error('Canal não encontrado');
+            // Buscar credenciais do canal com cliente autenticado
+            const { data: channel, error } = await supabaseClient.from('wa_channels').select('*').eq('id', channel_id).single();
+            if (error || !channel) throw new Error(`Canal não encontrado (RLS ou ID inválido): ${error?.message || ''}`);
 
             if (channel.provider === 'meta') {
                 return await this.sendMetaMessage(channel.credentials, phone_number, content);

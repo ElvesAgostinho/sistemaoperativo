@@ -177,7 +177,7 @@ export class WorkflowEngine {
                 
                 try {
                     const { WhatsAppChannelManager } = require('./WhatsAppChannelManager');
-                    await WhatsAppChannelManager.sendMessage(originalMsg.channel_id, originalMsg.phone_number, action.text);
+                    await WhatsAppChannelManager.sendMessage(supabase, originalMsg.channel_id, originalMsg.phone_number, action.text);
                 } catch(e) {
                     console.error('Erro a enviar msg via ChannelManager:', e);
                 }
@@ -216,7 +216,7 @@ export class WorkflowEngine {
                 // Envia de volta para o cliente
                 try {
                     const { WhatsAppChannelManager } = require('./WhatsAppChannelManager');
-                    await WhatsAppChannelManager.sendMessage(message.channel_id, message.phone_number, aiResponse);
+                    await WhatsAppChannelManager.sendMessage(supabase, message.channel_id, message.phone_number, aiResponse);
                 } catch(e) {
                     console.error('[Workflow Engine] Erro a enviar resposta da IA via ChannelManager:', e);
                 }

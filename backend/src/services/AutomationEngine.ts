@@ -163,7 +163,7 @@ export class AutomationEngine {
                             }
 
                             if (finalChannel) {
-                                await WhatsAppChannelManager.sendMessage(finalChannel, waPhone, waMessage);
+                                await WhatsAppChannelManager.sendMessage(supabase, finalChannel, waPhone, waMessage);
                                 console.log(`[AUTOPILOT] WhatsApp enviado para ${waPhone}`);
                             }
                         } catch(e) {
