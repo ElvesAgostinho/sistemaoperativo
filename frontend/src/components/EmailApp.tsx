@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, Send, Inbox, User, Type, AlertCircle, Loader, RefreshCw, Trash2, MailOpen, Mail as MailIcon } from 'lucide-react';
-import { fetchWithAuth } from '../utils/fetchWithAuth';
 
 type SendStatus = 'idle' | 'sending' | 'success' | 'error';
 type ViewMode = 'inbox' | 'sent' | 'compose' | 'read';
@@ -33,7 +32,10 @@ export default function EmailApp() {
     const loadEmails = async () => {
         setLoadingEmails(true);
         try {
-            const res = await fetchWithAuth(import.meta.env.VITE_API_URL + '/api/email');
+            const token = localStorage.getItem('os_auth_token') || '';
+            const res = await fetch(import.meta.env.VITE_API_URL + '/api/email', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
             const data = await res.json();
             if (data.success) {
                 setEmails(data.emails);
@@ -52,7 +54,11 @@ export default function EmailApp() {
     const markAsRead = async (email: Email) => {
         if (!email.lido && email.direcao === 'inbox') {
             try {
-                await fetchWithAuth(import.meta.env.VITE_API_URL + `/api/email/${email.id}/read`, { method: 'PUT' });
+                const token = localStorage.getItem('os_auth_token') || '';
+                await fetch(import.meta.env.VITE_API_URL + `/api/email/${email.id}/read`, { 
+                    method: 'PUT',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
                 setEmails(emails.map(e => e.id === email.id ? { ...e, lido: true } : e));
             } catch (e) {}
         }
@@ -61,7 +67,11 @@ export default function EmailApp() {
     const deleteEmail = async (id: string) => {
         if (window.confirm('Tem a certeza que deseja apagar este email?')) {
             try {
-                await fetchWithAuth(import.meta.env.VITE_API_URL + `/api/email/${id}`, { method: 'DELETE' });
+                const token = localStorage.getItem('os_auth_token') || '';
+                await fetch(import.meta.env.VITE_API_URL + `/api/email/${id}`, { 
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
                 setEmails(emails.filter(e => e.id !== id));
                 if (activeEmail?.id === id) {
                     setView('inbox');
@@ -81,9 +91,13 @@ export default function EmailApp() {
         setErrorMsg('');
 
         try {
-            const res = await fetchWithAuth(import.meta.env.VITE_API_URL + '/api/email/send', {
+            const token = localStorage.getItem('os_auth_token') || '';
+            const res = await fetch(import.meta.env.VITE_API_URL + '/api/email/send', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({ para, assunto, corpo })
             });
             const data = await res.json();
