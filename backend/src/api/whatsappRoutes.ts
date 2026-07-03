@@ -1047,15 +1047,14 @@ router.post('/send', requireAuth, async (req: AuthRequest, res: Response) => {
     const { WhatsAppChannelManager } = require('../services/WhatsAppChannelManager');
     const sent = await WhatsAppChannelManager.sendMessage(conv.channel_id, conv.phone_number, content);
     
-    if (sent) {
-        const updateData: any = { status: 'delivered' };
-        if (typeof sent === 'string') {
-            updateData.message_id = sent;
-            newMsg.message_id = sent;
-        }
+    if (sent && typeof sent === 'string' && !sent.startsWith('ERROR:')) {
+        const updateData: any = { status: 'delivered', message_id: sent };
         await getSupabase(req).from('wa_messages').update(updateData).eq('id', newMsg!.id);
+    } else if (sent === true) {
+        await getSupabase(req).from('wa_messages').update({ status: 'delivered' }).eq('id', newMsg!.id);
     } else {
-        await getSupabase(req).from('wa_messages').update({ status: 'failed' }).eq('id', newMsg!.id);
+        const errorMsg = typeof sent === 'string' && sent.startsWith('ERROR:') ? sent : 'failed';
+        await getSupabase(req).from('wa_messages').update({ status: 'failed', content: errorMsg }).eq('id', newMsg!.id);
     }
     
     await getSupabase(req).from('wa_conversations').update({ last_message_at: new Date().toISOString() }).eq('id', conversation_id);

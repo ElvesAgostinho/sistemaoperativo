@@ -17,9 +17,9 @@ export class WhatsAppChannelManager {
             }
 
             return false;
-        } catch (error) {
+        } catch (error: any) {
             console.error('[WhatsAppChannelManager] Erro ao enviar mensagem:', error);
-            return false;
+            return `ERROR: ${error.message || String(error)}`;
         }
     }
 
