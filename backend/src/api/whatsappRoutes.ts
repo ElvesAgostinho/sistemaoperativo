@@ -375,6 +375,7 @@ router.get('/conversations', requireAuth, async (req: AuthRequest, res: Response
         .from('wa_conversations')
         .select('*, wa_channels(name, provider)')
         .neq('status', 'archived')
+        .not('phone_number', 'like', '%@lid%')
         .order('last_message_at', { ascending: false });
 
     if (req.user && req.user.role !== 'admin' && req.user.role !== 'supervisor' && req.user.role !== 'superadmin') {
@@ -458,17 +459,17 @@ router.get('/conversations/:id/messages', requireAuth, async (req: Request, res:
 // METATEMPLATES & 24H WINDOW LOGIC
 // ==============================================================
 
-// Estado da Instância Evolution
+// Estado da Instância Evolution — sincroniza status na BD
 router.get('/evolution/instance/state', requireAuth, async (req: AuthRequest, res: Response) => {
     const empresaId = req.user?.empresa_id;
     if (!empresaId) return res.status(400).json({ error: 'Empresa não encontrada' });
     const instanceName = `SISTEMA_EMP_${empresaId}`;
     const apiUrl = process.env.EVOLUTION_API_URL || 'https://evolution.topconsultores.pt';
-    const apiKey = process.env.AUTHENTICATION_API_KEY || '***REMOVED_EVOLUTION_API_KEY***';
+    const apiKey = process.env.AUTHENTICATION_API_KEY || '';
 
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
 
         const stateRes = await fetch(`${apiUrl}/instance/connectionState/${instanceName}`, { 
             headers: { 'apikey': apiKey },
@@ -477,11 +478,27 @@ router.get('/evolution/instance/state', requireAuth, async (req: AuthRequest, re
         clearTimeout(timeoutId);
 
         if (stateRes.status === 404) {
+            // Instância não existe — garantir que BD reflecte isso
+            await getSupabase(req).from('wa_channels').update({ status: 'disconnected' }).eq('provider', 'evolution');
             return res.json({ success: true, state: 'disconnected', message: 'Instância não encontrada' });
         }
 
         const stateData = await stateRes.json();
-        return res.json({ success: true, state: stateData.instance?.state || 'unknown' });
+        const evolutionState = stateData.instance?.state || 'unknown';
+        const isConnected = evolutionState === 'open' || evolutionState === 'connected';
+
+        // SINCRONIZAR STATUS NA BD — crucial para que sendMessage funcione após reconexão
+        const newStatus = isConnected ? 'connected' : 'disconnected';
+        await getSupabase(req).from('wa_channels').update({ status: newStatus }).eq('provider', 'evolution');
+
+        // Se acabou de reconectar, desarquivar as conversas
+        if (isConnected) {
+            await getSupabase(req).from('wa_conversations')
+                .update({ status: 'open' })
+                .eq('status', 'archived');
+        }
+
+        return res.json({ success: true, state: evolutionState });
     } catch (err: any) {
         return res.status(500).json({ error: err.name === 'AbortError' ? 'Timeout ao contactar Evolution API' : err.message });
     }
@@ -493,7 +510,7 @@ router.delete('/evolution/instance/logout', requireAuth, async (req: AuthRequest
     if (!empresaId) return res.status(400).json({ error: 'Empresa não encontrada' });
     const instanceName = `SISTEMA_EMP_${empresaId}`;
     const apiUrl = process.env.EVOLUTION_API_URL || 'https://evolution.topconsultores.pt';
-    const apiKey = process.env.AUTHENTICATION_API_KEY || '***REMOVED_EVOLUTION_API_KEY***';
+    const apiKey = process.env.AUTHENTICATION_API_KEY || '';
 
     try {
         await fetch(`${apiUrl}/instance/logout/${instanceName}`, { method: 'DELETE', headers: { 'apikey': apiKey } });
@@ -517,7 +534,7 @@ router.get('/evolution/debug-chats', requireAuth, async (req: AuthRequest, res: 
     if (!empresaId) return res.status(400).json({ error: 'Empresa não encontrada' });
     const instanceName = `SISTEMA_EMP_${empresaId}`;
     const apiUrl = process.env.EVOLUTION_API_URL || 'https://evolution.topconsultores.pt';
-    const apiKey = process.env.AUTHENTICATION_API_KEY || '***REMOVED_EVOLUTION_API_KEY***';
+    const apiKey = process.env.AUTHENTICATION_API_KEY || '';
 
     const results: any = { instanceName, apiUrl, endpoints: {} };
 
@@ -794,7 +811,7 @@ router.post('/evolution/instance', requireAuth, async (req: AuthRequest, res: Re
 
     const instanceName = `SISTEMA_EMP_${empresaId}`;
     const apiUrl = process.env.EVOLUTION_API_URL || 'https://evolution.topconsultores.pt';
-    const apiKey = process.env.AUTHENTICATION_API_KEY || '***REMOVED_EVOLUTION_API_KEY***';
+    const apiKey = process.env.AUTHENTICATION_API_KEY || '';
 
     if (!apiKey) return res.status(500).json({ error: 'AUTHENTICATION_API_KEY não configurada no servidor' });
 
