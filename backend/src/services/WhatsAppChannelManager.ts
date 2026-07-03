@@ -119,7 +119,7 @@ export class WhatsAppChannelManager {
 
         if (!response.ok) {
             console.error('[Evolution sendText Error] Status:', response.status, '| Resposta:', JSON.stringify(data));
-            return false;
+            return `ERROR: HTTP ${response.status} - ${JSON.stringify(data)}`;
         }
 
         console.log('[Evolution sendText OK] Resposta:', JSON.stringify(data).substring(0, 200));
