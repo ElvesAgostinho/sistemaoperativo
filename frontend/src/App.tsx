@@ -107,6 +107,8 @@ function App() {
     const mId = params.get('meetingId');
     if (mId) {
       setMeetingIdFromUrl(mId);
+      params.delete('meetingId');
+      window.history.replaceState({}, document.title, window.location.pathname + (params.toString() ? '?' + params.toString() : ''));
     }
 
     const ref = params.get('ref');
