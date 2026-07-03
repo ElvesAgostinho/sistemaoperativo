@@ -2,6 +2,7 @@ import express from 'express';
 import { requireAuth } from '../middleware/authMiddleware';
 import { getSupabase } from '../lib/supabaseClient';
 import { EmailService } from '../services/EmailService';
+import { EmailSyncService } from '../services/EmailSyncService';
 
 const router = express.Router();
 
@@ -42,6 +43,16 @@ router.get('/', requireAuth, async (req, res) => {
         if (error) throw error;
         
         res.json({ success: true, emails: data });
+    } catch (err: any) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+router.post('/sync', requireAuth, async (req, res) => {
+    try {
+        const empresaId = (req as any).user?.empresa_id || 'mock-empresa-1';
+        const addedCount = await EmailSyncService.syncInbox(empresaId);
+        res.json({ success: true, addedCount });
     } catch (err: any) {
         res.status(500).json({ success: false, error: err.message });
     }

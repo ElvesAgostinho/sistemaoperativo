@@ -47,6 +47,21 @@ export default function EmailApp() {
         }
     };
 
+    const handleSync = async () => {
+        setLoadingEmails(true);
+        try {
+            const token = localStorage.getItem('os_auth_token') || '';
+            await fetch(import.meta.env.VITE_API_URL + '/api/email/sync', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            await loadEmails();
+        } catch (e) {
+            console.error('Falha ao sincronizar emails:', e);
+            setLoadingEmails(false);
+        }
+    };
+
     useEffect(() => {
         loadEmails();
     }, []);
@@ -161,7 +176,7 @@ export default function EmailApp() {
                     <>
                         <div style={{ padding: '16px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'white' }}>
                             <h2 style={{ margin: 0, fontSize: '18px', color: '#0f172a' }}>{view === 'inbox' ? 'Caixa de Entrada' : 'Enviados'}</h2>
-                            <button onClick={loadEmails} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#64748b' }}>
+                            <button onClick={handleSync} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#64748b' }}>
                                 <RefreshCw size={18} className={loadingEmails ? 'spin' : ''} />
                             </button>
                         </div>
