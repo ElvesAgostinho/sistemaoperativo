@@ -48,7 +48,7 @@ export class EmailService {
         }
     }
 
-    private static async createTransporter(empresaId?: number, userClient?: any) {
+    private static async createTransporter(empresaId?: string | number, userClient?: any) {
         const { host, port, secure, user, pass } = await this.getSmtpConfig(empresaId, userClient);
         return nodemailer.createTransport({ 
             host, 
@@ -59,7 +59,7 @@ export class EmailService {
         });
     }
 
-    public static async isConfigured(empresaId?: number, userClient?: any): Promise<boolean> {
+    public static async isConfigured(empresaId?: string | number, userClient?: any): Promise<boolean> {
         const { user, pass } = await this.getSmtpConfig(empresaId, userClient);
         return !!(user && pass);
     }
@@ -87,7 +87,7 @@ export class EmailService {
         }
     }
 
-    public static async enviarEmailPersonalizado(para: string, assunto: string, corpo: string, empresaId?: number, userClient?: any): Promise<boolean> {
+    public static async enviarEmailPersonalizado(para: string, assunto: string, corpo: string, empresaId?: string | number, userClient?: any): Promise<boolean> {
         if (!para || para.trim() === '') return false;
         
         const configOK = await this.isConfigured(empresaId, userClient);
@@ -111,7 +111,7 @@ export class EmailService {
             try {
                 const client = userClient || supabase;
                 await client.from('emails').insert({
-                    empresa_id: empresaId === 'mock-empresa-1' ? null : empresaId,
+                    empresa_id: (empresaId === 'mock-empresa-1' || String(empresaId) === 'mock-empresa-1') ? null : empresaId,
                     direcao: 'sent',
                     message_id: info.messageId,
                     de: `"${nome}" <${user}>`,
@@ -133,7 +133,7 @@ export class EmailService {
         }
     }
 
-    public static async enviarRecibo(emailDestino: string, nomeFuncionario: string, mesAno: string, pdfPath: string, empresaId?: number, userClient?: any): Promise<boolean> {
+    public static async enviarRecibo(emailDestino: string, nomeFuncionario: string, mesAno: string, pdfPath: string, empresaId?: string | number, userClient?: any): Promise<boolean> {
         const configOK = await this.isConfigured(empresaId, userClient);
         if (!configOK) return false;
         
@@ -154,7 +154,7 @@ export class EmailService {
         }
     }
 
-    public static async notificarCandidatoAprovado(emailDestino: string, nomeCandidato: string, requisitosVaga: string, empresaId?: number, userClient?: any): Promise<boolean> {
+    public static async notificarCandidatoAprovado(emailDestino: string, nomeCandidato: string, requisitosVaga: string, empresaId?: string | number, userClient?: any): Promise<boolean> {
         if (!emailDestino) return false;
         
         const configOK = await this.isConfigured(empresaId, userClient);
@@ -176,7 +176,7 @@ export class EmailService {
         }
     }
 
-    public static async enviarEmailBoasVindas(emailDestino: string, nomeFuncionario: string, empresaId?: number, userClient?: any): Promise<boolean> {
+    public static async enviarEmailBoasVindas(emailDestino: string, nomeFuncionario: string, empresaId?: string | number, userClient?: any): Promise<boolean> {
         return this.enviarEmailPersonalizado(
             emailDestino,
             `Bem-vindo(a), ${nomeFuncionario}!`,
