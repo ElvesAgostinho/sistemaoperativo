@@ -1044,6 +1044,7 @@ router.post('/send', requireAuth, async (req: AuthRequest, res: Response) => {
     }
 
     // 2. Chamar a API externa fisicamente (Evolution ou Meta)
+    const { WhatsAppChannelManager } = require('../services/WhatsAppChannelManager');
     const sent = await WhatsAppChannelManager.sendMessage(getSupabase(req), conv.channel_id, conv.phone_number, content);
     
     if (sent && typeof sent === 'string' && !sent.startsWith('ERROR:')) {
