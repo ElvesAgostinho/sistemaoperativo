@@ -33,14 +33,14 @@ async function uploadMediaToStorage(base64Data: string, fileName: string, mimeTy
 }
 
 // HELPER: Download de mídia da Evolution API
-async function downloadMediaFromEvolution(instanceName: string, messageKey: any): Promise<{ base64: string, mimeType: string } | null> {
+async function downloadMediaFromEvolution(instanceName: string, msg: any): Promise<{ base64: string, mimeType: string } | null> {
     const evolutionUrl = process.env.EVOLUTION_API_URL || 'https://evolution.topconsultores.pt';
     const apikey = process.env.AUTHENTICATION_API_KEY || '';
     try {
         const res = await fetch(`${evolutionUrl}/chat/getBase64FromMediaMessage/${instanceName}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'apikey': apikey },
-            body: JSON.stringify({ message: { key: messageKey }, convertToMp4: false })
+            body: JSON.stringify({ message: msg, convertToMp4: false })
         });
         if (!res.ok) return null;
         const data = await res.json();
@@ -147,7 +147,7 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                         if (b64) {
                             mediaUrl = await uploadMediaToStorage(b64, fname, mime);
                         } else if (instanceName) {
-                            const dl = await downloadMediaFromEvolution(instanceName, msg.key);
+                            const dl = await downloadMediaFromEvolution(instanceName, msg);
                             if (dl) mediaUrl = await uploadMediaToStorage(dl.base64, fname, dl.mimeType);
                         }
                         if (mediaUrl) content += `\n[MEDIA_URL:${mediaUrl}]`;
@@ -160,7 +160,7 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                         if (b64) {
                             mediaUrl = await uploadMediaToStorage(b64, fname, mime);
                         } else if (instanceName) {
-                            const dl = await downloadMediaFromEvolution(instanceName, msg.key);
+                            const dl = await downloadMediaFromEvolution(instanceName, msg);
                             if (dl) mediaUrl = await uploadMediaToStorage(dl.base64, fname, dl.mimeType);
                         }
                         if (mediaUrl) content += `\n[MEDIA_URL:${mediaUrl}]`;
@@ -173,7 +173,7 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                         if (b64) {
                             mediaUrl = await uploadMediaToStorage(b64, originalName, mime);
                         } else if (instanceName) {
-                            const dl = await downloadMediaFromEvolution(instanceName, msg.key);
+                            const dl = await downloadMediaFromEvolution(instanceName, msg);
                             if (dl) mediaUrl = await uploadMediaToStorage(dl.base64, originalName, dl.mimeType);
                         }
                         if (mediaUrl) content += `\n[MEDIA_URL:${mediaUrl}]`;

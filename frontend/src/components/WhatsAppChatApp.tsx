@@ -963,7 +963,7 @@ export default function WhatsAppChatApp() {
                                                         {msg.status === 'sending' && <Clock size={12} color="#8696a0" />}
                                                         {msg.status === 'sent' && <Check size={14} color="#8696a0" />}
                                                         {(msg.status === 'delivered' || msg.status === 'read' || !msg.status) && (
-                                                            <CheckCheck size={15} color={msg.status === 'read' ? '#53bdeb' : '#8696a0'} />
+                                                            <CheckCheck size={15} color={(msg.status === 'read' || msg.status === 'delivered') ? '#53bdeb' : '#8696a0'} />
                                                         )}
                                                         {msg.status === 'failed' && <AlertCircle size={14} color="#f87171" />}
                                                     </>

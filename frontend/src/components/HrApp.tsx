@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Upload, Users, FileText, Download, CheckCircle, AlertTriangle, Briefcase, Calendar, Plus, Bot, Trash2, Sun, Search, Lock, Edit2, DollarSign, Star, LayoutGrid, List } from 'lucide-react';
 
+const authFetch = (url: string, options: any = {}) => { const token = localStorage.getItem('os_auth_token'); const headers = { ...options.headers }; if (token) headers['Authorization'] = Bearer \; return(url, { ...options, headers }); };
+
 export default function HrApp() {
   const [activeTab, setActiveTab] = useState<'recrutamento' | 'salarios' | 'colaboradores' | 'presencas' | 'departamentos' | 'adiantamentos' | 'desempenho' | 'rubricas'>('colaboradores');
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
@@ -51,11 +53,11 @@ export default function HrApp() {
 
   const fetchRubricas = async () => {
     try {
-      const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/rubricas');
+      const res = await(import.meta.env.VITE_API_URL + '/api/hr/rubricas');
       const data = await res.json();
       if(data.success) setRubricas(data.rubricas);
       
-      const resI = await fetch(import.meta.env.VITE_API_URL + '/api/hr/tabelas-imposto');
+      const resI = await(import.meta.env.VITE_API_URL + '/api/hr/tabelas-imposto');
       const dataI = await resI.json();
       if(dataI.success) setTabelasImposto(dataI.tabelas);
     } catch(err) { console.error(err); }
@@ -64,7 +66,7 @@ export default function HrApp() {
   const handleSaveRubrica = async (e: any) => {
     e.preventDefault();
     try {
-      await fetch(import.meta.env.VITE_API_URL + '/api/hr/rubricas', {
+      await(import.meta.env.VITE_API_URL + '/api/hr/rubricas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(novaRubrica)
@@ -77,7 +79,7 @@ export default function HrApp() {
   const fetchDepartamentos = async () => {
     setLoadingDepartamentos(true);
     try {
-      const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/departamentos');
+      const res = await(import.meta.env.VITE_API_URL + '/api/hr/departamentos');
       const data = await res.json();
       if (data.success) {
         setDepartamentos(data.departamentos);
@@ -92,7 +94,7 @@ export default function HrApp() {
   const handleSaveDepartamento = async (e: any) => {
     e.preventDefault();
     try {
-      const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/departamentos', {
+      const res = await(import.meta.env.VITE_API_URL + '/api/hr/departamentos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newDepartamento)
@@ -125,7 +127,7 @@ export default function HrApp() {
   const fetchEmployeeVacations = async (empId: number) => {
     setLoadingVacations(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/hr/ausencias?colaborador_id=${empId}`);
+      const res = await(`${import.meta.env.VITE_API_URL}/api/hr/ausencias?colaborador_id=${empId}`);
       const data = await res.json();
       if (data.success) {
         setEmployeeVacations(data.ausencias);
@@ -154,7 +156,7 @@ export default function HrApp() {
       formData.append('data_fim', newVacation.data_fim);
       formData.append('justificada', newVacation.justificada.toString());
 
-      const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/ausencias', {
+      const res = await(import.meta.env.VITE_API_URL + '/api/hr/ausencias', {
         method: 'POST',
         body: formData
       });
@@ -173,7 +175,7 @@ export default function HrApp() {
 
   const handleUpdateVacationStatus = async (id: number, estado: string) => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/hr/ausencias/${id}/estado`, {
+      const res = await(`${import.meta.env.VITE_API_URL}/api/hr/ausencias/${id}/estado`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ estado })
@@ -190,7 +192,7 @@ export default function HrApp() {
   const fetchEmployees = async () => {
     setLoadingEmployees(true);
     try {
-      const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/employees');
+      const res = await(import.meta.env.VITE_API_URL + '/api/hr/employees');
       const data = await res.json();
       if (data.success) {
         setEmployees(data.employees);
@@ -217,7 +219,7 @@ export default function HrApp() {
   const handleGenerateDoc = async (id: number) => {
     setGeneratingDoc(id);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/hr/employees/${id}/declaracao`, { method: 'POST' });
+      const res = await(`${import.meta.env.VITE_API_URL}/api/hr/employees/${id}/declaracao`, { method: 'POST' });
       const data = await res.json();
       if (data.success) {
         window.open(import.meta.env.VITE_API_URL + data.pdf_path, '_blank');
@@ -235,7 +237,7 @@ export default function HrApp() {
     e.preventDefault();
     setIsSavingEmployee(true);
     try {
-      const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/employees', {
+      const res = await(import.meta.env.VITE_API_URL + '/api/hr/employees', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newEmployee)
@@ -268,7 +270,7 @@ export default function HrApp() {
     if (!editEmployee) return;
     setIsSavingEdit(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/hr/employees/${editEmployee.id}`, {
+      const res = await(`${import.meta.env.VITE_API_URL}/api/hr/employees/${editEmployee.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editEmployee)
@@ -291,7 +293,7 @@ export default function HrApp() {
   const deleteEmployee = async (id: number) => {
     if (!window.confirm("ATENÇÃO: Ao apagar o colaborador, apagará os seus recibos, ausências e contratos associados. Continuar?")) return;
     try {
-      await fetch(`${import.meta.env.VITE_API_URL}/api/hr/employees/${id}`, { method: 'DELETE' });
+      await(`${import.meta.env.VITE_API_URL}/api/hr/employees/${id}`, { method: 'DELETE' });
       fetchEmployees();
     } catch (err) {
       alert("Erro ao apagar colaborador.");
@@ -301,7 +303,7 @@ export default function HrApp() {
   const deleteDepartamento = async (id: number) => {
     if (!window.confirm("Deseja eliminar este departamento? Os colaboradores passarão a ficar sem departamento associado.")) return;
     try {
-      await fetch(`${import.meta.env.VITE_API_URL}/api/hr/departamentos/${id}`, { method: 'DELETE' });
+      await(`${import.meta.env.VITE_API_URL}/api/hr/departamentos/${id}`, { method: 'DELETE' });
       fetchDepartamentos();
     } catch (err) {
       alert("Erro ao apagar departamento.");
@@ -312,7 +314,7 @@ export default function HrApp() {
     setDossierEmployeeId(empId);
     setShowDossierModal(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/hr/employees/${empId}/documents`);
+      const res = await(`${import.meta.env.VITE_API_URL}/api/hr/employees/${empId}/documents`);
       const data = await res.json();
       if (data.success) {
         setDossierDocuments(data.documents);
@@ -330,7 +332,7 @@ export default function HrApp() {
     formData.append('titulo', newDocument.titulo);
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/hr/employees/${dossierEmployeeId}/documents`, {
+      const res = await(`${import.meta.env.VITE_API_URL}/api/hr/employees/${dossierEmployeeId}/documents`, {
         method: 'POST',
         body: formData
       });
@@ -359,7 +361,7 @@ export default function HrApp() {
 
   const fetchVagas = async () => {
     try {
-      const res = await fetch(import.meta.env.VITE_API_URL + '/api/recrutamento/vagas');
+      const res = await(import.meta.env.VITE_API_URL + '/api/recrutamento/vagas');
       const data = await res.json();
       if (data.success) setVagas(data.vagas || []);
     } catch (err) { console.error(err); }
@@ -367,7 +369,7 @@ export default function HrApp() {
 
   const fetchCandidaturas = async () => {
     try {
-      const resCand = await fetch(import.meta.env.VITE_API_URL + '/api/recrutamento/candidaturas');
+      const resCand = await(import.meta.env.VITE_API_URL + '/api/recrutamento/candidaturas');
       const dataCand = await resCand.json();
       if (dataCand.success) setCandidaturas(dataCand.candidaturas || []);
     } catch (err) { console.error(err); }
@@ -383,7 +385,7 @@ export default function HrApp() {
   const handleCreateVaga = async (e: any) => {
     e.preventDefault();
     try {
-      await fetch(import.meta.env.VITE_API_URL + '/api/recrutamento/vagas', {
+      await(import.meta.env.VITE_API_URL + '/api/recrutamento/vagas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(novaVaga)
@@ -407,7 +409,7 @@ export default function HrApp() {
     formData.append('telefone', novaCandidatura.telefone);
 
     try {
-      const res = await fetch(import.meta.env.VITE_API_URL + '/api/recrutamento/upload', {
+      const res = await(import.meta.env.VITE_API_URL + '/api/recrutamento/upload', {
         method: 'POST',
         body: formData
       });
@@ -431,7 +433,7 @@ export default function HrApp() {
   const handleDecisaoCandidatura = async (id: number, estado: string) => {
     if (!window.confirm(`Tem a certeza que deseja marcar como ${estado}? O candidato será notificado.`)) return;
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/recrutamento/${id}/decisao`, {
+      const res = await(`${import.meta.env.VITE_API_URL}/api/recrutamento/${id}/decisao`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ estado })
@@ -500,7 +502,7 @@ export default function HrApp() {
 
   const carregarAusencias = async () => {
     try {
-      const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/ausencias');
+      const res = await(import.meta.env.VITE_API_URL + '/api/hr/ausencias');
       const data = await res.json();
       if(data.success) setAusencias(data.ausencias);
     } catch(err) { console.error(err); }
@@ -508,7 +510,7 @@ export default function HrApp() {
 
   const carregarAdiantamentos = async () => {
     try {
-      const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/adiantamentos');
+      const res = await(import.meta.env.VITE_API_URL + '/api/hr/adiantamentos');
       const data = await res.json();
       if(data.success) setAdiantamentos(data.adiantamentos);
     } catch(err) { console.error(err); }
@@ -516,7 +518,7 @@ export default function HrApp() {
 
   const carregarAvaliacoes = async () => {
     try {
-      const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/avaliacoes');
+      const res = await(import.meta.env.VITE_API_URL + '/api/hr/avaliacoes');
       const data = await res.json();
       if(data.success) setAvaliacoes(data.avaliacoes);
     } catch(err) { console.error(err); }
@@ -538,7 +540,7 @@ export default function HrApp() {
   const handleSaveAdiantamento = async (e: any) => {
     e.preventDefault();
     try {
-      const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/adiantamentos', {
+      const res = await(import.meta.env.VITE_API_URL + '/api/hr/adiantamentos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(novoAdiantamento)
@@ -559,7 +561,7 @@ export default function HrApp() {
   const handleSaveAvaliacao = async (e: any) => {
     e.preventDefault();
     try {
-      const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/avaliacoes', {
+      const res = await(import.meta.env.VITE_API_URL + '/api/hr/avaliacoes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(novaAvaliacao)
@@ -584,7 +586,7 @@ export default function HrApp() {
     const formData = new FormData();
     formData.append('loteExcel', employeeBulkFile);
     try {
-      const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/employees-bulk', { method: 'POST', body: formData });
+      const res = await(import.meta.env.VITE_API_URL + '/api/hr/employees-bulk', { method: 'POST', body: formData });
       const data = await res.json();
       setEmployeeBulkResult(data);
       if (data.success && data.total_criado > 0) fetchEmployees();
@@ -600,7 +602,7 @@ export default function HrApp() {
     const formData = new FormData();
     formData.append('loteExcel', candidateBulkFile);
     try {
-      const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/candidates-bulk', { method: 'POST', body: formData });
+      const res = await(import.meta.env.VITE_API_URL + '/api/hr/candidates-bulk', { method: 'POST', body: formData });
       const data = await res.json();
       setCandidateBulkResult(data);
       setCandidateBulkFile(null);
@@ -627,7 +629,7 @@ export default function HrApp() {
     formData.append('loteExcel', payrollFile);
 
     try {
-      const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/payroll-bulk', {
+      const res = await(import.meta.env.VITE_API_URL + '/api/hr/payroll-bulk', {
         method: 'POST',
         body: formData
       });
@@ -658,7 +660,7 @@ export default function HrApp() {
     formData.append('loteExcel', attendanceBulkFile);
 
     try {
-      const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/attendance-bulk', {
+      const res = await(import.meta.env.VITE_API_URL + '/api/hr/attendance-bulk', {
         method: 'POST',
         body: formData
       });
@@ -1078,7 +1080,7 @@ export default function HrApp() {
                         <div style={{ display: 'flex', gap: '4px' }}>
                           <button className="odoo-btn" style={{ padding: '2px 8px', fontSize: '11px', backgroundColor: '#fff3cd', color: '#856404', border: '1px solid #ffeeba' }}
                             onClick={async () => {
-                              await fetch(`${import.meta.env.VITE_API_URL}/api/hr/ausencias/${aus.id}/estado`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({estado: 'Pendente RH'})});
+                              await(`${import.meta.env.VITE_API_URL}/api/hr/ausencias/${aus.id}/estado`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({estado: 'Pendente RH'})});
                               carregarAusencias();
                             }}
                           >Chefia: Aprovar</button>
@@ -1089,14 +1091,14 @@ export default function HrApp() {
                         <div style={{ display: 'flex', gap: '4px' }}>
                           <button className="odoo-btn" style={{ padding: '2px 8px', fontSize: '11px', backgroundColor: '#d4edda', color: '#155724', border: '1px solid #c3e6cb' }}
                             onClick={async () => {
-                              await fetch(`${import.meta.env.VITE_API_URL}/api/hr/ausencias/${aus.id}/estado`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({estado: 'Justificada'})});
+                              await(`${import.meta.env.VITE_API_URL}/api/hr/ausencias/${aus.id}/estado`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({estado: 'Justificada'})});
                               carregarAusencias();
                             }}
                           >RH: Validar Atestado</button>
                           
                           <button className="odoo-btn" style={{ padding: '2px 8px', fontSize: '11px', backgroundColor: '#f8d7da', color: '#721c24', border: '1px solid #f5c6cb' }}
                             onClick={async () => {
-                              await fetch(`${import.meta.env.VITE_API_URL}/api/hr/ausencias/${aus.id}/estado`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({estado: 'Rejeitada'})});
+                              await(`${import.meta.env.VITE_API_URL}/api/hr/ausencias/${aus.id}/estado`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({estado: 'Rejeitada'})});
                               carregarAusencias();
                             }}
                           >Rejeitar (Injustificada)</button>
@@ -1300,7 +1302,7 @@ export default function HrApp() {
                     
                     setIsProcessingPayroll(true);
                     try {
-                      const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/processamento', {
+                      const res = await(import.meta.env.VITE_API_URL + '/api/hr/processamento', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ mes, ano })
@@ -1309,7 +1311,7 @@ export default function HrApp() {
                       if (data.success) {
                         alert('Processamento concluído com sucesso!');
                         // Carregar os dados
-                        const resGet = await fetch(`${import.meta.env.VITE_API_URL}/api/hr/processamento/${mes}/${ano}`);
+                        const resGet = await(`${import.meta.env.VITE_API_URL}/api/hr/processamento/${mes}/${ano}`);
                         const getDados = await resGet.json();
                         setPayrollResults(getDados);
                       } else {
@@ -1339,7 +1341,7 @@ export default function HrApp() {
                     const mes = (document.getElementById('mes-processamento') as HTMLSelectElement).value;
                     const ano = (document.getElementById('ano-processamento') as HTMLSelectElement).value;
                     
-                    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/hr/processamento/${mes}/${ano}`);
+                    const res = await(`${import.meta.env.VITE_API_URL}/api/hr/processamento/${mes}/${ano}`);
                     const dados = await res.json();
                     if (dados.processamento) {
                       setPayrollResults(dados);
@@ -1374,9 +1376,9 @@ export default function HrApp() {
                           style={{ backgroundColor: 'var(--odoo-teal)', color: 'white' }}
                           onClick={async () => {
                             if(confirm("Tem a certeza que quer fechar este mês? Os dados não poderão ser alterados após o fecho!")) {
-                              await fetch(`${import.meta.env.VITE_API_URL}/api/hr/processamento/${payrollResults.processamento.id}/fechar`, { method: 'POST' });
+                              await(`${import.meta.env.VITE_API_URL}/api/hr/processamento/${payrollResults.processamento.id}/fechar`, { method: 'POST' });
                               // Reload
-                              const resGet = await fetch(`${import.meta.env.VITE_API_URL}/api/hr/processamento/${payrollResults.processamento.mes}/${payrollResults.processamento.ano}`);
+                              const resGet = await(`${import.meta.env.VITE_API_URL}/api/hr/processamento/${payrollResults.processamento.mes}/${payrollResults.processamento.ano}`);
                               setPayrollResults(await resGet.json());
                             }
                           }}
@@ -1427,7 +1429,7 @@ export default function HrApp() {
                               style={{ fontSize: '11px', padding: '4px 8px', color: 'var(--odoo-purple)', border: '1px solid var(--odoo-purple)', backgroundColor: 'transparent' }}
                               onClick={async () => {
                                 try {
-                                  const r = await fetch(`${import.meta.env.VITE_API_URL}/api/hr/recibo/${recibo.id}/pdf`);
+                                  const r = await(`${import.meta.env.VITE_API_URL}/api/hr/recibo/${recibo.id}/pdf`);
                                   const d = await r.json();
                                   if(d.success) alert('Recibo Gerado:\n' + d.pdf_path);
                                   else alert('Erro ao gerar pdf');
@@ -1649,7 +1651,7 @@ export default function HrApp() {
                 formData.append('justificada', novaAusencia.justificada);
                 if (ausenciaFile) formData.append('comprovativo', ausenciaFile);
 
-                const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/ausencias', { method: 'POST', body: formData });
+                const res = await(import.meta.env.VITE_API_URL + '/api/hr/ausencias', { method: 'POST', body: formData });
                 const d = await res.json();
                 if(d.success) {
                   setShowNovaAusenciaModal(false);
@@ -1713,7 +1715,7 @@ export default function HrApp() {
               
               <form onSubmit={async (e) => {
                 e.preventDefault();
-                const res = await fetch(`${import.meta.env.VITE_API_URL}/api/hr/recibo/${editingRecibo.id}`, { 
+                const res = await(`${import.meta.env.VITE_API_URL}/api/hr/recibo/${editingRecibo.id}`, { 
                   method: 'PUT', 
                   headers: {'Content-Type': 'application/json'},
                   body: JSON.stringify(editingRecibo)
@@ -1721,7 +1723,7 @@ export default function HrApp() {
                 const d = await res.json();
                 if(d.success) {
                   setEditingRecibo(null);
-                  const resGet = await fetch(`${import.meta.env.VITE_API_URL}/api/hr/processamento/${payrollResults.processamento.mes}/${payrollResults.processamento.ano}`);
+                  const resGet = await(`${import.meta.env.VITE_API_URL}/api/hr/processamento/${payrollResults.processamento.mes}/${payrollResults.processamento.ano}`);
                   setPayrollResults(await resGet.json());
                 } else alert('Erro: ' + d.error);
               }}>
@@ -2103,12 +2105,12 @@ export default function HrApp() {
                   <label className="odoo-label">Título da Vaga *</label>
                   <input required type="text" className="odoo-input" placeholder="Ex: Desenvolvedor Frontend React" value={novaVaga.titulo} onChange={e => setNovaVaga({...novaVaga, titulo: e.target.value})} />
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                  <div className="odoo-form-group">
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px', marginBottom: '16px' }}>
+                  <div className="odoo-form-group" style={{ marginBottom: 0 }}>
                     <label className="odoo-label">Departamento</label>
                     <input type="text" className="odoo-input" placeholder="Ex: TI" value={novaVaga.departamento} onChange={e => setNovaVaga({...novaVaga, departamento: e.target.value})} />
                   </div>
-                  <div className="odoo-form-group">
+                  <div className="odoo-form-group" style={{ marginBottom: 0 }}>
                     <label className="odoo-label">Tipo de Contrato</label>
                     <select className="odoo-input" value={novaVaga.tipo} onChange={e => setNovaVaga({...novaVaga, tipo: e.target.value})}>
                         <option value="Tempo Inteiro">Tempo Inteiro</option>
@@ -2117,7 +2119,7 @@ export default function HrApp() {
                         <option value="Freelance">Freelance</option>
                     </select>
                   </div>
-                  <div className="odoo-form-group">
+                  <div className="odoo-form-group" style={{ marginBottom: 0 }}>
                     <label className="odoo-label">Localização</label>
                     <input type="text" className="odoo-input" placeholder="Ex: Luanda" value={novaVaga.localizacao} onChange={e => setNovaVaga({...novaVaga, localizacao: e.target.value})} />
                   </div>
