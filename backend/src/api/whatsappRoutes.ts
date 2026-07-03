@@ -563,7 +563,7 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
     if (!empresaId) return res.status(400).json({ error: 'Empresa não encontrada' });
     const instanceName = `SISTEMA_EMP_${empresaId}`;
     const apiUrl = process.env.EVOLUTION_API_URL || 'https://evolution.topconsultores.pt';
-    const apiKey = process.env.AUTHENTICATION_API_KEY || '***REMOVED_EVOLUTION_API_KEY***';
+    const apiKey = process.env.AUTHENTICATION_API_KEY || '';
 
     console.log(`[sync-chats] Iniciando sincronização para instância: ${instanceName}`);
 
@@ -654,23 +654,25 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
                 }
             }
             
-            // Ignorar apenas grupos (@g.us) para evitar misturar com os chats normais
-            if (!realJid || realJid.includes('@g.us')) continue; 
-            
-            let phoneNumber = realJid;
-            if (!phoneNumber.includes('@lid')) {
-                phoneNumber = phoneNumber.split('@')[0].replace(/\D/g, '');
+            // Ignorar grupos (@g.us) E contactos @lid que não foram resolvidos
+            if (!realJid || realJid.includes('@g.us')) continue;
+            if (realJid.includes('@lid')) {
+                console.log(`[sync-chats] Ignorar contacto @lid sem resolução: ${realJid}`);
+                continue;
             }
+            
+            let phoneNumber = realJid.split('@')[0].replace(/\D/g, '');
+            if (!phoneNumber || phoneNumber.length < 8) continue; // Número inválido
             
             let contactName = chat.pushName || chat.name || chat.verifiedName || '';
 
-            // Se não houver nome, tentar buscar o perfil
-            if (!contactName) {
+            // Se não houver nome, tentar buscar o perfil usando o NÚMERO LIMPO
+            if (!contactName && phoneNumber) {
                 try {
                     const profileRes: any = await fetchWithTimeout(`${apiUrl}/chat/fetchProfile/${instanceName}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
-                        body: JSON.stringify({ number: remoteJid })
+                        body: JSON.stringify({ number: phoneNumber }) // Número limpo, não o JID
                     }, 2000);
                     if (profileRes.ok) {
                         const profileData = await profileRes.json();
@@ -679,9 +681,7 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
                 } catch (e) { /* silent fail */ }
             }
 
-            if (!contactName) {
-                contactName = phoneNumber.includes('@lid') ? 'Cliente Oculto' : phoneNumber;
-            }
+            if (!contactName) contactName = phoneNumber;
             
             // FOTOS DE PERFIL - tentar logo do objecto para evitar chamadas de rede extra
             let contactPicture: string | null = chat.profilePicUrl || chat.picture || null;
@@ -690,8 +690,8 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
                     const picRes: any = await fetchWithTimeout(`${apiUrl}/chat/fetchProfilePictureUrl/${instanceName}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
-                        body: JSON.stringify({ number: remoteJid })
-                    }, 2000); // timeout bem curto para não encravar a sincronização
+                        body: JSON.stringify({ number: phoneNumber }) // Número limpo
+                    }, 2000);
                     if (picRes.ok) {
                         const picData = await picRes.json();
                         if (picData.profilePictureUrl) contactPicture = picData.profilePictureUrl;

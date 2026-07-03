@@ -268,7 +268,11 @@ export default function WhatsAppChatApp() {
             });
             const data = await res.json();
             if (data.success) {
-                setConversations(data.conversations);
+                // Filtrar contactos @lid que possam existir na BD (limpeza de segurança)
+                const filtered = (data.conversations || []).filter(
+                    (c: Conversation) => !c.phone_number?.includes('@lid')
+                );
+                setConversations(filtered);
             }
         } catch(err) { console.error(err); }
     };

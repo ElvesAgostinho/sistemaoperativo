@@ -79,7 +79,7 @@ export class WhatsAppChannelManager {
 
         const url = `${evolutionUrl}/message/sendText/${instanceName}`;
         
-        // FIX #6 - Normalizar número correctamente
+        // Normalizar número
         let formattedPhone = phone_number;
         if (!formattedPhone.includes('@lid')) {
             formattedPhone = formattedPhone.replace(/\D/g, '');
@@ -89,15 +89,21 @@ export class WhatsAppChannelManager {
             }
         }
 
-        // Evolution API v2: payload correto
+        // Compatibilidade Evolution v1 (textMessage.text) + v2 (text)
+        // Enviamos ambos para garantir funcionamento em qualquer versão
         const payload = {
             number: formattedPhone,
             options: {
                 delay: 1200,
                 presence: 'composing'
             },
+            textMessage: {
+                text: content
+            },
             text: content
         };
+
+        console.log(`[Evolution sendText] URL: ${url} | Número: ${formattedPhone} | Mensagem: "${content.substring(0, 50)}"`);
 
         const response = await fetch(url, {
             method: 'POST',
@@ -108,11 +114,15 @@ export class WhatsAppChannelManager {
             body: JSON.stringify(payload)
         });
 
-        const data = await response.json();
+        let data: any = {};
+        try { data = await response.json(); } catch { data = {}; }
+
         if (!response.ok) {
-            console.error('[Evolution API Error]', data);
+            console.error('[Evolution sendText Error] Status:', response.status, '| Resposta:', JSON.stringify(data));
             return false;
         }
+
+        console.log('[Evolution sendText OK] Resposta:', JSON.stringify(data).substring(0, 200));
 
         if (data.key?.id) return data.key.id;
         if (data.id) return data.id;
