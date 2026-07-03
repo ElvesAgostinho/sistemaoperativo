@@ -19,6 +19,7 @@ import recrutamentoRoutes from './api/recrutamentoRoutes';
 import accountingRoutes from './api/accountingRoutes';
 import emailRoutes from './api/emailRoutes';
 import publicRoutes from './api/publicRoutes';
+import { EmailSyncService } from './services/EmailSyncService';
 
 dotenv.config();
 
@@ -79,4 +80,9 @@ app.get('/', (req, res) => {
 // Start server
 app.listen(port, () => {
   console.log(`[server]: Server is running at http://localhost:${port}`);
+  
+  // Iniciar sincronização de emails (a cada 3 minutos)
+  setInterval(() => {
+    EmailSyncService.syncAll().catch(console.error);
+  }, 3 * 60 * 1000);
 });

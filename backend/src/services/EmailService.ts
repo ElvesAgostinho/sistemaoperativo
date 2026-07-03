@@ -107,6 +107,25 @@ export class EmailService {
                 text: corpo.replace(/<[^>]+>/g, '')
             });
             console.log(`[EmailService] Email enviado para ${para}: ${info.messageId}`);
+            
+            try {
+                const client = userClient || supabase;
+                await client.from('emails').insert({
+                    empresa_id: empresaId === 'mock-empresa-1' ? null : empresaId,
+                    direcao: 'sent',
+                    message_id: info.messageId,
+                    de: `"${nome}" <${user}>`,
+                    para: para,
+                    assunto: assunto,
+                    corpo_html: corpo,
+                    corpo_texto: corpo.replace(/<[^>]+>/g, ''),
+                    lido: true,
+                    data_envio: new Date().toISOString()
+                });
+            } catch(e) {
+                console.error('[EmailService] Falha ao guardar na BD', e);
+            }
+
             return true;
         } catch (error) {
             console.error(`[EmailService] Erro ao enviar email para ${para}:`, error);
