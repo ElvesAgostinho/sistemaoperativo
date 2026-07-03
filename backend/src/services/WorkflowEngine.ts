@@ -23,43 +23,45 @@ export class WorkflowEngine {
             // 2. Guardar a mensagem na BD
             await this.saveMessage(conversationId, message);
 
-            // 2.5. Rastreio Avançado de Afiliados via WhatsApp
+            // 2.5. Sincronização com CRM e Rastreio de Afiliados
             if (message.direction === 'inbound') {
+                let afiliadoId = null;
                 const refMatch = message.content.match(/(?:\[|\()Ref:\s*([A-Za-z0-9]+)(?:\]|\))/i);
                 if (refMatch && refMatch[1]) {
                     const afiliadoCode = refMatch[1].toUpperCase();
                     try {
-                        const { data: afiliado } = await supabase
-                            .from('afiliados')
-                            .select('id')
-                            .eq('codigo_referencia', afiliadoCode)
-                            .single();
-                            
-                        if (afiliado) {
-                            const { data: checkCliente } = await supabase
-                                .from('clientes')
-                                .select('id')
-                                .eq('telefone', message.phone_number)
-                                .single();
-                                
-                            if (checkCliente) {
-                                await supabase
-                                    .from('clientes')
-                                    .update({ afiliado_id: afiliado.id })
-                                    .eq('telefone', message.phone_number)
-                                    .is('afiliado_id', null);
-                            } else {
-                                await supabase
-                                    .from('clientes')
-                                    .insert({
-                                        nome: message.contact_name || message.phone_number,
-                                        telefone: message.phone_number,
-                                        afiliado_id: afiliado.id
-                                    });
-                            }
-                        }
+                        const { data: afiliado } = await supabase.from('afiliados').select('id').eq('codigo_referencia', afiliadoCode).single();
+                        if (afiliado) afiliadoId = afiliado.id;
                     } catch (e) {
                         console.error('Erro no rastreio de afiliado WhatsApp:', e);
+                    }
+                }
+
+                // Verificar se o cliente já existe no CRM
+                const { data: checkCliente } = await supabase.from('clientes').select('id').eq('telefone', message.phone_number).maybeSingle();
+                let clienteId = checkCliente?.id;
+
+                if (clienteId && afiliadoId) {
+                    // Atualiza afiliado se não tiver
+                    await supabase.from('clientes').update({ afiliado_id: afiliadoId }).eq('id', clienteId).is('afiliado_id', null);
+                } else if (!clienteId) {
+                    // CRIAR CLIENTE NO CRM
+                    const { data: novoCliente } = await supabase.from('clientes').insert({
+                        nome: message.contact_name || message.phone_number,
+                        telefone: message.phone_number,
+                        afiliado_id: afiliadoId
+                    }).select('id').maybeSingle();
+
+                    if (novoCliente) {
+                        clienteId = novoCliente.id;
+                        // CRIAR NO KANBAN (Negócios)
+                        await supabase.from('negocios').insert({
+                            cliente_id: clienteId,
+                            titulo: `Lead WhatsApp: ${message.contact_name || message.phone_number}`,
+                            valor: 0,
+                            fase: 'Nova Lead',
+                            origem: 'WhatsApp'
+                        });
                     }
                 }
             }
@@ -132,15 +134,6 @@ export class WorkflowEngine {
             })
             .select('id')
             .single();
-
-        // Garantir que o cliente existe no CRM
-        const { data: checkCliente } = await supabase.from('clientes').select('id').eq('telefone', message.phone_number).maybeSingle();
-        if (!checkCliente) {
-            await supabase.from('clientes').insert({
-                nome: message.contact_name || message.phone_number,
-                telefone: message.phone_number
-            });
-        }
 
         return newConv!.id;
     }
