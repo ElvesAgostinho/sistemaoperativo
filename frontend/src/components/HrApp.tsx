@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Upload, Users, FileText, Download, CheckCircle, AlertTriangle, Briefcase, Calendar, Plus, Bot, Trash2, Sun, Search, Lock, Edit2, DollarSign, Star, LayoutGrid, List } from 'lucide-react';
 
-const authFetch = (url: string, options: any = {}) => { const token = localStorage.getItem('os_auth_token'); const headers = { ...options.headers }; if (token) headers['Authorization'] = Bearer \; return(url, { ...options, headers }); };
+const authFetch = (url: string, options: any = {}) => { const token = localStorage.getItem('os_auth_token'); const headers = { ...options.headers }; if (token) headers['Authorization'] = `Bearer ${token}`; return fetch(url, { ...options, headers }); };
 
 export default function HrApp() {
   const [activeTab, setActiveTab] = useState<'recrutamento' | 'salarios' | 'colaboradores' | 'presencas' | 'departamentos' | 'adiantamentos' | 'desempenho' | 'rubricas'>('colaboradores');
