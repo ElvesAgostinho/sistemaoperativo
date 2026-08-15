@@ -173,7 +173,8 @@ CREATE POLICY "tenant_isolation" ON public.wa_audit_logs
 -- apenas um boolean, o que impedia o backend de associar o novo funcionário
 -- à empresa certa (bug: funcionário ficava com empresa_id NULL, invisível
 -- para sempre na lista de aprovação do admin).
-CREATE OR REPLACE FUNCTION public.check_invite_code(codigo text)
+DROP FUNCTION IF EXISTS public.check_invite_code(text);
+CREATE FUNCTION public.check_invite_code(codigo text)
 RETURNS TABLE(valido boolean, empresa_id uuid) AS $$
 BEGIN
     RETURN QUERY
