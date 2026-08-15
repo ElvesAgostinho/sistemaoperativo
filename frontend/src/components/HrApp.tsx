@@ -51,13 +51,18 @@ export default function HrApp() {
   const [showNovaRubricaModal, setShowNovaRubricaModal] = useState(false);
   const [novaRubrica, setNovaRubrica] = useState({ codigo: '', descricao: '', tipo: 'Abono', incide_inss: true, incide_irt: true });
 
-  const fetchRubricas = async () => {
+    const fetchRubricas = async () => {
     try {
-      const res = await(import.meta.env.VITE_API_URL + '/api/hr/rubricas');
+      const token = localStorage.getItem('os_auth_token');
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/rubricas', {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
       const data = await res.json();
       if(data.success) setRubricas(data.rubricas);
       
-      const resI = await(import.meta.env.VITE_API_URL + '/api/hr/tabelas-imposto');
+      const resI = await fetch(import.meta.env.VITE_API_URL + '/api/hr/tabelas-imposto', {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
       const dataI = await resI.json();
       if(dataI.success) setTabelasImposto(dataI.tabelas);
     } catch(err) { console.error(err); }
@@ -66,9 +71,10 @@ export default function HrApp() {
   const handleSaveRubrica = async (e: any) => {
     e.preventDefault();
     try {
-      await(import.meta.env.VITE_API_URL + '/api/hr/rubricas', {
+      const token = localStorage.getItem('os_auth_token');
+      await fetch(import.meta.env.VITE_API_URL + '/api/hr/rubricas', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(novaRubrica)
       });
       setShowNovaRubricaModal(false);
@@ -79,7 +85,10 @@ export default function HrApp() {
   const fetchDepartamentos = async () => {
     setLoadingDepartamentos(true);
     try {
-      const res = await(import.meta.env.VITE_API_URL + '/api/hr/departamentos');
+      const token = localStorage.getItem('os_auth_token');
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/departamentos', {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
       const data = await res.json();
       if (data.success) {
         setDepartamentos(data.departamentos);
@@ -94,9 +103,10 @@ export default function HrApp() {
   const handleSaveDepartamento = async (e: any) => {
     e.preventDefault();
     try {
-      const res = await(import.meta.env.VITE_API_URL + '/api/hr/departamentos', {
+      const token = localStorage.getItem('os_auth_token');
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/departamentos', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(newDepartamento)
       });
       const data = await res.json();
@@ -127,7 +137,10 @@ export default function HrApp() {
   const fetchEmployeeVacations = async (empId: number) => {
     setLoadingVacations(true);
     try {
-      const res = await(`${import.meta.env.VITE_API_URL}/api/hr/ausencias?colaborador_id=${empId}`);
+      const token = localStorage.getItem('os_auth_token');
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/hr/ausencias?colaborador_id=${empId}`, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
       const data = await res.json();
       if (data.success) {
         setEmployeeVacations(data.ausencias);
@@ -156,8 +169,10 @@ export default function HrApp() {
       formData.append('data_fim', newVacation.data_fim);
       formData.append('justificada', newVacation.justificada.toString());
 
-      const res = await(import.meta.env.VITE_API_URL + '/api/hr/ausencias', {
+      const token = localStorage.getItem('os_auth_token');
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/ausencias', {
         method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
         body: formData
       });
       const data = await res.json();
@@ -175,9 +190,10 @@ export default function HrApp() {
 
   const handleUpdateVacationStatus = async (id: number, estado: string) => {
     try {
-      const res = await(`${import.meta.env.VITE_API_URL}/api/hr/ausencias/${id}/estado`, {
+      const token = localStorage.getItem('os_auth_token');
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/hr/ausencias/${id}/estado`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ estado })
       });
       const data = await res.json();
@@ -192,7 +208,10 @@ export default function HrApp() {
   const fetchEmployees = async () => {
     setLoadingEmployees(true);
     try {
-      const res = await(import.meta.env.VITE_API_URL + '/api/hr/employees');
+      const token = localStorage.getItem('os_auth_token');
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/employees', {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
       const data = await res.json();
       if (data.success) {
         setEmployees(data.employees);
@@ -219,7 +238,11 @@ export default function HrApp() {
   const handleGenerateDoc = async (id: number) => {
     setGeneratingDoc(id);
     try {
-      const res = await(`${import.meta.env.VITE_API_URL}/api/hr/employees/${id}/declaracao`, { method: 'POST' });
+      const token = localStorage.getItem('os_auth_token');
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/hr/employees/${id}/declaracao`, { 
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
       const data = await res.json();
       if (data.success) {
         window.open(import.meta.env.VITE_API_URL + data.pdf_path, '_blank');
@@ -237,9 +260,10 @@ export default function HrApp() {
     e.preventDefault();
     setIsSavingEmployee(true);
     try {
-      const res = await(import.meta.env.VITE_API_URL + '/api/hr/employees', {
+      const token = localStorage.getItem('os_auth_token');
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/employees', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(newEmployee)
       });
       const data = await res.json();
@@ -270,9 +294,10 @@ export default function HrApp() {
     if (!editEmployee) return;
     setIsSavingEdit(true);
     try {
-      const res = await(`${import.meta.env.VITE_API_URL}/api/hr/employees/${editEmployee.id}`, {
+      const token = localStorage.getItem('os_auth_token');
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/hr/employees/${editEmployee.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(editEmployee)
       });
       const data = await res.json();
@@ -293,7 +318,11 @@ export default function HrApp() {
   const deleteEmployee = async (id: number) => {
     if (!window.confirm("ATENÇÃO: Ao apagar o colaborador, apagará os seus recibos, ausências e contratos associados. Continuar?")) return;
     try {
-      await(`${import.meta.env.VITE_API_URL}/api/hr/employees/${id}`, { method: 'DELETE' });
+      const token = localStorage.getItem('os_auth_token');
+      await fetch(`${import.meta.env.VITE_API_URL}/api/hr/employees/${id}`, { 
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
       fetchEmployees();
     } catch (err) {
       alert("Erro ao apagar colaborador.");
@@ -303,7 +332,11 @@ export default function HrApp() {
   const deleteDepartamento = async (id: number) => {
     if (!window.confirm("Deseja eliminar este departamento? Os colaboradores passarão a ficar sem departamento associado.")) return;
     try {
-      await(`${import.meta.env.VITE_API_URL}/api/hr/departamentos/${id}`, { method: 'DELETE' });
+      const token = localStorage.getItem('os_auth_token');
+      await fetch(`${import.meta.env.VITE_API_URL}/api/hr/departamentos/${id}`, { 
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
       fetchDepartamentos();
     } catch (err) {
       alert("Erro ao apagar departamento.");
@@ -314,7 +347,10 @@ export default function HrApp() {
     setDossierEmployeeId(empId);
     setShowDossierModal(true);
     try {
-      const res = await(`${import.meta.env.VITE_API_URL}/api/hr/employees/${empId}/documents`);
+      const token = localStorage.getItem('os_auth_token');
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/hr/employees/${empId}/documents`, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
       const data = await res.json();
       if (data.success) {
         setDossierDocuments(data.documents);
@@ -332,8 +368,10 @@ export default function HrApp() {
     formData.append('titulo', newDocument.titulo);
 
     try {
-      const res = await(`${import.meta.env.VITE_API_URL}/api/hr/employees/${dossierEmployeeId}/documents`, {
+      const token = localStorage.getItem('os_auth_token');
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/hr/employees/${dossierEmployeeId}/documents`, {
         method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
         body: formData
       });
       const data = await res.json();
@@ -361,7 +399,10 @@ export default function HrApp() {
 
   const fetchVagas = async () => {
     try {
-      const res = await(import.meta.env.VITE_API_URL + '/api/recrutamento/vagas');
+      const token = localStorage.getItem('os_auth_token');
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/recrutamento/vagas', {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
       const data = await res.json();
       if (data.success) setVagas(data.vagas || []);
     } catch (err) { console.error(err); }
@@ -369,7 +410,10 @@ export default function HrApp() {
 
   const fetchCandidaturas = async () => {
     try {
-      const resCand = await(import.meta.env.VITE_API_URL + '/api/recrutamento/candidaturas');
+      const token = localStorage.getItem('os_auth_token');
+      const resCand = await fetch(import.meta.env.VITE_API_URL + '/api/recrutamento/candidaturas', {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
       const dataCand = await resCand.json();
       if (dataCand.success) setCandidaturas(dataCand.candidaturas || []);
     } catch (err) { console.error(err); }
@@ -385,9 +429,10 @@ export default function HrApp() {
   const handleCreateVaga = async (e: any) => {
     e.preventDefault();
     try {
-      await(import.meta.env.VITE_API_URL + '/api/recrutamento/vagas', {
+      const token = localStorage.getItem('os_auth_token');
+      await fetch(import.meta.env.VITE_API_URL + '/api/recrutamento/vagas', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(novaVaga)
       });
       setNovaVaga({ titulo: '', departamento: '', tipo: 'Tempo Inteiro', localizacao: 'Luanda, Angola', descricao: '', criterios: '' });
@@ -409,8 +454,10 @@ export default function HrApp() {
     formData.append('telefone', novaCandidatura.telefone);
 
     try {
-      const res = await(import.meta.env.VITE_API_URL + '/api/recrutamento/upload', {
+      const token = localStorage.getItem('os_auth_token');
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/recrutamento/upload', {
         method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
         body: formData
       });
       const data = await res.json();
@@ -433,9 +480,10 @@ export default function HrApp() {
   const handleDecisaoCandidatura = async (id: number, estado: string) => {
     if (!window.confirm(`Tem a certeza que deseja marcar como ${estado}? O candidato será notificado.`)) return;
     try {
-      const res = await(`${import.meta.env.VITE_API_URL}/api/recrutamento/${id}/decisao`, {
+      const token = localStorage.getItem('os_auth_token');
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/recrutamento/${id}/decisao`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ estado })
       });
       const data = await res.json();
@@ -502,7 +550,10 @@ export default function HrApp() {
 
   const carregarAusencias = async () => {
     try {
-      const res = await(import.meta.env.VITE_API_URL + '/api/hr/ausencias');
+      const token = localStorage.getItem('os_auth_token');
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/ausencias', {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
       const data = await res.json();
       if(data.success) setAusencias(data.ausencias);
     } catch(err) { console.error(err); }
@@ -510,7 +561,10 @@ export default function HrApp() {
 
   const carregarAdiantamentos = async () => {
     try {
-      const res = await(import.meta.env.VITE_API_URL + '/api/hr/adiantamentos');
+      const token = localStorage.getItem('os_auth_token');
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/adiantamentos', {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
       const data = await res.json();
       if(data.success) setAdiantamentos(data.adiantamentos);
     } catch(err) { console.error(err); }
@@ -518,7 +572,10 @@ export default function HrApp() {
 
   const carregarAvaliacoes = async () => {
     try {
-      const res = await(import.meta.env.VITE_API_URL + '/api/hr/avaliacoes');
+      const token = localStorage.getItem('os_auth_token');
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/avaliacoes', {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
       const data = await res.json();
       if(data.success) setAvaliacoes(data.avaliacoes);
     } catch(err) { console.error(err); }
@@ -540,9 +597,10 @@ export default function HrApp() {
   const handleSaveAdiantamento = async (e: any) => {
     e.preventDefault();
     try {
-      const res = await(import.meta.env.VITE_API_URL + '/api/hr/adiantamentos', {
+      const token = localStorage.getItem('os_auth_token');
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/adiantamentos', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(novoAdiantamento)
       });
       const data = await res.json();
@@ -561,9 +619,10 @@ export default function HrApp() {
   const handleSaveAvaliacao = async (e: any) => {
     e.preventDefault();
     try {
-      const res = await(import.meta.env.VITE_API_URL + '/api/hr/avaliacoes', {
+      const token = localStorage.getItem('os_auth_token');
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/avaliacoes', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(novaAvaliacao)
       });
       const data = await res.json();
@@ -586,7 +645,12 @@ export default function HrApp() {
     const formData = new FormData();
     formData.append('loteExcel', employeeBulkFile);
     try {
-      const res = await(import.meta.env.VITE_API_URL + '/api/hr/employees-bulk', { method: 'POST', body: formData });
+      const token = localStorage.getItem('os_auth_token');
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/employees-bulk', { 
+        method: 'POST', 
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData 
+      });
       const data = await res.json();
       setEmployeeBulkResult(data);
       if (data.success && data.total_criado > 0) fetchEmployees();
@@ -602,7 +666,12 @@ export default function HrApp() {
     const formData = new FormData();
     formData.append('loteExcel', candidateBulkFile);
     try {
-      const res = await(import.meta.env.VITE_API_URL + '/api/hr/candidates-bulk', { method: 'POST', body: formData });
+      const token = localStorage.getItem('os_auth_token');
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/candidates-bulk', { 
+        method: 'POST', 
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData 
+      });
       const data = await res.json();
       setCandidateBulkResult(data);
       setCandidateBulkFile(null);
@@ -629,8 +698,10 @@ export default function HrApp() {
     formData.append('loteExcel', payrollFile);
 
     try {
-      const res = await(import.meta.env.VITE_API_URL + '/api/hr/payroll-bulk', {
+      const token = localStorage.getItem('os_auth_token');
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/payroll-bulk', {
         method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
         body: formData
       });
       const data = await res.json();
@@ -660,8 +731,10 @@ export default function HrApp() {
     formData.append('loteExcel', attendanceBulkFile);
 
     try {
-      const res = await(import.meta.env.VITE_API_URL + '/api/hr/attendance-bulk', {
+      const token = localStorage.getItem('os_auth_token');
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/attendance-bulk', {
         method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
         body: formData
       });
       const data = await res.json();

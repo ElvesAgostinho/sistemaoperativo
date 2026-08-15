@@ -22,15 +22,16 @@ export default function ContabilidadeApp() {
     const carregarDadosBase = async () => {
         setLoading(true);
         try {
-            const resC = await fetch(`${apiBase}/contas`);
+            const token = localStorage.getItem('os_auth_token');
+            const resC = await fetch(`${apiBase}/contas`, { headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } });
             const dataC = await resC.json();
             if(dataC.success) setContas(dataC.contas);
 
-            const resD = await fetch(`${apiBase}/diarios`);
+            const resD = await fetch(`${apiBase}/diarios`, { headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } });
             const dataD = await resD.json();
             if(dataD.success) setDiarios(dataD.diarios);
 
-            const resE = await fetch(`${apiBase}/exercicios`);
+            const resE = await fetch(`${apiBase}/exercicios`, { headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } });
             const dataE = await resE.json();
             if(dataE.success) {
                 setExercicios(dataE.exercicios);
@@ -48,7 +49,8 @@ export default function ContabilidadeApp() {
 
     const carregarLancamentos = async (ex_id: number) => {
         try {
-            const res = await fetch(`${apiBase}/lancamentos?exercicio_id=${ex_id}`);
+            const token = localStorage.getItem('os_auth_token');
+            const res = await fetch(`${apiBase}/lancamentos?exercicio_id=${ex_id}`, { headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } });
             const data = await res.json();
             if(data.success) setLancamentos(data.lancamentos);
         } catch(e) {}
@@ -56,7 +58,8 @@ export default function ContabilidadeApp() {
 
     const carregarBalancete = async (ex_id: number) => {
         try {
-            const res = await fetch(`${apiBase}/balancete?exercicio_id=${ex_id}`);
+            const token = localStorage.getItem('os_auth_token');
+            const res = await fetch(`${apiBase}/balancete?exercicio_id=${ex_id}`, { headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } });
             const data = await res.json();
             if(data.success) setBalancete(data.balancete);
         } catch(e) {}
@@ -128,9 +131,10 @@ function PlanosDeContas({ contas, refresh }: { contas: any[], refresh: () => voi
             tipo: e.target.tipo.value,
             natureza: e.target.natureza.value
         };
+        const token = localStorage.getItem('os_auth_token');
         await fetch('/api/accounting/contas', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
         setOpen(false);
@@ -205,9 +209,10 @@ function PlanosDeContas({ contas, refresh }: { contas: any[], refresh: () => voi
 function DiariosExercicios({ diarios, exercicios, refresh }: { diarios: any[], exercicios: any[], refresh: () => void }) {
     const handleExercicio = async (e: any) => {
         e.preventDefault();
+        const token = localStorage.getItem('os_auth_token');
         await fetch('/api/accounting/exercicios', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ ano: e.target.ano.value })
         });
         refresh();
@@ -215,9 +220,10 @@ function DiariosExercicios({ diarios, exercicios, refresh }: { diarios: any[], e
 
     const handleDiario = async (e: any) => {
         e.preventDefault();
+        const token = localStorage.getItem('os_auth_token');
         await fetch('/api/accounting/diarios', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ codigo: e.target.codigo.value, descricao: e.target.descricao.value })
         });
         refresh();
@@ -280,9 +286,10 @@ function Lancamentos({ lancamentos, diarios, exercicios, contas, refresh }: { la
             linhas: linhas
         };
 
+        const token = localStorage.getItem('os_auth_token');
         const res = await fetch('/api/accounting/lancamentos', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
         const result = await res.json();

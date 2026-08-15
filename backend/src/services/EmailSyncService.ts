@@ -60,9 +60,9 @@ export class EmailSyncService {
                     
                     const messageId = parsed.messageId || String(item.attributes.uid);
                     
-                    // Verificar se já existe
+                    // Verificar se já existe (filtrar por empresa para evitar colisões entre tenants)
                     const { data: exists } = await supabase.from('emails')
-                        .select('id').eq('message_id', messageId).single();
+                        .select('id').eq('message_id', messageId).eq('empresa_id', empresaId).single();
                         
                     if (exists) continue;
 
@@ -70,7 +70,7 @@ export class EmailSyncService {
                     const to = Array.isArray(parsed.to) ? parsed.to.map(t => t.text).join(', ') : parsed.to?.text || '';
                     
                     await supabase.from('emails').insert({
-                        empresa_id: empresaId === 'mock-empresa-1' ? null : empresaId,
+                        empresa_id: empresaId,
                         direcao: 'inbox',
                         message_id: messageId,
                         de: from,
@@ -101,15 +101,14 @@ export class EmailSyncService {
     public static async syncAll() {
         console.log('[EmailSync] A iniciar sincronização global...');
         try {
-            const { data: empresas } = await supabase.from('empresas').select('id');
+            // Sincronizar apenas empresas reais (ativas)
+            const { data: empresas } = await supabase.from('empresas').select('id').eq('status', 'active');
             if (empresas) {
                 for (const emp of empresas) {
                     await this.syncInbox(emp.id);
                 }
             }
-            // Sincronizar também o superadmin (empresa null) - usa configurações gerais
-            await this.syncInbox('mock-empresa-1');
-            console.log('[EmailSync] Sincronização global concluída.');
+            console.log(`[EmailSync] Sincronização global concluída. ${empresas?.length || 0} empresas processadas.`);
         } catch (err) {
             console.error('[EmailSync] Erro na sincronização global:', err);
         }

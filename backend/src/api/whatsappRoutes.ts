@@ -214,11 +214,19 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
 
                 if (!phoneNumber || !content) continue;
 
-                // Para já, assumimos um channel_id fixo ou buscamos pelo ID da instância no req.body
-                // Vamos buscar o channel Evolution diretamente da tabela wa_channels
-                const { data: channelData } = await supabase.from('wa_channels').select('id').eq('provider', 'evolution').order('created_at', { ascending: false }).limit(1).maybeSingle();
+                // Buscar canal evolution correto usando instanceName
+                const { data: channelData, error: rpcErr } = await supabase
+                    .from('wa_channels')
+                    .select('id')
+                    .eq('provider', 'evolution')
+                    .filter('credentials->>instanceName', 'eq', instanceName)
+                    .maybeSingle();
                 const channelId = channelData?.id;
-                if (!channelId) continue;
+                
+                if (!channelId) {
+                    console.error('[Webhook Evolution] Canal não encontrado:', rpcErr);
+                    continue;
+                }
 
                 await WorkflowEngine.processIncomingMessage({
                     channel_id: channelId,
@@ -280,7 +288,12 @@ router.post('/webhook/meta', async (req: Request, res: Response) => {
                 const content = msg.text?.body || '';
                 const contactName = contact?.profile?.name || phoneNumber;
 
-                const { data: channelData } = await supabase.from('wa_channels').select('id').eq('provider', 'meta').order('created_at', { ascending: false }).limit(1).maybeSingle();
+                const phoneNumberId = change.metadata?.phone_number_id;
+                const { data: channelData } = await supabase.from('wa_channels')
+                    .select('id')
+                    .eq('provider', 'meta')
+                    .filter('credentials->>phoneNumberId', 'eq', phoneNumberId)
+                    .maybeSingle();
                 const channelId = channelData?.id;
 
                 if (channelId) {
@@ -309,11 +322,15 @@ router.post('/webhook/meta', async (req: Request, res: Response) => {
 // ==============================================================
 
 // Rota para gravar as configurações da Meta
-router.post('/config/meta', requireAuth, async (req: Request, res: Response) => {
+router.post('/config/meta', requireAuth, async (req: AuthRequest, res: Response) => {
     const { appId, phoneNumberId, accessToken, verifyToken } = req.body;
+    const empresaId = req.user?.empresa_id;
 
     if (!appId || !phoneNumberId || !accessToken || !verifyToken) {
         return res.status(400).json({ success: false, error: 'Todos os campos são obrigatórios' });
+    }
+    if (!empresaId) {
+        return res.status(400).json({ success: false, error: 'Empresa não encontrada' });
     }
 
     try {
@@ -339,7 +356,8 @@ router.post('/config/meta', requireAuth, async (req: Request, res: Response) => 
             .from('wa_channels')
             .select('id')
             .eq('provider', 'meta')
-            .single();
+            .eq('empresa_id', empresaId)
+            .maybeSingle();
 
         const creds = { appId, phoneNumberId, accessToken, verifyToken };
 
@@ -354,7 +372,8 @@ router.post('/config/meta', requireAuth, async (req: Request, res: Response) => 
                 name: businessName,
                 provider: 'meta',
                 status: 'connected',
-                credentials: creds
+                credentials: creds,
+                empresa_id: empresaId
             });
         }
 
@@ -374,6 +393,7 @@ router.get('/conversations', requireAuth, async (req: AuthRequest, res: Response
     let query = getSupabase(req)
         .from('wa_conversations')
         .select('*, wa_channels(name, provider)')
+        .eq('empresa_id', req.user!.empresa_id)
         .neq('status', 'archived')
         .not('phone_number', 'like', '%@lid%')
         .order('last_message_at', { ascending: false });
@@ -407,8 +427,9 @@ router.put('/conversations/:id/assign', requireAuth, async (req: AuthRequest, re
     const { error: updateError } = await getSupabase(req)
         .from('wa_conversations')
         .update({ assigned_to: agent_id || null })
-        .eq('id', conversation_id);
-    
+        .eq('id', conversation_id)
+        .eq('empresa_id', req.user!.empresa_id);
+
     if (updateError) return res.status(500).json({ error: updateError.message });
 
     await getSupabase(req).from('wa_audit_logs').insert({
@@ -422,12 +443,13 @@ router.put('/conversations/:id/assign', requireAuth, async (req: AuthRequest, re
     res.json({ success: true });
 });
 
-router.get('/conversations/:id/audit', requireAuth, async (req: Request, res: Response) => {
+router.get('/conversations/:id/audit', requireAuth, async (req: AuthRequest, res: Response) => {
     const conversation_id = req.params.id;
     const { data, error } = await getSupabase(req)
         .from('wa_audit_logs')
         .select('*')
         .eq('conversation_id', conversation_id)
+        .eq('empresa_id', req.user!.empresa_id)
         .order('created_at', { ascending: false });
 
     if (error) return res.status(500).json({ error: error.message });
@@ -444,11 +466,12 @@ router.get('/conversations/:id/audit', requireAuth, async (req: Request, res: Re
     res.json({ success: true, audit: auditWithNames });
 });
 
-router.get('/conversations/:id/messages', requireAuth, async (req: Request, res: Response) => {
+router.get('/conversations/:id/messages', requireAuth, async (req: AuthRequest, res: Response) => {
     const { data, error } = await getSupabase(req)
         .from('wa_messages')
         .select('*')
         .eq('conversation_id', req.params.id)
+        .eq('empresa_id', req.user!.empresa_id)
         .order('created_at', { ascending: true });
 
     if (error) return res.status(500).json({ error: error.message });
@@ -479,7 +502,7 @@ router.get('/evolution/instance/state', requireAuth, async (req: AuthRequest, re
 
         if (stateRes.status === 404) {
             // Instância não existe — garantir que BD reflecte isso
-            await getSupabase(req).from('wa_channels').update({ status: 'disconnected' }).eq('provider', 'evolution');
+            await getSupabase(req).from('wa_channels').update({ status: 'disconnected' }).eq('provider', 'evolution').eq('empresa_id', empresaId);
             return res.json({ success: true, state: 'disconnected', message: 'Instância não encontrada' });
         }
 
@@ -489,13 +512,14 @@ router.get('/evolution/instance/state', requireAuth, async (req: AuthRequest, re
 
         // SINCRONIZAR STATUS NA BD — crucial para que sendMessage funcione após reconexão
         const newStatus = isConnected ? 'connected' : 'disconnected';
-        await getSupabase(req).from('wa_channels').update({ status: newStatus }).eq('provider', 'evolution');
+        await getSupabase(req).from('wa_channels').update({ status: newStatus }).eq('provider', 'evolution').eq('empresa_id', empresaId);
 
         // Se acabou de reconectar, desarquivar as conversas
         if (isConnected) {
             await getSupabase(req).from('wa_conversations')
                 .update({ status: 'open' })
-                .eq('status', 'archived');
+                .eq('status', 'archived')
+                .eq('empresa_id', empresaId);
         }
 
         return res.json({ success: true, state: evolutionState });
@@ -515,12 +539,12 @@ router.delete('/evolution/instance/logout', requireAuth, async (req: AuthRequest
     try {
         await fetch(`${apiUrl}/instance/logout/${instanceName}`, { method: 'DELETE', headers: { 'apikey': apiKey } });
         const userClient = getSupabase(req);
-        const { data: channel } = await userClient.from('wa_channels').select('id').eq('provider', 'evolution').maybeSingle();
+        const { data: channel } = await userClient.from('wa_channels').select('id').eq('provider', 'evolution').eq('empresa_id', empresaId).maybeSingle();
         if (channel) {
             // FIX #4 — Arquivar todas as conversas do canal ao desconectar
             await userClient.from('wa_conversations').update({ status: 'archived' }).eq('channel_id', channel.id);
         }
-        await userClient.from('wa_channels').update({ status: 'disconnected' }).eq('provider', 'evolution');
+        await userClient.from('wa_channels').update({ status: 'disconnected' }).eq('provider', 'evolution').eq('empresa_id', empresaId);
         // Retornar cleared:true para o frontend limpar o estado local
         return res.json({ success: true, cleared: true });
     } catch (e: any) {
@@ -594,11 +618,11 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
     try {
         const userClient = getSupabase(req);
         // 1. Obter ou Criar o Canal Evolution
-        let { data: channel, error: channelError } = await userClient.from('wa_channels').select('id').eq('provider', 'evolution').maybeSingle();
-        
+        let { data: channel, error: channelError } = await userClient.from('wa_channels').select('id').eq('provider', 'evolution').eq('empresa_id', empresaId).maybeSingle();
+
         if (!channel) {
             const { data, error: insertError } = await userClient.from('wa_channels')
-                .insert({ name: 'Evolution API', provider: 'evolution', status: 'connected', credentials: { instanceName } })
+                .insert({ name: 'Evolution API', provider: 'evolution', status: 'connected', credentials: { instanceName }, empresa_id: empresaId })
                 .select('id').single();
             if (insertError) throw new Error('Erro ao criar canal: ' + insertError.message);
             channel = data;
@@ -739,7 +763,8 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
                 if (!checkCliente) {
                     await getSupabase(req).from('clientes').insert({
                         nome: contactName || phoneNumber,
-                        telefone: phoneNumber
+                        telefone: phoneNumber,
+                        empresa_id: empresaId
                     });
                 }
             } else {
@@ -760,7 +785,8 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
                 if (!checkCliente) {
                     await getSupabase(req).from('clientes').insert({
                         nome: contactName || phoneNumber,
-                        telefone: phoneNumber
+                        telefone: phoneNumber,
+                        empresa_id: empresaId
                     });
                 }
                 
@@ -903,9 +929,9 @@ router.post('/evolution/instance', requireAuth, async (req: AuthRequest, res: Re
         } catch(e) {}
 
         const userClient = getSupabase(req);
-        const { data: channel } = await userClient.from('wa_channels').select('id').eq('provider', 'evolution').maybeSingle();
+        const { data: channel } = await userClient.from('wa_channels').select('id').eq('provider', 'evolution').eq('empresa_id', empresaId).maybeSingle();
         if (!channel) {
-            await userClient.from('wa_channels').insert({ name: 'Evolution API', provider: 'evolution', status: 'connected', credentials: { instanceName } });
+            await userClient.from('wa_channels').insert({ name: 'Evolution API', provider: 'evolution', status: 'connected', credentials: { instanceName }, empresa_id: empresaId });
         }
 
         if (finalQrBase64) {
@@ -918,9 +944,9 @@ router.post('/evolution/instance', requireAuth, async (req: AuthRequest, res: Re
     }
 });
 
-router.post('/templates/sync', requireAuth, async (req: Request, res: Response) => {
+router.post('/templates/sync', requireAuth, async (req: AuthRequest, res: Response) => {
     try {
-        const { data: channel } = await getSupabase(req).from('wa_channels').select('*').eq('provider', 'meta').single();
+        const { data: channel } = await getSupabase(req).from('wa_channels').select('*').eq('provider', 'meta').eq('empresa_id', req.user!.empresa_id).single();
         if (!channel) return res.status(404).json({ error: 'Canal Meta não encontrado' });
 
         const { phoneNumberId, accessToken } = channel.credentials as any;
@@ -972,12 +998,12 @@ router.post('/templates/sync', requireAuth, async (req: Request, res: Response) 
 router.post('/templates/send', requireAuth, async (req: AuthRequest, res: Response) => {
     try {
         const { conversation_id, template_name, language_code } = req.body;
-        const { data: convData } = await getSupabase(req).from('wa_conversations').select('*').eq('id', conversation_id).single();
+        const { data: convData } = await getSupabase(req).from('wa_conversations').select('*').eq('id', conversation_id).eq('empresa_id', req.user!.empresa_id).single();
         if (!convData) return res.status(404).json({ error: 'Conversa não encontrada' });
 
         const conv = convData;
         const { WhatsAppChannelManager } = require('../services/WhatsAppChannelManager');
-        const sent = await WhatsAppChannelManager.sendTemplateMessage(conv.channel_id, conv.phone_number, template_name, language_code);
+        const sent = await WhatsAppChannelManager.sendTemplateMessage(getSupabase(req), conv.channel_id, conv.phone_number, template_name, language_code);
 
         if (sent) {
             // Guardar mensagem na BD
@@ -998,8 +1024,8 @@ router.post('/templates/send', requireAuth, async (req: AuthRequest, res: Respon
     }
 });
 
-router.get('/templates', requireAuth, async (req: Request, res: Response) => {
-    const { data } = await getSupabase(req).from('wa_templates').select('*');
+router.get('/templates', requireAuth, async (req: AuthRequest, res: Response) => {
+    const { data } = await getSupabase(req).from('wa_templates').select('*').eq('empresa_id', req.user!.empresa_id);
     res.json({ success: true, templates: data });
 });
 
@@ -1012,8 +1038,9 @@ router.post('/send', requireAuth, async (req: AuthRequest, res: Response) => {
         .from('wa_conversations')
         .select('*, wa_channels(provider)')
         .eq('id', conversation_id)
+        .eq('empresa_id', req.user!.empresa_id)
         .single();
-        
+
     if (!conv) return res.status(404).json({ error: 'Conversa não encontrada' });
 
     // VERIFICAÇÃO 24 HORAS Apenas para META
@@ -1078,8 +1105,9 @@ router.post('/send-media', requireAuth, async (req: AuthRequest, res: Response) 
         .from('wa_conversations')
         .select('*, wa_channels(provider)')
         .eq('id', conversation_id)
+        .eq('empresa_id', req.user!.empresa_id)
         .single();
-        
+
     if (!conv) return res.status(404).json({ error: 'Conversa não encontrada' });
 
     // VERIFICAÇÃO 24 HORAS Apenas para META
@@ -1115,7 +1143,7 @@ router.post('/send-media', requireAuth, async (req: AuthRequest, res: Response) 
     // Supondo que você criou ou vai criar sendMediaMessage
     let sent = false;
     try {
-        sent = await WhatsAppChannelManager.sendMediaMessage(conv.channel_id, conv.phone_number, mediaBase64, fileName);
+        sent = await WhatsAppChannelManager.sendMediaMessage(getSupabase(req), conv.channel_id, conv.phone_number, mediaBase64, fileName);
     } catch(err) {
         console.error("Erro ao enviar mídia via API", err);
     }

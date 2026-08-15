@@ -16,7 +16,12 @@ if (!fs.existsSync(uploadDir)) {
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, uploadDir);
+        const empresa_id = (req as any).user?.empresa_id || 'default';
+        const tenantDir = path.join(uploadDir, empresa_id);
+        if (!fs.existsSync(tenantDir)) {
+            fs.mkdirSync(tenantDir, { recursive: true });
+        }
+        cb(null, tenantDir);
     },
     filename: (req, file, cb) => {
         cb(null, Date.now() + '-' + file.originalname.replace(/\s+/g, '_'));
@@ -32,7 +37,8 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 router.get('/vagas', async (req: Request, res: Response) => {
     try {
         const supabase = getSupabase(req);
-        const { data: vagas, error } = await supabase.from('vagas').select('*').order('criado_em', { ascending: false });
+        const empresa_id = (req as any).user?.empresa_id;
+        const { data: vagas, error } = await supabase.from('vagas').select('*').eq('empresa_id', empresa_id).order('criado_em', { ascending: false });
         if (error) throw error;
         res.json({ success: true, vagas });
     } catch (error: any) {
@@ -60,7 +66,8 @@ router.post('/vagas', async (req: Request, res: Response) => {
 router.get('/candidaturas', async (req: Request, res: Response) => {
     try {
         const supabase = getSupabase(req);
-        const { data, error } = await supabase.from('candidaturas').select('*, vagas(titulo)').order('criado_em', { ascending: false });
+        const empresa_id = (req as any).user?.empresa_id;
+        const { data, error } = await supabase.from('candidaturas').select('*, vagas(titulo)').eq('empresa_id', empresa_id).order('criado_em', { ascending: false });
         if (error) throw error;
         const candidaturas = data.map((c: any) => ({ ...c, vaga_titulo: c.vagas?.titulo }));
         res.json({ success: true, candidaturas });
@@ -154,7 +161,8 @@ router.post('/:id/decisao', async (req: Request, res: Response) => {
         const candidaturaId = req.params.id;
 
         const supabase = getSupabase(req);
-        const { data: c, error: cErr } = await supabase.from('candidaturas').select('*, vagas(titulo, criterios)').eq('id', candidaturaId).single();
+        const empresa_id = (req as any).user?.empresa_id;
+        const { data: c, error: cErr } = await supabase.from('candidaturas').select('*, vagas(titulo, criterios)').eq('id', candidaturaId).eq('empresa_id', empresa_id).single();
         if (cErr || !c) return res.status(404).json({ error: 'Candidatura não encontrada.' });
         
         const candidatura = {

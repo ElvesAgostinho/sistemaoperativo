@@ -15,7 +15,10 @@ export default function KnowledgeBaseApp() {
 
   const fetchFiles = async () => {
     try {
-      const res = await fetch(import.meta.env.VITE_API_URL + '/api/knowledge');
+      const token = localStorage.getItem('os_auth_token');
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/knowledge', {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
       const data = await res.json();
       if (data.success) {
         setFiles(data.files);
@@ -34,8 +37,10 @@ export default function KnowledgeBaseApp() {
     const formData = new FormData();
     formData.append('file', file);
     try {
+      const token = localStorage.getItem('os_auth_token');
       const res = await fetch(import.meta.env.VITE_API_URL + '/api/knowledge/upload', {
         method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
         body: formData
       });
       if (res.ok) {
@@ -53,7 +58,11 @@ export default function KnowledgeBaseApp() {
   const handleDelete = async (filename: string) => {
     if (!window.confirm(`Apagar o documento "${filename}" da Base de Conhecimento?`)) return;
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/knowledge/${filename}`, { method: 'DELETE' });
+      const token = localStorage.getItem('os_auth_token');
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/knowledge/${filename}`, { 
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
       if (res.ok) {
         fetchFiles();
       }

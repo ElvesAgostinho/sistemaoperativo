@@ -27,14 +27,16 @@ export default function AfiliadosApp() {
       }
 
       const comRes = await fetch(import.meta.env.VITE_API_URL + '/api/afiliados/comissoes', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
       });
       if (comRes.ok) {
         const comData = await comRes.json();
         setComissoes(comData.comissoes || []);
       }
 
-      const matRes = await fetch(import.meta.env.VITE_API_URL + '/api/afiliados/materiais');
+      const matRes = await fetch(import.meta.env.VITE_API_URL + '/api/afiliados/materiais', {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
       if (matRes.ok) {
         const matData = await matRes.json();
         setMateriais(matData.materiais || []);

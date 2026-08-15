@@ -98,8 +98,16 @@ function App() {
     const storedToken = localStorage.getItem('os_auth_token');
     const storedUser = localStorage.getItem('os_auth_user');
     if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
+      try {
+        setToken(storedToken);
+        setUser(JSON.parse(storedUser));
+      } catch (e) {
+        // Sessão local corrompida (ex.: JSON inválido) — limpar em vez de deixar a app crashar com ecrã branco
+        console.error('Sessão local inválida, a limpar:', e);
+        localStorage.removeItem('os_auth_token');
+        localStorage.removeItem('os_refresh_token');
+        localStorage.removeItem('os_auth_user');
+      }
     }
 
     // Verificar query param de meeting e afiliados

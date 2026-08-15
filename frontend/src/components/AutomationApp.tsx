@@ -20,7 +20,10 @@ export default function AutomationApp() {
 
   const fetchAutomations = async () => {
     try {
-      const res = await fetch(import.meta.env.VITE_API_URL + '/api/automation');
+      const token = localStorage.getItem('os_auth_token');
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/automation', {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
       const data = await res.json();
       if (data.success) {
         setAutomations(data.automations);
@@ -51,9 +54,10 @@ export default function AutomationApp() {
 
   const seedExemplo = async () => {
     try {
+      const token = localStorage.getItem('os_auth_token');
       await fetch(import.meta.env.VITE_API_URL + '/api/automation', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           nome: 'WhatsApp para Funil de Vendas (CRM)',
           trigger_type: 'WEBHOOK_WHATSAPP',
@@ -74,9 +78,10 @@ export default function AutomationApp() {
     setIsGenerating(true);
     
     try {
+      const token = localStorage.getItem('os_auth_token');
       const res = await fetch(import.meta.env.VITE_API_URL + '/api/automation/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt })
       });
       
@@ -89,7 +94,7 @@ export default function AutomationApp() {
 
       await fetch(import.meta.env.VITE_API_URL + '/api/automation', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ nome, trigger_type, steps })
       });
       
@@ -109,7 +114,11 @@ export default function AutomationApp() {
     if (!window.confirm("Tem a certeza que deseja eliminar esta automação de forma permanente?")) return;
     
     try {
-      await fetch(`${import.meta.env.VITE_API_URL}/api/automation/${id}`, { method: 'DELETE' });
+      const token = localStorage.getItem('os_auth_token');
+      await fetch(`${import.meta.env.VITE_API_URL}/api/automation/${id}`, { 
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
       if (selectedAuto?.id === id) setSelectedAuto(null);
       fetchAutomations();
     } catch (err) {
@@ -121,9 +130,10 @@ export default function AutomationApp() {
   const toggleAutomation = async (e: React.MouseEvent, id: number, currentAtivo: boolean) => {
     e.stopPropagation();
     try {
+      const token = localStorage.getItem('os_auth_token');
       await fetch(`${import.meta.env.VITE_API_URL}/api/automation/${id}/toggle`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ ativo: !currentAtivo })
       });
       fetchAutomations();
@@ -153,8 +163,10 @@ export default function AutomationApp() {
     const formData = new FormData();
     formData.append('file', file);
     try {
+      const token = localStorage.getItem('os_auth_token');
       const res = await fetch(import.meta.env.VITE_API_URL + '/api/automation/upload', {
         method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
         body: formData
       });
       const data = await res.json();
@@ -173,9 +185,10 @@ export default function AutomationApp() {
     if (!selectedAuto) return;
     setIsSaving(true);
     try {
+      const token = localStorage.getItem('os_auth_token');
       await fetch(`${import.meta.env.VITE_API_URL}/api/automation/${selectedAuto.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ steps: selectedAuto.steps })
       });
       fetchAutomations();

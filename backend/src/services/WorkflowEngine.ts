@@ -17,6 +17,10 @@ export class WorkflowEngine {
      */
     public static async processIncomingMessage(message: WhatsAppMessage) {
         try {
+            // Resolve empresa_id from channel
+            const { data: channelData } = await supabase.from('wa_channels').select('empresa_id').eq('id', message.channel_id).single();
+            const empresaId = channelData?.empresa_id;
+
             // 1. Garantir que a conversa existe ou criar
             let conversationId = await this.getOrCreateConversation(message);
             
@@ -38,39 +42,73 @@ export class WorkflowEngine {
                 }
 
                 // Verificar se o cliente já existe no CRM
-                const { data: checkCliente } = await supabase.from('clientes').select('id').eq('telefone', message.phone_number).maybeSingle();
+                let checkClienteQuery = supabase.from('clientes').select('id').eq('telefone', message.phone_number);
+                if (empresaId) checkClienteQuery = checkClienteQuery.eq('empresa_id', empresaId);
+                const { data: checkCliente } = await checkClienteQuery.maybeSingle();
                 let clienteId = checkCliente?.id;
 
-                if (clienteId && afiliadoId) {
-                    // Atualiza afiliado se não tiver
-                    await supabase.from('clientes').update({ afiliado_id: afiliadoId }).eq('id', clienteId).is('afiliado_id', null);
-                } else if (!clienteId) {
+                if (clienteId) {
+                    if (afiliadoId) {
+                        // Atualiza afiliado se não tiver
+                        await supabase.from('clientes').update({ afiliado_id: afiliadoId }).eq('id', clienteId).is('afiliado_id', null);
+                    }
+                    
+                    // Verificar se o cliente tem um negócio ativo no Kanban
+                    // Assumimos que 'Perdido', 'Ganhos', 'Fechado' são fases terminadas.
+                    const { data: negocioAtivo } = await supabase.from('negocios')
+                        .select('id')
+                        .eq('cliente_id', clienteId)
+                        .not('fase', 'in', '("Perdido","Ganhos","Fechado")')
+                        .limit(1)
+                        .maybeSingle();
+
+                    if (!negocioAtivo) {
+                        // Opcional: precisamos de empresa_id para criar o negócio, se a tabela requer
+                        // Vamos buscar a empresa associada ao cliente
+                        const { data: clienteData } = await supabase.from('clientes').select('empresa_id').eq('id', clienteId).maybeSingle();
+                        if (clienteData?.empresa_id) {
+                            await supabase.from('negocios').insert({
+                                empresa_id: clienteData.empresa_id,
+                                cliente_id: clienteId,
+                                titulo: `Follow-up WhatsApp: ${message.contact_name || message.phone_number}`,
+                                valor_estimado: 0,
+                                fase: 'Nova Lead'
+                            });
+                        }
+                    }
+                } else {
                     // CRIAR CLIENTE NO CRM
+                    // Utilizar a empresa_id associada ao canal
+                    const empId = empresaId;
+
                     const { data: novoCliente } = await supabase.from('clientes').insert({
+                        empresa_id: empId,
                         nome: message.contact_name || message.phone_number,
                         telefone: message.phone_number,
                         afiliado_id: afiliadoId
-                    }).select('id').maybeSingle();
+                    }).select('id, empresa_id').maybeSingle();
 
-                    if (novoCliente) {
+                    if (novoCliente && empId) {
                         clienteId = novoCliente.id;
                         // CRIAR NO KANBAN (Negócios)
                         await supabase.from('negocios').insert({
+                            empresa_id: empId,
                             cliente_id: clienteId,
                             titulo: `Lead WhatsApp: ${message.contact_name || message.phone_number}`,
-                            valor: 0,
-                            fase: 'Nova Lead',
-                            origem: 'WhatsApp'
+                            valor_estimado: 0,
+                            fase: 'Nova Lead'
                         });
                     }
                 }
             }
 
             // 3. Procurar Workflows Ativos
-            const { data: workflows } = await supabase
+            let workflowsQuery = supabase
                 .from('wa_workflows')
                 .select('*')
                 .eq('is_active', true);
+            if (empresaId) workflowsQuery = workflowsQuery.eq('empresa_id', empresaId);
+            const { data: workflows } = await workflowsQuery;
 
             if (!workflows || workflows.length === 0) return;
 
@@ -122,7 +160,7 @@ export class WorkflowEngine {
         }
 
         // Criar nova conversa
-        const { data: newConv } = await supabase
+        const { data: newConv, error } = await supabase
             .from('wa_conversations')
             .insert({
                 channel_id: message.channel_id,
@@ -135,7 +173,12 @@ export class WorkflowEngine {
             .select('id')
             .single();
 
-        return newConv!.id;
+        if (error || !newConv) {
+            console.error('Erro ao criar conversa no DB:', error);
+            throw new Error('Não foi possível criar a conversa.');
+        }
+
+        return newConv.id;
     }
 
     private static async saveMessage(conversationId: string, message: WhatsAppMessage) {

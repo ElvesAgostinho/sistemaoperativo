@@ -16,18 +16,9 @@ router.get('/', requireAuth, async (req, res) => {
         
         let rows: any[] = [];
         
-        if (empresa_id === 'mock-empresa-1') {
-            const fs = require('fs');
-            const path = require('path');
-            try {
-                const mockDb = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'mock_config.json'), 'utf8'));
-                rows = Object.entries(mockDb).map(([chave, valor]) => ({ chave, valor, descricao: '' }));
-            } catch {}
-        } else {
-            const { data, error } = await supabase.from('configuracoes').select('chave, valor, descricao');
-            if (error) throw error;
-            rows = data || [];
-        }
+        const { data, error } = await supabase.from('configuracoes').select('chave, valor, descricao').eq('empresa_id', empresa_id);
+        if (error) throw error;
+        rows = data || [];
         
         const config: Record<string, string> = {};
         (rows || []).forEach(r => {
@@ -51,7 +42,8 @@ router.get('/', requireAuth, async (req, res) => {
 router.get('/raw/:chave', requireAuth, async (req, res) => {
     try {
         const supabase = getSupabase(req);
-        const { data: row, error } = await supabase.from('configuracoes').select('valor').eq('chave', req.params.chave).single();
+        const empresa_id = (req as any).user?.empresa_id;
+        const { data: row, error } = await supabase.from('configuracoes').select('valor').eq('chave', req.params.chave).eq('empresa_id', empresa_id).single();
         if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "no rows returned"
         res.json({ success: true, valor: row?.valor || null });
     } catch (err: any) {
@@ -82,20 +74,8 @@ router.put('/', requireAuth, async (req, res) => {
                 atualizado_em: new Date().toISOString()
             }));
 
-        if (empresa_id === 'mock-empresa-1') {
-            const fs = require('fs');
-            const path = require('path');
-            const mockPath = path.join(process.cwd(), 'mock_config.json');
-            let mockDb: any = {};
-            try { mockDb = JSON.parse(fs.readFileSync(mockPath, 'utf8')); } catch {}
-            for (const [chave, valor] of Object.entries(configs)) {
-                if (typeof valor === 'string' && !valor.includes('••••')) mockDb[chave] = valor;
-            }
-            fs.writeFileSync(mockPath, JSON.stringify(mockDb, null, 2));
-        } else {
-            const { error } = await supabase.from('configuracoes').upsert(upsertData, { onConflict: 'empresa_id,chave' });
-            if (error) throw error;
-        }
+        const { error } = await supabase.from('configuracoes').upsert(upsertData, { onConflict: 'empresa_id,chave' });
+        if (error) throw error;
         
         res.json({ success: true, message: 'Configurações guardadas com sucesso!' });
     } catch (err: any) {

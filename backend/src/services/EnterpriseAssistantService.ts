@@ -25,10 +25,15 @@ export class EnterpriseAssistantService {
         });
 
         // 3. Buscar histórico
-        const { data: historyRows } = await supabase.from('mensagens_ia')
+        let historyQuery = supabase.from('mensagens_ia')
             .select('role, content, name, tool_call_id, tool_calls')
-            .eq('conversa_id', currentConversaId)
-            .order('id', { ascending: true });
+            .eq('conversa_id', currentConversaId);
+        
+        if (empresaId) {
+            historyQuery = historyQuery.eq('empresa_id', empresaId);
+        }
+        
+        const { data: historyRows } = await historyQuery.order('id', { ascending: true });
 
         const messages: any[] = [
             { 
@@ -110,8 +115,8 @@ export class EnterpriseAssistantService {
         const ip = vpsUrl.replace(/^https?:\/\//, '').split(':')[0];
         
         const client = new OpenAI({ 
-            baseURL: `http://${ip}:18789/v1`,
-            apiKey: 'admin123'
+            baseURL: process.env.OPENAI_BASE_URL || `http://${ip}:18789/v1`,
+            apiKey: process.env.OPENAI_API_KEY || 'admin123'
         });
 
         let result = await client.chat.completions.create({
@@ -171,10 +176,15 @@ export class EnterpriseAssistantService {
             }
 
             // Recarregar histórico e chamar OpenAI de novo (pode querer usar mais tools)
-            const { data: historyRowsUpdated } = await supabase.from('mensagens_ia')
+            let updatedHistoryQuery = supabase.from('mensagens_ia')
                 .select('role, content, name, tool_call_id, tool_calls')
-                .eq('conversa_id', currentConversaId)
-                .order('id', { ascending: true });
+                .eq('conversa_id', currentConversaId);
+            
+            if (empresaId) {
+                updatedHistoryQuery = updatedHistoryQuery.eq('empresa_id', empresaId);
+            }
+            
+            const { data: historyRowsUpdated } = await updatedHistoryQuery.order('id', { ascending: true });
 
             const updatedMessages: any[] = messages.slice(0, 1); // system prompt
             for (const row of (historyRowsUpdated || [])) {

@@ -472,20 +472,15 @@ export async function executeAITool(name: string, args: any, empresaId?: number)
         const path = require('path');
         const os = require('os');
         try {
-            const desktopPath = path.join(os.homedir(), 'Desktop');
-            const documentsPath = path.join(os.homedir(), 'Documents');
+            if (!empresaId) return JSON.stringify({ status: 'error', error: 'empresaId não fornecido.' });
+            const baseDir = path.join(process.cwd(), 'Empresa_Arquivos', empresaId.toString());
             let count = 0;
             let files: string[] = [];
             
-            if (fs.existsSync(desktopPath)) {
-                const dFiles = fs.readdirSync(desktopPath).filter((f: string) => fs.statSync(path.join(desktopPath, f)).isFile());
+            if (fs.existsSync(baseDir)) {
+                const dFiles = fs.readdirSync(baseDir).filter((f: string) => fs.statSync(path.join(baseDir, f)).isFile());
                 count += dFiles.length;
                 files.push(...dFiles.slice(0, 5));
-            }
-            if (fs.existsSync(documentsPath)) {
-                const docFiles = fs.readdirSync(documentsPath).filter((f: string) => fs.statSync(path.join(documentsPath, f)).isFile());
-                count += docFiles.length;
-                files.push(...docFiles.slice(0, 5));
             }
             
             return JSON.stringify({
@@ -506,16 +501,12 @@ export async function executeAITool(name: string, args: any, empresaId?: number)
             const fileName = args.caminho_ou_nome;
             let targetPath = fileName;
             
+            if (!empresaId) return JSON.stringify({ status: 'error', error: 'empresaId não fornecido.' });
+            
             if (!path.isAbsolute(fileName)) {
-                const desktopPath = path.join(os.homedir(), 'Desktop', fileName);
-                const docsPath = path.join(os.homedir(), 'Documents', fileName);
-                const downloadsPath = path.join(os.homedir(), 'Downloads', fileName);
-                const customPath = path.join(os.homedir(), 'Desktop', 'SISTEMA OPERATIVO', fileName);
+                const customPath = path.join(process.cwd(), 'Empresa_Arquivos', empresaId.toString(), fileName);
                 
                 if (fs.existsSync(customPath)) targetPath = customPath;
-                else if (fs.existsSync(desktopPath)) targetPath = desktopPath;
-                else if (fs.existsSync(docsPath)) targetPath = docsPath;
-                else if (fs.existsSync(downloadsPath)) targetPath = downloadsPath;
                 else return JSON.stringify({ status: 'error', error: `Ficheiro ${fileName} não encontrado.` });
             } else if (!fs.existsSync(targetPath)) {
                 return JSON.stringify({ status: 'error', error: `Ficheiro não encontrado no caminho: ${targetPath}` });
@@ -566,7 +557,8 @@ export async function executeAITool(name: string, args: any, empresaId?: number)
         const path = require('path');
         const os = require('os');
         try {
-            const baseDir = path.join(os.homedir(), 'Desktop', 'SISTEMA OPERATIVO', 'Base_Conhecimento');
+            if (!empresaId) return JSON.stringify({ status: 'error', error: 'empresaId não fornecido.' });
+            const baseDir = path.join(process.cwd(), 'Empresa_Arquivos', empresaId.toString(), 'Base_Conhecimento');
             if (!fs.existsSync(baseDir)) {
                 return JSON.stringify({ status: 'error', error: 'Pasta Base_Conhecimento não encontrada.' });
             }
@@ -600,7 +592,8 @@ export async function executeAITool(name: string, args: any, empresaId?: number)
         const path = require('path');
         const fs = require('fs');
         try {
-            const BASE_DIR = path.join('C:', 'Users', 'DELL', 'Desktop', 'SISTEMA OPERATIVO', 'Empresa_Arquivos');
+            if (!empresaId) return JSON.stringify({ status: 'error', error: 'empresaId não fornecido.' });
+            const BASE_DIR = path.join(process.cwd(), 'Empresa_Arquivos', empresaId.toString());
             const targetPath = path.resolve(BASE_DIR, args.caminho);
             if (!targetPath.startsWith(BASE_DIR)) {
                 return JSON.stringify({ status: 'error', error: 'Tentativa de acesso fora da pasta permitida.' });
@@ -617,7 +610,8 @@ export async function executeAITool(name: string, args: any, empresaId?: number)
         const path = require('path');
         const fs = require('fs');
         try {
-            const BASE_DIR = path.join('C:', 'Users', 'DELL', 'Desktop', 'SISTEMA OPERATIVO', 'Empresa_Arquivos');
+            if (!empresaId) return JSON.stringify({ status: 'error', error: 'empresaId não fornecido.' });
+            const BASE_DIR = path.join(process.cwd(), 'Empresa_Arquivos', empresaId.toString());
             const targetPath = path.resolve(BASE_DIR, args.caminho);
             if (!targetPath.startsWith(BASE_DIR)) {
                 return JSON.stringify({ status: 'error', error: 'Tentativa de acesso fora da pasta permitida.' });
@@ -653,7 +647,8 @@ export async function executeAITool(name: string, args: any, empresaId?: number)
             }).select('id').single();
             if (negError) throw negError;
 
-            const BASE_DIR = path.join('C:', 'Users', 'DELL', 'Desktop', 'SISTEMA OPERATIVO', 'Empresa_Arquivos');
+            if (!empresaId) throw new Error('empresaId não fornecido.');
+            const BASE_DIR = path.join(process.cwd(), 'Empresa_Arquivos', empresaId.toString());
             const targetPath = path.join(BASE_DIR, 'Clientes', args.nome.replace(/[^a-z0-9]/gi, '_'));
             if (!fs.existsSync(targetPath)) {
                 fs.mkdirSync(targetPath, { recursive: true });
@@ -661,7 +656,7 @@ export async function executeAITool(name: string, args: any, empresaId?: number)
 
             return JSON.stringify({ 
                 status: 'success', 
-                message: `Lead "${args.nome}" criada com sucesso! Cliente ID: ${cliente.id}, Negócio ID: ${negocio.id}. Pasta criada em Empresa_Arquivos/Clientes.`, 
+                message: `Lead "${args.nome}" criada com sucesso! Cliente ID: ${cliente.id}, Negócio ID: ${negocio.id}. Pasta criada em Empresa_Arquivos/${empresaId}/Clientes.`, 
                 cliente_id: cliente.id,
                 negocio_id: negocio.id
             });

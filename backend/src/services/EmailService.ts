@@ -10,13 +10,8 @@ export class EmailService {
         try {
             let cfg: Record<string, string> = {};
             
-            if (empresaId === 'mock-empresa-1' || String(empresaId) === 'mock-empresa-1') {
-                const fs = require('fs');
-                const path = require('path');
-                try {
-                    cfg = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'mock_config.json'), 'utf8'));
-                } catch {}
-            } else {
+            // Ler configurações SMTP da BD, filtradas por empresa_id
+            {
                 const client = userClient || supabase;
                 let query = client.from('configuracoes').select('chave, valor').like('chave', 'smtp_%');
                 if (empresaId) {
@@ -111,7 +106,7 @@ export class EmailService {
             try {
                 const client = userClient || supabase;
                 await client.from('emails').insert({
-                    empresa_id: (empresaId === 'mock-empresa-1' || String(empresaId) === 'mock-empresa-1') ? null : empresaId,
+                    empresa_id: empresaId || null,
                     direcao: 'sent',
                     message_id: info.messageId,
                     de: `"${nome}" <${user}>`,

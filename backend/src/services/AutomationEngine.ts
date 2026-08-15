@@ -29,13 +29,17 @@ export class AutomationEngine {
         await supabase.from('automations').delete().eq('id', id);
     }
 
-    public static async processWebhook(trigger_type: string, payload: any) {
+    public static async processWebhook(trigger_type: string, payload: any, empresaId?: number) {
         // Extract phone number from payload to check human handover
         let phoneToCheck = payload.from || payload.telefone || payload.phone || payload.remoteJid;
         if (phoneToCheck) {
             phoneToCheck = phoneToCheck.replace(/\D/g, '');
             try {
-                const { data: client } = await supabase.from('clientes').select('bot_paused').or(`telefone.eq.${phoneToCheck},telefone.ilike.%${phoneToCheck}%`).limit(1).single();
+                let clientQuery = supabase.from('clientes').select('bot_paused').or(`telefone.eq.${phoneToCheck},telefone.ilike.%${phoneToCheck}%`).limit(1);
+                if (empresaId) {
+                    clientQuery = clientQuery.eq('empresa_id', empresaId);
+                }
+                const { data: client } = await clientQuery.single();
                 if (client && client.bot_paused) {
                     console.log(`[Human Handover] Ignorando webhook de ${phoneToCheck} pois o bot está pausado para este cliente.`);
                     return; // Abort webhook execution for this user
@@ -43,8 +47,11 @@ export class AutomationEngine {
             } catch (err) {}
         }
 
-        // Find all active automations for this trigger
-        const { data: automations } = await supabase.from('automations').select('*').eq('trigger_type', trigger_type).eq('ativo', true);
+        let autoQuery = supabase.from('automations').select('*').eq('trigger_type', trigger_type).eq('ativo', true);
+        if (empresaId) {
+            autoQuery = autoQuery.eq('empresa_id', empresaId);
+        }
+        const { data: automations } = await autoQuery;
 
         for (const automation of (automations || [])) {
             try {
@@ -76,7 +83,11 @@ export class AutomationEngine {
                     // Check if client exists (by phone)
                     let clientId;
                     if (clientPhone) {
-                        const { data: existing } = await supabase.from('clientes').select('id').eq('telefone', clientPhone).limit(1).single();
+                        let query = supabase.from('clientes').select('id').eq('telefone', clientPhone).limit(1);
+                        if (empresa_id) {
+                            query = query.eq('empresa_id', empresa_id);
+                        }
+                        const { data: existing } = await query.single();
                         if (existing) {
                             clientId = existing.id;
                         } else {

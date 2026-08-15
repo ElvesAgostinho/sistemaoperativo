@@ -1,8 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabaseClient';
+import { supabase, supabaseAdmin } from '../lib/supabaseClient';
 import { requireAuth, AuthRequest } from '../middleware/authMiddleware';
 import { rotearEExecutar } from '../services/AIRouterService';
+import crypto from 'crypto';
 
 const router = Router();
 
@@ -19,7 +20,14 @@ const makeUserClient = (accessToken: string) => createClient(
 // Helper: cliente admin (usa service key se disponível, senão anon key)
 const makeAdminClient = () => createClient(
     process.env.SUPABASE_URL || '',
-    process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY || '',
+    { auth: { persistSession: false, autoRefreshToken: false } }
+);
+
+// Helper: cliente efémero para operações de auth (NUNCA usar o singleton global)
+const makeAuthClient = () => createClient(
+    process.env.SUPABASE_URL || '',
+    process.env.SUPABASE_KEY || '',
     { auth: { persistSession: false, autoRefreshToken: false } }
 );
 
@@ -32,21 +40,25 @@ router.post('/register', async (req: Request, res: Response) => {
     }
 
     // Se for funcionário, validar o código de convite ANTES de registar o utilizador
+    // e guardar a empresa associada para a atribuirmos ao perfil logo a seguir ao signup.
+    let empresaIdConvite: string | null = null;
     if (!empresaNome && codigoConvite) {
         // Usar a RPC criada na BD que faz a verificação sem precisar de Service Key
-        const { data: isValid, error: rpcError } = await supabase.rpc('check_invite_code', { codigo: codigoConvite });
-        
-        if (rpcError || !isValid) {
+        const { data: inviteRows, error: rpcError } = await supabase.rpc('check_invite_code', { codigo: codigoConvite });
+        const inviteRow = Array.isArray(inviteRows) ? inviteRows[0] : inviteRows;
+
+        if (rpcError || !inviteRow?.valido || !inviteRow?.empresa_id) {
             console.error('[Register] Erro ao validar codigo de convite:', rpcError);
             return res.status(400).json({ error: 'Código de convite inválido ou empresa não encontrada.' });
         }
+        empresaIdConvite = inviteRow.empresa_id;
     } else if (!empresaNome && !codigoConvite) {
         return res.status(400).json({ error: 'É obrigatório informar o nome da empresa ou o código de convite.' });
     }
 
-    // Registo do utilizador no Auth
-    // O Trigger handle_new_user na Base de Dados tratará da criação da empresa e associação do perfil
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    // Registo do utilizador no Auth (usa cliente efémero, não o singleton global)
+    const authClient = makeAuthClient();
+    const { data: authData, error: authError } = await authClient.auth.signUp({
         email,
         password,
         options: {
@@ -61,6 +73,59 @@ router.post('/register', async (req: Request, res: Response) => {
 
     if (authError || !authData.user) {
         return res.status(400).json({ error: authError?.message || 'Erro ao criar utilizador.' });
+    }
+
+    // Se for criação de empresa SaaS, criar a empresa e associar ao perfil imediatamente
+    // Isto evita o ecrã branco após confirmação de email
+    if (empresaNome) {
+        try {
+            const adminClient = makeAdminClient();
+            const codigoConviteEmpresa = 'EMP-' + crypto.randomBytes(3).toString('hex').toUpperCase();
+
+            // 1. Criar a empresa
+            const { data: novaEmpresa, error: empErr } = await adminClient.from('empresas').insert({
+                nome: empresaNome,
+                status: 'pending',
+                codigo_convite: codigoConviteEmpresa
+            }).select('id').single();
+
+            if (empErr) {
+                console.error('[Register] Erro ao criar empresa:', empErr);
+            } else if (novaEmpresa) {
+                // 2. Associar perfil à empresa (o trigger handle_new_user já criou o perfil)
+                // Aguardar um momento para o trigger executar
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                await adminClient.from('perfis').update({
+                    empresa_id: novaEmpresa.id,
+                    role: 'admin'
+                }).eq('id', authData.user.id);
+
+                console.log(`[Register] Empresa '${empresaNome}' criada (ID: ${novaEmpresa.id}) e associada ao user ${authData.user.id}`);
+            }
+        } catch (e) {
+            console.error('[Register] Erro ao criar empresa no registo:', e);
+        }
+    }
+
+    // Se for funcionário via código de convite, associar imediatamente à empresa do convite.
+    // Sem isto, o perfil ficava com empresa_id NULL e nunca aparecia na lista de aprovação do admin.
+    if (empresaIdConvite) {
+        try {
+            const adminClient = makeAdminClient();
+            // Aguardar um momento para o trigger handle_new_user criar o perfil primeiro
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            const { error: linkErr } = await adminClient.from('perfis')
+                .update({ empresa_id: empresaIdConvite })
+                .eq('id', authData.user.id);
+
+            if (linkErr) {
+                console.error('[Register] Erro ao associar funcionário à empresa do convite:', linkErr);
+            } else {
+                console.log(`[Register] Funcionário ${authData.user.id} associado à empresa ${empresaIdConvite}`);
+            }
+        } catch (e) {
+            console.error('[Register] Erro ao associar funcionário à empresa:', e);
+        }
     }
 
     return res.json({
@@ -78,7 +143,9 @@ router.post('/login', async (req: Request, res: Response) => {
         return res.status(400).json({ error: 'Email e password são obrigatórios.' });
     }
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    // Usar cliente efémero para login (NUNCA o singleton global para evitar session contamination)
+    const authClient = makeAuthClient();
+    const { data, error } = await authClient.auth.signInWithPassword({ email, password });
 
     if (error) {
         if (error.message.toLowerCase().includes('email not confirmed')) {
@@ -222,7 +289,9 @@ router.post('/refresh', async (req: Request, res: Response) => {
         return res.status(400).json({ error: 'Refresh token é obrigatório.' });
     }
 
-    const { data, error } = await supabase.auth.refreshSession({ refresh_token });
+    // Usar cliente efémero para refresh (não contaminar o singleton)
+    const authClient = makeAuthClient();
+    const { data, error } = await authClient.auth.refreshSession({ refresh_token });
 
     if (error || !data.session) {
         return res.status(401).json({ error: 'Refresh token inválido ou expirado.' });
@@ -236,8 +305,10 @@ router.post('/refresh', async (req: Request, res: Response) => {
 });
 
 // ─── Auth: Logout ─────────────────────────────────────────────────────────────
+// Nota: Em server-side, não há sessão para destruir no backend.
+// O cliente frontend apaga os tokens do localStorage. O token JWT expira naturalmente.
 router.post('/logout', requireAuth, async (req: AuthRequest, res: Response) => {
-    await supabase.auth.signOut();
+    // NÃO chamar supabase.auth.signOut() no singleton global — causa session contamination
     return res.json({ success: true, message: 'Sessão terminada.' });
 });
 
@@ -248,7 +319,9 @@ router.put('/update-password', requireAuth, async (req: AuthRequest, res: Respon
         return res.status(400).json({ error: 'Password inválida.' });
     }
 
-    const { error } = await supabase.auth.updateUser({ password });
+    // Usar admin client para atualizar password (requer service key)
+    const adminClient = makeAdminClient();
+    const { error } = await adminClient.auth.admin.updateUserById(req.user!.id, { password });
     if (error) {
         return res.status(400).json({ error: error.message });
     }

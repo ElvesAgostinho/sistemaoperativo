@@ -17,15 +17,17 @@ export default function DataApp() {
   const fetchData = async () => {
     try {
       const token = localStorage.getItem('os_auth_token');
-      const headers = { 'Authorization': `Bearer ${token}` };
-      
-      const statsRes = await fetch(import.meta.env.VITE_API_URL + '/api/data/stats', { headers });
+      const statsRes = await fetch(import.meta.env.VITE_API_URL + '/api/data/stats', { 
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } 
+      });
       const statsData = await statsRes.json();
       if (statsData.success) {
         setStats(statsData.stats);
       }
 
-      const insightsRes = await fetch(import.meta.env.VITE_API_URL + '/api/data/insights', { headers });
+      const insightsRes = await fetch(import.meta.env.VITE_API_URL + '/api/data/insights', { 
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } 
+      });
       const insightsData = await insightsRes.json();
       if (insightsData.success) {
         setInsights(insightsData.insights);

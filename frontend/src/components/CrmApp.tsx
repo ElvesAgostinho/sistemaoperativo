@@ -44,11 +44,16 @@ export default function CrmApp() {
   const fetchDados = async () => {
     setIsFetching(true);
     try {
-      const resC = await fetch(import.meta.env.VITE_API_URL + '/api/crm/clientes');
+      const token = localStorage.getItem('os_auth_token');
+      const resC = await fetch(import.meta.env.VITE_API_URL + '/api/crm/clientes', {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
       const dataC = await resC.json();
       if (dataC.success) setClientes(dataC.clientes);
 
-      const resN = await fetch(import.meta.env.VITE_API_URL + '/api/crm/negocios');
+      const resN = await fetch(import.meta.env.VITE_API_URL + '/api/crm/negocios', {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
       const dataN = await resN.json();
       if (dataN.success) setNegocios(dataN.negocios);
     } catch (err) {
@@ -66,9 +71,10 @@ export default function CrmApp() {
     e.preventDefault();
     setLoading(true);
     try {
+      const token = localStorage.getItem('os_auth_token');
       const res = await fetch(import.meta.env.VITE_API_URL + '/api/crm/clientes', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(newCliente)
       });
       const data = await res.json();
@@ -88,9 +94,10 @@ export default function CrmApp() {
     e.preventDefault();
     setLoading(true);
     try {
+      const token = localStorage.getItem('os_auth_token');
       const res = await fetch(import.meta.env.VITE_API_URL + '/api/crm/negocios', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           titulo: newLead.titulo,
           cliente_id: Number(newLead.cliente_id),
@@ -113,7 +120,11 @@ export default function CrmApp() {
   const deleteCliente = async (id: number) => {
     if (!window.confirm("Atenção: Ao apagar o cliente, apagará também todos os negócios e leads associados. Deseja continuar?")) return;
     try {
-      await fetch(`${import.meta.env.VITE_API_URL}/api/crm/clientes/${id}`, { method: 'DELETE' });
+      const token = localStorage.getItem('os_auth_token');
+      await fetch(`${import.meta.env.VITE_API_URL}/api/crm/clientes/${id}`, { 
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
       fetchDados();
     } catch (err) {
       alert("Erro ao apagar cliente.");
@@ -123,7 +134,11 @@ export default function CrmApp() {
   const deleteNegocio = async (id: number) => {
     if (!window.confirm("Tem a certeza que deseja apagar este negócio? Esta ação é irreversível.")) return;
     try {
-      await fetch(`${import.meta.env.VITE_API_URL}/api/crm/negocios/${id}`, { method: 'DELETE' });
+      const token = localStorage.getItem('os_auth_token');
+      await fetch(`${import.meta.env.VITE_API_URL}/api/crm/negocios/${id}`, { 
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
       fetchDados();
     } catch (err) {
       alert("Erro ao apagar negócio.");
@@ -132,9 +147,10 @@ export default function CrmApp() {
 
   const moveFase = async (negocio_id: number, nova_fase: string) => {
     try {
+      const token = localStorage.getItem('os_auth_token');
       await fetch(`${import.meta.env.VITE_API_URL}/api/crm/negocios/${negocio_id}/fase`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ fase: nova_fase })
       });
       fetchDados();
@@ -147,9 +163,10 @@ export default function CrmApp() {
     if (!showProformaModal) return;
     setLoading(true);
     try {
+      const token = localStorage.getItem('os_auth_token');
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/crm/negocios/${showProformaModal}/proforma`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ itens: proformaItens })
       });
       const data = await res.json();
@@ -171,9 +188,10 @@ export default function CrmApp() {
     if (!showPagamentoModal) return;
     setLoading(true);
     try {
+      const token = localStorage.getItem('os_auth_token');
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/crm/negocios/${showPagamentoModal}/pagamento`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(pagamentoData)
       });
       const data = await res.json();

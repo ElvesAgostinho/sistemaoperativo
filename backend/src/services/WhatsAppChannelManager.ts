@@ -1,5 +1,3 @@
-import { supabase } from '../lib/supabaseClient';
-
 export class WhatsAppChannelManager {
     /**
      * Envia uma mensagem física (texto) usando a API oficial da Meta ou Evolution
@@ -70,8 +68,8 @@ export class WhatsAppChannelManager {
 
     private static async sendEvolutionMessage(credentials: any, phone_number: string, content: string): Promise<string | boolean> {
         const instanceName = credentials.instanceName;
-        const evolutionUrl = 'https://evolution.topconsultores.pt';
-        const apikey = '***REMOVED_EVOLUTION_API_KEY***';
+        const evolutionUrl = process.env.EVOLUTION_API_URL || 'https://evolution.topconsultores.pt';
+        const apikey = process.env.AUTHENTICATION_API_KEY || '';
 
         if (!evolutionUrl || !apikey || !instanceName) {
             throw new Error('Configuração Evolution incompleta');
@@ -129,9 +127,9 @@ export class WhatsAppChannelManager {
         return true;
     }
 
-    public static async sendTemplateMessage(channel_id: string, phone_number: string, template_name: string, language_code: string): Promise<boolean> {
+    public static async sendTemplateMessage(supabaseClient: any, channel_id: string, phone_number: string, template_name: string, language_code: string): Promise<boolean> {
         try {
-            const { data: channel } = await supabase.from('wa_channels').select('*').eq('id', channel_id).single();
+            const { data: channel } = await supabaseClient.from('wa_channels').select('*').eq('id', channel_id).single();
             if (!channel || channel.provider !== 'meta') throw new Error('Canal inválido ou não é Meta');
 
             const { phoneNumberId, accessToken } = channel.credentials;
@@ -176,9 +174,9 @@ export class WhatsAppChannelManager {
         }
     }
 
-    public static async sendMediaMessage(channel_id: string, phone_number: string, base64Data: string, fileName: string): Promise<boolean> {
+    public static async sendMediaMessage(supabaseClient: any, channel_id: string, phone_number: string, base64Data: string, fileName: string): Promise<boolean> {
         try {
-            const { data: channel } = await supabase.from('wa_channels').select('*').eq('id', channel_id).single();
+            const { data: channel } = await supabaseClient.from('wa_channels').select('*').eq('id', channel_id).single();
             if (!channel) throw new Error('Canal não encontrado');
 
             // Normalizar número
@@ -190,9 +188,9 @@ export class WhatsAppChannelManager {
 
             if (channel.provider === 'evolution') {
                 const instanceName = channel.credentials?.instanceName;
-                const evolutionUrl = 'https://evolution.topconsultores.pt';
-                const apiK = '***REMOVED_EVOLUTION_API_KEY***';
-                
+                const evolutionUrl = process.env.EVOLUTION_API_URL || 'https://evolution.topconsultores.pt';
+                const apiK = process.env.AUTHENTICATION_API_KEY || '';
+
                 // FIX #6 — Evolution v2: mediaMessage payload correcto
                 // Separar o prefixo data:mimetype;base64,... do dado puro
                 const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);

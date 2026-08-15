@@ -31,24 +31,25 @@ router.get('/stats', requireAuth, async (req: Request, res: Response) => {
     try {
         const supabase = getSupabase(req);
 
+        const empresa_id = (req as any).user?.empresa_id;
         // HR Stats
-        const { count: hrCount } = await supabase.from('colaboradores').select('*', { count: 'exact', head: true }).eq('estado', 'Ativo');
-        const { data: hrData } = await supabase.from('colaboradores').select('salario_base').eq('estado', 'Ativo');
+        const { count: hrCount } = await supabase.from('colaboradores').select('*', { count: 'exact', head: true }).eq('estado', 'Ativo').eq('empresa_id', empresa_id);
+        const { data: hrData } = await supabase.from('colaboradores').select('salario_base').eq('estado', 'Ativo').eq('empresa_id', empresa_id);
         const hrSalaries = hrData?.reduce((acc: number, curr: any) => acc + (Number(curr.salario_base) || 0), 0) || 0;
         
         // CRM Stats
-        const { count: leadsCount } = await supabase.from('negocios').select('*', { count: 'exact', head: true }).eq('fase', 'Nova Lead');
+        const { count: leadsCount } = await supabase.from('negocios').select('*', { count: 'exact', head: true }).eq('fase', 'Nova Lead').eq('empresa_id', empresa_id);
         
-        const { data: wonDeals } = await supabase.from('negocios').select('valor_estimado').eq('fase', 'Ganho');
+        const { data: wonDeals } = await supabase.from('negocios').select('valor_estimado').eq('fase', 'Ganho').eq('empresa_id', empresa_id);
         const wonTotal = wonDeals?.reduce((acc: number, curr: any) => acc + (Number(curr.valor_estimado) || 0), 0) || 0;
         
-        const { data: activeDeals } = await supabase.from('negocios').select('valor_estimado').neq('fase', 'Ganho').neq('fase', 'Perdido');
+        const { data: activeDeals } = await supabase.from('negocios').select('valor_estimado').neq('fase', 'Ganho').neq('fase', 'Perdido').eq('empresa_id', empresa_id);
         const activeTotal = activeDeals?.reduce((acc: number, curr: any) => acc + (Number(curr.valor_estimado) || 0), 0) || 0;
         
-        const { count: totalClients } = await supabase.from('clientes').select('*', { count: 'exact', head: true });
+        const { count: totalClients } = await supabase.from('clientes').select('*', { count: 'exact', head: true }).eq('empresa_id', empresa_id);
 
         // CRM Funnel
-        const { data: funnelData } = await supabase.from('negocios').select('fase');
+        const { data: funnelData } = await supabase.from('negocios').select('fase').eq('empresa_id', empresa_id);
         const funnelMap: Record<string, number> = {};
         funnelData?.forEach((d: any) => {
             funnelMap[d.fase] = (funnelMap[d.fase] || 0) + 1;
@@ -56,7 +57,7 @@ router.get('/stats', requireAuth, async (req: Request, res: Response) => {
         const funnel = Object.keys(funnelMap).map(key => ({ name: key, value: funnelMap[key] }));
 
         // HR Departments
-        const { data: deptData } = await supabase.from('colaboradores').select('departamento').eq('estado', 'Ativo');
+        const { data: deptData } = await supabase.from('colaboradores').select('departamento').eq('estado', 'Ativo').eq('empresa_id', empresa_id);
         const deptMap: Record<string, number> = {};
         deptData?.forEach((d: any) => {
             const dept = d.departamento || 'Geral';

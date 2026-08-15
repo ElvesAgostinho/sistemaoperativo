@@ -7,7 +7,7 @@ const router = Router();
 // Helper: criar cliente com o token do utilizador autenticado (respeita RLS superadmin)
 const getClientForUser = (req: AuthRequest) => {
     const token = req.headers.authorization?.split(' ')[1];
-    const serviceKey = process.env.SUPABASE_SERVICE_KEY;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
     
     // Se tiver service key, usa para contornar RLS completamente
     if (serviceKey) {

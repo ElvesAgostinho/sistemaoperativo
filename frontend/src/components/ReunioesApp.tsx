@@ -54,12 +54,34 @@ export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: s
     const [novaTarefaPrazo, setNovaTarefaPrazo] = useState('');
 
     // Jitsi & Bot
-    const iframeRef = useRef<HTMLIFrameElement>(null);
+    const jitsiContainerRef = useRef<HTMLDivElement>(null);
+    const jitsiApiRef = useRef<any>(null);
     const [transcription, setTranscription] = useState<string>('');
     const [interimTranscription, setInterimTranscription] = useState<string>('');
     const [isListening, setIsListening] = useState(false);
     const recognitionRef = useRef<any>(null);
     const isMeetingActiveRef = useRef<boolean>(false);
+
+    // Carrega o script da Jitsi External API uma única vez (permite saber quando a
+    // videochamada realmente arrancou, em vez de assumir isso ao montar a página)
+    const loadJitsiScript = (): Promise<void> => {
+        return new Promise((resolve, reject) => {
+            if ((window as any).JitsiMeetExternalAPI) return resolve();
+            const existing = document.getElementById('jitsi-external-api-script');
+            if (existing) {
+                existing.addEventListener('load', () => resolve());
+                existing.addEventListener('error', reject);
+                return;
+            }
+            const script = document.createElement('script');
+            script.id = 'jitsi-external-api-script';
+            script.src = 'https://meet.jit.si/external_api.js';
+            script.async = true;
+            script.onload = () => resolve();
+            script.onerror = reject;
+            document.body.appendChild(script);
+        });
+    };
 
     useEffect(() => {
         fetchReunioes();
@@ -71,6 +93,50 @@ export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: s
             joinMeeting(initialMeetingId);
         }
     }, [initialMeetingId]);
+
+    // Inicializa a videochamada Jitsi via External API quando entramos na sala.
+    // O Copilot IA (reconhecimento de voz) só arranca no evento "videoConferenceJoined",
+    // ou seja, quando o utilizador realmente entra na chamada — nunca antes disso.
+    useEffect(() => {
+        if (view !== 'room' || !activeReuniao || !jitsiContainerRef.current) return;
+
+        let disposed = false;
+        const roomName = activeReuniao.link_jitsi.split('/').pop();
+
+        loadJitsiScript().then(() => {
+            if (disposed || !jitsiContainerRef.current) return;
+            const JitsiMeetExternalAPI = (window as any).JitsiMeetExternalAPI;
+            const api = new JitsiMeetExternalAPI('meet.jit.si', {
+                roomName,
+                parentNode: jitsiContainerRef.current,
+                width: '100%',
+                height: '100%',
+                configOverwrite: { prejoinPageEnabled: false },
+            });
+            jitsiApiRef.current = api;
+
+            api.addListener('videoConferenceJoined', () => {
+                startListening();
+            });
+            api.addListener('videoConferenceLeft', () => {
+                stopListening();
+            });
+            api.addListener('readyToClose', () => {
+                stopListening();
+            });
+        }).catch((e: any) => {
+            console.error('Erro ao carregar a Jitsi External API:', e);
+        });
+
+        return () => {
+            disposed = true;
+            stopListening();
+            if (jitsiApiRef.current) {
+                jitsiApiRef.current.dispose();
+                jitsiApiRef.current = null;
+            }
+        };
+    }, [view, activeReuniao?.id]);
 
     const fetchReunioes = async () => {
         try {
@@ -171,8 +237,9 @@ export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: s
                     setTarefas(data.tarefas || []);
                     setView('summary');
                 } else {
+                    // Não arrancar o "Copilot a ouvir" aqui — só quando a videochamada
+                    // Jitsi realmente começar (evento videoConferenceJoined, ver useEffect abaixo).
                     setView('room');
-                    startListening();
                 }
             }
         } catch (e) {
@@ -302,9 +369,6 @@ export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: s
     };
 
     if (view === 'room' && activeReuniao) {
-        // Extract room name from jitsi link
-        const roomName = activeReuniao.link_jitsi.split('/').pop();
-
         return (
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'white', color: '#0f172a' }}>
                 <div style={{ padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
@@ -322,14 +386,9 @@ export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: s
                 </div>
 
                 <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-                    {/* Jitsi Iframe */}
+                    {/* Jitsi (via External API) */}
                     <div style={{ flex: 1, position: 'relative' }}>
-                        <iframe 
-                            ref={iframeRef}
-                            src={`${activeReuniao.link_jitsi}#config.prejoinPageEnabled=false`}
-                            allow="camera *; microphone *; fullscreen *; display-capture *; autoplay *"
-                            style={{ width: '100%', height: '100%', border: 'none' }}
-                        />
+                        <div ref={jitsiContainerRef} style={{ width: '100%', height: '100%' }} />
                     </div>
 
                     {/* AI Copilot Side Panel */}

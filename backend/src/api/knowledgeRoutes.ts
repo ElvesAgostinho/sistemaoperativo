@@ -9,12 +9,23 @@ const router = Router();
 
 const baseDir = path.join(os.homedir(), 'Desktop', 'SISTEMA OPERATIVO', 'Base_Conhecimento');
 
+const getTenantDir = (req: any) => {
+    const empresaId = req.user?.empresa_id;
+    if (!empresaId) throw new Error('empresa_id não encontrado');
+    return path.join(baseDir, String(empresaId));
+};
+
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        if (!fs.existsSync(baseDir)) {
-            fs.mkdirSync(baseDir, { recursive: true });
+        try {
+            const tenantDir = getTenantDir(req);
+            if (!fs.existsSync(tenantDir)) {
+                fs.mkdirSync(tenantDir, { recursive: true });
+            }
+            cb(null, tenantDir);
+        } catch (error: any) {
+            cb(error, '');
         }
-        cb(null, baseDir);
     },
     filename: (req, file, cb) => {
         cb(null, file.originalname); // Mantém o nome original para ser mais legível pela IA
@@ -22,14 +33,15 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-router.get('/', (req, res) => {
+router.get('/', requireAuth, (req, res) => {
     try {
-        if (!fs.existsSync(baseDir)) {
-            fs.mkdirSync(baseDir, { recursive: true });
+        const tenantDir = getTenantDir(req);
+        if (!fs.existsSync(tenantDir)) {
+            fs.mkdirSync(tenantDir, { recursive: true });
         }
-        const files = fs.readdirSync(baseDir).filter(f => f.endsWith('.txt') || f.endsWith('.md') || f.endsWith('.pdf'));
+        const files = fs.readdirSync(tenantDir).filter(f => f.endsWith('.txt') || f.endsWith('.md') || f.endsWith('.pdf'));
         const fileData = files.map(f => {
-            const stat = fs.statSync(path.join(baseDir, f));
+            const stat = fs.statSync(path.join(tenantDir, f));
             return { name: f, size: stat.size, date: stat.mtime };
         });
         res.json({ success: true, files: fileData });
@@ -38,14 +50,15 @@ router.get('/', (req, res) => {
     }
 });
 
-router.post('/upload', upload.single('file'), (req, res) => {
+router.post('/upload', requireAuth, upload.single('file'), (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'Nenhum ficheiro enviado' });
     res.json({ success: true, message: 'Ficheiro guardado com sucesso!' });
 });
 
-router.delete('/:filename', (req, res) => {
+router.delete('/:filename', requireAuth, (req, res) => {
     try {
-        const filePath = path.join(baseDir, req.params.filename);
+        const tenantDir = getTenantDir(req);
+        const filePath = path.join(tenantDir, req.params.filename);
         if (fs.existsSync(filePath)) {
             fs.unlinkSync(filePath);
             res.json({ success: true, message: 'Apagado com sucesso' });

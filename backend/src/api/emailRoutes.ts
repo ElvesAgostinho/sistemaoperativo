@@ -50,7 +50,7 @@ router.get('/', requireAuth, async (req, res) => {
 
 router.post('/sync', requireAuth, async (req, res) => {
     try {
-        const empresaId = (req as any).user?.empresa_id || 'mock-empresa-1';
+        const empresaId = (req as any).user?.empresa_id;
         const addedCount = await EmailSyncService.syncInbox(empresaId);
         res.json({ success: true, addedCount });
     } catch (err: any) {
@@ -61,7 +61,8 @@ router.post('/sync', requireAuth, async (req, res) => {
 router.put('/:id/read', requireAuth, async (req, res) => {
     try {
         const userClient = getSupabase(req);
-        const { error } = await userClient.from('emails').update({ lido: true }).eq('id', req.params.id);
+        const empresaId = (req as any).user?.empresa_id;
+        const { error } = await userClient.from('emails').update({ lido: true }).eq('id', req.params.id).eq('empresa_id', empresaId);
         if (error) throw error;
         res.json({ success: true });
     } catch (err: any) {
@@ -72,7 +73,8 @@ router.put('/:id/read', requireAuth, async (req, res) => {
 router.delete('/:id', requireAuth, async (req, res) => {
     try {
         const userClient = getSupabase(req);
-        const { error } = await userClient.from('emails').delete().eq('id', req.params.id);
+        const empresaId = (req as any).user?.empresa_id;
+        const { error } = await userClient.from('emails').delete().eq('id', req.params.id).eq('empresa_id', empresaId);
         if (error) throw error;
         res.json({ success: true });
     } catch (err: any) {
