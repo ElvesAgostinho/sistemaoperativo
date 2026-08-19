@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { getSupabase } from '../lib/supabaseClient';
 import { EmailService } from '../services/EmailService';
+import { ReuniaoService } from '../services/ReuniaoService';
 import OpenAI from 'openai';
 
 export const listarReunioes = async (req: Request, res: Response) => {
@@ -36,17 +37,16 @@ export const criarReuniao = async (req: Request, res: Response) => {
             return res.status(400).json({ success: false, error: 'Título e data são obrigatórios' });
         }
 
-        const roomName = `BusinessOS_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-        const linkJitsi = `https://meet.jit.si/${roomName}`;
-
         const supabase = getSupabase(req);
         const empresa_id = (req as any).user?.empresa_id;
-        const { data: info, error } = await supabase.from('reunioes').insert({
-            empresa_id, titulo, data_hora, link_jitsi: linkJitsi, emails_convidados, estado: 'Agendada'
-        }).select('id').single();
-        if (error) throw error;
-        
-        const novaReuniaoId = info.id;
+        const { id: novaReuniaoId, linkJitsi } = await ReuniaoService.criarReuniaoRegistro(
+            { empresa_id, titulo, data_hora, emails_convidados }, supabase
+        );
+
+        if (!process.env.FRONTEND_PUBLIC_URL) {
+            console.warn('[reunioesController] FRONTEND_PUBLIC_URL não definida — os links de convite enviados por email vão ficar quebrados.');
+        }
+        const linkConvite = `${process.env.FRONTEND_PUBLIC_URL || ''}/reuniao/${novaReuniaoId}`;
 
         if (emails_convidados) {
             const listaEmails = emails_convidados.split(',').map((e: string) => e.trim()).filter((e: string) => e);
@@ -56,18 +56,18 @@ export const criarReuniao = async (req: Request, res: Response) => {
                     <h2>Olá!</h2>
                     <p>Foi convidado(a) para a reunião <strong>${titulo}</strong>.</p>
                     <p><strong>Data/Hora:</strong> ${new Date(data_hora).toLocaleString('pt-PT')}</p>
-                    <p><strong>Link da Reunião (Jitsi):</strong> <a href="${linkJitsi}">${linkJitsi}</a></p>
+                    <p><strong>Link da Reunião:</strong> <a href="${linkConvite}">${linkConvite}</a></p>
                     <br/>
                     <p>Atentamente,<br/>A sua equipa do BusinessOS</p>
                 </div>`;
-                
+
                 await EmailService.enviarEmailPersonalizado(email, assunto, corpo, empresa_id, supabase).catch(e => {
                     console.error(`Falha ao enviar email para ${email}`, e);
                 });
             }
         }
 
-        res.json({ success: true, id: novaReuniaoId, link_jitsi: linkJitsi });
+        res.json({ success: true, id: novaReuniaoId, link_jitsi: linkJitsi, link_convite: linkConvite });
     } catch (error: any) {
         res.status(500).json({ success: false, error: error.message });
     }
@@ -76,13 +76,23 @@ export const criarReuniao = async (req: Request, res: Response) => {
 export const processarTranscricao = async (req: Request, res: Response) => {
     try {
         const id = req.params.id;
-        const { transcricao } = req.body;
-
-        if (!transcricao || transcricao.trim() === '') {
-            return res.status(400).json({ success: false, error: 'Transcrição vazia' });
-        }
-
         const supabase = getSupabase(req);
+
+        // A transcrição é reconstruída a partir dos fragmentos guardados por TODOS os
+        // participantes (host + convidados, ver reunioesPublicController), não apenas
+        // do que o criador da reunião capturou localmente.
+        const { data: fragmentos } = await supabase
+            .from('reunioes_transcricoes')
+            .select('participante_nome, fragmento, criado_em')
+            .eq('reuniao_id', id)
+            .order('criado_em', { ascending: true });
+
+        const transcricaoFragmentos = (fragmentos || [])
+            .map(f => `[${f.participante_nome}]: ${f.fragmento}`)
+            .join('\n')
+            .trim();
+        const transcricao = transcricaoFragmentos || 'Reunião sem transcrição disponível (nenhum áudio foi captado).';
+
         await supabase.from('reunioes').update({ transcricao_raw: transcricao, estado: 'Concluida' }).eq('id', id);
 
         const apiKey = process.env.OPENAI_API_KEY;

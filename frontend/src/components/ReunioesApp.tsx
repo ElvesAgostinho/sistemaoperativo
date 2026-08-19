@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Video, Calendar, Clock, Link as LinkIcon, UserPlus, Play, CheckCircle, FileText, ListTodo, TrendingUp, AlertTriangle, Lightbulb } from 'lucide-react';
+import MeetingRoom from './reunioes/MeetingRoom';
 
 interface Reuniao {
-    id: number;
+    id: string;
     titulo: string;
     data_hora: string;
     link_jitsi: string;
@@ -34,7 +35,7 @@ const fetchWithAuth = async (url: string, options: any = {}) => {
     });
 };
 
-export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: string }) {
+export default function ReunioesApp({ initialMeetingId, userName }: { initialMeetingId?: string; userName?: string }) {
     const [view, setView] = useState<'list' | 'room' | 'summary'>('list');
     const [reunioes, setReunioes] = useState<Reuniao[]>([]);
     const [activeReuniao, setActiveReuniao] = useState<Reuniao | null>(null);
@@ -53,36 +54,6 @@ export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: s
     const [novaTarefaResp, setNovaTarefaResp] = useState('');
     const [novaTarefaPrazo, setNovaTarefaPrazo] = useState('');
 
-    // Jitsi & Bot
-    const jitsiContainerRef = useRef<HTMLDivElement>(null);
-    const jitsiApiRef = useRef<any>(null);
-    const [transcription, setTranscription] = useState<string>('');
-    const [interimTranscription, setInterimTranscription] = useState<string>('');
-    const [isListening, setIsListening] = useState(false);
-    const recognitionRef = useRef<any>(null);
-    const isMeetingActiveRef = useRef<boolean>(false);
-
-    // Carrega o script da Jitsi External API uma única vez (permite saber quando a
-    // videochamada realmente arrancou, em vez de assumir isso ao montar a página)
-    const loadJitsiScript = (): Promise<void> => {
-        return new Promise((resolve, reject) => {
-            if ((window as any).JitsiMeetExternalAPI) return resolve();
-            const existing = document.getElementById('jitsi-external-api-script');
-            if (existing) {
-                existing.addEventListener('load', () => resolve());
-                existing.addEventListener('error', reject);
-                return;
-            }
-            const script = document.createElement('script');
-            script.id = 'jitsi-external-api-script';
-            script.src = 'https://meet.jit.si/external_api.js';
-            script.async = true;
-            script.onload = () => resolve();
-            script.onerror = reject;
-            document.body.appendChild(script);
-        });
-    };
-
     useEffect(() => {
         fetchReunioes();
         fetchColaboradores();
@@ -93,50 +64,6 @@ export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: s
             joinMeeting(initialMeetingId);
         }
     }, [initialMeetingId]);
-
-    // Inicializa a videochamada Jitsi via External API quando entramos na sala.
-    // O Copilot IA (reconhecimento de voz) só arranca no evento "videoConferenceJoined",
-    // ou seja, quando o utilizador realmente entra na chamada — nunca antes disso.
-    useEffect(() => {
-        if (view !== 'room' || !activeReuniao || !jitsiContainerRef.current) return;
-
-        let disposed = false;
-        const roomName = activeReuniao.link_jitsi.split('/').pop();
-
-        loadJitsiScript().then(() => {
-            if (disposed || !jitsiContainerRef.current) return;
-            const JitsiMeetExternalAPI = (window as any).JitsiMeetExternalAPI;
-            const api = new JitsiMeetExternalAPI('meet.jit.si', {
-                roomName,
-                parentNode: jitsiContainerRef.current,
-                width: '100%',
-                height: '100%',
-                configOverwrite: { prejoinPageEnabled: false },
-            });
-            jitsiApiRef.current = api;
-
-            api.addListener('videoConferenceJoined', () => {
-                startListening();
-            });
-            api.addListener('videoConferenceLeft', () => {
-                stopListening();
-            });
-            api.addListener('readyToClose', () => {
-                stopListening();
-            });
-        }).catch((e: any) => {
-            console.error('Erro ao carregar a Jitsi External API:', e);
-        });
-
-        return () => {
-            disposed = true;
-            stopListening();
-            if (jitsiApiRef.current) {
-                jitsiApiRef.current.dispose();
-                jitsiApiRef.current = null;
-            }
-        };
-    }, [view, activeReuniao?.id]);
 
     const fetchReunioes = async () => {
         try {
@@ -271,79 +198,16 @@ export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: s
         }
     };
 
-    const startListening = () => {
-        if (!('webkitSpeechRecognition' in window)) {
-            alert("O seu navegador não suporta o bot de IA (use Google Chrome).");
-            return;
-        }
-
-        isMeetingActiveRef.current = true;
-        const SpeechRecognition = (window as any).webkitSpeechRecognition;
-        const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = 'pt-PT';
-
-        recognition.onstart = () => {
-            setIsListening(true);
-        };
-
-        recognition.onresult = (event: any) => {
-            let finalTranscript = '';
-            let interim = '';
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-                if (event.results[i].isFinal) {
-                    finalTranscript += event.results[i][0].transcript + ' ';
-                } else {
-                    interim += event.results[i][0].transcript;
-                }
-            }
-            if (finalTranscript) {
-                setTranscription(prev => prev + '\n' + finalTranscript.trim());
-            }
-            setInterimTranscription(interim);
-        };
-
-        recognition.onerror = (event: any) => {
-            console.error('Erro no Speech Recognition:', event.error);
-        };
-
-        recognition.onend = () => {
-            // Restart automatically if still in meeting (prevent silence timeouts)
-            if (isMeetingActiveRef.current) {
-                try {
-                    recognition.start();
-                } catch(e) {}
-            } else {
-                setIsListening(false);
-            }
-        };
-
-        try {
-            recognition.start();
-        } catch(e) {}
-        
-        recognitionRef.current = recognition;
-    };
-
-    const stopListening = () => {
-        isMeetingActiveRef.current = false;
-        if (recognitionRef.current) {
-            recognitionRef.current.stop();
-            setIsListening(false);
-        }
-    };
-
     const endMeeting = async () => {
-        stopListening();
         if (!activeReuniao) return;
 
         setLoading(true);
         try {
+            // A transcrição já não vai no body — o backend reconstrói a partir dos
+            // fragmentos guardados por todos os participantes (host + convidados).
             const res = await fetchWithAuth(`${import.meta.env.VITE_API_URL}/api/reunioes/${activeReuniao.id}/process-transcript`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ transcricao: transcription || "Reunião curta ou sem áudio detetado." })
+                headers: { 'Content-Type': 'application/json' }
             });
             const data = await res.json();
             if (data.success) {
@@ -370,58 +234,15 @@ export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: s
 
     if (view === 'room' && activeReuniao) {
         return (
-            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'white', color: '#0f172a' }}>
-                <div style={{ padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <Video size={24} color="#60a5fa" />
-                        <h2 style={{ margin: 0, fontSize: '18px' }}>{activeReuniao.titulo}</h2>
-                    </div>
-                    <button 
-                        onClick={endMeeting}
-                        disabled={loading}
-                        style={{ background: '#ef4444', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}
-                    >
-                        {loading ? 'A processar Resumo da IA...' : 'Terminar Reunião & Gerar Resumo IA'}
-                    </button>
-                </div>
-
-                <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-                    {/* Jitsi (via External API) */}
-                    <div style={{ flex: 1, position: 'relative' }}>
-                        <div ref={jitsiContainerRef} style={{ width: '100%', height: '100%' }} />
-                    </div>
-
-                    {/* AI Copilot Side Panel */}
-                    <div style={{ width: '320px', background: '#1f2937', borderLeft: '1px solid #374151', display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ padding: '16px', borderBottom: '1px solid #374151', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <div className={isListening ? "pulse-dot" : ""} style={{ width: '10px', height: '10px', borderRadius: '50%', background: isListening ? '#10b981' : '#6b7280' }}></div>
-                            <span style={{ fontWeight: 'bold' }}>Copilot IA (A ouvir...)</span>
-                        </div>
-                        <div style={{ flex: 1, padding: '16px', overflowY: 'auto', fontSize: '13px', lineHeight: 1.6, color: '#d1d5db', whiteSpace: 'pre-wrap' }}>
-                            {transcription === '' && interimTranscription === '' ? (
-                                <div style={{ textAlign: 'center', marginTop: '40px', color: '#6b7280' }}>
-                                    <Video size={32} style={{ marginBottom: '8px', opacity: 0.5 }} />
-                                    <p>A aguardar que alguém fale...</p>
-                                </div>
-                            ) : (
-                                <div>
-                                    {transcription && <div style={{ marginBottom: '8px' }}>{transcription}</div>}
-                                    {interimTranscription && <div style={{ color: '#9ca3af', fontStyle: 'italic' }}>{interimTranscription}...</div>}
-                                </div>
-                            )}
-                        </div>
-                        <style>{`
-                            .pulse-dot {
-                                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
-                                animation: pulse 1.5s infinite cubic-bezier(0.66, 0, 0, 1);
-                            }
-                            @keyframes pulse {
-                                to { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
-                            }
-                        `}</style>
-                    </div>
-                </div>
-            </div>
+            <MeetingRoom
+                reuniaoId={activeReuniao.id}
+                roomName={activeReuniao.link_jitsi.split('/').pop() || ''}
+                titulo={activeReuniao.titulo}
+                participanteNome={userName || 'Anfitrião'}
+                participanteTipo="host"
+                onEnd={endMeeting}
+                endLoading={loading}
+            />
         );
     }
 
@@ -434,53 +255,53 @@ export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: s
         try { recs = JSON.parse(activeReuniao.recomendacoes || '[]'); } catch(e){}
 
         return (
-            <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto', overflowY: 'auto', height: '100%' }}>
-                <button onClick={() => setView('list')} style={{ marginBottom: '20px', background: 'transparent', border: 'none', color: '#3b82f6', cursor: 'pointer', fontWeight: 'bold' }}>
+            <div style={{ padding: '24px 32px 40px', maxWidth: '1200px', margin: '0 auto', overflowY: 'auto', height: '100%' }}>
+                <button onClick={() => setView('list')} style={{ marginBottom: '20px', background: 'transparent', border: 'none', color: '#3b82f6', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', padding: 0 }}>
                     &larr; Voltar às Reuniões
                 </button>
-                
-                <h1 style={{ marginBottom: '8px', color: '#111827' }}>{activeReuniao.titulo} - Ata de Reunião</h1>
-                <p style={{ color: '#6b7280', marginBottom: '32px' }}>Realizada a {new Date(activeReuniao.data_hora).toLocaleString('pt-PT')}</p>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 400px', gap: '24px' }}>
+                <h1 style={{ margin: '0 0 6px 0', color: '#111827', fontSize: '26px', fontWeight: 700, lineHeight: 1.3 }}>{activeReuniao.titulo} - Ata de Reunião</h1>
+                <p style={{ color: '#6b7280', margin: '0 0 28px 0', fontSize: '14px' }}>Realizada a {new Date(activeReuniao.data_hora).toLocaleString('pt-PT')}</p>
+
+                <div className="ata-grid">
                     {/* Coluna Principal: Resumo e Pontos */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                        
-                        <div style={{ background: 'white', padding: '24px', borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', color: '#374151' }}>
-                                <FileText size={20} color="#3b82f6" /> Resumo Executivo
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', minWidth: 0 }}>
+
+                        <div className="ata-card">
+                            <h3 className="ata-card-title">
+                                <FileText size={18} color="#3b82f6" /> Resumo Executivo
                             </h3>
-                            <div style={{ lineHeight: 1.6, color: '#4b5563', whiteSpace: 'pre-wrap' }}>
+                            <div style={{ lineHeight: 1.6, color: '#4b5563', whiteSpace: 'pre-wrap', fontSize: '14px' }}>
                                 {activeReuniao.resumo_ia}
                             </div>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                            <div style={{ background: '#f0fdf4', padding: '20px', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
-                                <h4 style={{ color: '#166534', marginTop: 0, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <TrendingUp size={18} /> Pontos Altos
+                        <div className="ata-subgrid">
+                            <div className="ata-card" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                                <h4 className="ata-card-subtitle" style={{ color: '#166534' }}>
+                                    <TrendingUp size={16} /> Pontos Altos
                                 </h4>
-                                <ul style={{ paddingLeft: '20px', margin: 0, color: '#15803d', fontSize: '14px' }}>
+                                <ul style={{ paddingLeft: '18px', margin: 0, color: '#15803d', fontSize: '13px', lineHeight: 1.6 }}>
                                     {pAltos.map((p, i) => <li key={i} style={{ marginBottom: '6px' }}>{p}</li>)}
                                     {pAltos.length === 0 && <li>Não detetados</li>}
                                 </ul>
                             </div>
-                            <div style={{ background: '#fef2f2', padding: '20px', borderRadius: '8px', border: '1px solid #fecaca' }}>
-                                <h4 style={{ color: '#991b1b', marginTop: 0, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <AlertTriangle size={18} /> Pontos Baixos
+                            <div className="ata-card" style={{ background: '#fef2f2', border: '1px solid #fecaca' }}>
+                                <h4 className="ata-card-subtitle" style={{ color: '#991b1b' }}>
+                                    <AlertTriangle size={16} /> Pontos Baixos
                                 </h4>
-                                <ul style={{ paddingLeft: '20px', margin: 0, color: '#b91c1c', fontSize: '14px' }}>
+                                <ul style={{ paddingLeft: '18px', margin: 0, color: '#b91c1c', fontSize: '13px', lineHeight: 1.6 }}>
                                     {pBaixos.map((p, i) => <li key={i} style={{ marginBottom: '6px' }}>{p}</li>)}
                                     {pBaixos.length === 0 && <li>Não detetados</li>}
                                 </ul>
                             </div>
                         </div>
 
-                        <div style={{ background: '#fffbeb', padding: '20px', borderRadius: '8px', border: '1px solid #fde68a' }}>
-                            <h4 style={{ color: '#92400e', marginTop: 0, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <Lightbulb size={18} /> Recomendações
+                        <div className="ata-card" style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
+                            <h4 className="ata-card-subtitle" style={{ color: '#92400e' }}>
+                                <Lightbulb size={16} /> Recomendações
                             </h4>
-                            <ul style={{ paddingLeft: '20px', margin: 0, color: '#b45309', fontSize: '14px' }}>
+                            <ul style={{ paddingLeft: '18px', margin: 0, color: '#b45309', fontSize: '13px', lineHeight: 1.6 }}>
                                 {recs.map((p, i) => <li key={i} style={{ marginBottom: '6px' }}>{p}</li>)}
                                 {recs.length === 0 && <li>Não detetadas</li>}
                             </ul>
@@ -489,33 +310,33 @@ export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: s
                     </div>
 
                     {/* Coluna Secundária: Tarefas */}
-                    <div style={{ background: 'white', padding: '24px', borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', alignSelf: 'start' }}>
-                        <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', color: '#374151' }}>
-                            <ListTodo size={20} color="#10b981" /> Tarefas e Prazos ({tarefas.length})
+                    <div className="ata-card" style={{ alignSelf: 'start', minWidth: 0 }}>
+                        <h3 className="ata-card-title">
+                            <ListTodo size={18} color="#10b981" /> Tarefas e Prazos ({tarefas.length})
                         </h3>
-                        
-                        <form onSubmit={handleCreateTarefa} style={{ marginBottom: '20px', background: '#f9fafb', padding: '16px', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
-                            <h5 style={{ margin: '0 0 12px 0', color: '#4b5563' }}>Adicionar Tarefa Manualmente</h5>
-                            <input type="text" value={novaTarefaDescricao} onChange={e => setNovaTarefaDescricao(e.target.value)} required placeholder="Descrição da tarefa..." style={{ width: '100%', padding: '8px', marginBottom: '8px', borderRadius: '4px', border: '1px solid #d1d5db' }} />
+
+                        <form onSubmit={handleCreateTarefa} style={{ marginBottom: '20px', background: '#f9fafb', padding: '16px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                            <h5 style={{ margin: '0 0 12px 0', color: '#4b5563', fontSize: '13px', fontWeight: 600 }}>Adicionar Tarefa Manualmente</h5>
+                            <input type="text" value={novaTarefaDescricao} onChange={e => setNovaTarefaDescricao(e.target.value)} required placeholder="Descrição da tarefa..." style={{ width: '100%', padding: '8px 10px', marginBottom: '8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '13px' }} />
                             <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-                                <input type="text" value={novaTarefaResp} onChange={e => setNovaTarefaResp(e.target.value)} placeholder="Responsável" style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid #d1d5db' }} />
-                                <input type="text" value={novaTarefaPrazo} onChange={e => setNovaTarefaPrazo(e.target.value)} placeholder="Prazo (ex: Sexta)" style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid #d1d5db' }} />
+                                <input type="text" value={novaTarefaResp} onChange={e => setNovaTarefaResp(e.target.value)} placeholder="Responsável" style={{ flex: 1, minWidth: 0, padding: '8px 10px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '13px' }} />
+                                <input type="text" value={novaTarefaPrazo} onChange={e => setNovaTarefaPrazo(e.target.value)} placeholder="Prazo (ex: Sexta)" style={{ flex: 1, minWidth: 0, padding: '8px 10px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '13px' }} />
                             </div>
-                            <button type="submit" disabled={loading} style={{ width: '100%', background: '#10b981', color: 'white', border: 'none', padding: '8px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>
+                            <button type="submit" disabled={loading} style={{ width: '100%', background: '#10b981', color: 'white', border: 'none', padding: '9px', borderRadius: '6px', fontWeight: 'bold', fontSize: '13px', cursor: 'pointer' }}>
                                 {loading ? 'A guardar...' : '+ Adicionar Tarefa'}
                             </button>
                         </form>
 
                         {tarefas.length === 0 ? (
-                            <p style={{ color: '#9ca3af', fontSize: '14px' }}>Nenhuma tarefa associada a esta reunião.</p>
+                            <p style={{ color: '#9ca3af', fontSize: '13px' }}>Nenhuma tarefa associada a esta reunião.</p>
                         ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                 {tarefas.map(t => (
                                     <div key={t.id} style={{ padding: '12px', background: '#ffffff', border: '1px solid #e5e7eb', borderLeft: '4px solid #10b981', borderRadius: '6px', boxShadow: '0 1px 2px rgba(0,0,0,0.02)' }}>
-                                        <p style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: 500, color: '#111827' }}>{t.descricao}</p>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#6b7280' }}>
-                                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><CheckCircle size={12} color="#10b981" /> {t.responsavel}</span>
-                                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={12} /> {t.prazo}</span>
+                                        <p style={{ margin: '0 0 8px 0', fontSize: '13px', fontWeight: 500, color: '#111827' }}>{t.descricao}</p>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', fontSize: '12px', color: '#6b7280' }}>
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}><CheckCircle size={12} color="#10b981" /> {t.responsavel}</span>
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}><Clock size={12} /> {t.prazo}</span>
                                         </div>
                                     </div>
                                 ))}
@@ -523,6 +344,52 @@ export default function ReunioesApp({ initialMeetingId }: { initialMeetingId?: s
                         )}
                     </div>
                 </div>
+
+                <style>{`
+                    .ata-grid {
+                        display: grid;
+                        grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+                        gap: 20px;
+                        align-items: start;
+                    }
+                    .ata-subgrid {
+                        display: grid;
+                        grid-template-columns: 1fr 1fr;
+                        gap: 20px;
+                    }
+                    .ata-card {
+                        background: white;
+                        padding: 20px;
+                        border-radius: 10px;
+                        border: 1px solid #e5e7eb;
+                        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+                    }
+                    .ata-card-title {
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        margin: 0 0 16px 0;
+                        color: #374151;
+                        font-size: 15px;
+                        font-weight: 600;
+                    }
+                    .ata-card-subtitle {
+                        display: flex;
+                        align-items: center;
+                        gap: 6px;
+                        margin: 0 0 12px 0;
+                        font-size: 14px;
+                        font-weight: 600;
+                    }
+                    @media (max-width: 860px) {
+                        .ata-grid {
+                            grid-template-columns: 1fr;
+                        }
+                        .ata-subgrid {
+                            grid-template-columns: 1fr;
+                        }
+                    }
+                `}</style>
             </div>
         );
     }

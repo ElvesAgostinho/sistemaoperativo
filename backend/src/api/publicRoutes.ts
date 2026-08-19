@@ -1,7 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { supabase } from '../lib/supabaseClient';
+import { getReuniaoPublica, adicionarFragmentoTranscricao } from '../controllers/reunioesPublicController';
 
 const router = Router();
+
+// Rotas públicas: página de reunião para convidados externos (sem sessão logada)
+router.get('/reuniao/:id', getReuniaoPublica);
+router.post('/reuniao/:id/fragmento', adicionarFragmentoTranscricao);
 
 // Rota pública: Obter todas as vagas abertas de uma empresa específica
 router.get('/vagas/:empresa_id', async (req: Request, res: Response) => {

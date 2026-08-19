@@ -18,6 +18,7 @@ import ContabilidadeApp from './components/ContabilidadeApp';
 import PortalAfiliado from './components/PortalAfiliado';
 import PortalCarreiras from './pages/public/PortalCarreiras';
 import CandidaturaForm from './pages/public/CandidaturaForm';
+import ReuniaoConvidado from './pages/public/ReuniaoConvidado';
 import { LayoutGrid, Users, Briefcase, PieChart, Bot, Monitor, Zap, LogOut, MessageSquare, BookOpen, Mail, Settings, Clock, Globe, Video, Share2, Calculator, Shield } from 'lucide-react';
 
 const IS_AFFILIATE_PORTAL = window.location.pathname === '/portal-afiliado';
@@ -206,6 +207,10 @@ function App() {
         return <CandidaturaForm />;
     }
     return <PortalCarreiras />;
+  }
+
+  if (pathname.startsWith('/reuniao/')) {
+    return <ReuniaoConvidado />;
   }
 
   if (!user || !token) {
@@ -497,7 +502,7 @@ function App() {
               <p style={{ color: '#64748b' }}>Esta área é exclusiva para SuperAdmins.</p>
             </div>
           )}
-          {activeModule === 'reunioes' && <ReunioesApp initialMeetingId={meetingIdFromUrl} />}
+          {activeModule === 'reunioes' && <ReunioesApp initialMeetingId={meetingIdFromUrl} userName={user?.nome} />}
           {activeModule === 'data' && <DataApp />}
           {activeModule === 'afiliados' && <AfiliadosApp />}
           {activeModule === 'contabilidade' && <ContabilidadeApp />}

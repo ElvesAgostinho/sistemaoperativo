@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabaseClient';
 import { LocalAgentSandbox } from './LocalAgentSandbox';
+import { ReuniaoService } from './ReuniaoService';
 
 export const aiTools = [
     {
@@ -708,19 +709,15 @@ export async function executeAITool(name: string, args: any, empresaId?: number)
         }
     } else if (name === 'agendar_reuniao') {
         try {
-            const roomName = `BusinessOS_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-            const linkJitsi = `https://meet.jit.si/${roomName}`;
-
-            const { data: reuniao, error } = await supabase.from('reunioes').insert({
+            const { id, linkJitsi } = await ReuniaoService.criarReuniaoRegistro({
                 empresa_id: empresaId,
                 titulo: args.titulo,
                 data_hora: args.data_hora,
-                link_jitsi: linkJitsi,
                 emails_convidados: args.emails_convidados || ''
-            }).select('id').single();
-            if (error) throw error;
-            
-            return JSON.stringify({ status: 'success', message: `Reunião "${args.titulo}" agendada para ${args.data_hora}. Link: ${linkJitsi}`, id: reuniao.id, link: linkJitsi });
+            }, supabase);
+
+            const linkConvite = `${process.env.FRONTEND_PUBLIC_URL || ''}/reuniao/${id}`;
+            return JSON.stringify({ status: 'success', message: `Reunião "${args.titulo}" agendada para ${args.data_hora}. Link: ${linkConvite}`, id, link: linkConvite });
         } catch (error: any) {
             return JSON.stringify({ status: 'error', error: error.message });
         }
