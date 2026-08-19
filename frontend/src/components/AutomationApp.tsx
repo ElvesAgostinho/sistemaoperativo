@@ -49,7 +49,7 @@ export default function AutomationApp() {
         await fetchAutomations();
         setSelectedId(data.automation_id);
       } else {
-        alert('Erro ao criar automação: ' + (data.error || data.details || 'erro desconhecido.'));
+        alert('Erro ao criar automação: ' + (data.details || data.error || 'erro desconhecido.'));
       }
     } catch (err) {
       alert('Erro ao criar automação.');
