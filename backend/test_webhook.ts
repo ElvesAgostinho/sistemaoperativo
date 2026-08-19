@@ -1,6 +1,6 @@
 import * as dotenv from 'dotenv';
 dotenv.config();
-import { WorkflowEngine } from './src/services/WorkflowEngine';
+import { AutomationEngine } from './src/services/AutomationEngine';
 
 async function testWebhook() {
     console.log("Iniciando teste de recebimento de mensagem...");
@@ -24,8 +24,8 @@ async function testWebhook() {
         direction: 'inbound' as const
     };
 
-    console.log("Chamando WorkflowEngine.processIncomingMessage...");
-    await WorkflowEngine.processIncomingMessage(msg);
+    console.log("Chamando AutomationEngine.processIncomingWhatsAppMessage...");
+    await AutomationEngine.processIncomingWhatsAppMessage(msg);
     console.log("Processamento concluído. Verificando a BD...");
 
     // Tentar ler com o supabase-mcp-server ou apenas avisar

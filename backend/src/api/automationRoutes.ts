@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getAutomations, createAutomation, processWebhook, deleteAutomation, generateAutomation, toggleAutomation, updateAutomation } from '../controllers/automationController';
+import { getAutomations, createAutomation, processWebhook, deleteAutomation, toggleAutomation, updateAutomation } from '../controllers/automationController';
 
 import multer from 'multer';
 import path from 'path';
@@ -35,9 +35,6 @@ router.post('/upload', upload.single('file'), (req, res) => {
     const fullPath = path.join('C:\\Users\\DELL\\Desktop\\SISTEMA OPERATIVO\\Media_Workflows', req.file.filename);
     res.json({ success: true, filePath: fullPath });
 });
-
-// Construtor IA
-router.post('/generate', generateAutomation);
 
 // Webhook Listener Genérico
 router.post('/webhook/:source', processWebhook);

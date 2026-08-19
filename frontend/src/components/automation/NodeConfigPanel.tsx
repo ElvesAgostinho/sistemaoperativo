@@ -1,0 +1,259 @@
+import { useState } from 'react';
+import { X, Trash2, Loader2 } from 'lucide-react';
+import type { ActionNodeData, ActionType, Automation, AutomationNode, ConditionNodeData, TriggerNodeData } from './types';
+import { ACTION_LABELS } from './types';
+
+interface NodeConfigPanelProps {
+  node: AutomationNode;
+  automations: Automation[];
+  currentAutomationId: number;
+  onChangeData: (nodeId: string, data: any) => void;
+  onDelete: (nodeId: string) => void;
+  onClose: () => void;
+}
+
+const fieldStyle: React.CSSProperties = {
+  width: '100%', padding: '7px 9px', borderRadius: '6px', border: '1px solid #cbd5e1',
+  fontSize: '13px', boxSizing: 'border-box'
+};
+const labelStyle: React.CSSProperties = {
+  display: 'block', fontSize: '11px', fontWeight: 'bold', color: '#475569', marginBottom: '4px', marginTop: '12px'
+};
+
+export default function NodeConfigPanel({ node, automations, currentAutomationId, onChangeData, onDelete, onClose }: NodeConfigPanelProps) {
+  const [isUploading, setIsUploading] = useState(false);
+
+  const updateData = (patch: any) => {
+    onChangeData(node.id, { ...node.data, ...patch });
+  };
+  const updateConfig = (patch: any) => {
+    const current = node.data as ActionNodeData;
+    onChangeData(node.id, { ...current, config: { ...current.config, ...patch } });
+  };
+
+  const handleFileUpload = async (file: File) => {
+    if (!file) return;
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const token = localStorage.getItem('os_auth_token');
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/automation/upload', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+      const data = await res.json();
+      if (data.success) {
+        updateConfig({ ficheiro: data.filePath });
+      }
+    } catch (err) {
+      alert('Erro no upload do ficheiro');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const renderBody = () => {
+    if (node.type === 'trigger') {
+      const d = node.data as TriggerNodeData;
+      return (
+        <>
+          <label style={labelStyle}>Tipo de Gatilho</label>
+          <select style={fieldStyle} value={d.triggerKind} onChange={e => updateData({ triggerKind: e.target.value })}>
+            <option value="whatsapp_message">Mensagem Recebida no WhatsApp</option>
+            <option value="webhook_generic">Webhook Genérico</option>
+          </select>
+
+          {d.triggerKind === 'whatsapp_message' ? (
+            <>
+              <label style={labelStyle}>Condição</label>
+              <select style={fieldStyle} value={d.matchMode || 'any'} onChange={e => updateData({ matchMode: e.target.value })}>
+                <option value="any">Qualquer mensagem</option>
+                <option value="keyword">Contém palavra-chave</option>
+                <option value="regex">Expressão regular (regex)</option>
+              </select>
+
+              {d.matchMode !== 'any' && (
+                <>
+                  <label style={labelStyle}>{d.matchMode === 'keyword' ? 'Palavras-chave (separadas por vírgula)' : 'Regex'}</label>
+                  <input
+                    style={fieldStyle}
+                    type="text"
+                    value={d.matchValue || ''}
+                    onChange={e => updateData({ matchValue: e.target.value })}
+                    placeholder={d.matchMode === 'keyword' ? 'preço, tabela, catalogo' : '^(oi|olá)'}
+                  />
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              <label style={labelStyle}>Origem do Webhook</label>
+              <input
+                style={fieldStyle}
+                type="text"
+                value={d.webhookSource || ''}
+                onChange={e => updateData({ webhookSource: e.target.value })}
+                placeholder="whatsapp"
+              />
+              <div style={{ marginTop: '6px', fontSize: '11px', color: '#666' }}>
+                Aguarda POST em <code style={{ backgroundColor: '#f1f5f9', padding: '2px 4px', borderRadius: '4px' }}>/api/automation/webhook/{d.webhookSource || '...'}</code>
+              </div>
+            </>
+          )}
+        </>
+      );
+    }
+
+    if (node.type === 'condition') {
+      const d = node.data as ConditionNodeData;
+      return (
+        <>
+          <label style={labelStyle}>Variável</label>
+          <input style={fieldStyle} type="text" value={d.variable || ''} onChange={e => updateData({ variable: e.target.value })} placeholder="{{mensagem}}" />
+
+          <label style={labelStyle}>Operador</label>
+          <select style={fieldStyle} value={d.operator || '=='} onChange={e => updateData({ operator: e.target.value })}>
+            <option value="==">é igual a</option>
+            <option value="!=">é diferente de</option>
+            <option value=">">maior que</option>
+            <option value="<">menor que</option>
+            <option value="contains">contém</option>
+          </select>
+
+          <label style={labelStyle}>Valor</label>
+          <input style={fieldStyle} type="text" value={d.value || ''} onChange={e => updateData({ value: e.target.value })} placeholder="urgente" />
+
+          <div style={{ marginTop: '12px', fontSize: '11px', color: '#666' }}>
+            Ligue a saída <b style={{ color: '#16a34a' }}>SIM</b> ao caminho quando a condição for verdadeira, e a saída <b style={{ color: '#dc2626' }}>NÃO</b> ao caminho alternativo (pode deixar sem ligação para encerrar o fluxo nesse caso).
+          </div>
+        </>
+      );
+    }
+
+    if (node.type === 'action') {
+      const d = node.data as ActionNodeData;
+      const config = d.config || {};
+
+      return (
+        <>
+          <label style={labelStyle}>Tipo de Ação</label>
+          <select style={fieldStyle} value={d.actionType} onChange={e => updateData({ actionType: e.target.value as ActionType, config: {} })}>
+            {Object.entries(ACTION_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+
+          {d.actionType === 'CREATE_CLIENT' && (
+            <>
+              <label style={labelStyle}>Nome</label>
+              <input style={fieldStyle} type="text" value={config.nome || ''} onChange={e => updateConfig({ nome: e.target.value })} placeholder="{{nome_whatsapp}}" />
+              <label style={labelStyle}>Telefone</label>
+              <input style={fieldStyle} type="text" value={config.telefone || ''} onChange={e => updateConfig({ telefone: e.target.value })} placeholder="{{telefone}}" />
+            </>
+          )}
+
+          {d.actionType === 'CREATE_LEAD' && (
+            <>
+              <label style={labelStyle}>Título da Lead</label>
+              <input style={fieldStyle} type="text" value={config.titulo || ''} onChange={e => updateConfig({ titulo: e.target.value })} placeholder="{{mensagem}}" />
+            </>
+          )}
+
+          {d.actionType === 'REPLY_MESSAGE' && (
+            <>
+              <label style={labelStyle}>Telefone (opcional, padrão é quem enviou)</label>
+              <input style={fieldStyle} type="text" value={config.telefone || ''} onChange={e => updateConfig({ telefone: e.target.value })} placeholder="{{telefone}}" />
+              <label style={labelStyle}>Mensagem</label>
+              <textarea style={{ ...fieldStyle, resize: 'vertical' }} rows={4} value={config.mensagem || ''} onChange={e => updateConfig({ mensagem: e.target.value })} placeholder="Olá {{nome_whatsapp}}..." />
+            </>
+          )}
+
+          {d.actionType === 'SEND_EMAIL' && (
+            <>
+              <label style={labelStyle}>Destinatário (Para)</label>
+              <input style={fieldStyle} type="text" value={config.para || ''} onChange={e => updateConfig({ para: e.target.value })} placeholder="{{email}} ou joao@empresa.com" />
+              <label style={labelStyle}>Assunto</label>
+              <input style={fieldStyle} type="text" value={config.assunto || ''} onChange={e => updateConfig({ assunto: e.target.value })} />
+              <label style={labelStyle}>Corpo do Email</label>
+              <textarea style={{ ...fieldStyle, resize: 'vertical' }} rows={5} value={config.corpo || ''} onChange={e => updateConfig({ corpo: e.target.value })} placeholder="Olá {{nome}}, seja bem-vindo..." />
+            </>
+          )}
+
+          {['SEND_IMAGE', 'SEND_VIDEO', 'SEND_AUDIO', 'SEND_DOCUMENT'].includes(d.actionType) && (
+            <>
+              <label style={labelStyle}>Ficheiro (caminho ou upload)</label>
+              <input style={fieldStyle} type="text" value={config.ficheiro || ''} onChange={e => updateConfig({ ficheiro: e.target.value })} placeholder="C:\Caminho\para\ficheiro..." />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+                <input type="file" onChange={e => e.target.files && handleFileUpload(e.target.files[0])} style={{ fontSize: '11px' }} />
+                {isUploading && <Loader2 className="animate-spin" size={14} />}
+              </div>
+            </>
+          )}
+
+          {d.actionType === 'DELAY' && (
+            <>
+              <label style={labelStyle}>Minutos de espera</label>
+              <input style={fieldStyle} type="number" min={1} value={config.minutos || 1} onChange={e => updateConfig({ minutos: e.target.value })} />
+            </>
+          )}
+
+          {d.actionType === 'JUMP_TO_WORKFLOW' && (
+            <>
+              <label style={labelStyle}>Fluxo Alvo</label>
+              <select style={fieldStyle} value={config.target_workflow_nome || ''} onChange={e => updateConfig({ target_workflow_nome: e.target.value })}>
+                <option value="">Selecione um fluxo...</option>
+                {automations.filter(a => a.id !== currentAutomationId).map(a => (
+                  <option key={a.id} value={a.nome}>{a.nome}</option>
+                ))}
+              </select>
+            </>
+          )}
+
+          {d.actionType === 'LOG_MESSAGE' && (
+            <>
+              <label style={labelStyle}>Mensagem de Log</label>
+              <input style={fieldStyle} type="text" value={config.mensagem || ''} onChange={e => updateConfig({ mensagem: e.target.value })} />
+            </>
+          )}
+        </>
+      );
+    }
+
+    return <div style={{ fontSize: '12px', color: '#666' }}>Este nó não tem configuração.</div>;
+  };
+
+  return (
+    <div style={{
+      position: 'absolute', top: 0, right: 0, bottom: 0, width: '320px',
+      backgroundColor: 'white', borderLeft: '1px solid var(--odoo-border)',
+      boxShadow: '-4px 0 12px rgba(0,0,0,0.05)', zIndex: 20,
+      display: 'flex', flexDirection: 'column'
+    }}>
+      <div style={{ padding: '16px', borderBottom: '1px solid var(--odoo-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h3 style={{ margin: 0, fontSize: '14px', color: '#1a1a1a' }}>Configurar Nó</h3>
+        <X size={18} style={{ cursor: 'pointer', color: '#64748b' }} onClick={onClose} />
+      </div>
+
+      <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
+        {renderBody()}
+      </div>
+
+      {node.type !== 'trigger' && (
+        <div style={{ padding: '16px', borderTop: '1px solid var(--odoo-border)' }}>
+          <button
+            onClick={() => onDelete(node.id)}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+              padding: '8px', backgroundColor: '#fff1f2', color: '#dc2626', border: '1px solid #fecdd3',
+              borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold'
+            }}
+          >
+            <Trash2 size={14} /> Eliminar Nó
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}

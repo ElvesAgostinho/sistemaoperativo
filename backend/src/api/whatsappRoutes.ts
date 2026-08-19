@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { supabase, getSupabase } from '../lib/supabaseClient';
 import { requireAuth, AuthRequest } from '../middleware/authMiddleware';
-import { WorkflowEngine } from '../services/WorkflowEngine';
+import { AutomationEngine } from '../services/AutomationEngine';
 
 const router = Router();
 
@@ -228,7 +228,7 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                     continue;
                 }
 
-                await WorkflowEngine.processIncomingMessage({
+                await AutomationEngine.processIncomingWhatsAppMessage({
                     channel_id: channelId,
                     phone_number: phoneNumber,
                     contact_name: contactName,
@@ -297,7 +297,7 @@ router.post('/webhook/meta', async (req: Request, res: Response) => {
                 const channelId = channelData?.id;
 
                 if (channelId) {
-                    await WorkflowEngine.processIncomingMessage({
+                    await AutomationEngine.processIncomingWhatsAppMessage({
                         channel_id: channelId,
                         phone_number: phoneNumber,
                         contact_name: contactName,
