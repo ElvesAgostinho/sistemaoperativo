@@ -86,7 +86,7 @@ export class AutomationEngine {
 
             if (message.direction !== 'inbound') return;
 
-            await this.syncCrmFromMessage(message, empresaId);
+            const crmInfo = await this.syncCrmFromMessage(message, empresaId);
 
             if (await this.isBotPausedForPhone(message.phone_number, empresaId)) {
                 console.log(`[Human Handover] Ignorando mensagem de ${message.phone_number} pois o bot está pausado para este cliente.`);
@@ -104,11 +104,14 @@ export class AutomationEngine {
                 if (!trigger || trigger.data?.triggerKind !== 'whatsapp_message') continue;
                 if (!this.evaluateWhatsAppTrigger(trigger.data, message.content)) continue;
 
-                const context = {
+                const context: Record<string, any> = {
                     telefone: message.phone_number,
                     nome_whatsapp: message.contact_name,
                     mensagem: message.content,
-                    channel_id: message.channel_id
+                    channel_id: message.channel_id,
+                    client_id: crmInfo.clienteId,
+                    tags: (crmInfo.tags || []).join(','),
+                    ...crmInfo.customFields
                 };
 
                 const firstEdge = edges.find(e => e.source === trigger.id);
@@ -304,6 +307,109 @@ export class AutomationEngine {
                 break;
             }
 
+            case 'ADD_TAG':
+            case 'REMOVE_TAG': {
+                const clientId = context['client_id'];
+                const tagsRaw = this.parseString(config.tag || config.tags, context);
+                const tagList = tagsRaw.split(',').map((t: string) => t.trim()).filter(Boolean);
+
+                if (!clientId || tagList.length === 0) {
+                    console.error(`[AUTOPILOT] ${node.data.actionType} falhou: sem client_id no contexto ou sem tag indicada (execute CREATE_CLIENT antes, se necessário).`);
+                    break;
+                }
+
+                try {
+                    const { data: cliente } = await supabase.from('clientes').select('tags').eq('id', clientId).single();
+                    let currentTags: string[] = cliente?.tags || [];
+                    if (node.data.actionType === 'ADD_TAG') {
+                        currentTags = Array.from(new Set([...currentTags, ...tagList]));
+                    } else {
+                        currentTags = currentTags.filter(t => !tagList.includes(t));
+                    }
+                    await supabase.from('clientes').update({ tags: currentTags }).eq('id', clientId);
+                    context['tags'] = currentTags.join(',');
+                    console.log(`[AUTOPILOT] ${node.data.actionType}: ${tagList.join(', ')} (cliente ${clientId})`);
+                } catch (e) {
+                    console.error(`[AUTOPILOT] Erro em ${node.data.actionType}:`, e);
+                }
+                break;
+            }
+
+            case 'SET_CUSTOM_FIELD': {
+                const clientId = context['client_id'];
+                const fieldName = this.parseString(config.campo, context);
+                const fieldValue = this.parseString(config.valor, context);
+
+                if (!clientId || !fieldName) {
+                    console.error('[AUTOPILOT] SET_CUSTOM_FIELD falhou: sem client_id no contexto ou sem nome de campo.');
+                    break;
+                }
+
+                try {
+                    const { data: cliente } = await supabase.from('clientes').select('custom_fields').eq('id', clientId).single();
+                    const merged = { ...(cliente?.custom_fields || {}), [fieldName]: fieldValue };
+                    await supabase.from('clientes').update({ custom_fields: merged }).eq('id', clientId);
+                    context[fieldName] = fieldValue;
+                    console.log(`[AUTOPILOT] SET_CUSTOM_FIELD: ${fieldName}=${fieldValue} (cliente ${clientId})`);
+                } catch (e) {
+                    console.error('[AUTOPILOT] Erro em SET_CUSTOM_FIELD:', e);
+                }
+                break;
+            }
+
+            case 'EXTERNAL_REQUEST': {
+                const url = this.parseString(config.url, context);
+                const method = String(config.method || 'GET').toUpperCase();
+                const bodyTemplate = config.body ? this.parseString(config.body, context) : undefined;
+
+                if (!url) {
+                    console.error('[AUTOPILOT] EXTERNAL_REQUEST falhou: sem URL configurada.');
+                    break;
+                }
+
+                try {
+                    const res = await fetch(url, {
+                        method,
+                        headers: { 'Content-Type': 'application/json' },
+                        body: (method !== 'GET' && method !== 'HEAD' && bodyTemplate) ? bodyTemplate : undefined
+                    });
+                    let responseText = '';
+                    try { responseText = await res.text(); } catch {}
+                    context['external_response'] = responseText;
+                    context['external_status'] = res.status;
+                    console.log(`[AUTOPILOT] EXTERNAL_REQUEST ${method} ${url} -> ${res.status}`);
+                } catch (e) {
+                    console.error('[AUTOPILOT] EXTERNAL_REQUEST falhou:', e);
+                }
+                break;
+            }
+
+            case 'NOTIFY_TEAM': {
+                const destinatario = this.parseString(config.destinatario, context);
+                const mensagem = this.parseString(config.mensagem, context);
+                const canal = config.canal === 'whatsapp' ? 'whatsapp' : 'email';
+
+                if (!destinatario || !mensagem) {
+                    console.error('[AUTOPILOT] NOTIFY_TEAM falhou: falta destinatário ou mensagem.');
+                    break;
+                }
+
+                try {
+                    if (canal === 'whatsapp') {
+                        const { WhatsAppChannelManager } = require('./WhatsAppChannelManager');
+                        const { data: channel } = await supabase.from('wa_channels').select('id').limit(1).single();
+                        if (channel) await WhatsAppChannelManager.sendMessage(supabase, channel.id, destinatario, mensagem);
+                    } else {
+                        const { EmailService } = require('./EmailService');
+                        await EmailService.enviarEmailPersonalizado(destinatario, 'Notificação do Autopilot', mensagem, empresa_id);
+                    }
+                    console.log(`[AUTOPILOT] NOTIFY_TEAM enviado para ${destinatario} via ${canal}`);
+                } catch (e) {
+                    console.error('[AUTOPILOT] Erro em NOTIFY_TEAM:', e);
+                }
+                break;
+            }
+
             case 'JUMP_TO_WORKFLOW': {
                 const targetName = config.target_workflow_nome;
                 if (targetName) {
@@ -440,7 +546,7 @@ export class AutomationEngine {
     // (portado do antigo WorkflowEngine.processIncomingMessage)
     // ============================================================
 
-    private static async syncCrmFromMessage(message: WhatsAppMessage, empresaId?: number) {
+    private static async syncCrmFromMessage(message: WhatsAppMessage, empresaId?: number): Promise<{ clienteId?: string; tags: string[]; customFields: Record<string, any> }> {
         let afiliadoId = null;
         const refMatch = message.content.match(/(?:\[|\()Ref:\s*([A-Za-z0-9]+)(?:\]|\))/i);
         if (refMatch && refMatch[1]) {
@@ -453,10 +559,12 @@ export class AutomationEngine {
             }
         }
 
-        let checkClienteQuery = supabase.from('clientes').select('id').eq('telefone', message.phone_number);
+        let checkClienteQuery = supabase.from('clientes').select('id, tags, custom_fields').eq('telefone', message.phone_number);
         if (empresaId) checkClienteQuery = checkClienteQuery.eq('empresa_id', empresaId);
         const { data: checkCliente } = await checkClienteQuery.maybeSingle();
         let clienteId = checkCliente?.id;
+        let tags: string[] = checkCliente?.tags || [];
+        let customFields: Record<string, any> = checkCliente?.custom_fields || {};
 
         if (clienteId) {
             if (afiliadoId) {
@@ -503,6 +611,8 @@ export class AutomationEngine {
                 });
             }
         }
+
+        return { clienteId, tags, customFields };
     }
 
     private static async getOrCreateConversation(message: WhatsAppMessage): Promise<string> {

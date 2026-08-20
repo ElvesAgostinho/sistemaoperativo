@@ -1,5 +1,5 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react';
-import { Database, MessageCircle, FileText, Image, Play, Send, Mail, Clock, ArrowRightLeft, GitCommit } from 'lucide-react';
+import { Database, MessageCircle, FileText, Image, Play, Send, Mail, Clock, ArrowRightLeft, GitCommit, Tag, TagX, ListPlus, Globe, BellRing } from 'lucide-react';
 import { ACTION_LABELS, type ActionNodeData } from './types';
 import NodeDeleteButton from './NodeDeleteButton';
 
@@ -13,6 +13,11 @@ function renderIcon(actionType: string) {
   if (actionType === 'REPLY_MESSAGE') return <Send size={18} color="#0ea5e9" />;
   if (actionType === 'DELAY') return <Clock size={18} color="#64748b" />;
   if (actionType === 'JUMP_TO_WORKFLOW') return <ArrowRightLeft size={18} color="#8b5cf6" />;
+  if (actionType === 'ADD_TAG') return <Tag size={18} color="#16a34a" />;
+  if (actionType === 'REMOVE_TAG') return <TagX size={18} color="#dc2626" />;
+  if (actionType === 'SET_CUSTOM_FIELD') return <ListPlus size={18} color="#0891b2" />;
+  if (actionType === 'EXTERNAL_REQUEST') return <Globe size={18} color="#7c3aed" />;
+  if (actionType === 'NOTIFY_TEAM') return <BellRing size={18} color="#f59e0b" />;
   return <GitCommit size={18} color="#6366f1" />;
 }
 
@@ -27,6 +32,10 @@ function summarize(d: ActionNodeData): string {
       return c.ficheiro || '(sem ficheiro)';
     case 'DELAY': return `${c.minutos || 1} minuto(s)`;
     case 'JUMP_TO_WORKFLOW': return c.target_workflow_nome || '(escolher fluxo)';
+    case 'ADD_TAG': case 'REMOVE_TAG': return c.tag || '(sem tag)';
+    case 'SET_CUSTOM_FIELD': return c.campo ? `${c.campo} = ${c.valor || ''}` : '(sem campo)';
+    case 'EXTERNAL_REQUEST': return c.url ? `${c.method || 'GET'} ${c.url}` : '(sem URL)';
+    case 'NOTIFY_TEAM': return c.destinatario || '(sem destinatário)';
     default: return '';
   }
 }

@@ -296,6 +296,65 @@ export default function NodeConfigPanel({ node, automations, currentAutomationId
             </>
           )}
 
+          {(d.actionType === 'ADD_TAG' || d.actionType === 'REMOVE_TAG') && (
+            <>
+              <label style={labelStyle}>Tag(s) (separadas por vírgula)</label>
+              <input style={fieldStyle} type="text" value={config.tag || ''} onChange={e => updateConfig({ tag: e.target.value })} placeholder="ex: vip, interessado" />
+              <div style={{ marginTop: '10px', fontSize: '11px', color: '#666' }}>
+                Requer um cliente já resolvido no fluxo (ex: através de um nó "Criar Cliente" antes, ou de um trigger que já identifique o cliente pelo telefone).
+              </div>
+            </>
+          )}
+
+          {d.actionType === 'SET_CUSTOM_FIELD' && (
+            <>
+              <label style={labelStyle}>Nome do Campo</label>
+              <input style={fieldStyle} type="text" value={config.campo || ''} onChange={e => updateConfig({ campo: e.target.value })} placeholder="ex: orcamento_pedido" />
+              <label style={labelStyle}>Valor</label>
+              <input style={fieldStyle} type="text" value={config.valor || ''} onChange={e => updateConfig({ valor: e.target.value })} placeholder="ex: 5000 ou {{mensagem}}" />
+              <div style={{ marginTop: '10px', fontSize: '11px', color: '#666' }}>
+                O valor fica disponível como <code>{'{{' + (config.campo || 'nome_do_campo') + '}}'}</code> nos passos seguintes do fluxo.
+              </div>
+            </>
+          )}
+
+          {d.actionType === 'EXTERNAL_REQUEST' && (
+            <>
+              <label style={labelStyle}>URL</label>
+              <input style={fieldStyle} type="text" value={config.url || ''} onChange={e => updateConfig({ url: e.target.value })} placeholder="https://api.exemplo.com/endpoint" />
+              <label style={labelStyle}>Método</label>
+              <select style={fieldStyle} value={config.method || 'GET'} onChange={e => updateConfig({ method: e.target.value })}>
+                <option value="GET">GET</option>
+                <option value="POST">POST</option>
+                <option value="PUT">PUT</option>
+                <option value="DELETE">DELETE</option>
+              </select>
+              {config.method !== 'GET' && (
+                <>
+                  <label style={labelStyle}>Corpo (JSON)</label>
+                  <textarea style={{ ...fieldStyle, resize: 'vertical', fontFamily: 'monospace' }} rows={4} value={config.body || ''} onChange={e => updateConfig({ body: e.target.value })} placeholder='{"telefone": "{{telefone}}"}' />
+                </>
+              )}
+              <div style={{ marginTop: '10px', fontSize: '11px', color: '#666' }}>
+                A resposta fica disponível como <code>{'{{external_response}}'}</code> nos passos seguintes.
+              </div>
+            </>
+          )}
+
+          {d.actionType === 'NOTIFY_TEAM' && (
+            <>
+              <label style={labelStyle}>Canal</label>
+              <select style={fieldStyle} value={config.canal || 'email'} onChange={e => updateConfig({ canal: e.target.value })}>
+                <option value="email">Email</option>
+                <option value="whatsapp">WhatsApp</option>
+              </select>
+              <label style={labelStyle}>Destinatário</label>
+              <input style={fieldStyle} type="text" value={config.destinatario || ''} onChange={e => updateConfig({ destinatario: e.target.value })} placeholder={config.canal === 'whatsapp' ? 'ex: 351912345678' : 'ex: equipa@empresa.com'} />
+              <label style={labelStyle}>Mensagem</label>
+              <textarea style={{ ...fieldStyle, resize: 'vertical' }} rows={3} value={config.mensagem || ''} onChange={e => updateConfig({ mensagem: e.target.value })} placeholder="Novo pedido de orçamento de {{nome_whatsapp}}" />
+            </>
+          )}
+
           {d.actionType === 'LOG_MESSAGE' && (
             <>
               <label style={labelStyle}>Mensagem de Log</label>
