@@ -87,17 +87,32 @@ export const toggleAutomation = async (req: Request, res: Response) => {
 export const updateAutomation = async (req: Request, res: Response) => {
     try {
         const id = Number(req.params.id);
-        const { nodes, edges } = req.body;
-        if (!Array.isArray(nodes)) {
-            return res.status(400).json({ error: 'Campo "nodes" é obrigatório.' });
+        const { nodes, edges, nome } = req.body;
+
+        const updatePayload: Record<string, any> = {};
+
+        if (nodes !== undefined) {
+            if (!Array.isArray(nodes)) {
+                return res.status(400).json({ error: 'Campo "nodes" tem de ser uma lista.' });
+            }
+            updatePayload.nodes = JSON.stringify(nodes);
+            updatePayload.edges = JSON.stringify(edges || []);
+            updatePayload.trigger_type = deriveTriggerType(nodes);
+        }
+
+        if (nome !== undefined) {
+            if (typeof nome !== 'string' || !nome.trim()) {
+                return res.status(400).json({ error: 'O nome não pode ficar vazio.' });
+            }
+            updatePayload.nome = nome.trim();
+        }
+
+        if (Object.keys(updatePayload).length === 0) {
+            return res.status(400).json({ error: 'Nada para atualizar (envie "nodes" e/ou "nome").' });
         }
 
         const supabase = getSupabase(req);
-        const { error } = await supabase.from('automations').update({
-            nodes: JSON.stringify(nodes),
-            edges: JSON.stringify(edges || []),
-            trigger_type: deriveTriggerType(nodes)
-        }).eq('id', Number(id));
+        const { error } = await supabase.from('automations').update(updatePayload).eq('id', Number(id));
         if (error) throw error;
         return res.json({ success: true, message: 'Automação guardada com sucesso.' });
     } catch (err: any) {

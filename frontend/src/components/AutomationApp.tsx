@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Zap, Plus, Trash2, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Zap, Plus, Trash2, PanelLeftClose, PanelLeftOpen, Pencil, Check, X } from 'lucide-react';
 import AutomationCanvas from './automation/AutomationCanvas';
 import { createBlankAutomationGraph, type Automation, type AutomationEdge, type AutomationNode } from './automation/types';
 
@@ -9,6 +9,10 @@ export default function AutomationApp() {
   const [isCreating, setIsCreating] = useState(false);
   // Em ecrãs estreitos (telemóvel) a lista começa fechada para dar todo o espaço ao canvas
   const [sidebarOpen, setSidebarOpen] = useState(() => typeof window === 'undefined' || window.innerWidth >= 768);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingValue, setEditingValue] = useState('');
+  const [isRenaming, setIsRenaming] = useState(false);
+  const renameInputRef = useRef<HTMLInputElement>(null);
 
   const authHeaders = () => {
     const token = localStorage.getItem('os_auth_token');
@@ -94,6 +98,56 @@ export default function AutomationApp() {
     }
   };
 
+  const startRenaming = (e: React.MouseEvent, auto: Automation) => {
+    e.stopPropagation();
+    setEditingId(auto.id);
+    setEditingValue(auto.nome);
+    setTimeout(() => renameInputRef.current?.select(), 0);
+  };
+
+  const cancelRenaming = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setEditingId(null);
+    setEditingValue('');
+  };
+
+  const confirmRenaming = async (e?: React.MouseEvent | React.FormEvent) => {
+    e?.stopPropagation();
+    e?.preventDefault();
+    if (editingId === null) return;
+    const novoNome = editingValue.trim();
+    if (!novoNome) {
+      cancelRenaming();
+      return;
+    }
+    const automacaoAtual = automations.find(a => a.id === editingId);
+    if (automacaoAtual && automacaoAtual.nome === novoNome) {
+      cancelRenaming();
+      return;
+    }
+
+    setIsRenaming(true);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/automation/${editingId}`, {
+        method: 'PUT',
+        headers: authHeaders(),
+        body: JSON.stringify({ nome: novoNome })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAutomations(prev => prev.map(a => a.id === editingId ? { ...a, nome: novoNome } : a));
+        setEditingId(null);
+        setEditingValue('');
+      } else {
+        alert('Erro ao renomear: ' + (data.error || 'erro desconhecido.'));
+      }
+    } catch (err) {
+      alert('Erro ao renomear a automação.');
+    } finally {
+      setIsRenaming(false);
+    }
+  };
+
   const handleSaveGraph = async (nodes: AutomationNode[], edges: AutomationEdge[]) => {
     if (!selectedAuto) return;
     try {
@@ -161,17 +215,51 @@ export default function AutomationApp() {
               >
                 <Zap size={16} color={auto.ativo ? '#16a34a' : '#94a3b8'} />
               </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#1a1a1a' }}>{auto.nome}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {editingId === auto.id ? (
+                  <form onSubmit={confirmRenaming} onClick={(e) => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <input
+                      ref={renameInputRef}
+                      type="text"
+                      value={editingValue}
+                      onChange={(e) => setEditingValue(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Escape') cancelRenaming(); }}
+                      disabled={isRenaming}
+                      autoFocus
+                      style={{ flex: 1, minWidth: 0, fontSize: '13px', fontWeight: 'bold', padding: '4px 6px', borderRadius: '4px', border: '1px solid #0078D4' }}
+                    />
+                    <button type="submit" disabled={isRenaming} title="Guardar nome" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: '#16a34a' }}>
+                      <Check size={16} />
+                    </button>
+                    <button type="button" onClick={cancelRenaming} title="Cancelar" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: '#94a3b8' }}>
+                      <X size={16} />
+                    </button>
+                  </form>
+                ) : (
+                  <div title={auto.nome} style={{ fontSize: '13px', fontWeight: 'bold', color: '#1a1a1a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} onDoubleClick={(e) => startRenaming(e, auto)}>
+                    {auto.nome}
+                  </div>
+                )}
                 <div style={{ fontSize: '11px', color: '#666' }}>{(auto.nodes || []).length} nós</div>
               </div>
-              <button
-                onClick={(e) => deleteAutomation(e, auto.id)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: '#ef4444', opacity: 0.7 }}
-                title="Eliminar Automação"
-              >
-                <Trash2 size={16} />
-              </button>
+              {editingId !== auto.id && (
+                <>
+                  <button
+                    onClick={(e) => startRenaming(e, auto)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: '#64748b', opacity: 0.7 }}
+                    title="Renomear Automação"
+                  >
+                    <Pencil size={15} />
+                  </button>
+                  <button
+                    onClick={(e) => deleteAutomation(e, auto.id)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: '#ef4444', opacity: 0.7 }}
+                    title="Eliminar Automação"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </>
+              )}
             </div>
           ))}
 
