@@ -280,7 +280,10 @@ export default function NodeConfigPanel({ node, automations, currentAutomationId
           {d.actionType === 'DELAY' && (
             <>
               <label style={labelStyle}>Minutos de espera</label>
-              <input style={fieldStyle} type="number" min={1} value={config.minutos || 1} onChange={e => updateConfig({ minutos: e.target.value })} />
+              <input style={fieldStyle} type="number" min={1} max={15} value={config.minutos || 1} onChange={e => updateConfig({ minutos: e.target.value })} />
+              <div style={{ marginTop: '10px', fontSize: '11px', color: '#666' }}>
+                Máximo de 15 minutos — a espera acontece em memória enquanto a mensagem está a ser processada, sem fila persistente. Para esperas mais longas (horas/dias), use um nó "Notificar Equipa" ou "Transferir para Humano" em vez de bloquear o fluxo.
+              </div>
             </>
           )}
 

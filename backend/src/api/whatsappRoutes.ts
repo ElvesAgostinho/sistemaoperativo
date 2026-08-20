@@ -228,14 +228,17 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                     continue;
                 }
 
-                await AutomationEngine.processIncomingWhatsAppMessage({
+                // Não aguardamos aqui: se a automação tiver um nó "Aguardar", esperar por
+                // ela deixaria o webhook pendente e o Evolution/Meta poderiam reenviar o
+                // evento por timeout. O processamento continua em background.
+                AutomationEngine.processIncomingWhatsAppMessage({
                     channel_id: channelId,
                     phone_number: phoneNumber,
                     contact_name: contactName,
                     content: content,
                     direction: 'inbound',
                     id: msg.key.id
-                });
+                }).catch(err => console.error('[Webhook Evolution] Erro no processamento assíncrono do Automation Engine:', err));
             }
         }
         res.status(200).send('OK');
@@ -297,14 +300,15 @@ router.post('/webhook/meta', async (req: Request, res: Response) => {
                 const channelId = channelData?.id;
 
                 if (channelId) {
-                    await AutomationEngine.processIncomingWhatsAppMessage({
+                    // Fire-and-forget — ver nota equivalente no webhook Evolution acima.
+                    AutomationEngine.processIncomingWhatsAppMessage({
                         channel_id: channelId,
                         phone_number: phoneNumber,
                         contact_name: contactName,
                         content: content,
                         direction: 'inbound',
                         id: msg.id
-                    });
+                    }).catch(err => console.error('[Webhook Meta] Erro no processamento assíncrono do Automation Engine:', err));
                 }
             }
             res.status(200).send('EVENT_RECEIVED');

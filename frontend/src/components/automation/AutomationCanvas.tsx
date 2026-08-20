@@ -1,11 +1,11 @@
 import { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import {
   ReactFlow, ReactFlowProvider, Background, Controls, ControlButton, MiniMap,
-  useNodesState, useEdgesState, addEdge, useReactFlow, MarkerType,
+  useNodesState, useEdgesState, addEdge, useReactFlow, useViewport, MarkerType,
   type Connection, type Node, type Edge
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Save, Loader2, LayoutGrid } from 'lucide-react';
+import { Save, Loader2, LayoutGrid, Minus, Plus, RotateCcw } from 'lucide-react';
 import TriggerNode from './TriggerNode';
 import ConditionNode from './ConditionNode';
 import ActionNode from './ActionNode';
@@ -47,7 +47,9 @@ function CanvasInner({ automation, automations, onSave }: AutomationCanvasProps)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const { screenToFlowPosition, fitView } = useReactFlow();
+  const { screenToFlowPosition, fitView, zoomTo } = useReactFlow();
+  const { zoom } = useViewport();
+  const zoomPercent = Math.round(zoom * 100);
 
   useEffect(() => {
     setNodes((automation.nodes || []).map(withDeletableFlag) as unknown as Node[]);
@@ -166,6 +168,46 @@ function CanvasInner({ automation, automations, onSave }: AutomationCanvasProps)
         </ReactFlow>
 
         <NodePalette onAddNode={handleAddNode} />
+
+        <div style={{
+          position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 10,
+          display: 'flex', alignItems: 'center', gap: '8px',
+          background: 'white', border: '1px solid var(--odoo-border)', borderRadius: '999px',
+          padding: '6px 10px', boxShadow: '0 2px 6px rgba(0,0,0,0.08)'
+        }}>
+          <button
+            onClick={() => zoomTo(Math.max(0.1, Math.round((zoom - 0.1) * 10) / 10))}
+            title="Reduzir zoom"
+            style={{ display: 'flex', background: 'none', border: 'none', cursor: 'pointer', color: '#475569', padding: '2px' }}
+          >
+            <Minus size={14} />
+          </button>
+          <input
+            type="range"
+            min={10}
+            max={200}
+            step={5}
+            value={zoomPercent}
+            onChange={e => zoomTo(Number(e.target.value) / 100)}
+            title="Controlar o tamanho dos nós"
+            style={{ width: '90px', cursor: 'pointer' }}
+          />
+          <button
+            onClick={() => zoomTo(Math.min(2, Math.round((zoom + 0.1) * 10) / 10))}
+            title="Aumentar zoom"
+            style={{ display: 'flex', background: 'none', border: 'none', cursor: 'pointer', color: '#475569', padding: '2px' }}
+          >
+            <Plus size={14} />
+          </button>
+          <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#1a1a1a', width: '36px', textAlign: 'center' }}>{zoomPercent}%</span>
+          <button
+            onClick={() => zoomTo(1)}
+            title="Repor zoom a 100%"
+            style={{ display: 'flex', background: 'none', border: 'none', cursor: 'pointer', color: '#475569', padding: '2px', borderLeft: '1px solid var(--odoo-border)', paddingLeft: '8px' }}
+          >
+            <RotateCcw size={13} />
+          </button>
+        </div>
 
         <button
           onClick={handleSave}

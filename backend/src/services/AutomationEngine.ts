@@ -567,7 +567,17 @@ export class AutomationEngine {
 
             case 'DELAY':
             case 'WAIT': {
-                const delayMinutes = parseInt(config.minutos || config.minutes || '1', 10);
+                // Ainda é uma espera em memória, dentro do mesmo processo — sem fila
+                // persistente, um restart/deploy do backend durante a espera perde o
+                // resto do fluxo. Por isso capamos num valor curto e seguro; delays
+                // longos (horas/dias) precisariam de um agendador próprio, fora do
+                // motor de execução síncrono do webhook.
+                const MAX_DELAY_MINUTES = 15;
+                const requestedMinutes = parseInt(config.minutos || config.minutes || '1', 10);
+                const delayMinutes = Math.min(Math.max(requestedMinutes || 1, 0), MAX_DELAY_MINUTES);
+                if (requestedMinutes > MAX_DELAY_MINUTES) {
+                    console.warn(`[AUTOPILOT] DELAY pedia ${requestedMinutes} min — limitado a ${MAX_DELAY_MINUTES} min (sem fila persistente para esperas longas).`);
+                }
                 console.log(`[AUTOPILOT] A aguardar ${delayMinutes} minuto(s)...`);
                 await new Promise(resolve => setTimeout(resolve, delayMinutes * 60000));
                 break;
