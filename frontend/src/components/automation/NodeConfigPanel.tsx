@@ -355,6 +355,18 @@ export default function NodeConfigPanel({ node, automations, currentAutomationId
             </>
           )}
 
+          {d.actionType === 'HANDOFF_HUMAN' && (
+            <>
+              <label style={labelStyle}>Telefone (opcional, padrão é quem enviou)</label>
+              <input style={fieldStyle} type="text" value={config.telefone || ''} onChange={e => updateConfig({ telefone: e.target.value })} placeholder="{{telefone}}" />
+              <label style={labelStyle}>Mensagem ao cliente (opcional)</label>
+              <textarea style={{ ...fieldStyle, resize: 'vertical' }} rows={3} value={config.mensagem || ''} onChange={e => updateConfig({ mensagem: e.target.value })} placeholder="Um dos nossos atendentes já vai continuar a conversa consigo." />
+              <div style={{ marginTop: '10px', fontSize: '11px', color: '#666' }}>
+                Pausa o bot para este cliente (o mesmo interruptor usado manualmente no inbox do WhatsApp) — nenhuma automação nem a IA voltam a responder até um agente reativar o bot. Combine com um nó "Notificar Equipa" antes, se quiser avisar alguém.
+              </div>
+            </>
+          )}
+
           {d.actionType === 'LOG_MESSAGE' && (
             <>
               <label style={labelStyle}>Mensagem de Log</label>

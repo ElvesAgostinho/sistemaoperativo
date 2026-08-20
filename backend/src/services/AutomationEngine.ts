@@ -410,6 +410,43 @@ export class AutomationEngine {
                 break;
             }
 
+            case 'HANDOFF_HUMAN': {
+                // Pausa o bot para este cliente (mesmo mecanismo usado manualmente no
+                // inbox do WhatsApp) — nenhuma automação/fallback de IA volta a responder
+                // a este telefone até um agente reativar o bot.
+                const handoffPhone = this.parseString(config.telefone || config.phone || '{{telefone}}', context);
+                const avisoMensagem = config.mensagem ? this.parseString(config.mensagem, context) : '';
+
+                if (!handoffPhone) {
+                    console.error('[AUTOPILOT] HANDOFF_HUMAN falhou: sem telefone no contexto.');
+                    break;
+                }
+
+                try {
+                    const phoneDigits = handoffPhone.replace(/\D/g, '');
+                    let updateQuery = supabase.from('clientes').update({ bot_paused: true }).or(`telefone.eq.${handoffPhone},telefone.ilike.%${phoneDigits}%`);
+                    if (empresa_id) updateQuery = updateQuery.eq('empresa_id', empresa_id);
+                    await updateQuery;
+
+                    if (avisoMensagem) {
+                        const waChannelId = config.channel_id || context['channel_id'];
+                        const { WhatsAppChannelManager } = require('./WhatsAppChannelManager');
+                        let finalChannel = waChannelId;
+                        if (!finalChannel) {
+                            const { data: channel } = await supabase.from('wa_channels').select('id').limit(1).single();
+                            if (channel) finalChannel = channel.id;
+                        }
+                        if (finalChannel) {
+                            await WhatsAppChannelManager.sendMessage(supabase, finalChannel, handoffPhone, avisoMensagem);
+                        }
+                    }
+                    console.log(`[AUTOPILOT] HANDOFF_HUMAN: bot pausado para ${handoffPhone}`);
+                } catch (e) {
+                    console.error('[AUTOPILOT] Erro em HANDOFF_HUMAN:', e);
+                }
+                break;
+            }
+
             case 'JUMP_TO_WORKFLOW': {
                 const targetName = config.target_workflow_nome;
                 if (targetName) {

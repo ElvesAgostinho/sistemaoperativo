@@ -1,6 +1,6 @@
 import {
   GitBranch, Database, Mail, Send, Image, Play, Volume2, FileText, Clock, ArrowRightLeft,
-  CheckCircle, ListChecks, GripVertical, Tag, TagX, ListPlus, Globe, BellRing
+  CheckCircle, ListChecks, GripVertical, Tag, TagX, ListPlus, Globe, BellRing, Headset
 } from 'lucide-react';
 import { createDefaultMenuOption, type ActionType, type AutomationNode } from './types';
 
@@ -75,6 +75,7 @@ const PALETTE_GROUPS: PaletteGroup[] = [
     items: [
       actionItem('Requisição Externa (API)', <Globe size={14} />, 'EXTERNAL_REQUEST', '#7c3aed'),
       actionItem('Notificar Equipa', <BellRing size={14} />, 'NOTIFY_TEAM', '#f59e0b'),
+      actionItem('Transferir para Humano', <Headset size={14} />, 'HANDOFF_HUMAN', '#e11d48'),
       actionItem('Aguardar', <Clock size={14} />, 'DELAY'),
       actionItem('Saltar p/ Fluxo', <ArrowRightLeft size={14} />, 'JUMP_TO_WORKFLOW')
     ]
