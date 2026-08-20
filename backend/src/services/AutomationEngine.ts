@@ -374,7 +374,47 @@ export class AutomationEngine {
             case 'SEND_VIDEO':
             case 'SEND_AUDIO':
             case 'SEND_DOCUMENT': {
-                console.log(`[AUTOPILOT] Envio de mídia (${node.data.actionType}) ainda não implementado no motor de grafo — ficheiro: ${config.ficheiro || config.imagem || config.video || ''}`);
+                const filePath = this.parseString(config.ficheiro || config.imagem || config.video || config.audio || config.documento, context);
+                const mediaPhone = this.parseString(config.telefone || config.phone || '{{telefone}}', context);
+                const mediaChannelId = config.channel_id || context['channel_id'];
+
+                if (!filePath || !mediaPhone) {
+                    console.error(`[AUTOPILOT] ${node.data.actionType} falhou: falta ficheiro ou telefone de destino.`);
+                    break;
+                }
+
+                try {
+                    const fs = require('fs');
+                    const path = require('path');
+                    if (!fs.existsSync(filePath)) {
+                        console.error(`[AUTOPILOT] ${node.data.actionType} falhou: ficheiro não encontrado em ${filePath}`);
+                        break;
+                    }
+
+                    const buffer = fs.readFileSync(filePath);
+                    const base64Data = `data:${this.mimeTypeForFile(filePath)};base64,${buffer.toString('base64')}`;
+                    const fileName = path.basename(filePath);
+
+                    const { WhatsAppChannelManager } = require('./WhatsAppChannelManager');
+                    let finalChannel = mediaChannelId;
+                    if (!finalChannel) {
+                        const { data: channel } = await supabase.from('wa_channels').select('id').limit(1).single();
+                        if (channel) finalChannel = channel.id;
+                    }
+
+                    if (finalChannel) {
+                        const sent = await WhatsAppChannelManager.sendMediaMessage(supabase, finalChannel, mediaPhone, base64Data, fileName);
+                        if (sent) {
+                            console.log(`[AUTOPILOT] ${node.data.actionType} enviado para ${mediaPhone}: ${fileName}`);
+                        } else {
+                            console.error(`[AUTOPILOT] ${node.data.actionType} falhou ao enviar para ${mediaPhone}`);
+                        }
+                    } else {
+                        console.error(`[AUTOPILOT] ${node.data.actionType} falhou: nenhum canal de WhatsApp configurado.`);
+                    }
+                } catch (e) {
+                    console.error(`[AUTOPILOT] Erro ao enviar ${node.data.actionType}:`, e);
+                }
                 break;
             }
 
@@ -548,6 +588,22 @@ export class AutomationEngine {
         } catch (error) {
             console.error('[Automation Engine] Erro no Fallback da IA:', error);
         }
+    }
+
+    private static readonly MIME_TYPES_BY_EXT: Record<string, string> = {
+        '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp',
+        '.mp4': 'video/mp4', '.mov': 'video/quicktime', '.avi': 'video/x-msvideo', '.webm': 'video/webm',
+        '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg', '.wav': 'audio/wav', '.m4a': 'audio/mp4',
+        '.pdf': 'application/pdf', '.doc': 'application/msword',
+        '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        '.xls': 'application/vnd.ms-excel',
+        '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        '.txt': 'text/plain', '.csv': 'text/csv', '.zip': 'application/zip'
+    };
+
+    private static mimeTypeForFile(filePath: string): string {
+        const ext = filePath.slice(filePath.lastIndexOf('.')).toLowerCase();
+        return this.MIME_TYPES_BY_EXT[ext] || 'application/octet-stream';
     }
 
     /**
