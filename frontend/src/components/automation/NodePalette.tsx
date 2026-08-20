@@ -60,7 +60,7 @@ export const AUTOMATION_DRAG_MIME = 'application/x-automation-node';
 export default function NodePalette({ onAddNode }: NodePaletteProps) {
   return (
     <div style={{
-      position: 'absolute', top: 16, left: 16, zIndex: 10,
+      position: 'absolute', top: 64, left: 16, zIndex: 10,
       backgroundColor: 'white', border: '1px solid var(--odoo-border)', borderRadius: '12px',
       padding: '10px', boxShadow: '0 6px 16px rgba(0,0,0,0.1)', maxWidth: '210px',
       display: 'flex', flexDirection: 'column', gap: '4px'

@@ -13,7 +13,13 @@ import MenuNode from './MenuNode';
 import EndNode from './EndNode';
 import NodePalette, { AUTOMATION_DRAG_MIME } from './NodePalette';
 import NodeConfigPanel from './NodeConfigPanel';
+import { AutomationCanvasContext } from './AutomationCanvasContext';
 import { generateNodeId, type Automation, type AutomationEdge, type AutomationNode } from './types';
+
+/** O nó de trigger é único e obrigatório — nunca pode ser apagado (nem pelo "×", nem pela tecla Delete). */
+function withDeletableFlag(node: any) {
+  return { ...node, deletable: node.type !== 'trigger' };
+}
 
 const nodeTypes = {
   trigger: TriggerNode,
@@ -43,7 +49,7 @@ function CanvasInner({ automation, automations, onSave }: AutomationCanvasProps)
   const { screenToFlowPosition } = useReactFlow();
 
   useEffect(() => {
-    setNodes(automation.nodes as unknown as Node[]);
+    setNodes((automation.nodes || []).map(withDeletableFlag) as unknown as Node[]);
     setEdges(automation.edges as unknown as Edge[]);
     setSelectedNodeId(null);
   }, [automation.id, setNodes, setEdges]);
@@ -68,7 +74,7 @@ function CanvasInner({ automation, automations, onSave }: AutomationCanvasProps)
       id: generateNodeId(partial.type),
       position: position || { x: 120 + Math.random() * 400, y: 350 + Math.random() * 200 }
     };
-    setNodes(nds => [...nds, newNode as unknown as Node]);
+    setNodes(nds => [...nds, withDeletableFlag(newNode) as unknown as Node]);
     setSelectedNodeId(newNode.id);
   }, [setNodes]);
 
@@ -101,8 +107,14 @@ function CanvasInner({ automation, automations, onSave }: AutomationCanvasProps)
   const handleDeleteNode = useCallback((nodeId: string) => {
     setNodes(nds => nds.filter(n => n.id !== nodeId));
     setEdges(eds => eds.filter(e => e.source !== nodeId && e.target !== nodeId));
-    setSelectedNodeId(null);
+    setSelectedNodeId(id => id === nodeId ? null : id);
   }, [setNodes, setEdges]);
+
+  const onNodesDelete = useCallback((deleted: Node[]) => {
+    setSelectedNodeId(id => (id && deleted.some(n => n.id === id)) ? null : id);
+  }, []);
+
+  const canvasContextValue = useMemo(() => ({ deleteNode: handleDeleteNode }), [handleDeleteNode]);
 
   const selectedNode = useMemo(
     () => (nodes.find(n => n.id === selectedNodeId) as unknown as AutomationNode | undefined),
@@ -119,52 +131,64 @@ function CanvasInner({ automation, automations, onSave }: AutomationCanvasProps)
   };
 
   return (
-    <div ref={wrapperRef} style={{ position: 'relative', width: '100%', height: '100%' }} onDragOver={onDragOver} onDrop={onDrop}>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        onNodeClick={onNodeClick}
-        onPaneClick={onPaneClick}
-        nodeTypes={nodeTypes}
-        defaultEdgeOptions={defaultEdgeOptions}
-        fitView
-      >
-        <Background gap={18} color="#e2e8f0" />
-        <Controls />
-        <MiniMap pannable zoomable style={{ background: '#f8fafc' }} />
-      </ReactFlow>
+    <AutomationCanvasContext.Provider value={canvasContextValue}>
+      <div ref={wrapperRef} style={{ position: 'relative', width: '100%', height: '100%' }} onDragOver={onDragOver} onDrop={onDrop}>
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onNodesDelete={onNodesDelete}
+          onConnect={onConnect}
+          onNodeClick={onNodeClick}
+          onPaneClick={onPaneClick}
+          nodeTypes={nodeTypes}
+          defaultEdgeOptions={defaultEdgeOptions}
+          deleteKeyCode={['Backspace', 'Delete']}
+          minZoom={0.1}
+          maxZoom={2}
+          fitView
+        >
+          <Background gap={18} color="#e2e8f0" />
+          <Controls showZoom showFitView showInteractive />
+          <MiniMap pannable zoomable style={{ background: '#f8fafc' }} />
+        </ReactFlow>
 
-      <NodePalette onAddNode={handleAddNode} />
+        <NodePalette onAddNode={handleAddNode} />
 
-      <button
-        onClick={handleSave}
-        disabled={isSaving}
-        style={{
-          position: 'absolute', top: 16, right: selectedNode ? 336 : 16, zIndex: 10,
-          display: 'flex', alignItems: 'center', gap: '6px',
-          padding: '8px 16px', backgroundColor: '#0ea5e9', color: 'white', border: 'none',
-          borderRadius: '8px', fontWeight: 'bold', cursor: isSaving ? 'wait' : 'pointer',
-          fontSize: '13px', transition: 'right 0.15s'
-        }}
-      >
-        {isSaving ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />}
-        {isSaving ? 'A Guardar...' : 'Guardar'}
-      </button>
+        <button
+          onClick={handleSave}
+          disabled={isSaving}
+          style={{
+            position: 'absolute', top: 16, right: selectedNode ? 336 : 16, zIndex: 10,
+            display: 'flex', alignItems: 'center', gap: '6px',
+            padding: '8px 16px', backgroundColor: '#0ea5e9', color: 'white', border: 'none',
+            borderRadius: '8px', fontWeight: 'bold', cursor: isSaving ? 'wait' : 'pointer',
+            fontSize: '13px', transition: 'right 0.15s'
+          }}
+        >
+          {isSaving ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />}
+          {isSaving ? 'A Guardar...' : 'Guardar'}
+        </button>
 
-      {selectedNode && (
-        <NodeConfigPanel
-          node={selectedNode}
-          automations={automations}
-          currentAutomationId={automation.id}
-          onChangeData={handleChangeNodeData}
-          onDelete={handleDeleteNode}
-          onClose={() => setSelectedNodeId(null)}
-        />
-      )}
-    </div>
+        {selectedNode && (
+          <NodeConfigPanel
+            node={selectedNode}
+            automations={automations}
+            currentAutomationId={automation.id}
+            onChangeData={handleChangeNodeData}
+            onDelete={handleDeleteNode}
+            onClose={() => setSelectedNodeId(null)}
+          />
+        )}
+
+        <style>{`
+          .automation-node-card:hover .automation-node-delete {
+            opacity: 1 !important;
+          }
+        `}</style>
+      </div>
+    </AutomationCanvasContext.Provider>
   );
 }
 

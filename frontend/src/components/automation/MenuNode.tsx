@@ -1,20 +1,23 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { ListChecks } from 'lucide-react';
 import type { MenuNodeData } from './types';
+import NodeDeleteButton from './NodeDeleteButton';
 
-export default function MenuNode({ data, selected }: NodeProps) {
+export default function MenuNode({ id, data, selected }: NodeProps) {
   const d = data as unknown as MenuNodeData;
   const options = d.options || [];
 
   return (
-    <div style={{
+    <div className="automation-node-card" style={{
       width: 260,
       backgroundColor: 'white',
       border: `2px solid ${selected ? '#0891b2' : '#06b6d4'}`,
       borderRadius: '12px',
       padding: '14px',
+      position: 'relative',
       boxShadow: selected ? '0 0 0 3px rgba(6,182,212,0.18)' : '0 2px 6px rgba(0,0,0,0.06)'
     }}>
+      <NodeDeleteButton nodeId={id} />
       <Handle type="target" position={Position.Top} style={{ background: '#06b6d4', width: 10, height: 10 }} />
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

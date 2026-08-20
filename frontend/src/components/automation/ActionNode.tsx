@@ -1,6 +1,7 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { Database, MessageCircle, FileText, Image, Play, Send, Mail, Clock, ArrowRightLeft, GitCommit } from 'lucide-react';
 import { ACTION_LABELS, type ActionNodeData } from './types';
+import NodeDeleteButton from './NodeDeleteButton';
 
 function renderIcon(actionType: string) {
   if (actionType === 'CREATE_CLIENT' || actionType === 'CREATE_LEAD') return <Database size={18} color="#3b82f6" />;
@@ -30,18 +31,20 @@ function summarize(d: ActionNodeData): string {
   }
 }
 
-export default function ActionNode({ data, selected }: NodeProps) {
+export default function ActionNode({ id, data, selected }: NodeProps) {
   const d = data as unknown as ActionNodeData;
 
   return (
-    <div style={{
+    <div className="automation-node-card" style={{
       width: 240,
       backgroundColor: 'white',
       border: `1px solid ${selected ? '#0078D4' : '#e2e8f0'}`,
       borderRadius: '12px',
       padding: '14px',
+      position: 'relative',
       boxShadow: selected ? '0 0 0 3px rgba(0,120,212,0.15)' : '0 2px 6px rgba(0,0,0,0.04)'
     }}>
+      <NodeDeleteButton nodeId={id} />
       <Handle type="target" position={Position.Top} style={{ background: '#0078D4', width: 10, height: 10 }} />
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

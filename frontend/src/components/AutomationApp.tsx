@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Zap, Plus, Trash2 } from 'lucide-react';
+import { Zap, Plus, Trash2, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import AutomationCanvas from './automation/AutomationCanvas';
 import { createBlankAutomationGraph, type Automation, type AutomationEdge, type AutomationNode } from './automation/types';
 
@@ -7,6 +7,8 @@ export default function AutomationApp() {
   const [automations, setAutomations] = useState<Automation[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  // Em ecrãs estreitos (telemóvel) a lista começa fechada para dar todo o espaço ao canvas
+  const [sidebarOpen, setSidebarOpen] = useState(() => typeof window === 'undefined' || window.innerWidth >= 768);
 
   const authHeaders = () => {
     const token = localStorage.getItem('os_auth_token');
@@ -34,6 +36,14 @@ export default function AutomationApp() {
   }, []);
 
   const selectedAuto = automations.find(a => a.id === selectedId) || null;
+
+  const selectAutomation = (id: number) => {
+    setSelectedId(id);
+    // Em ecrãs estreitos, escolher um fluxo já fecha a lista para libertar espaço ao canvas
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setSidebarOpen(false);
+    }
+  };
 
   const createAutomation = async () => {
     setIsCreating(true);
@@ -99,18 +109,28 @@ export default function AutomationApp() {
   };
 
   return (
-    <div style={{ display: 'flex', height: '100%', backgroundColor: '#f9fafb', position: 'relative' }}>
+    <div style={{ display: 'flex', height: '100%', backgroundColor: '#f9fafb', position: 'relative', overflow: 'hidden' }}>
 
-      {/* Sidebar - Lista de Automações */}
-      <div style={{ width: '300px', backgroundColor: 'white', borderRight: '1px solid var(--odoo-border)', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ padding: '20px', borderBottom: '1px solid var(--odoo-border)' }}>
+      {/* Sidebar - Lista de Automações (colapsável, sobretudo útil em ecrãs estreitos/telemóvel) */}
+      <div style={{
+        width: sidebarOpen ? '300px' : '0px',
+        minWidth: 0,
+        flexShrink: 0,
+        backgroundColor: 'white',
+        borderRight: sidebarOpen ? '1px solid var(--odoo-border)' : 'none',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        transition: 'width 0.18s ease'
+      }}>
+        <div style={{ padding: '20px', borderBottom: '1px solid var(--odoo-border)', minWidth: '300px' }}>
           <h2 style={{ margin: 0, fontSize: '18px', color: '#1a1a1a', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Zap size={20} color="#0078D4" /> Autopilot
           </h2>
           <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#666' }}>Construtor Visual de Automações</p>
         </div>
 
-        <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
+        <div style={{ padding: '16px', overflowY: 'auto', flex: 1, minWidth: '300px' }}>
           {automations.map(auto => (
             <div
               key={auto.id}
@@ -126,7 +146,7 @@ export default function AutomationApp() {
                 gap: '12px',
                 transition: 'all 0.2s'
               }}
-              onClick={() => setSelectedId(auto.id)}
+              onClick={() => selectAutomation(auto.id)}
             >
               <div
                 onClick={(e) => toggleAutomation(e, auto.id, auto.ativo)}
@@ -161,7 +181,7 @@ export default function AutomationApp() {
             </div>
           )}
         </div>
-        <div style={{ padding: '16px', borderTop: '1px solid var(--odoo-border)' }}>
+        <div style={{ padding: '16px', borderTop: '1px solid var(--odoo-border)', minWidth: '300px' }}>
           <button
             className="odoo-btn odoo-btn-primary"
             style={{ width: '100%', justifyContent: 'center' }}
@@ -173,8 +193,23 @@ export default function AutomationApp() {
         </div>
       </div>
 
+      {/* Botão para abrir/fechar a lista — sempre visível, sobreposto ao canvas */}
+      <button
+        onClick={() => setSidebarOpen(o => !o)}
+        title={sidebarOpen ? 'Ocultar lista de automações' : 'Mostrar lista de automações'}
+        style={{
+          position: 'absolute', top: 16, left: sidebarOpen ? 316 : 16, zIndex: 20,
+          width: '34px', height: '34px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'white', border: '1px solid var(--odoo-border)', borderRadius: '8px',
+          cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.08)', color: '#475569',
+          transition: 'left 0.18s ease'
+        }}
+      >
+        {sidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
+      </button>
+
       {/* Main Area - Canvas Visual */}
-      <div style={{ flex: 1, position: 'relative' }}>
+      <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
         {selectedAuto ? (
           <AutomationCanvas
             key={selectedAuto.id}

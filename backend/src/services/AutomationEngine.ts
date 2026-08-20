@@ -391,7 +391,11 @@ export class AutomationEngine {
                         break;
                     }
 
-                    const buffer = fs.readFileSync(filePath);
+                    // Leitura assíncrona — não bloqueia o event loop em ficheiros grandes
+                    // (a API do WhatsApp exige o payload completo num único pedido, então
+                    // não há streaming real possível neste ponto, mas isto evita travar o
+                    // resto do backend enquanto o ficheiro é lido/codificado).
+                    const buffer = await fs.promises.readFile(filePath);
                     const base64Data = `data:${this.mimeTypeForFile(filePath)};base64,${buffer.toString('base64')}`;
                     const fileName = path.basename(filePath);
 

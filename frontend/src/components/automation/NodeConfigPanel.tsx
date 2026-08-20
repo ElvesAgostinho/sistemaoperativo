@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Trash2, Loader2, Plus } from 'lucide-react';
+import { X, Trash2, Loader2, Plus, Upload } from 'lucide-react';
 import type { ActionNodeData, ActionType, Automation, AutomationNode, ConditionNodeData, MenuNodeData, TriggerNodeData } from './types';
 import { ACTION_LABELS, createDefaultMenuOption } from './types';
 
@@ -239,12 +239,41 @@ export default function NodeConfigPanel({ node, automations, currentAutomationId
 
           {['SEND_IMAGE', 'SEND_VIDEO', 'SEND_AUDIO', 'SEND_DOCUMENT'].includes(d.actionType) && (
             <>
-              <label style={labelStyle}>Ficheiro (caminho ou upload)</label>
-              <input style={fieldStyle} type="text" value={config.ficheiro || ''} onChange={e => updateConfig({ ficheiro: e.target.value })} placeholder="C:\Caminho\para\ficheiro..." />
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
-                <input type="file" onChange={e => e.target.files && handleFileUpload(e.target.files[0])} style={{ fontSize: '11px' }} />
-                {isUploading && <Loader2 className="animate-spin" size={14} />}
-              </div>
+              <label style={labelStyle}>Ficheiro</label>
+              <label
+                htmlFor="automation-media-upload"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                  width: '100%', padding: '12px', borderRadius: '8px',
+                  border: '2px dashed #93c5fd', background: '#eff6ff', color: '#1d4ed8',
+                  fontSize: '13px', fontWeight: 'bold', cursor: isUploading ? 'wait' : 'pointer'
+                }}
+              >
+                {isUploading ? <Loader2 className="animate-spin" size={16} /> : <Upload size={16} />}
+                {isUploading ? 'A enviar...' : config.ficheiro ? 'Trocar ficheiro' : 'Escolher do dispositivo (câmara, galeria ou ficheiros)'}
+              </label>
+              <input
+                id="automation-media-upload"
+                type="file"
+                accept={
+                  d.actionType === 'SEND_IMAGE' ? 'image/*' :
+                  d.actionType === 'SEND_VIDEO' ? 'video/*' :
+                  d.actionType === 'SEND_AUDIO' ? 'audio/*' : undefined
+                }
+                onChange={e => e.target.files && handleFileUpload(e.target.files[0])}
+                style={{ display: 'none' }}
+              />
+
+              {config.ficheiro && (
+                <div style={{ marginTop: '8px', fontSize: '11px', color: '#166534', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '6px', padding: '6px 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  ✓ {config.ficheiro.split(/[\\/]/).pop()}
+                </div>
+              )}
+
+              <details style={{ marginTop: '10px' }}>
+                <summary style={{ fontSize: '11px', color: '#94a3b8', cursor: 'pointer' }}>Avançado: indicar caminho manualmente</summary>
+                <input style={{ ...fieldStyle, marginTop: '8px' }} type="text" value={config.ficheiro || ''} onChange={e => updateConfig({ ficheiro: e.target.value })} placeholder="C:\Caminho\para\ficheiro..." />
+              </details>
             </>
           )}
 

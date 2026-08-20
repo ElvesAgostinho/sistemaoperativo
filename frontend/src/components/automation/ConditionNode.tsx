@@ -1,19 +1,22 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { GitBranch } from 'lucide-react';
 import type { ConditionNodeData } from './types';
+import NodeDeleteButton from './NodeDeleteButton';
 
-export default function ConditionNode({ data, selected }: NodeProps) {
+export default function ConditionNode({ id, data, selected }: NodeProps) {
   const d = data as unknown as ConditionNodeData;
 
   return (
-    <div style={{
+    <div className="automation-node-card" style={{
       width: 240,
       backgroundColor: 'white',
       border: `2px solid ${selected ? '#7c3aed' : '#8b5cf6'}`,
       borderRadius: '12px',
       padding: '14px',
+      position: 'relative',
       boxShadow: selected ? '0 0 0 3px rgba(139,92,246,0.18)' : '0 2px 6px rgba(0,0,0,0.06)'
     }}>
+      <NodeDeleteButton nodeId={id} />
       <Handle type="target" position={Position.Top} style={{ background: '#8b5cf6', width: 10, height: 10 }} />
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
