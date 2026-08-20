@@ -1,11 +1,11 @@
 import { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import {
-  ReactFlow, ReactFlowProvider, Background, Controls, MiniMap,
+  ReactFlow, ReactFlowProvider, Background, Controls, ControlButton, MiniMap,
   useNodesState, useEdgesState, addEdge, useReactFlow, MarkerType,
   type Connection, type Node, type Edge
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Save, Loader2 } from 'lucide-react';
+import { Save, Loader2, LayoutGrid } from 'lucide-react';
 import TriggerNode from './TriggerNode';
 import ConditionNode from './ConditionNode';
 import ActionNode from './ActionNode';
@@ -14,6 +14,7 @@ import EndNode from './EndNode';
 import NodePalette, { AUTOMATION_DRAG_MIME } from './NodePalette';
 import NodeConfigPanel from './NodeConfigPanel';
 import { AutomationCanvasContext } from './AutomationCanvasContext';
+import { autoLayoutNodes } from './autoLayout';
 import { generateNodeId, type Automation, type AutomationEdge, type AutomationNode } from './types';
 
 /** O nó de trigger é único e obrigatório — nunca pode ser apagado (nem pelo "×", nem pela tecla Delete). */
@@ -46,7 +47,7 @@ function CanvasInner({ automation, automations, onSave }: AutomationCanvasProps)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const { screenToFlowPosition } = useReactFlow();
+  const { screenToFlowPosition, fitView } = useReactFlow();
 
   useEffect(() => {
     setNodes((automation.nodes || []).map(withDeletableFlag) as unknown as Node[]);
@@ -116,6 +117,12 @@ function CanvasInner({ automation, automations, onSave }: AutomationCanvasProps)
 
   const canvasContextValue = useMemo(() => ({ deleteNode: handleDeleteNode }), [handleDeleteNode]);
 
+  const handleAutoLayout = useCallback(() => {
+    setNodes(nds => autoLayoutNodes(nds, edges));
+    // Dá um instante para o estado aplicar antes de reenquadrar a vista
+    setTimeout(() => fitView({ padding: 0.2, duration: 300 }), 50);
+  }, [edges, setNodes, fitView]);
+
   const selectedNode = useMemo(
     () => (nodes.find(n => n.id === selectedNodeId) as unknown as AutomationNode | undefined),
     [nodes, selectedNodeId]
@@ -150,7 +157,11 @@ function CanvasInner({ automation, automations, onSave }: AutomationCanvasProps)
           fitView
         >
           <Background gap={18} color="#e2e8f0" />
-          <Controls showZoom showFitView showInteractive />
+          <Controls showZoom showFitView showInteractive>
+            <ControlButton onClick={handleAutoLayout} title="Organizar automaticamente os nós em colunas a partir do gatilho (como o 'Tidy up' do n8n)">
+              <LayoutGrid />
+            </ControlButton>
+          </Controls>
           <MiniMap pannable zoomable style={{ background: '#f8fafc' }} />
         </ReactFlow>
 
