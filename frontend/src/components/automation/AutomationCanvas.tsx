@@ -1,23 +1,31 @@
-import { useCallback, useMemo, useState, useEffect } from 'react';
+import { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import {
   ReactFlow, ReactFlowProvider, Background, Controls, MiniMap,
-  useNodesState, useEdgesState, addEdge, type Connection, type Node, type Edge
+  useNodesState, useEdgesState, addEdge, useReactFlow, MarkerType,
+  type Connection, type Node, type Edge
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { Save, Loader2 } from 'lucide-react';
 import TriggerNode from './TriggerNode';
 import ConditionNode from './ConditionNode';
 import ActionNode from './ActionNode';
+import MenuNode from './MenuNode';
 import EndNode from './EndNode';
-import NodePalette from './NodePalette';
+import NodePalette, { AUTOMATION_DRAG_MIME } from './NodePalette';
 import NodeConfigPanel from './NodeConfigPanel';
-import { generateNodeId, type ActionType, type Automation, type AutomationEdge, type AutomationNode } from './types';
+import { generateNodeId, type Automation, type AutomationEdge, type AutomationNode } from './types';
 
 const nodeTypes = {
   trigger: TriggerNode,
   condition: ConditionNode,
   action: ActionNode,
+  menu: MenuNode,
   end: EndNode
+};
+
+const defaultEdgeOptions = {
+  markerEnd: { type: MarkerType.ArrowClosed, color: '#94a3b8', width: 18, height: 18 },
+  style: { stroke: '#94a3b8', strokeWidth: 2 }
 };
 
 interface AutomationCanvasProps {
@@ -31,6 +39,8 @@ function CanvasInner({ automation, automations, onSave }: AutomationCanvasProps)
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(automation.edges as unknown as Edge[]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const { screenToFlowPosition } = useReactFlow();
 
   useEffect(() => {
     setNodes(automation.nodes as unknown as Node[]);
@@ -40,7 +50,7 @@ function CanvasInner({ automation, automations, onSave }: AutomationCanvasProps)
 
   const onConnect = useCallback((connection: Connection) => {
     setEdges(eds => {
-      // Um handle de saída só pode ter uma ligação (evita ambiguidade nos branches "sim"/"não")
+      // Um handle de saída só pode ter uma ligação (evita ambiguidade nos branches)
       const filtered = eds.filter(e => !(e.source === connection.source && e.sourceHandle === connection.sourceHandle));
       return addEdge({ ...connection, id: generateNodeId('edge') }, filtered);
     });
@@ -52,27 +62,37 @@ function CanvasInner({ automation, automations, onSave }: AutomationCanvasProps)
 
   const onPaneClick = useCallback(() => setSelectedNodeId(null), []);
 
-  const addNodeAt = useCallback((partial: Omit<AutomationNode, 'id' | 'position'>) => {
+  const addNodeAt = useCallback((partial: Omit<AutomationNode, 'id' | 'position'>, position?: { x: number; y: number }) => {
     const newNode: AutomationNode = {
       ...partial,
       id: generateNodeId(partial.type),
-      position: { x: 120 + Math.random() * 400, y: 350 + Math.random() * 200 }
+      position: position || { x: 120 + Math.random() * 400, y: 350 + Math.random() * 200 }
     };
     setNodes(nds => [...nds, newNode as unknown as Node]);
     setSelectedNodeId(newNode.id);
   }, [setNodes]);
 
-  const handleAddCondition = useCallback(() => {
-    addNodeAt({ type: 'condition', data: { variable: '{{mensagem}}', operator: 'contains', value: '' } });
+  const handleAddNode = useCallback((partial: Omit<AutomationNode, 'id' | 'position'>) => {
+    addNodeAt(partial);
   }, [addNodeAt]);
 
-  const handleAddAction = useCallback((actionType: ActionType) => {
-    addNodeAt({ type: 'action', data: { actionType, config: {} } });
-  }, [addNodeAt]);
+  const onDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  }, []);
 
-  const handleAddEnd = useCallback(() => {
-    addNodeAt({ type: 'end', data: {} });
-  }, [addNodeAt]);
+  const onDrop = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    const raw = event.dataTransfer.getData(AUTOMATION_DRAG_MIME);
+    if (!raw) return;
+    try {
+      const partial = JSON.parse(raw) as Omit<AutomationNode, 'id' | 'position'>;
+      const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+      addNodeAt(partial, position);
+    } catch (e) {
+      console.error('Erro ao largar novo nó no canvas:', e);
+    }
+  }, [addNodeAt, screenToFlowPosition]);
 
   const handleChangeNodeData = useCallback((nodeId: string, data: any) => {
     setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, data } : n));
@@ -99,7 +119,7 @@ function CanvasInner({ automation, automations, onSave }: AutomationCanvasProps)
   };
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+    <div ref={wrapperRef} style={{ position: 'relative', width: '100%', height: '100%' }} onDragOver={onDragOver} onDrop={onDrop}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -109,14 +129,15 @@ function CanvasInner({ automation, automations, onSave }: AutomationCanvasProps)
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
         nodeTypes={nodeTypes}
+        defaultEdgeOptions={defaultEdgeOptions}
         fitView
       >
-        <Background />
+        <Background gap={18} color="#e2e8f0" />
         <Controls />
-        <MiniMap pannable zoomable />
+        <MiniMap pannable zoomable style={{ background: '#f8fafc' }} />
       </ReactFlow>
 
-      <NodePalette onAddCondition={handleAddCondition} onAddAction={handleAddAction} onAddEnd={handleAddEnd} />
+      <NodePalette onAddNode={handleAddNode} />
 
       <button
         onClick={handleSave}

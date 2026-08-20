@@ -1,4 +1,4 @@
-export type AutomationNodeKind = 'trigger' | 'condition' | 'action' | 'end';
+export type AutomationNodeKind = 'trigger' | 'condition' | 'action' | 'menu' | 'end';
 
 export type ActionType =
   | 'CREATE_CLIENT' | 'CREATE_LEAD' | 'SEND_EMAIL' | 'REPLY_MESSAGE'
@@ -23,11 +23,22 @@ export interface ActionNodeData {
   config: Record<string, any>;
 }
 
+export interface MenuOption {
+  id: string;
+  label: string;
+  matchValue: string;
+}
+
+export interface MenuNodeData {
+  variable?: string;
+  options: MenuOption[];
+}
+
 export interface AutomationNode {
   id: string;
   type: AutomationNodeKind;
   position: { x: number; y: number };
-  data: TriggerNodeData | ConditionNodeData | ActionNodeData | Record<string, never>;
+  data: TriggerNodeData | ConditionNodeData | ActionNodeData | MenuNodeData | Record<string, never>;
 }
 
 export interface AutomationEdge {
@@ -64,6 +75,10 @@ let idCounter = 0;
 export function generateNodeId(prefix: string): string {
   idCounter += 1;
   return `${prefix}_${Date.now()}_${idCounter}`;
+}
+
+export function createDefaultMenuOption(index: number): MenuOption {
+  return { id: generateNodeId('opt'), label: `Opção ${index}`, matchValue: '' };
 }
 
 export function createBlankAutomationGraph(): { nodes: AutomationNode[]; edges: AutomationEdge[] } {

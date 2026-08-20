@@ -13,7 +13,7 @@ export interface WhatsAppMessage {
 
 interface FlowNode {
     id: string;
-    type: 'trigger' | 'condition' | 'action' | 'end';
+    type: 'trigger' | 'condition' | 'action' | 'menu' | 'end';
     position?: { x: number; y: number };
     data: any;
 }
@@ -200,6 +200,13 @@ export class AutomationEngine {
                 continue;
             }
 
+            if (node.type === 'menu') {
+                const matchedOption = this.evaluateMenu(node.data, context);
+                const edge = matchedOption ? edges.find(e => e.source === node.id && e.sourceHandle === matchedOption.id) : undefined;
+                currentNodeId = edge?.target;
+                continue;
+            }
+
             if (node.type === 'action') {
                 await this.executeAction(node, context, empresa_id, nodes, edges);
                 const edge = edges.find(e => e.source === node.id);
@@ -232,6 +239,17 @@ export class AutomationEngine {
             default:
                 return false;
         }
+    }
+
+    /**
+     * Nó de menu (respostas rápidas, estilo ManyChat): escolhe a primeira opção cujo
+     * matchValue apareça na mensagem do utilizador. Sem correspondência, o fluxo
+     * termina ali (mesma semântica de "sem aresta de saída" do nó de condição).
+     */
+    private static evaluateMenu(data: any, context: any): { id: string } | undefined {
+        const mensagem = this.parseString(data?.variable || '{{mensagem}}', context).toLowerCase();
+        const options: any[] = Array.isArray(data?.options) ? data.options : [];
+        return options.find(opt => opt.matchValue && mensagem.includes(String(opt.matchValue).toLowerCase()));
     }
 
     private static async executeAction(node: FlowNode, context: any, empresa_id: number | null, allNodes: FlowNode[], allEdges: FlowEdge[]) {

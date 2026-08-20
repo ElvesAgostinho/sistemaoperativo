@@ -38,9 +38,9 @@ export default function ActionNode({ data, selected }: NodeProps) {
       width: 240,
       backgroundColor: 'white',
       border: `1px solid ${selected ? '#0078D4' : '#e2e8f0'}`,
-      borderRadius: '8px',
-      padding: '12px',
-      boxShadow: selected ? '0 0 0 3px rgba(0,120,212,0.15)' : '0 2px 4px rgba(0,0,0,0.02)'
+      borderRadius: '12px',
+      padding: '14px',
+      boxShadow: selected ? '0 0 0 3px rgba(0,120,212,0.15)' : '0 2px 6px rgba(0,0,0,0.04)'
     }}>
       <Handle type="target" position={Position.Top} style={{ background: '#0078D4', width: 10, height: 10 }} />
 

@@ -10,9 +10,9 @@ export default function ConditionNode({ data, selected }: NodeProps) {
       width: 240,
       backgroundColor: 'white',
       border: `2px solid ${selected ? '#7c3aed' : '#8b5cf6'}`,
-      borderRadius: '8px',
-      padding: '12px',
-      boxShadow: selected ? '0 0 0 3px rgba(139,92,246,0.2)' : '0 2px 4px rgba(0,0,0,0.05)'
+      borderRadius: '12px',
+      padding: '14px',
+      boxShadow: selected ? '0 0 0 3px rgba(139,92,246,0.18)' : '0 2px 6px rgba(0,0,0,0.06)'
     }}>
       <Handle type="target" position={Position.Top} style={{ background: '#8b5cf6', width: 10, height: 10 }} />
 

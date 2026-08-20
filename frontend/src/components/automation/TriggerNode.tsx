@@ -18,9 +18,9 @@ export default function TriggerNode({ data, selected }: NodeProps) {
       width: 240,
       backgroundColor: 'white',
       border: `2px solid ${selected ? '#d97706' : '#f59e0b'}`,
-      borderRadius: '8px',
-      padding: '12px',
-      boxShadow: selected ? '0 0 0 3px rgba(245,158,11,0.2)' : '0 2px 4px rgba(0,0,0,0.05)'
+      borderRadius: '12px',
+      padding: '14px',
+      boxShadow: selected ? '0 0 0 3px rgba(245,158,11,0.18)' : '0 2px 6px rgba(0,0,0,0.06)'
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
         <div style={{ backgroundColor: '#fef3c7', padding: '8px', borderRadius: '8px' }}>

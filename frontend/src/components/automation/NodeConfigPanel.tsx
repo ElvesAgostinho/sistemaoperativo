@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { X, Trash2, Loader2 } from 'lucide-react';
-import type { ActionNodeData, ActionType, Automation, AutomationNode, ConditionNodeData, TriggerNodeData } from './types';
-import { ACTION_LABELS } from './types';
+import { X, Trash2, Loader2, Plus } from 'lucide-react';
+import type { ActionNodeData, ActionType, Automation, AutomationNode, ConditionNodeData, MenuNodeData, TriggerNodeData } from './types';
+import { ACTION_LABELS, createDefaultMenuOption } from './types';
 
 interface NodeConfigPanelProps {
   node: AutomationNode;
@@ -127,6 +127,62 @@ export default function NodeConfigPanel({ node, automations, currentAutomationId
 
           <div style={{ marginTop: '12px', fontSize: '11px', color: '#666' }}>
             Ligue a saída <b style={{ color: '#16a34a' }}>SIM</b> ao caminho quando a condição for verdadeira, e a saída <b style={{ color: '#dc2626' }}>NÃO</b> ao caminho alternativo (pode deixar sem ligação para encerrar o fluxo nesse caso).
+          </div>
+        </>
+      );
+    }
+
+    if (node.type === 'menu') {
+      const d = node.data as MenuNodeData;
+      const options = d.options || [];
+
+      const updateOption = (id: string, patch: Partial<{ label: string; matchValue: string }>) => {
+        updateData({ options: options.map(o => o.id === id ? { ...o, ...patch } : o) });
+      };
+      const addOption = () => {
+        updateData({ options: [...options, createDefaultMenuOption(options.length + 1)] });
+      };
+      const removeOption = (id: string) => {
+        updateData({ options: options.filter(o => o.id !== id) });
+      };
+
+      return (
+        <>
+          <label style={labelStyle}>Variável avaliada</label>
+          <input style={fieldStyle} type="text" value={d.variable || '{{mensagem}}'} onChange={e => updateData({ variable: e.target.value })} />
+
+          <div style={{ marginTop: '16px', fontSize: '11px', fontWeight: 'bold', color: '#475569' }}>OPÇÕES</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
+            {options.map(opt => (
+              <div key={opt.id} style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px', position: 'relative' }}>
+                <button
+                  onClick={() => removeOption(opt.id)}
+                  title="Remover opção"
+                  style={{ position: 'absolute', top: '6px', right: '6px', background: 'none', border: 'none', cursor: 'pointer', color: '#f87171', padding: 0 }}
+                >
+                  <X size={14} />
+                </button>
+                <label style={{ ...labelStyle, marginTop: 0 }}>Rótulo (visível no cartão)</label>
+                <input style={fieldStyle} type="text" value={opt.label} onChange={e => updateOption(opt.id, { label: e.target.value })} placeholder="Ex: Quero um orçamento" />
+                <label style={labelStyle}>Casa quando a mensagem contém</label>
+                <input style={fieldStyle} type="text" value={opt.matchValue} onChange={e => updateOption(opt.id, { matchValue: e.target.value })} placeholder="Ex: orçamento" />
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={addOption}
+            style={{
+              marginTop: '10px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+              padding: '8px', background: '#ecfeff', color: '#0891b2', border: '1px dashed #67e8f9',
+              borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold'
+            }}
+          >
+            <Plus size={14} /> Adicionar Opção
+          </button>
+
+          <div style={{ marginTop: '12px', fontSize: '11px', color: '#666' }}>
+            Cada opção liga a uma saída própria no cartão — conecte cada uma ao caminho correspondente. Se nenhuma opção corresponder à mensagem, o fluxo termina ali.
           </div>
         </>
       );
