@@ -1,8 +1,33 @@
 import { Router, Request, Response } from 'express';
-import { supabase } from '../lib/supabaseClient';
+import multer from 'multer';
+import { supabase, getSupabase } from '../lib/supabaseClient';
 import { requireAuth, AuthRequest } from '../middleware/authMiddleware';
 
 const router = Router();
+const upload = multer({
+    dest: 'tmp/',
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+        if (!file.mimetype.startsWith('image/')) return cb(new Error('O ficheiro tem de ser uma imagem.'));
+        cb(null, true);
+    }
+});
+
+// Atualizar a foto de perfil do próprio utilizador autenticado
+router.post('/me/avatar', requireAuth, upload.single('avatar'), async (req: AuthRequest, res: Response) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'Nenhuma imagem recebida.' });
+        if (!req.user?.id) return res.status(401).json({ error: 'Não autenticado.' });
+
+        const avatarUrl = '/tmp/' + req.file.filename;
+        const { error } = await getSupabase(req).from('perfis').update({ avatar_url: avatarUrl }).eq('id', req.user.id);
+        if (error) return res.status(500).json({ error: error.message });
+
+        return res.json({ success: true, avatar_url: avatarUrl });
+    } catch (err: any) {
+        return res.status(500).json({ error: err.message });
+    }
+});
 
 // Middleware para verificar se é admin ou superadmin
 const requireAdmin = (req: AuthRequest, res: Response, next: Function) => {

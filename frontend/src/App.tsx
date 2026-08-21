@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import ChatApp from './components/ChatApp';
 import HrApp from './components/HrApp';
 import CrmApp from './components/CrmApp';
@@ -38,6 +38,37 @@ function App() {
   const [token, setToken] = useState<string | null>(null);
   const [showLanding, setShowLanding] = useState<boolean>(true);
   const [meetingIdFromUrl, setMeetingIdFromUrl] = useState<string | undefined>(undefined);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingAvatar(true);
+    try {
+      const authToken = localStorage.getItem('os_auth_token');
+      const formData = new FormData();
+      formData.append('avatar', file);
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/users/me/avatar', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${authToken}` },
+        body: formData
+      });
+      const data = await res.json();
+      if (data.success) {
+        const updatedUser = { ...user, avatar_url: data.avatar_url };
+        setUser(updatedUser);
+        localStorage.setItem('os_auth_user', JSON.stringify(updatedUser));
+      } else {
+        alert(data.error || 'Erro ao carregar imagem.');
+      }
+    } catch (err) {
+      alert('Erro ao carregar imagem.');
+    } finally {
+      setUploadingAvatar(false);
+      e.target.value = '';
+    }
+  };
 
   useEffect(() => {
     // Intercetador Global de fetch para lidar com 401 Token Expirado
@@ -327,10 +358,34 @@ function App() {
               </span>
             </div>
             
-            <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ fontSize: '14px', fontWeight: 'bold', color: 'white' }}>
-                {user?.nome ? user.nome.charAt(0).toUpperCase() : 'U'}
-              </span>
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={handleAvatarChange}
+            />
+            <div
+              onClick={() => !uploadingAvatar && avatarInputRef.current?.click()}
+              title="Alterar foto de perfil"
+              style={{
+                width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.25)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+                cursor: uploadingAvatar ? 'wait' : 'pointer', flexShrink: 0, opacity: uploadingAvatar ? 0.6 : 1,
+                transition: 'opacity 0.15s'
+              }}
+            >
+              {user?.avatar_url ? (
+                <img
+                  src={`${import.meta.env.VITE_API_URL}${user.avatar_url}`}
+                  alt="Foto de perfil"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              ) : (
+                <span style={{ fontSize: '14px', fontWeight: 'bold', color: 'white' }}>
+                  {user?.nome ? user.nome.charAt(0).toUpperCase() : 'U'}
+                </span>
+              )}
             </div>
 
             <button 
