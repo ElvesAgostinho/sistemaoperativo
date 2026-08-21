@@ -124,9 +124,10 @@ export const processWebhook = async (req: Request, res: Response) => {
     try {
         const { source } = req.params; // ex: 'whatsapp'
         const payload = req.body;
+        const empresaId = (req as any).user?.empresa_id;
 
         // Emite o evento assíncrono para o motor e devolve 200 rápido para a API cliente
-        AutomationEngine.processWebhook(source, payload).catch(err => {
+        AutomationEngine.processWebhook(source, payload, empresaId).catch(err => {
             console.error('Erro no processamento do webhook assíncrono:', err);
         });
 

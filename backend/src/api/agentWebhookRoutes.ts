@@ -14,11 +14,16 @@ const router = Router();
  */
 router.post('/tools', async (req: Request, res: Response) => {
     try {
-        // Validação básica de segurança (Token de autorização do OpenClaw)
+        // Validação de segurança (Token de autorização do OpenClaw).
+        // Falha fechado: se o segredo não estiver configurado no servidor, a rota
+        // fica bloqueada por completo em vez de ficar aberta a qualquer pedido.
         const authHeader = req.headers.authorization;
         const expectedToken = process.env.AGENT_WEBHOOK_SECRET;
 
-        if (expectedToken && authHeader !== `Bearer ${expectedToken}`) {
+        if (!expectedToken) {
+            return res.status(503).json({ error: 'AGENT_WEBHOOK_SECRET não configurado no servidor.' });
+        }
+        if (authHeader !== `Bearer ${expectedToken}`) {
             return res.status(401).json({ error: 'Unauthorized agent' });
         }
 

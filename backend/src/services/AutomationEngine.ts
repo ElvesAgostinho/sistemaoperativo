@@ -513,7 +513,9 @@ export class AutomationEngine {
                 const targetName = config.target_workflow_nome;
                 if (targetName) {
                     try {
-                        const { data: targetAuto } = await supabase.from('automations').select('*').eq('nome', targetName).eq('ativo', true).single();
+                        let targetQuery = supabase.from('automations').select('*').eq('nome', targetName).eq('ativo', true);
+                        if (empresa_id) targetQuery = targetQuery.eq('empresa_id', empresa_id);
+                        const { data: targetAuto } = await targetQuery.single();
                         if (targetAuto) {
                             console.log(`[JUMP_TO_WORKFLOW] A saltar para a automação: ${targetName}`);
                             const { nodes: targetNodes, edges: targetEdges } = this.parseGraph(targetAuto);

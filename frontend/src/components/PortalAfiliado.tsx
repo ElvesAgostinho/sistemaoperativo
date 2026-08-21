@@ -28,14 +28,20 @@ export default function PortalAfiliado() {
 
   const fetchData = async () => {
     try {
-      const statsRes = await fetch(`${import.meta.env.VITE_API_URL}/api/afiliados/${afiliado.id}/portal-stats`);
+      const token = localStorage.getItem('os_afiliado_token');
+      const headers = { 'Authorization': `Bearer ${token}` };
+
+      const statsRes = await fetch(`${import.meta.env.VITE_API_URL}/api/afiliados/${afiliado.id}/portal-stats`, { headers });
       if (statsRes.ok) {
         const data = await statsRes.json();
         setStats(data.stats);
         setRecentes(data.recentes);
+      } else if (statsRes.status === 401) {
+        handleLogout();
+        return;
       }
 
-      const matRes = await fetch(`${import.meta.env.VITE_API_URL}/api/afiliados/materiais`);
+      const matRes = await fetch(`${import.meta.env.VITE_API_URL}/api/afiliados/portal/materiais`, { headers });
       if (matRes.ok) {
         const matData = await matRes.json();
         setMateriais(matData.materiais);
@@ -58,6 +64,7 @@ export default function PortalAfiliado() {
         const data = await res.json();
         setAfiliado(data.afiliado);
         localStorage.setItem('os_afiliado_user', JSON.stringify(data.afiliado));
+        localStorage.setItem('os_afiliado_token', data.token);
       } else {
         const data = await res.json();
         setError(data.error || 'Erro ao iniciar sessão.');
@@ -69,6 +76,7 @@ export default function PortalAfiliado() {
 
   const handleLogout = () => {
     localStorage.removeItem('os_afiliado_user');
+    localStorage.removeItem('os_afiliado_token');
     setAfiliado(null);
   };
 

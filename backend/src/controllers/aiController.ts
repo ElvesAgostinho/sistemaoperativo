@@ -357,9 +357,12 @@ export const getConversations = async (req: Request, res: Response) => {
 export const getConversationMessages = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
+        const empresaId = (req as any).user?.empresa_id;
+
         const { data: mensagens, error } = await supabase.from('mensagens_ia')
             .select('role, content, criado_em')
             .eq('conversa_id', id)
+            .eq('empresa_id', empresaId)
             .in('role', ['user', 'ai'])
             .not('content', 'is', null)
             .neq('content', '')
