@@ -2,6 +2,7 @@ import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { ListChecks } from 'lucide-react';
 import type { MenuNodeData } from './types';
 import NodeDeleteButton from './NodeDeleteButton';
+import NodeDuplicateButton from './NodeDuplicateButton';
 
 export default function MenuNode({ id, data, selected }: NodeProps) {
   const d = data as unknown as MenuNodeData;
@@ -18,6 +19,7 @@ export default function MenuNode({ id, data, selected }: NodeProps) {
       boxShadow: selected ? '0 0 0 3px rgba(6,182,212,0.18)' : '0 2px 6px rgba(0,0,0,0.06)'
     }}>
       <NodeDeleteButton nodeId={id} />
+      <NodeDuplicateButton nodeId={id} />
       <Handle type="target" position={Position.Top} style={{ background: '#06b6d4', width: 8, height: 8 }} />
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

@@ -26,12 +26,38 @@ export const HELP_INTRO = {
   dicas: [
     'Use o botão "Organizar" (ícone de grade, no canto inferior esquerdo do canvas) para arrumar automaticamente os nós em colunas, como um fluxograma.',
     'Use o controlo de zoom no topo do canvas para ver o fluxo inteiro de uma vez ou aproximar um nó específico.',
-    'Passe o rato sobre um nó para ver um "×" vermelho no canto — clique para apagar esse nó rapidamente.',
+    'Passe o rato sobre um nó para ver dois ícones no canto: um "×" vermelho para apagar, e um ícone azul de cópia para duplicar o nó (atalho: selecionar o nó e premir Ctrl+D).',
     'Uma automação só funciona depois de estar Ativa (o círculo verde ao lado do nome, na lista à esquerda) — clique nele para ligar/desligar.'
   ]
 };
 
 export const HELP_ITEMS: HelpItem[] = [
+  // ---- CONCEITOS ----
+  {
+    id: 'variaveis',
+    titulo: 'Variáveis {{ }} — como e quando usar',
+    categoria: 'Conceitos',
+    cor: '#0078D4',
+    oQueFaz: 'Uma variável é um espaço reservado, escrito entre chavetas duplas — {{assim}} — que o Autopilot substitui automaticamente pelo valor real no momento em que o fluxo corre. Não é texto fixo: é preenchido "ao vivo", diferente para cada cliente e cada conversa.',
+    quandoUsar: 'Sempre que quiser que uma mensagem, legenda, assunto de email, ou qualquer outro campo de texto se adapte a quem está do outro lado — em vez de escrever uma mensagem genérica igual para todos, a variável personaliza automaticamente.',
+    campos: [
+      { label: '{{telefone}}', explicacao: 'O número de telefone de quem enviou a mensagem que ativou o fluxo.' },
+      { label: '{{nome_whatsapp}}', explicacao: 'O nome de perfil do WhatsApp da pessoa (o nome que aparece na conversa) — ótimo para saudações personalizadas.' },
+      { label: '{{mensagem}}', explicacao: 'O texto exato que a pessoa escreveu. Útil para repassar à IA, ou para confirmar "recebemos o seu pedido: {{mensagem}}".' },
+      { label: '{{tags}}', explicacao: 'As etiquetas que esse cliente já tem, separadas por vírgula (só depois de o cliente já existir no CRM).' },
+      { label: '{{external_response}} / {{external_status}}', explicacao: 'Preenchidas automaticamente depois de um nó "Requisição Externa (API)" — a resposta e o código de estado que a API externa devolveu.' },
+      { label: '{{ai_response}}', explicacao: 'Preenchida automaticamente depois de um nó "Responder com IA" — o texto que a IA gerou.' },
+      { label: '{{qualquer_nome_seu}}', explicacao: 'Qualquer nome que você escolher no nó "Campo Personalizado" fica disponível como variável a partir dali — ex: se guardar num campo chamado "orcamento", passa a poder escrever {{orcamento}} em qualquer nó seguinte.' }
+    ],
+    exemplo: {
+      cenario: 'Mensagem de boas-vindas personalizada, seguida de um resumo do pedido.',
+      passos: [
+        'Nó "Responder WhatsApp" → Mensagem: "Olá {{nome_whatsapp}}! Recebemos a sua mensagem: {{mensagem}}."',
+        'Se antes houver um nó "Campo Personalizado" com Campo: orcamento, Valor: 5000',
+        'Pode depois escrever: "O seu orçamento de {{orcamento}} Kz está confirmado."'
+      ]
+    }
+  },
   // ---- GATILHO ----
   {
     id: 'trigger',
@@ -162,11 +188,15 @@ export const HELP_ITEMS: HelpItem[] = [
     quandoUsar: 'Sempre que uma imagem/documento explica melhor do que texto — catálogos, tabelas de preços, comprovativos.',
     campos: [
       { label: 'Ficheiro', explicacao: 'Clique em "Escolher do dispositivo" para enviar direto do computador ou telemóvel (câmara/galeria/ficheiros) — mais fácil do que indicar um caminho manualmente.' },
+      { label: 'Legenda (opcional)', explicacao: 'Texto que acompanha a imagem/vídeo/documento no WhatsApp (não disponível para áudio). Aceita {{variáveis}} — ideal para descrever um produto com o preço por baixo da foto, em vez de mandar a imagem sozinha.' },
       { label: 'Telefone', explicacao: 'Normalmente {{telefone}}.' }
     ],
     exemplo: {
-      cenario: 'Enviar o catálogo em PDF quando o cliente pede a tabela de preços.',
-      passos: ['Gatilho: palavra-chave "catálogo, tabela, preços"', 'Nó "Enviar Documento" → carregar o PDF do catálogo']
+      cenario: 'Enviar a foto de um produto já com o preço como legenda.',
+      passos: [
+        'Nó "Enviar Imagem" → Ficheiro: foto do produto',
+        'Legenda: "Camisa Azul — 5.000 Kz\\nDisponível em todos os tamanhos."'
+      ]
     }
   },
   // ---- CRM ----

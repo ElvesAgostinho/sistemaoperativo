@@ -2,6 +2,7 @@ import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { GitBranch } from 'lucide-react';
 import type { ConditionNodeData } from './types';
 import NodeDeleteButton from './NodeDeleteButton';
+import NodeDuplicateButton from './NodeDuplicateButton';
 
 export default function ConditionNode({ id, data, selected }: NodeProps) {
   const d = data as unknown as ConditionNodeData;
@@ -17,6 +18,7 @@ export default function ConditionNode({ id, data, selected }: NodeProps) {
       boxShadow: selected ? '0 0 0 3px rgba(139,92,246,0.18)' : '0 2px 6px rgba(0,0,0,0.06)'
     }}>
       <NodeDeleteButton nodeId={id} />
+      <NodeDuplicateButton nodeId={id} />
       <Handle type="target" position={Position.Top} style={{ background: '#8b5cf6', width: 8, height: 8 }} />
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

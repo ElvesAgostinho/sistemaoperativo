@@ -2,6 +2,7 @@ import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { Database, MessageCircle, FileText, Image, Play, Send, Mail, Clock, ArrowRightLeft, GitCommit, Tag, TagX, ListPlus, Globe, BellRing, Headset, Bot } from 'lucide-react';
 import { ACTION_LABELS, type ActionNodeData } from './types';
 import NodeDeleteButton from './NodeDeleteButton';
+import NodeDuplicateButton from './NodeDuplicateButton';
 
 function renderIcon(actionType: string) {
   if (actionType === 'CREATE_CLIENT' || actionType === 'CREATE_LEAD') return <Database size={15} color="#3b82f6" />;
@@ -31,7 +32,7 @@ function summarize(d: ActionNodeData): string {
     case 'REPLY_MESSAGE': return c.mensagem || '(sem texto)';
     case 'SEND_EMAIL': return c.assunto || c.para || '(sem assunto)';
     case 'SEND_IMAGE': case 'SEND_VIDEO': case 'SEND_AUDIO': case 'SEND_DOCUMENT':
-      return c.ficheiro || '(sem ficheiro)';
+      return c.legenda || c.ficheiro || '(sem ficheiro)';
     case 'DELAY': return `${c.minutos || 1} minuto(s)`;
     case 'JUMP_TO_WORKFLOW': return c.target_workflow_nome || '(escolher fluxo)';
     case 'ADD_TAG': case 'REMOVE_TAG': return c.tag || '(sem tag)';
@@ -58,6 +59,7 @@ export default function ActionNode({ id, data, selected }: NodeProps) {
       boxShadow: selected ? '0 0 0 3px rgba(0,120,212,0.15)' : '0 2px 6px rgba(0,0,0,0.04)'
     }}>
       <NodeDeleteButton nodeId={id} />
+      <NodeDuplicateButton nodeId={id} />
       <Handle type="target" position={Position.Top} style={{ background: '#0078D4', width: 8, height: 8 }} />
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

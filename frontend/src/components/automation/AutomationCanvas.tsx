@@ -117,7 +117,35 @@ function CanvasInner({ automation, automations, onSave }: AutomationCanvasProps)
     setSelectedNodeId(id => (id && deleted.some(n => n.id === id)) ? null : id);
   }, []);
 
-  const canvasContextValue = useMemo(() => ({ deleteNode: handleDeleteNode }), [handleDeleteNode]);
+  const handleDuplicateNode = useCallback((nodeId: string) => {
+    const original = nodes.find(n => n.id === nodeId) as any;
+    if (!original || original.type === 'trigger') return; // só pode haver um gatilho por automação
+    const clonedData = JSON.parse(JSON.stringify(original.data));
+    const clone = withDeletableFlag({
+      id: generateNodeId(original.type),
+      type: original.type,
+      position: { x: original.position.x + 40, y: original.position.y + 40 },
+      data: clonedData
+    });
+    setNodes(nds => [...nds, clone as unknown as Node]);
+    setSelectedNodeId(clone.id);
+  }, [nodes, setNodes]);
+
+  // Atalho estilo n8n: Ctrl/Cmd+D duplica o nó selecionado (ignorado se o foco estiver num campo de texto)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (document.activeElement?.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea') return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd' && selectedNodeId) {
+        e.preventDefault();
+        handleDuplicateNode(selectedNodeId);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [selectedNodeId, handleDuplicateNode]);
+
+  const canvasContextValue = useMemo(() => ({ deleteNode: handleDeleteNode, duplicateNode: handleDuplicateNode }), [handleDeleteNode, handleDuplicateNode]);
 
   const handleAutoLayout = useCallback(() => {
     setNodes(nds => autoLayoutNodes(nds, edges));
@@ -236,7 +264,7 @@ function CanvasInner({ automation, automations, onSave }: AutomationCanvasProps)
         )}
 
         <style>{`
-          .automation-node-card:hover .automation-node-delete {
+          .automation-node-card:hover .automation-node-toolbar-btn {
             opacity: 1 !important;
           }
         `}</style>

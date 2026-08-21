@@ -335,7 +335,8 @@ export default function ChatApp() {
       const data = await response.json();
       
       if (!data.success) {
-         setMessages(prev => [...prev, { role: 'ai', content: data.error || 'Ocorreu um erro no processamento.' }]);
+         const detalhe = data.details ? ` (${data.details})` : '';
+         setMessages(prev => [...prev, { role: 'ai', content: (data.error || 'Ocorreu um erro no processamento.') + detalhe }]);
          return;
       }
       

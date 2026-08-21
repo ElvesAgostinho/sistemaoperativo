@@ -174,7 +174,7 @@ export class WhatsAppChannelManager {
         }
     }
 
-    public static async sendMediaMessage(supabaseClient: any, channel_id: string, phone_number: string, base64Data: string, fileName: string): Promise<boolean> {
+    public static async sendMediaMessage(supabaseClient: any, channel_id: string, phone_number: string, base64Data: string, fileName: string, caption?: string): Promise<boolean> {
         try {
             const { data: channel } = await supabaseClient.from('wa_channels').select('*').eq('id', channel_id).single();
             if (!channel) throw new Error('Canal não encontrado');
@@ -214,7 +214,7 @@ export class WhatsAppChannelManager {
                     mediaMessage: {
                         mediatype,
                         mimetype,
-                        caption: '',
+                        caption: (mediatype !== 'audio' && caption) ? caption : '',
                         fileName,
                         media: base64Str   // base64 puro SEM o prefixo data:...
                     }
@@ -270,7 +270,10 @@ export class WhatsAppChannelManager {
                     recipient_type: 'individual',
                     to: formattedPhone,
                     type: mediaType,
-                    [mediaType]: { id: uploadData.id }
+                    [mediaType]: {
+                        id: uploadData.id,
+                        ...(mediaType !== 'audio' && caption ? { caption } : {})
+                    }
                 };
 
                 const msgRes = await fetch(`https://graph.facebook.com/v20.0/${phoneNumberId}/messages`, {

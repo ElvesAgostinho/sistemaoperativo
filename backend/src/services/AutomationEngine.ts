@@ -583,6 +583,7 @@ export class AutomationEngine {
             case 'SEND_DOCUMENT': {
                 const filePath = this.parseString(config.ficheiro || config.imagem || config.video || config.audio || config.documento, context);
                 const mediaPhone = this.parseString(config.telefone || config.phone || '{{telefone}}', context);
+                const mediaCaption = config.legenda ? this.parseString(config.legenda, context) : '';
                 const mediaChannelId = config.channel_id || context['channel_id'];
 
                 if (!filePath || !mediaPhone) {
@@ -616,7 +617,7 @@ export class AutomationEngine {
                     }
 
                     if (finalChannel) {
-                        const sent = await WhatsAppChannelManager.sendMediaMessage(supabase, finalChannel, mediaPhone, base64Data, fileName);
+                        const sent = await WhatsAppChannelManager.sendMediaMessage(supabase, finalChannel, mediaPhone, base64Data, fileName, mediaCaption);
                         if (sent) {
                             console.log(`[AUTOPILOT] ${node.data.actionType} enviado para ${mediaPhone}: ${fileName}`);
                         } else {

@@ -270,6 +270,22 @@ export default function NodeConfigPanel({ node, automations, currentAutomationId
                 </div>
               )}
 
+              {d.actionType !== 'SEND_AUDIO' && (
+                <>
+                  <label style={labelStyle}>Legenda (opcional)</label>
+                  <textarea
+                    style={{ ...fieldStyle, resize: 'vertical' }}
+                    rows={2}
+                    value={config.legenda || ''}
+                    onChange={e => updateConfig({ legenda: e.target.value })}
+                    placeholder={d.actionType === 'SEND_IMAGE' ? 'Ex: Camisa Azul — 5.000 Kz' : 'Texto que acompanha o ficheiro'}
+                  />
+                  <div style={{ marginTop: '4px', fontSize: '11px', color: '#94a3b8' }}>
+                    Aparece junto com o ficheiro no WhatsApp — útil para descrever um produto e o preço, por exemplo.
+                  </div>
+                </>
+              )}
+
               <details style={{ marginTop: '10px' }}>
                 <summary style={{ fontSize: '11px', color: '#94a3b8', cursor: 'pointer' }}>Avançado: indicar caminho manualmente</summary>
                 <input style={{ ...fieldStyle, marginTop: '8px' }} type="text" value={config.ficheiro || ''} onChange={e => updateConfig({ ficheiro: e.target.value })} placeholder="C:\Caminho\para\ficheiro..." />

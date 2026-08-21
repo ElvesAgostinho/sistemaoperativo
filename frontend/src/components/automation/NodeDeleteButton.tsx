@@ -6,7 +6,7 @@ export default function NodeDeleteButton({ nodeId }: { nodeId: string }) {
   const { deleteNode } = useAutomationCanvas();
   return (
     <button
-      className="automation-node-delete"
+      className="automation-node-toolbar-btn"
       onClick={(e) => { e.stopPropagation(); deleteNode(nodeId); }}
       title="Eliminar nó"
       style={{
