@@ -294,39 +294,61 @@ export const executeAction = async (req: Request, res: Response) => {
         }
         return res.json({ success: true, response: aiMsg });
     } else if (action_type === 'enviar_mensagem_whatsapp') {
-        const clientPhone = payload.telefone;
-        const { supabase } = require('../lib/supabaseClient');
-        
-        let { data: conv } = await supabase.from('wa_conversations').select('id').eq('client_phone', clientPhone).single();
-        if (!conv) {
-            const { data: channel } = await supabase.from('wa_channels').select('id').limit(1).single();
-            if (channel) {
-                const { data: newConv } = await supabase.from('wa_conversations').insert({
-                    channel_id: channel.id,
-                    client_phone: clientPhone,
-                    client_name: 'Cliente (IA)'
-                }).select('id').single();
-                conv = newConv;
-            }
+        if (!empresaId) {
+            return res.status(400).json({ success: false, error: 'Empresa não identificada para esta sessão.' });
         }
-        
+        const clientPhone = String(payload.telefone || '').replace(/\D/g, '');
+        if (!clientPhone) {
+            return res.status(400).json({ success: false, error: 'Número de telefone em falta.' });
+        }
+
+        // Canal WhatsApp da PRÓPRIA empresa — nunca "o primeiro canal da tabela
+        // inteira", que já misturou conversas de empresas diferentes no passado.
+        const { data: channel } = await supabase.from('wa_channels')
+            .select('id').eq('empresa_id', empresaId).eq('status', 'connected').limit(1).maybeSingle();
+        if (!channel) {
+            return res.status(400).json({ success: false, error: 'Esta empresa não tem nenhum canal de WhatsApp ligado.' });
+        }
+
+        let { data: conv } = await supabase.from('wa_conversations').select('id')
+            .eq('phone_number', clientPhone).eq('channel_id', channel.id).maybeSingle();
+        if (!conv) {
+            const { data: newConv } = await supabase.from('wa_conversations').insert({
+                channel_id: channel.id,
+                empresa_id: empresaId,
+                phone_number: clientPhone,
+                contact_name: 'Cliente (IA)',
+                status: 'open',
+                last_message_at: new Date().toISOString()
+            }).select('id').single();
+            conv = newConv;
+        }
+
+        const { WhatsAppChannelManager } = require('../services/WhatsAppChannelManager');
+        const enviado = await WhatsAppChannelManager.sendMessage(supabase, channel.id, clientPhone, payload.mensagem);
+        const enviouComSucesso = enviado === true || (typeof enviado === 'string' && !enviado.startsWith('ERROR:'));
+
         if (conv) {
             await supabase.from('wa_messages').insert({
                 conversation_id: conv.id,
+                empresa_id: empresaId,
                 direction: 'outbound',
                 content: payload.mensagem,
-                status: 'delivered'
+                status: enviouComSucesso ? 'delivered' : 'failed',
+                message_id: typeof enviado === 'string' ? enviado : null
             });
         }
 
-        const aiMsg = `Mensagem enviada com sucesso para **${payload.telefone}** no WhatsApp!`;
+        const aiMsg = enviouComSucesso
+            ? `Mensagem enviada com sucesso para **${payload.telefone}** no WhatsApp!`
+            : `Não foi possível enviar a mensagem para **${payload.telefone}**. Verifique se o WhatsApp está ligado.`;
         if (conversaId) {
             await supabase.from('mensagens_ia').insert([
-              { conversa_id: conversaId, role: 'user', content: `Envia WhatsApp para ${payload.telefone}.` },
-              { conversa_id: conversaId, role: 'ai', content: aiMsg }
+              { conversa_id: conversaId, empresa_id: empresaId, role: 'user', content: `Envia WhatsApp para ${payload.telefone}.` },
+              { conversa_id: conversaId, empresa_id: empresaId, role: 'ai', content: aiMsg }
             ]);
         }
-        return res.json({ success: true, response: aiMsg });
+        return res.json({ success: enviouComSucesso, response: aiMsg });
     }
 
     return res.status(400).json({ error: 'Unknown action' });
