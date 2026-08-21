@@ -24,6 +24,30 @@ export const supabase = createClient(supabaseUrl, supabaseServiceKey || supabase
     auth: { persistSession: false, autoRefreshToken: false }
 });
 
+// Diagnóstico de arranque: confirma (sem nunca imprimir o segredo) se a
+// SUPABASE_SERVICE_ROLE_KEY está mesmo configurada e se é de facto uma
+// chave "service_role" (e não a anon colada por engano na variável errada).
+function decodeJwtRole(token: string): string | null {
+    try {
+        const payload = token.split('.')[1];
+        const json = Buffer.from(payload.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8');
+        return JSON.parse(json).role || null;
+    } catch {
+        return null;
+    }
+}
+
+if (!supabaseServiceKey) {
+    console.warn('[Supabase] AVISO: SUPABASE_SERVICE_ROLE_KEY não está definida — o cliente admin está a usar a ANON KEY e fica sujeito a RLS. Writes de sistema (ex: conversas_ia) vão falhar.');
+} else {
+    const role = decodeJwtRole(supabaseServiceKey);
+    if (role !== 'service_role') {
+        console.warn(`[Supabase] AVISO: SUPABASE_SERVICE_ROLE_KEY está definida mas o token tem role="${role}" (esperado "service_role"). Provavelmente foi colada a chave errada (anon) nessa variável.`);
+    } else {
+        console.log('[Supabase] Cliente admin inicializado corretamente com SERVICE_ROLE_KEY (role=service_role).');
+    }
+}
+
 /**
  * Alias explícito para o cliente admin — torna o código mais legível.
  */
