@@ -1,12 +1,65 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import * as xlsx from 'xlsx';
+import path from 'path';
+import { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabase } from '../lib/supabaseClient';
 import { requireAuth } from '../middleware/authMiddleware';
+import { PdfService } from '../services/PdfService';
 import OpenAI from 'openai';
 
 const router = Router();
 const upload = multer({ dest: 'uploads/' });
+
+async function buildStats(supabase: SupabaseClient, empresa_id?: number) {
+    // HR Stats
+    const { count: hrCount } = await supabase.from('colaboradores').select('*', { count: 'exact', head: true }).eq('estado', 'Ativo').eq('empresa_id', empresa_id);
+    const { data: hrData } = await supabase.from('colaboradores').select('salario_base').eq('estado', 'Ativo').eq('empresa_id', empresa_id);
+    const hrSalaries = hrData?.reduce((acc: number, curr: any) => acc + (Number(curr.salario_base) || 0), 0) || 0;
+
+    // CRM Stats
+    const { count: leadsCount } = await supabase.from('negocios').select('*', { count: 'exact', head: true }).eq('fase', 'Nova Lead').eq('empresa_id', empresa_id);
+
+    const { data: wonDeals } = await supabase.from('negocios').select('valor_estimado').eq('fase', 'Ganho').eq('empresa_id', empresa_id);
+    const wonTotal = wonDeals?.reduce((acc: number, curr: any) => acc + (Number(curr.valor_estimado) || 0), 0) || 0;
+
+    const { data: activeDeals } = await supabase.from('negocios').select('valor_estimado').neq('fase', 'Ganho').neq('fase', 'Perdido').eq('empresa_id', empresa_id);
+    const activeTotal = activeDeals?.reduce((acc: number, curr: any) => acc + (Number(curr.valor_estimado) || 0), 0) || 0;
+
+    const { count: totalClients } = await supabase.from('clientes').select('*', { count: 'exact', head: true }).eq('empresa_id', empresa_id);
+
+    // CRM Funnel
+    const { data: funnelData } = await supabase.from('negocios').select('fase').eq('empresa_id', empresa_id);
+    const funnelMap: Record<string, number> = {};
+    funnelData?.forEach((d: any) => {
+        funnelMap[d.fase] = (funnelMap[d.fase] || 0) + 1;
+    });
+    const funnel = Object.keys(funnelMap).map(key => ({ name: key, value: funnelMap[key] }));
+
+    // HR Departments
+    const { data: deptData } = await supabase.from('colaboradores').select('departamento').eq('estado', 'Ativo').eq('empresa_id', empresa_id);
+    const deptMap: Record<string, number> = {};
+    deptData?.forEach((d: any) => {
+        const dept = d.departamento || 'Geral';
+        deptMap[dept] = (deptMap[dept] || 0) + 1;
+    });
+    const deptStats = Object.keys(deptMap).map(key => ({ name: key, value: deptMap[key] }));
+
+    return {
+        hr: {
+            active_employees: hrCount || 0,
+            monthly_payroll: hrSalaries || 0,
+            departments: deptStats
+        },
+        crm: {
+            total_clients: totalClients || 0,
+            active_leads: leadsCount || 0,
+            won_value: wonTotal || 0,
+            active_value: activeTotal || 0,
+            funnel: funnel
+        }
+    };
+}
 
 const getOpenAI = async (req: Request): Promise<OpenAI> => {
     const supabase = getSupabase(req);
@@ -30,61 +83,27 @@ const getOpenAI = async (req: Request): Promise<OpenAI> => {
 router.get('/stats', requireAuth, async (req: Request, res: Response) => {
     try {
         const supabase = getSupabase(req);
-
         const empresa_id = (req as any).user?.empresa_id;
-        // HR Stats
-        const { count: hrCount } = await supabase.from('colaboradores').select('*', { count: 'exact', head: true }).eq('estado', 'Ativo').eq('empresa_id', empresa_id);
-        const { data: hrData } = await supabase.from('colaboradores').select('salario_base').eq('estado', 'Ativo').eq('empresa_id', empresa_id);
-        const hrSalaries = hrData?.reduce((acc: number, curr: any) => acc + (Number(curr.salario_base) || 0), 0) || 0;
-        
-        // CRM Stats
-        const { count: leadsCount } = await supabase.from('negocios').select('*', { count: 'exact', head: true }).eq('fase', 'Nova Lead').eq('empresa_id', empresa_id);
-        
-        const { data: wonDeals } = await supabase.from('negocios').select('valor_estimado').eq('fase', 'Ganho').eq('empresa_id', empresa_id);
-        const wonTotal = wonDeals?.reduce((acc: number, curr: any) => acc + (Number(curr.valor_estimado) || 0), 0) || 0;
-        
-        const { data: activeDeals } = await supabase.from('negocios').select('valor_estimado').neq('fase', 'Ganho').neq('fase', 'Perdido').eq('empresa_id', empresa_id);
-        const activeTotal = activeDeals?.reduce((acc: number, curr: any) => acc + (Number(curr.valor_estimado) || 0), 0) || 0;
-        
-        const { count: totalClients } = await supabase.from('clientes').select('*', { count: 'exact', head: true }).eq('empresa_id', empresa_id);
-
-        // CRM Funnel
-        const { data: funnelData } = await supabase.from('negocios').select('fase').eq('empresa_id', empresa_id);
-        const funnelMap: Record<string, number> = {};
-        funnelData?.forEach((d: any) => {
-            funnelMap[d.fase] = (funnelMap[d.fase] || 0) + 1;
-        });
-        const funnel = Object.keys(funnelMap).map(key => ({ name: key, value: funnelMap[key] }));
-
-        // HR Departments
-        const { data: deptData } = await supabase.from('colaboradores').select('departamento').eq('estado', 'Ativo').eq('empresa_id', empresa_id);
-        const deptMap: Record<string, number> = {};
-        deptData?.forEach((d: any) => {
-            const dept = d.departamento || 'Geral';
-            deptMap[dept] = (deptMap[dept] || 0) + 1;
-        });
-        const deptStats = Object.keys(deptMap).map(key => ({ name: key, value: deptMap[key] }));
-
-        return res.json({
-            success: true,
-            stats: {
-                hr: {
-                    active_employees: hrCount || 0,
-                    monthly_payroll: hrSalaries || 0,
-                    departments: deptStats
-                },
-                crm: {
-                    total_clients: totalClients || 0,
-                    active_leads: leadsCount || 0,
-                    won_value: wonTotal || 0,
-                    active_value: activeTotal || 0,
-                    funnel: funnel
-                }
-            }
-        });
+        const stats = await buildStats(supabase, empresa_id);
+        return res.json({ success: true, stats });
     } catch (error) {
         console.error("Error fetching data stats:", error);
         return res.status(500).json({ error: 'Erro ao buscar estatísticas.' });
+    }
+});
+
+// GET /api/data/report/pdf - Gerar relatório de desempenho do negócio em PDF
+router.get('/report/pdf', requireAuth, async (req: Request, res: Response) => {
+    try {
+        const supabase = getSupabase(req);
+        const empresa_id = (req as any).user?.empresa_id;
+        const stats = await buildStats(supabase, empresa_id);
+        const pdfPath = await PdfService.gerarRelatorioNegocio(stats, empresa_id);
+        const fileName = path.basename(pdfPath);
+        return res.json({ success: true, pdf_path: '/tmp/' + fileName });
+    } catch (error: any) {
+        console.error("Error generating report PDF:", error);
+        return res.status(500).json({ error: 'Erro ao gerar PDF do relatório.', details: error.message });
     }
 });
 

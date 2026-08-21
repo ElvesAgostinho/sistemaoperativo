@@ -36,22 +36,26 @@ export class PdfService {
         }
     }
     
-    public static async gerarReciboVencimento(
-        nomeFuncionario: string, 
-        nif: string, 
-        mesAno: string, 
-        dadosSalariais: SalarioResult,
-        empresaId?: number
-    ): Promise<string> {
+    private static async getCompanyConfig(empresaId?: number): Promise<Record<string, string>> {
         let query = supabase.from('configuracoes_sistema').select('chave, valor');
         if (empresaId) {
             query = query.eq('empresa_id', empresaId);
         } else {
             query = query.is('empresa_id', null);
         }
-        
+
         const { data: configs } = await query;
-        const confMap = (configs || []).reduce((acc: any, c: any) => ({...acc, [c.chave]: c.valor}), {});
+        return (configs || []).reduce((acc: any, c: any) => ({...acc, [c.chave]: c.valor}), {});
+    }
+
+    public static async gerarReciboVencimento(
+        nomeFuncionario: string,
+        nif: string,
+        mesAno: string,
+        dadosSalariais: SalarioResult,
+        empresaId?: number
+    ): Promise<string> {
+        const confMap = await PdfService.getCompanyConfig(empresaId);
 
         return new Promise((resolve, reject) => {
             try {
@@ -135,6 +139,131 @@ export class PdfService {
 
                 doc.fillColor('#adb5bd').fontSize(9).font('Helvetica');
                 doc.text('Documento processado validamente por BusinessOS | Emissão Automática', 50, doc.page.height - 70, { align: 'center' });
+
+                doc.end();
+
+                stream.on('finish', () => resolve(filePath));
+                stream.on('error', (err) => reject(err));
+
+            } catch (error) {
+                reject(error);
+            }
+        });
+    }
+
+    public static async gerarRelatorioNegocio(
+        stats: {
+            hr: { active_employees: number; monthly_payroll: number; departments: { name: string; value: number }[] };
+            crm: { total_clients: number; active_leads: number; won_value: number; active_value: number; funnel: { name: string; value: number }[] };
+        },
+        empresaId?: number
+    ): Promise<string> {
+        const confMap = await PdfService.getCompanyConfig(empresaId);
+
+        return new Promise((resolve, reject) => {
+            try {
+                const doc = new PDFDocument({ margin: 50 });
+                const fileName = `Relatorio_Negocio_${Date.now()}.pdf`;
+                const filePath = path.join(__dirname, '..', '..', 'tmp', fileName);
+
+                const dir = path.dirname(filePath);
+                if (!fs.existsSync(dir)) {
+                    fs.mkdirSync(dir, { recursive: true });
+                }
+
+                const stream = fs.createWriteStream(filePath);
+                doc.pipe(stream);
+
+                if (confMap['COMPANY_LOGO_BASE64']) {
+                    PdfService.applyCompanyLogo(doc, confMap['COMPANY_LOGO_BASE64'], confMap['COMPANY_LOGO_POSITION'] || 'top-left');
+                }
+
+                const companyName = confMap['COMPANY_NAME'] || 'BUSINESS OS, LDA';
+                const companyNif = confMap['COMPANY_NIF'] || '5000000000';
+                const companyAddress = confMap['COMPANY_ADDRESS'] || 'Luanda, Angola';
+                const companyPhone = confMap['COMPANY_PHONE'] || '';
+
+                doc.rect(50, 40, doc.page.width - 100, 80).fill('#f8f9fa');
+                doc.strokeColor('#dee2e6').lineWidth(1).rect(50, 40, doc.page.width - 100, 80).stroke();
+
+                doc.fillColor('#212529').fontSize(22).font('Helvetica-Bold').text(companyName, 70, 55);
+                doc.fontSize(10).font('Helvetica').fillColor('#6c757d')
+                   .text(`${companyAddress} | NIF: ${companyNif} ${companyPhone ? '| Tel: ' + companyPhone : ''}`, 70, 80);
+
+                doc.fillColor('#017E84').fontSize(16).font('Helvetica-Bold').text('RELATÓRIO DE DESEMPENHO DO NEGÓCIO', 50, 140);
+                const agora = new Date();
+                doc.fontSize(10).font('Helvetica').fillColor('#495057')
+                   .text(`Gerado em ${agora.toLocaleDateString('pt-PT')} às ${agora.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}`, 50, 162);
+
+                doc.moveTo(50, 185).lineTo(doc.page.width - 50, 185).strokeColor('#dee2e6').lineWidth(2).stroke();
+
+                let y = 205;
+                doc.fillColor('#495057').fontSize(12).font('Helvetica-Bold').text('INDICADORES PRINCIPAIS', 50, y);
+                y += 22;
+
+                const kpis: [string, string][] = [
+                    ['Receita Ganha (CRM)', PdfService.formatCurrency(stats.crm.won_value)],
+                    ['Pipeline Ativo (CRM)', PdfService.formatCurrency(stats.crm.active_value)],
+                    ['Total de Clientes', String(stats.crm.total_clients)],
+                    ['Leads em Aberto', String(stats.crm.active_leads)],
+                    ['Colaboradores Ativos', String(stats.hr.active_employees)],
+                    ['Custo Salarial Mensal', PdfService.formatCurrency(stats.hr.monthly_payroll)],
+                ];
+
+                kpis.forEach(([label, value], i) => {
+                    const col = i % 2;
+                    const row = Math.floor(i / 2);
+                    const x = 50 + col * 260;
+                    const rowY = y + row * 34;
+                    doc.rect(x, rowY, 245, 28).fill('#f8f9fa').strokeColor('#e9ecef').lineWidth(1).stroke();
+                    doc.fillColor('#6c757d').fontSize(8).font('Helvetica-Bold').text(label.toUpperCase(), x + 10, rowY + 6);
+                    doc.fillColor('#212529').fontSize(12).font('Helvetica-Bold').text(value, x + 10, rowY + 15);
+                });
+
+                y = y + Math.ceil(kpis.length / 2) * 34 + 20;
+
+                doc.fillColor('#495057').fontSize(12).font('Helvetica-Bold').text('FUNIL DE VENDAS (CRM)', 50, y);
+                y += 22;
+                if (stats.crm.funnel.length === 0) {
+                    doc.font('Helvetica').fontSize(10).fillColor('#adb5bd').text('Sem negócios registados.', 50, y);
+                    y += 24;
+                } else {
+                    doc.rect(50, y, doc.page.width - 100, 22).fill('#e9ecef');
+                    doc.fillColor('#495057').fontSize(9).font('Helvetica-Bold');
+                    doc.text('FASE', 60, y + 6);
+                    doc.text('NEGÓCIOS', doc.page.width - 150, y + 6, { width: 90, align: 'right' });
+                    y += 22;
+                    doc.font('Helvetica').fontSize(10).fillColor('#212529');
+                    stats.crm.funnel.forEach(f => {
+                        doc.text(f.name, 60, y + 7);
+                        doc.text(String(f.value), doc.page.width - 150, y + 7, { width: 90, align: 'right' });
+                        doc.moveTo(50, y + 24).lineTo(doc.page.width - 50, y + 24).strokeColor('#f1f3f5').lineWidth(1).stroke();
+                        y += 24;
+                    });
+                }
+
+                y += 20;
+                doc.fillColor('#495057').fontSize(12).font('Helvetica-Bold').text('COLABORADORES POR DEPARTAMENTO', 50, y);
+                y += 22;
+                if (stats.hr.departments.length === 0) {
+                    doc.font('Helvetica').fontSize(10).fillColor('#adb5bd').text('Sem colaboradores registados.', 50, y);
+                } else {
+                    doc.rect(50, y, doc.page.width - 100, 22).fill('#e9ecef');
+                    doc.fillColor('#495057').fontSize(9).font('Helvetica-Bold');
+                    doc.text('DEPARTAMENTO', 60, y + 6);
+                    doc.text('COLABORADORES', doc.page.width - 170, y + 6, { width: 110, align: 'right' });
+                    y += 22;
+                    doc.font('Helvetica').fontSize(10).fillColor('#212529');
+                    stats.hr.departments.forEach(d => {
+                        doc.text(d.name, 60, y + 7);
+                        doc.text(String(d.value), doc.page.width - 170, y + 7, { width: 110, align: 'right' });
+                        doc.moveTo(50, y + 24).lineTo(doc.page.width - 50, y + 24).strokeColor('#f1f3f5').lineWidth(1).stroke();
+                        y += 24;
+                    });
+                }
+
+                doc.fillColor('#adb5bd').fontSize(9).font('Helvetica');
+                doc.text('Documento gerado automaticamente pelo BusinessOS', 50, doc.page.height - 50, { align: 'center' });
 
                 doc.end();
 

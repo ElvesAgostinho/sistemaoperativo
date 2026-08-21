@@ -1,0 +1,287 @@
+/* ============================================================
+   Estilo exclusivo do módulo de Relatórios — mesma linguagem visual
+   do módulo de Recursos Humanos (profissional, sóbrio, sem gradientes
+   nem glassmorphism). Scoped sob .reports-modern; não afeta outros
+   módulos.
+   ============================================================ */
+
+.reports-modern {
+  --rp-accent: #017E84;
+  --rp-accent-hover: #016368;
+  --rp-accent-soft: #E3F3F1;
+  --rp-ink: #16211F;
+  --rp-ink-muted: #5B6B67;
+  --rp-ink-faint: #8B9B97;
+  --rp-canvas: #F5F8F7;
+  --rp-surface: #FFFFFF;
+  --rp-border: #E2E8E6;
+  --rp-border-soft: #EDF2F1;
+  --rp-good: #1F7A45;
+  --rp-bad: #B23A3A;
+  --rp-shadow-card: 0 1px 2px rgba(22,33,31,0.04), 0 6px 20px rgba(22,33,31,0.06);
+  --rp-shadow-pop: 0 12px 32px rgba(22,33,31,0.16);
+  --rp-font-display: 'Manrope', 'Segoe UI', system-ui, sans-serif;
+  --rp-font-body: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  --rp-font-mono: 'IBM Plex Mono', 'Consolas', monospace;
+
+  font-family: var(--rp-font-body);
+  color: var(--rp-ink);
+  background: var(--rp-canvas);
+  height: 100%;
+  width: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 28px 32px 60px;
+}
+.reports-modern * { box-sizing: border-box; }
+.reports-modern h1, .reports-modern h2, .reports-modern h3, .reports-modern h4 {
+  font-family: var(--rp-font-display);
+  margin: 0;
+}
+
+/* ---------- Cabeçalho ---------- */
+.rp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 28px;
+}
+.rp-header h1 {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin-bottom: 4px;
+}
+.rp-header p {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--rp-ink-muted);
+}
+.rp-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.rp-live {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--rp-ink-muted);
+  padding: 8px 12px;
+  background: var(--rp-surface);
+  border: 1px solid var(--rp-border);
+  border-radius: 10px;
+}
+.rp-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--rp-good);
+  box-shadow: 0 0 0 0 rgba(31,122,69,0.5);
+  animation: rp-pulse 2s infinite;
+}
+@keyframes rp-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(31,122,69,0.45); }
+  70% { box-shadow: 0 0 0 6px rgba(31,122,69,0); }
+  100% { box-shadow: 0 0 0 0 rgba(31,122,69,0); }
+}
+.rp-btn {
+  font-family: var(--rp-font-body);
+  font-weight: 600;
+  font-size: 13px;
+  padding: 9px 15px;
+  border-radius: 10px;
+  border: 1px solid var(--rp-border);
+  background: var(--rp-surface);
+  color: var(--rp-ink);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: border-color 0.15s, transform 0.1s;
+}
+.rp-btn:hover { border-color: var(--rp-accent); transform: translateY(-1px); }
+.rp-btn:disabled { opacity: 0.6; cursor: wait; transform: none; }
+.rp-btn-primary {
+  background: var(--rp-accent);
+  border-color: var(--rp-accent);
+  color: white;
+}
+.rp-btn-primary:hover { background: var(--rp-accent-hover); border-color: var(--rp-accent-hover); }
+
+/* ---------- KPIs ---------- */
+.rp-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.rp-kpi-card {
+  background: var(--rp-surface);
+  border: 1px solid var(--rp-border);
+  border-radius: 14px;
+  padding: 18px 20px;
+  box-shadow: var(--rp-shadow-card);
+}
+.rp-kpi-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--rp-accent-soft);
+  color: var(--rp-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+.rp-kpi-value {
+  font-family: var(--rp-font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--rp-ink);
+  margin-bottom: 4px;
+  letter-spacing: -0.01em;
+}
+.rp-kpi-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--rp-ink-faint);
+}
+
+/* ---------- Cartões de gráfico / secções ---------- */
+.rp-panel {
+  background: var(--rp-surface);
+  border: 1px solid var(--rp-border);
+  border-radius: 16px;
+  box-shadow: var(--rp-shadow-card);
+  padding: 24px;
+}
+.rp-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 20px;
+  color: var(--rp-ink);
+}
+.rp-panel-title .rp-panel-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--rp-accent-soft);
+  color: var(--rp-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.rp-charts-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.rp-charts-row .rp-panel:first-child { flex: 2 1 440px; min-width: 0; }
+.rp-charts-row .rp-panel:last-child { flex: 1 1 300px; min-width: 0; }
+.rp-empty-chart {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--rp-ink-faint);
+  font-size: 13.5px;
+}
+
+/* ---------- Insights de IA ---------- */
+.rp-upload-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--rp-canvas);
+  border: 1px solid var(--rp-border);
+  border-radius: 10px;
+  font-size: 12.5px;
+  color: var(--rp-ink);
+}
+.rp-upload-chip button {
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--rp-ink-faint);
+  display: flex;
+}
+.rp-insight-card {
+  background: var(--rp-surface);
+  border: 1px solid var(--rp-border);
+  border-radius: 14px;
+  padding: 22px;
+  box-shadow: var(--rp-shadow-card);
+}
+.rp-insight-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.rp-insight-date {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: var(--rp-canvas);
+  border-radius: 20px;
+  font-size: 12px;
+  color: var(--rp-ink-muted);
+}
+.rp-insight-box {
+  flex: 1 1 320px;
+  background: var(--rp-canvas);
+  border: 1px solid var(--rp-border-soft);
+  border-radius: 12px;
+  padding: 18px;
+}
+.rp-insight-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--rp-ink-faint);
+  margin-bottom: 10px;
+}
+.rp-insight-action {
+  margin-top: 18px;
+  padding: 14px 16px;
+  background: var(--rp-accent-soft);
+  border-left: 3px solid var(--rp-accent);
+  border-radius: 8px;
+  font-size: 13.5px;
+  color: var(--rp-ink);
+}
+.rp-empty-state {
+  text-align: center;
+  padding: 50px 20px;
+  color: var(--rp-ink-muted);
+}
+.rp-empty-state-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--rp-canvas);
+  border: 1px solid var(--rp-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 18px;
+  color: var(--rp-ink-faint);
+}
