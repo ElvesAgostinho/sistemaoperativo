@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { Zap, Plus, Trash2, PanelLeftClose, PanelLeftOpen, Pencil, Check, X } from 'lucide-react';
+import { Zap, Plus, Trash2, PanelLeftClose, PanelLeftOpen, Pencil, Check, X, HelpCircle } from 'lucide-react';
 import AutomationCanvas from './automation/AutomationCanvas';
+import HelpGuide from './automation/HelpGuide';
 import { createBlankAutomationGraph, type Automation, type AutomationEdge, type AutomationNode } from './automation/types';
 
 export default function AutomationApp() {
@@ -13,6 +14,7 @@ export default function AutomationApp() {
   const [editingValue, setEditingValue] = useState('');
   const [isRenaming, setIsRenaming] = useState(false);
   const renameInputRef = useRef<HTMLInputElement>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const authHeaders = () => {
     const token = localStorage.getItem('os_auth_token');
@@ -178,9 +180,18 @@ export default function AutomationApp() {
         transition: 'width 0.18s ease'
       }}>
         <div style={{ padding: '20px', borderBottom: '1px solid var(--odoo-border)', minWidth: '300px' }}>
-          <h2 style={{ margin: 0, fontSize: '18px', color: '#1a1a1a', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Zap size={20} color="#0078D4" /> Autopilot
-          </h2>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+            <h2 style={{ margin: 0, fontSize: '18px', color: '#1a1a1a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Zap size={20} color="#0078D4" /> Autopilot
+            </h2>
+            <button
+              onClick={() => setHelpOpen(true)}
+              title="Manual — como construir um fluxo"
+              style={{ display: 'flex', alignItems: 'center', gap: '5px', background: '#f0f9ff', border: '1px solid #bae6fd', color: '#0369a1', borderRadius: '6px', padding: '5px 9px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}
+            >
+              <HelpCircle size={13} /> Ajuda
+            </button>
+          </div>
           <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#666' }}>Construtor Visual de Automações</p>
         </div>
 
@@ -313,6 +324,8 @@ export default function AutomationApp() {
           </div>
         )}
       </div>
+
+      {helpOpen && <HelpGuide onClose={() => setHelpOpen(false)} />}
 
     </div>
   );
