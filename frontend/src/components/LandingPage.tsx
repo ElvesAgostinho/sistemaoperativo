@@ -3,6 +3,7 @@ import {
   ArrowRight, Shield, Zap, Sparkles, CheckCircle2, Users, Briefcase, MessageCircle, PieChart,
   Share2, Bot, BookOpen, Mail, Video, Calculator, Play
 } from 'lucide-react';
+import { LogoMark } from './BrandLogo';
 import '../styles/landing.css';
 
 // Para adicionar o vídeo de um cliente: cole aqui o ID do vídeo do YouTube
@@ -41,7 +42,7 @@ export default function LandingPage({ onGoToApp }: { onGoToApp: () => void }) {
       <nav className="lp-nav">
         <div className="lp-nav-inner">
           <div className="lp-logo">
-            <div className="lp-logo-mark"><Sparkles size={16} /></div>
+            <LogoMark size={32} />
             BusinessOS
           </div>
           <div className="lp-nav-links">

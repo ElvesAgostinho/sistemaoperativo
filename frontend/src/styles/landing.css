@@ -43,7 +43,6 @@
 }
 .lp-nav-inner { max-width: 1180px; margin: 0 auto; padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
 .lp-logo { display: flex; align-items: center; gap: 10px; font-family: var(--lp-font-display); font-weight: 800; font-size: 17px; }
-.lp-logo-mark { width: 32px; height: 32px; border-radius: 9px; background: var(--lp-accent); display: flex; align-items: center; justify-content: center; color: white; flex-shrink: 0; }
 .lp-nav-links { display: flex; align-items: center; gap: 28px; font-size: 13.5px; font-weight: 600; color: var(--lp-ink-muted); }
 .lp-nav-links a { text-decoration: none; }
 .lp-nav-links a:hover { color: var(--lp-accent); }
