@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { MessageSquare, Phone, MoreVertical, Search, Paperclip, Smile, Send, Bot, Settings, QrCode, Key, Plus, UserPlus, ClipboardList, Filter, Check, CheckCheck, Clock, AlertCircle } from 'lucide-react';
+import { MessageSquare, Phone, MoreVertical, Search, Paperclip, Smile, Send, Bot, Settings, QrCode, Key, Plus, UserPlus, ClipboardList, Filter, Check, CheckCheck, Clock, AlertCircle, Users } from 'lucide-react';
 import EmojiPicker from 'emoji-picker-react';
 import { createClient } from '@supabase/supabase-js';
+import WhatsAppGruposApp from './WhatsAppGruposApp';
 
 // FIX #5 — Supabase client para Realtime (usa as mesmas variáveis de ambiente)
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://lmxuixmmrglrqxjrhpgn.supabase.co';
@@ -111,8 +112,8 @@ export default function WhatsAppChatApp() {
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     
-    // View state: 'chats' ou 'settings'
-    const [currentView, setCurrentView] = useState<'chats' | 'settings'>('chats');
+    // View state: 'chats', 'groups' ou 'settings'
+    const [currentView, setCurrentView] = useState<'chats' | 'settings' | 'groups'>('chats');
     
     // Evolution API Settings
     const [showQr, setShowQr] = useState(false);
@@ -622,9 +623,13 @@ export default function WhatsAppChatApp() {
         reader.readAsDataURL(file);
     };
 
+    if (currentView === 'groups') {
+        return <WhatsAppGruposApp onNavigate={setCurrentView} />;
+    }
+
     return (
         <div style={{ display: 'flex', height: '100%', width: '100%', backgroundColor: '#f0f2f5' }}>
-            
+
             <div style={{ width: '30%', minWidth: '300px', borderRight: '1px solid #d1d7db', display: 'flex', flexDirection: 'column', backgroundColor: 'white' }}>
                 <div style={{ padding: '10px 16px', backgroundColor: '#f0f2f5', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '59px', borderBottom: '1px solid #d1d7db' }}>
                     <div style={{ fontWeight: 600, color: '#111b21', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -632,6 +637,7 @@ export default function WhatsAppChatApp() {
                     </div>
                     <div style={{ display: 'flex', gap: '16px', color: '#54656f' }}>
                         <span title="Conversas"><MessageSquare size={20} style={{ cursor: 'pointer', color: currentView === 'chats' ? '#00a884' : '#54656f' }} onClick={() => setCurrentView('chats')} /></span>
+                        <span title="Grupos"><Users size={20} style={{ cursor: 'pointer', color: currentView === 'groups' ? '#00a884' : '#54656f' }} onClick={() => setCurrentView('groups')} /></span>
                         <span title="Configurações de Canais"><Settings size={20} style={{ cursor: 'pointer', color: currentView === 'settings' ? '#00a884' : '#54656f' }} onClick={() => setCurrentView('settings')} /></span>
                     </div>
                 </div>

@@ -77,9 +77,10 @@ export class WhatsAppChannelManager {
 
         const url = `${evolutionUrl}/message/sendText/${instanceName}`;
         
-        // Normalizar número
+        // Normalizar número (grupos usam o JID completo, ex: 12036xxxxx@g.us —
+        // não deve ser tratado como número de telefone)
         let formattedPhone = phone_number;
-        if (!formattedPhone.includes('@lid')) {
+        if (!formattedPhone.includes('@lid') && !formattedPhone.includes('@g.us')) {
             formattedPhone = formattedPhone.replace(/\D/g, '');
             if (formattedPhone.length === 9) {
                 const defaultCountry = process.env.DEFAULT_COUNTRY_CODE || '244';

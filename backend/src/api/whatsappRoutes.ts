@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { supabase, getSupabase } from '../lib/supabaseClient';
 import { requireAuth, AuthRequest } from '../middleware/authMiddleware';
 import { AutomationEngine } from '../services/AutomationEngine';
+import { WhatsAppGroupService } from '../services/WhatsAppGroupService';
 
 const router = Router();
 
@@ -98,7 +99,30 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                 // Ignorar mensagens enviadas por nós mesmos
                 if (!msg?.key) continue;
                 if (msg.key.fromMe) continue;
-                if (msg.key.remoteJid?.includes('@g.us')) continue;
+
+                if (msg.key.remoteJid?.includes('@g.us')) {
+                    try {
+                        const groupContent = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
+                        if (groupContent.trim()) {
+                            const instanceNameForGroup = body.instance || req.body?.instance;
+                            const { data: groupChannel } = await supabase.from('wa_channels').select('id')
+                                .eq('provider', 'evolution').filter('credentials->>instanceName', 'eq', instanceNameForGroup).maybeSingle();
+                            if (groupChannel?.id) {
+                                WhatsAppGroupService.handleIncomingMessage({
+                                    channelId: groupChannel.id,
+                                    groupJid: msg.key.remoteJid,
+                                    senderJid: msg.key.participant || msg.participant || msg.key.remoteJid,
+                                    senderName: msg.pushName || '',
+                                    content: groupContent,
+                                    messageId: msg.key.id,
+                                }).catch(err => console.error('[Webhook Evolution] Erro no processamento de mensagem de grupo:', err));
+                            }
+                        }
+                    } catch (e) {
+                        console.error('[Webhook Evolution] Erro ao processar mensagem de grupo:', e);
+                    }
+                    continue;
+                }
 
                 // FIX #1 — Extrair número limpo (sem @lid, sem @s.whatsapp.net)
                 let realJid = msg.key.remoteJidAlt || msg.key.remoteJid;
@@ -1188,6 +1212,155 @@ router.get('/bot-status/:telefone', requireAuth, async (req: Request, res: Respo
         const { data: client } = await getSupabase(req).from('clientes').select('bot_paused').eq('telefone', telefone).single();
         res.json({ success: true, paused: client ? client.bot_paused === true : false });
     } catch(err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ==============================================================
+// GRUPOS DE WHATSAPP — resumo automático (IA) e resposta automática
+// a comentários de clientes em grupos de vendas.
+// ==============================================================
+
+// Descobrir grupos existentes na instância Evolution da empresa, e
+// cruzar com os que já estão registados (para mostrar o estado atual).
+router.get('/grupos/descobrir', requireAuth, async (req: AuthRequest, res: Response) => {
+    const empresaId = req.user?.empresa_id;
+    if (!empresaId) return res.status(400).json({ error: 'Empresa não encontrada' });
+    const instanceName = `SISTEMA_EMP_${empresaId}`;
+    const apiUrl = process.env.EVOLUTION_API_URL || 'https://evolution.topconsultores.pt';
+    const apiKey = process.env.AUTHENTICATION_API_KEY || '';
+
+    try {
+        const { data: channel } = await getSupabase(req).from('wa_channels').select('id')
+            .eq('provider', 'evolution').eq('empresa_id', empresaId).maybeSingle();
+        if (!channel) return res.status(400).json({ error: 'Nenhum canal Evolution ligado. Ligue o WhatsApp primeiro.' });
+
+        const evoRes = await fetch(`${apiUrl}/group/fetchAllGroups/${instanceName}?getParticipants=false`, {
+            headers: { 'apikey': apiKey }
+        });
+        if (!evoRes.ok) return res.status(502).json({ error: 'Não foi possível obter os grupos da Evolution API.' });
+        const evoGroups: any[] = await evoRes.json();
+
+        const { data: registados } = await getSupabase(req).from('wa_grupos').select('*').eq('channel_id', channel.id);
+        const registadosPorJid = new Map((registados || []).map((g: any) => [g.group_jid, g]));
+
+        const grupos = (evoGroups || []).map((g: any) => {
+            const registro = registadosPorJid.get(g.id);
+            return {
+                group_jid: g.id,
+                nome: g.subject || g.id,
+                membros: g.size || 0,
+                registado: !!registro,
+                config: registro || null,
+            };
+        });
+
+        res.json({ success: true, channel_id: channel.id, grupos });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.post('/grupos', requireAuth, async (req: AuthRequest, res: Response) => {
+    const empresaId = req.user?.empresa_id;
+    if (!empresaId) return res.status(400).json({ error: 'Empresa não encontrada' });
+    const { channel_id, group_jid, nome } = req.body;
+    if (!channel_id || !group_jid || !nome) return res.status(400).json({ error: 'Dados em falta.' });
+
+    try {
+        const { data, error } = await getSupabase(req).from('wa_grupos').insert({
+            empresa_id: empresaId, channel_id, group_jid, nome, monitorizar: true,
+        }).select('*').single();
+        if (error) throw error;
+        res.json({ success: true, grupo: data });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.get('/grupos', requireAuth, async (req: AuthRequest, res: Response) => {
+    try {
+        const { data: grupos, error } = await getSupabase(req).from('wa_grupos').select('*').order('criado_em', { ascending: false });
+        if (error) throw error;
+
+        const comStats = await Promise.all((grupos || []).map(async (g: any) => {
+            const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+            const { count } = await getSupabase(req).from('wa_grupo_mensagens').select('*', { count: 'exact', head: true })
+                .eq('grupo_id', g.id).gte('criado_em', hoje.toISOString());
+            const { data: ultima } = await getSupabase(req).from('wa_grupo_mensagens').select('criado_em')
+                .eq('grupo_id', g.id).order('criado_em', { ascending: false }).limit(1).maybeSingle();
+            return { ...g, mensagens_hoje: count || 0, ultima_mensagem_em: ultima?.criado_em || null };
+        }));
+
+        res.json({ success: true, grupos: comStats });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.put('/grupos/:id', requireAuth, async (req: AuthRequest, res: Response) => {
+    try {
+        const { contexto_negocio, monitorizar, resposta_automatica_ativa, cooldown_min, respostas_max_hora, nome } = req.body;
+        const updates: any = {};
+        if (contexto_negocio !== undefined) updates.contexto_negocio = contexto_negocio;
+        if (monitorizar !== undefined) updates.monitorizar = monitorizar;
+        if (resposta_automatica_ativa !== undefined) updates.resposta_automatica_ativa = resposta_automatica_ativa;
+        if (cooldown_min !== undefined) updates.cooldown_min = cooldown_min;
+        if (respostas_max_hora !== undefined) updates.respostas_max_hora = respostas_max_hora;
+        if (nome !== undefined) updates.nome = nome;
+
+        const { data, error } = await getSupabase(req).from('wa_grupos').update(updates).eq('id', req.params.id).select('*').single();
+        if (error) throw error;
+        res.json({ success: true, grupo: data });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.delete('/grupos/:id', requireAuth, async (req: AuthRequest, res: Response) => {
+    try {
+        const { error } = await getSupabase(req).from('wa_grupos').delete().eq('id', req.params.id);
+        if (error) throw error;
+        res.json({ success: true });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.get('/grupos/:id/mensagens', requireAuth, async (req: AuthRequest, res: Response) => {
+    try {
+        const limit = Math.min(Number(req.query.limit) || 100, 300);
+        const { data, error } = await getSupabase(req).from('wa_grupo_mensagens').select('*')
+            .eq('grupo_id', req.params.id).order('criado_em', { ascending: false }).limit(limit);
+        if (error) throw error;
+        res.json({ success: true, mensagens: (data || []).reverse() });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.get('/grupos/:id/resumos', requireAuth, async (req: AuthRequest, res: Response) => {
+    try {
+        const { data, error } = await getSupabase(req).from('wa_grupo_resumos').select('*')
+            .eq('grupo_id', req.params.id).order('criado_em', { ascending: false }).limit(30);
+        if (error) throw error;
+        res.json({ success: true, resumos: data || [] });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.post('/grupos/:id/resumir', requireAuth, async (req: AuthRequest, res: Response) => {
+    const empresaId = req.user?.empresa_id;
+    if (!empresaId) return res.status(400).json({ error: 'Empresa não encontrada' });
+    try {
+        const { data: grupo } = await getSupabase(req).from('wa_grupos').select('id, empresa_id').eq('id', req.params.id).maybeSingle();
+        if (!grupo) return res.status(404).json({ error: 'Grupo não encontrado.' });
+
+        const horas = Number(req.body?.horas) || 24;
+        const resumo = await WhatsAppGroupService.gerarResumo(grupo.empresa_id, grupo.id, horas, getSupabase(req));
+        res.json({ success: true, resumo });
+    } catch (err: any) {
         res.status(500).json({ error: err.message });
     }
 });
