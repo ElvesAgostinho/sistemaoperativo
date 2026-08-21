@@ -51,9 +51,6 @@ export default function LandingPage({ onGoToApp }: { onGoToApp: () => void }) {
             <a href="#faq">FAQ</a>
           </div>
           <div className="lp-nav-actions">
-            <a href="https://SEU-DOMINIO-AQUI.com/downloads/OpenClaw_OS_Setup_1.0.0.exe" download className="lp-btn">
-              Baixar Windows
-            </a>
             <button className="lp-btn lp-btn-primary" onClick={onGoToApp}>
               Aceder ao Sistema
             </button>

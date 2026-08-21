@@ -227,6 +227,15 @@ router.post('/login', async (req: Request, res: Response) => {
         return res.status(403).json({ error: 'Conta desactivada. Contacte o administrador.' });
     }
 
+    // Nenhum dos 3 métodos acima seleciona avatar_url (RPC tem colunas fixas, os outros
+    // dois usam uma lista explícita de colunas) — buscamos à parte para não se perder a
+    // cada login, sem arriscar mexer na função SECURITY DEFINER às cegas.
+    try {
+        const userClient = makeUserClient(data.session.access_token);
+        const { data: avatarRow } = await userClient.from('perfis').select('avatar_url').eq('id', userId).maybeSingle();
+        if (avatarRow) perfil.avatar_url = avatarRow.avatar_url;
+    } catch (e) {}
+
     return processLogin(res, data, perfil, email);
 });
 

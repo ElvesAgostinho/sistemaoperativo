@@ -186,8 +186,11 @@ function App() {
             const newModules = JSON.stringify(data.user.modulos_contratados);
             
             if (prevModules !== newModules || user.role !== data.user.role || user.nome !== data.user.nome) {
-              setUser(data.user);
-              localStorage.setItem('os_auth_user', JSON.stringify(data.user));
+              // Mescla em vez de substituir por completo: se este endpoint alguma vez
+              // deixar de devolver um campo (ex: avatar_url), não apaga o que já tínhamos.
+              const mergedUser = { ...user, ...data.user };
+              setUser(mergedUser);
+              localStorage.setItem('os_auth_user', JSON.stringify(mergedUser));
               
               // Se o módulo ativo deixar de ser permitido, volta silenciosamente para o Home
               let companyModules = data.user.modulos_contratados || [];
