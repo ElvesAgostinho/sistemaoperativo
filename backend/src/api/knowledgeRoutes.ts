@@ -4,6 +4,8 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
+import { getSupabase } from '../lib/supabaseClient';
+import { KnowledgeBaseService } from '../services/KnowledgeBaseService';
 
 const router = Router();
 
@@ -50,15 +52,35 @@ router.get('/', requireAuth, (req, res) => {
     }
 });
 
-router.post('/upload', requireAuth, upload.single('file'), (req, res) => {
+router.post('/upload', requireAuth, upload.single('file'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'Nenhum ficheiro enviado' });
-    res.json({ success: true, message: 'Ficheiro guardado com sucesso!' });
+
+    const empresaId = (req as any).user?.empresa_id;
+    let message = 'Ficheiro guardado com sucesso!';
+
+    try {
+        const supabase = getSupabase(req);
+        const { chunks } = await KnowledgeBaseService.indexFile(empresaId, req.file.filename, req.file.path, supabase);
+        message = `Ficheiro guardado e indexado (${chunks} trecho(s)) — já disponível para a IA usar nas respostas.`;
+    } catch (err: any) {
+        console.error('[knowledgeRoutes] Erro ao indexar ficheiro para RAG:', err);
+        message = 'Ficheiro guardado, mas a indexação para a IA falhou (' + err.message + '). A IA pode não conseguir usar este documento ainda.';
+    }
+
+    res.json({ success: true, message });
 });
 
-router.delete('/:filename', requireAuth, (req, res) => {
+router.delete('/:filename', requireAuth, async (req, res) => {
     try {
         const tenantDir = getTenantDir(req);
         const filePath = path.join(tenantDir, req.params.filename);
+
+        const empresaId = (req as any).user?.empresa_id;
+        const supabase = getSupabase(req);
+        await KnowledgeBaseService.deleteFileChunks(empresaId, req.params.filename, supabase).catch(err => {
+            console.error('[knowledgeRoutes] Erro ao apagar chunks indexados:', err);
+        });
+
         if (fs.existsSync(filePath)) {
             fs.unlinkSync(filePath);
             res.json({ success: true, message: 'Apagado com sucesso' });

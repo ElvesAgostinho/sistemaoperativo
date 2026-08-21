@@ -1,4 +1,6 @@
 import { CrmService } from './CrmService';
+import { KnowledgeBaseService } from './KnowledgeBaseService';
+import OpenAI from 'openai';
 import { supabase } from '../lib/supabaseClient'; // Service role client
 
 export interface WhatsAppMessage {
@@ -397,7 +399,9 @@ export class AutomationEngine {
                 try {
                     if (canal === 'whatsapp') {
                         const { WhatsAppChannelManager } = require('./WhatsAppChannelManager');
-                        const { data: channel } = await supabase.from('wa_channels').select('id').limit(1).single();
+                        const { data: channel } = empresa_id
+                            ? await supabase.from('wa_channels').select('id').eq('empresa_id', empresa_id).limit(1).single()
+                            : { data: null }; // sem empresa_id não há como escolher um canal em segurança — nunca usar "o primeiro canal da tabela toda" (vazamento cross-tenant)
                         if (channel) await WhatsAppChannelManager.sendMessage(supabase, channel.id, destinatario, mensagem);
                     } else {
                         const { EmailService } = require('./EmailService');
@@ -433,7 +437,9 @@ export class AutomationEngine {
                         const { WhatsAppChannelManager } = require('./WhatsAppChannelManager');
                         let finalChannel = waChannelId;
                         if (!finalChannel) {
-                            const { data: channel } = await supabase.from('wa_channels').select('id').limit(1).single();
+                            const { data: channel } = empresa_id
+                            ? await supabase.from('wa_channels').select('id').eq('empresa_id', empresa_id).limit(1).single()
+                            : { data: null }; // sem empresa_id não há como escolher um canal em segurança — nunca usar "o primeiro canal da tabela toda" (vazamento cross-tenant)
                             if (channel) finalChannel = channel.id;
                         }
                         if (finalChannel) {
@@ -443,6 +449,60 @@ export class AutomationEngine {
                     console.log(`[AUTOPILOT] HANDOFF_HUMAN: bot pausado para ${handoffPhone}`);
                 } catch (e) {
                     console.error('[AUTOPILOT] Erro em HANDOFF_HUMAN:', e);
+                }
+                break;
+            }
+
+            case 'AI_REPLY': {
+                // Resposta gerada por IA com contexto da Base de Conhecimento (RAG) —
+                // chamada direta e enxuta à OpenAI, não o loop completo do
+                // EnterpriseAssistantService (que tem tools de sistema de ficheiros,
+                // Excel, etc. — pesadas demais para uma resposta pontual num fluxo).
+                const aiPhone = this.parseString(config.telefone || config.phone || '{{telefone}}', context);
+                const aiPromptTemplate = this.parseString(config.prompt, context);
+
+                if (!aiPhone || !aiPromptTemplate) {
+                    console.error('[AUTOPILOT] AI_REPLY falhou: falta telefone ou prompt.');
+                    break;
+                }
+
+                try {
+                    const knowledgeContext = empresa_id
+                        ? await KnowledgeBaseService.searchAsContext(String(empresa_id), aiPromptTemplate, supabase, 5)
+                        : '';
+
+                    const systemPrompt = knowledgeContext
+                        ? `Você é um assistente de atendimento ao cliente via WhatsApp. Responda de forma direta, profissional e curta, usando APENAS as informações abaixo da Base de Conhecimento da empresa. Se a informação não estiver lá, diga que não tem essa informação em vez de inventar.\n\n=== BASE DE CONHECIMENTO ===\n${knowledgeContext}`
+                        : 'Você é um assistente de atendimento ao cliente via WhatsApp. Responda de forma direta, profissional e curta.';
+
+                    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+                    const completion = await client.chat.completions.create({
+                        model: 'gpt-4o-mini',
+                        messages: [
+                            { role: 'system', content: systemPrompt },
+                            { role: 'user', content: aiPromptTemplate }
+                        ]
+                    });
+
+                    const aiText = completion.choices[0]?.message?.content;
+                    if (aiText) {
+                        context['ai_response'] = aiText;
+                        const waChannelId = config.channel_id || context['channel_id'];
+                        const { WhatsAppChannelManager } = require('./WhatsAppChannelManager');
+                        let finalChannel = waChannelId;
+                        if (!finalChannel) {
+                            const { data: channel } = empresa_id
+                                ? await supabase.from('wa_channels').select('id').eq('empresa_id', empresa_id).limit(1).single()
+                                : { data: null };
+                            if (channel) finalChannel = channel.id;
+                        }
+                        if (finalChannel) {
+                            await WhatsAppChannelManager.sendMessage(supabase, finalChannel, aiPhone, aiText);
+                            console.log(`[AUTOPILOT] AI_REPLY enviado para ${aiPhone}`);
+                        }
+                    }
+                } catch (e) {
+                    console.error('[AUTOPILOT] Erro em AI_REPLY:', e);
                 }
                 break;
             }
@@ -498,7 +558,9 @@ export class AutomationEngine {
                         const { WhatsAppChannelManager } = require('./WhatsAppChannelManager');
                         let finalChannel = waChannelId;
                         if (!finalChannel) {
-                            const { data: channel } = await supabase.from('wa_channels').select('id').limit(1).single();
+                            const { data: channel } = empresa_id
+                            ? await supabase.from('wa_channels').select('id').eq('empresa_id', empresa_id).limit(1).single()
+                            : { data: null }; // sem empresa_id não há como escolher um canal em segurança — nunca usar "o primeiro canal da tabela toda" (vazamento cross-tenant)
                             if (channel) finalChannel = channel.id;
                         }
 
@@ -545,7 +607,9 @@ export class AutomationEngine {
                     const { WhatsAppChannelManager } = require('./WhatsAppChannelManager');
                     let finalChannel = mediaChannelId;
                     if (!finalChannel) {
-                        const { data: channel } = await supabase.from('wa_channels').select('id').limit(1).single();
+                        const { data: channel } = empresa_id
+                            ? await supabase.from('wa_channels').select('id').eq('empresa_id', empresa_id).limit(1).single()
+                            : { data: null }; // sem empresa_id não há como escolher um canal em segurança — nunca usar "o primeiro canal da tabela toda" (vazamento cross-tenant)
                         if (channel) finalChannel = channel.id;
                     }
 

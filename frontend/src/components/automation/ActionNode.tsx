@@ -1,5 +1,5 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react';
-import { Database, MessageCircle, FileText, Image, Play, Send, Mail, Clock, ArrowRightLeft, GitCommit, Tag, TagX, ListPlus, Globe, BellRing, Headset } from 'lucide-react';
+import { Database, MessageCircle, FileText, Image, Play, Send, Mail, Clock, ArrowRightLeft, GitCommit, Tag, TagX, ListPlus, Globe, BellRing, Headset, Bot } from 'lucide-react';
 import { ACTION_LABELS, type ActionNodeData } from './types';
 import NodeDeleteButton from './NodeDeleteButton';
 
@@ -19,6 +19,7 @@ function renderIcon(actionType: string) {
   if (actionType === 'EXTERNAL_REQUEST') return <Globe size={15} color="#7c3aed" />;
   if (actionType === 'NOTIFY_TEAM') return <BellRing size={15} color="#f59e0b" />;
   if (actionType === 'HANDOFF_HUMAN') return <Headset size={15} color="#e11d48" />;
+  if (actionType === 'AI_REPLY') return <Bot size={15} color="#059669" />;
   return <GitCommit size={15} color="#6366f1" />;
 }
 
@@ -38,6 +39,7 @@ function summarize(d: ActionNodeData): string {
     case 'EXTERNAL_REQUEST': return c.url ? `${c.method || 'GET'} ${c.url}` : '(sem URL)';
     case 'NOTIFY_TEAM': return c.destinatario || '(sem destinatário)';
     case 'HANDOFF_HUMAN': return 'Pausa o bot para este cliente';
+    case 'AI_REPLY': return c.prompt || '(sem prompt)';
     default: return '';
   }
 }

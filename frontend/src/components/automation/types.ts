@@ -4,7 +4,7 @@ export type ActionType =
   | 'CREATE_CLIENT' | 'CREATE_LEAD' | 'SEND_EMAIL' | 'REPLY_MESSAGE'
   | 'SEND_IMAGE' | 'SEND_VIDEO' | 'SEND_AUDIO' | 'SEND_DOCUMENT'
   | 'DELAY' | 'JUMP_TO_WORKFLOW' | 'LOG_MESSAGE'
-  | 'ADD_TAG' | 'REMOVE_TAG' | 'SET_CUSTOM_FIELD' | 'EXTERNAL_REQUEST' | 'NOTIFY_TEAM' | 'HANDOFF_HUMAN';
+  | 'ADD_TAG' | 'REMOVE_TAG' | 'SET_CUSTOM_FIELD' | 'EXTERNAL_REQUEST' | 'NOTIFY_TEAM' | 'HANDOFF_HUMAN' | 'AI_REPLY';
 
 export interface TriggerNodeData {
   triggerKind: 'whatsapp_message' | 'webhook_generic';
@@ -75,7 +75,8 @@ export const ACTION_LABELS: Record<ActionType, string> = {
   SET_CUSTOM_FIELD: 'Definir Campo Personalizado',
   EXTERNAL_REQUEST: 'Requisição Externa (API)',
   NOTIFY_TEAM: 'Notificar Equipa',
-  HANDOFF_HUMAN: 'Transferir para Humano'
+  HANDOFF_HUMAN: 'Transferir para Humano',
+  AI_REPLY: 'Responder com IA (Base de Conhecimento)'
 };
 
 let idCounter = 0;

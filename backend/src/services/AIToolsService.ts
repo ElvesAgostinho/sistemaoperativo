@@ -180,12 +180,13 @@ export const aiTools = [
         type: "function" as const,
         function: {
             name: "pesquisar_base_conhecimento",
-            description: "Pesquisa por uma palavra-chave ou lê todos os ficheiros da Base de Conhecimento da empresa (regras, FAQs, políticas). Use esta ferramenta para obter contexto antes de responder a perguntas sobre a empresa.",
+            description: "Faz busca semântica (por significado, não só palavra exata) nos documentos da Base de Conhecimento da empresa (regras, FAQs, políticas). Use esta ferramenta SEMPRE que a pergunta do utilizador puder estar coberta por documentos internos da empresa, antes de responder.",
             parameters: {
                 type: "object",
                 properties: {
-                    query: { type: "string", description: "Palavra-chave a pesquisar. Deixe vazio para ler os primeiros 3 documentos." }
-                }
+                    query: { type: "string", description: "A pergunta ou tema a pesquisar, em linguagem natural (ex: 'qual o horário de atendimento', 'política de devolução')." }
+                },
+                required: ["query"]
             }
         }
     },
@@ -554,37 +555,13 @@ export async function executeAITool(name: string, args: any, empresaId?: number)
             return JSON.stringify({ status: 'error', error: error.message });
         }
     } else if (name === 'pesquisar_base_conhecimento') {
-        const fs = require('fs');
-        const path = require('path');
-        const os = require('os');
         try {
             if (!empresaId) return JSON.stringify({ status: 'error', error: 'empresaId não fornecido.' });
-            const baseDir = path.join(process.cwd(), 'Empresa_Arquivos', empresaId.toString(), 'Base_Conhecimento');
-            if (!fs.existsSync(baseDir)) {
-                return JSON.stringify({ status: 'error', error: 'Pasta Base_Conhecimento não encontrada.' });
-            }
-            
-            const files = fs.readdirSync(baseDir).filter((f: string) => f.endsWith('.txt') || f.endsWith('.md') || f.endsWith('.pdf'));
-            let contentResult = '';
-            
-            for (const file of files.slice(0, 5)) {
-                const targetPath = path.join(baseDir, file);
-                const ext = path.extname(file).toLowerCase();
-                if (ext === '.txt' || ext === '.md') {
-                    const content = fs.readFileSync(targetPath, 'utf8');
-                    if (!args.query || content.toLowerCase().includes(args.query.toLowerCase())) {
-                        contentResult += `\n--- Ficheiro: ${file} ---\n${content.substring(0, 5000)}\n`;
-                    }
-                } else if (ext === '.pdf') {
-                    const pdfParse = require('pdf-parse');
-                    const data = await pdfParse(fs.readFileSync(targetPath));
-                    if (!args.query || data.text.toLowerCase().includes(args.query.toLowerCase())) {
-                        contentResult += `\n--- Ficheiro: ${file} ---\n${data.text.substring(0, 5000)}\n`;
-                    }
-                }
-            }
-            
-            if (!contentResult) return JSON.stringify({ status: 'success', message: 'Nenhuma informação relevante encontrada.' });
+            const { KnowledgeBaseService } = require('./KnowledgeBaseService');
+            const query = args.query || '';
+            const contentResult = await KnowledgeBaseService.searchAsContext(String(empresaId), query, supabase, 5);
+
+            if (!contentResult) return JSON.stringify({ status: 'success', message: 'Nenhuma informação relevante encontrada na Base de Conhecimento.' });
             return JSON.stringify({ status: 'success', data: contentResult });
         } catch (error: any) {
             return JSON.stringify({ status: 'error', error: error.message });

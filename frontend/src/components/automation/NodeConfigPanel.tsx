@@ -370,6 +370,18 @@ export default function NodeConfigPanel({ node, automations, currentAutomationId
             </>
           )}
 
+          {d.actionType === 'AI_REPLY' && (
+            <>
+              <label style={labelStyle}>Telefone (opcional, padrão é quem enviou)</label>
+              <input style={fieldStyle} type="text" value={config.telefone || ''} onChange={e => updateConfig({ telefone: e.target.value })} placeholder="{{telefone}}" />
+              <label style={labelStyle}>Pergunta / instrução para a IA</label>
+              <textarea style={{ ...fieldStyle, resize: 'vertical' }} rows={3} value={config.prompt || ''} onChange={e => updateConfig({ prompt: e.target.value })} placeholder="{{mensagem}}" />
+              <div style={{ marginTop: '10px', fontSize: '11px', color: '#666' }}>
+                A resposta é gerada com base nos documentos da Base de Conhecimento da empresa (busca semântica automática) — se nada relevante for encontrado, a IA responde com conhecimento geral.
+              </div>
+            </>
+          )}
+
           {d.actionType === 'LOG_MESSAGE' && (
             <>
               <label style={labelStyle}>Mensagem de Log</label>

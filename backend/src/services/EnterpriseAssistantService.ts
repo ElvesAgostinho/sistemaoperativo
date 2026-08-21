@@ -20,6 +20,7 @@ export class EnterpriseAssistantService {
         // 2. Gravar mensagem do user
         await supabase.from('mensagens_ia').insert({
             conversa_id: currentConversaId,
+            empresa_id: empresaId || null,
             role: 'user',
             content: prompt
         });
@@ -91,7 +92,8 @@ export class EnterpriseAssistantService {
 
                 === REGRA PRINCIPAL ===
                 Sempre que o utilizador perguntar por dados, GERA LOGO UMA QUERY (consultar_db) para ver os dados reais antes de responder.
-                Responde sempre em Português de Angola de forma direta, profissional e orientada à ação.` 
+                Sempre que a pergunta puder estar coberta por documentos internos da empresa (políticas, FAQs, horários, preços, procedimentos, regras), usa SEMPRE a ferramenta 'pesquisar_base_conhecimento' ANTES de responder, mesmo que já pareças saber a resposta — a base de conhecimento tem prioridade sobre o teu conhecimento geral. Se a busca não devolver nada relevante, diz isso ao utilizador em vez de inventar.
+                Responde sempre em Português de Angola de forma direta, profissional e orientada à ação.`
             }
         ];
 
@@ -137,6 +139,7 @@ export class EnterpriseAssistantService {
             // Guarda a intenção de usar tools
             await supabase.from('mensagens_ia').insert({
                 conversa_id: currentConversaId,
+                empresa_id: empresaId || null,
                 role: 'ai',
                 content: choice.message.content || '',
                 tool_calls: JSON.stringify(choice.message.tool_calls)
@@ -152,6 +155,7 @@ export class EnterpriseAssistantService {
                 // Grava a resposta da tool
                 await supabase.from('mensagens_ia').insert({
                     conversa_id: currentConversaId,
+                    empresa_id: empresaId || null,
                     role: 'tool',
                     content: toolResponse,
                     tool_call_id: tc.id,
@@ -212,6 +216,7 @@ export class EnterpriseAssistantService {
         if (choice.message.content) {
             await supabase.from('mensagens_ia').insert({
                 conversa_id: currentConversaId,
+                empresa_id: empresaId || null,
                 role: 'ai',
                 content: choice.message.content || ''
             });

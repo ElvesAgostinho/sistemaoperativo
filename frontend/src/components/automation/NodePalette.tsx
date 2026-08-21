@@ -1,6 +1,6 @@
 import {
   GitBranch, Database, Mail, Send, Image, Play, Volume2, FileText, Clock, ArrowRightLeft,
-  CheckCircle, ListChecks, GripVertical, Tag, TagX, ListPlus, Globe, BellRing, Headset
+  CheckCircle, ListChecks, GripVertical, Tag, TagX, ListPlus, Globe, BellRing, Headset, Bot
 } from 'lucide-react';
 import { createDefaultMenuOption, type ActionType, type AutomationNode } from './types';
 
@@ -53,6 +53,7 @@ const PALETTE_GROUPS: PaletteGroup[] = [
     title: 'MENSAGENS',
     items: [
       actionItem('Responder WhatsApp', <Send size={14} />, 'REPLY_MESSAGE'),
+      actionItem('Responder com IA', <Bot size={14} />, 'AI_REPLY', '#059669'),
       actionItem('Enviar Imagem', <Image size={14} />, 'SEND_IMAGE'),
       actionItem('Enviar Vídeo', <Play size={14} />, 'SEND_VIDEO'),
       actionItem('Enviar Áudio', <Volume2 size={14} />, 'SEND_AUDIO'),
