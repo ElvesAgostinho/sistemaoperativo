@@ -111,18 +111,11 @@ export class EnterpriseAssistantService {
             messages.push(msg);
         }
 
-        // 4. Chamar OpenClaw (VPS)
-        // Redirecionamos o SDK da OpenAI para o OpenClaw, usando o baseURL e apiKey da VPS
-        const vpsUrl = process.env.OPENCLAW_VPS_URL || 'http://187.124.218.242';
-        const ip = vpsUrl.replace(/^https?:\/\//, '').split(':')[0];
-        
-        const client = new OpenAI({ 
-            baseURL: process.env.OPENAI_BASE_URL || `http://${ip}:18789/v1`,
-            apiKey: process.env.OPENAI_API_KEY || 'admin123'
-        });
+        // 4. Chamar a OpenAI diretamente (o OpenClaw/VPS deixou de estar disponível)
+        const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
         let result = await client.chat.completions.create({
-            model: 'openclaw/default',
+            model: 'gpt-4o-mini',
             messages,
             tools: aiTools
         });
@@ -204,7 +197,7 @@ export class EnterpriseAssistantService {
             }
 
             result = await client.chat.completions.create({
-                model: 'openclaw/default',
+                model: 'gpt-4o-mini',
                 messages: updatedMessages,
                 tools: aiTools
             });
