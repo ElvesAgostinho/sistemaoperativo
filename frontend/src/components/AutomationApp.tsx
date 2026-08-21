@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Zap, Plus, Trash2, PanelLeftClose, PanelLeftOpen, Pencil, Check, X, HelpCircle } from 'lucide-react';
+import { Zap, Plus, Trash2, PanelLeftClose, PanelLeftOpen, Pencil, Check, X, HelpCircle, AlertTriangle } from 'lucide-react';
 import AutomationCanvas from './automation/AutomationCanvas';
 import HelpGuide from './automation/HelpGuide';
 import { createBlankAutomationGraph, type Automation, type AutomationEdge, type AutomationNode } from './automation/types';
@@ -42,6 +42,16 @@ export default function AutomationApp() {
   }, []);
 
   const selectedAuto = automations.find(a => a.id === selectedId) || null;
+
+  // Uma automação ativa com gatilho "qualquer mensagem" do WhatsApp intercepta
+  // TUDO antes do Assistente IA (incluindo o Agendamento, se estiver ativo) ter
+  // oportunidade de responder — a maioria das vezes isto acontece sem o dono se
+  // aperceber, por isso avisamos aqui mesmo antes de acontecer.
+  const catchAllAutomations = automations.filter(a =>
+    a.ativo && a.nodes?.some((n: AutomationNode) =>
+      n.type === 'trigger' && n.data?.triggerKind === 'whatsapp_message' && n.data?.matchMode === 'any'
+    )
+  );
 
   const selectAutomation = (id: number) => {
     setSelectedId(id);
@@ -309,6 +319,22 @@ export default function AutomationApp() {
 
       {/* Main Area - Canvas Visual */}
       <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
+        {catchAllAutomations.length > 0 && (
+          <div style={{
+            position: 'absolute', top: 12, left: sidebarOpen ? 56 : 62, right: 12, zIndex: 15,
+            background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: '8px',
+            padding: '10px 14px', display: 'flex', alignItems: 'flex-start', gap: '10px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.06)', fontSize: '12.5px', color: '#92400e'
+          }}>
+            <AlertTriangle size={16} color="#d97706" style={{ flexShrink: 0, marginTop: '1px' }} />
+            <div>
+              <strong>{catchAllAutomations.map(a => `"${a.nome}"`).join(', ')}</strong> responde a "qualquer mensagem" do
+              WhatsApp e está ativa — isso intercepta as conversas antes do Assistente IA (Base de Conhecimento,
+              Agendamento, etc.) ter oportunidade de responder. Se quiser que a IA também consiga responder,
+              restrinja o gatilho a palavras-chave específicas ou desative esta automação.
+            </div>
+          </div>
+        )}
         {selectedAuto ? (
           <AutomationCanvas
             key={selectedAuto.id}
