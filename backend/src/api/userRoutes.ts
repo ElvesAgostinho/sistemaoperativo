@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
+import fs from 'fs';
 import { supabase, getSupabase } from '../lib/supabaseClient';
 import { requireAuth, AuthRequest } from '../middleware/authMiddleware';
 
@@ -13,13 +14,33 @@ const upload = multer({
     }
 });
 
-// Atualizar a foto de perfil do próprio utilizador autenticado
+// Atualizar a foto de perfil do próprio utilizador autenticado.
+// Sobe para o Supabase Storage (bucket público, já usado para média do
+// WhatsApp) em vez de ficar no disco local do backend — o disco local não
+// sobrevive a um redeploy/restart do container, o que fazia a foto
+// "desaparecer" sempre que o servidor reiniciava, mesmo com a base de
+// dados a apontar corretamente para o ficheiro.
 router.post('/me/avatar', requireAuth, upload.single('avatar'), async (req: AuthRequest, res: Response) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'Nenhuma imagem recebida.' });
         if (!req.user?.id) return res.status(401).json({ error: 'Não autenticado.' });
 
-        const avatarUrl = '/tmp/' + req.file.filename;
+        const buffer = fs.readFileSync(req.file.path);
+        const ext = (req.file.originalname.match(/\.[a-zA-Z0-9]+$/)?.[0] || '.jpg').toLowerCase();
+        const storagePath = `avatars/${req.user.id}_${Date.now()}${ext}`;
+
+        const { error: uploadError } = await supabase.storage
+            .from('whatsapp-media')
+            .upload(storagePath, buffer, { contentType: req.file.mimetype, upsert: false });
+
+        fs.unlink(req.file.path, () => {});
+
+        if (uploadError) return res.status(500).json({ error: 'Falha ao guardar a imagem: ' + uploadError.message });
+
+        const { data: urlData } = supabase.storage.from('whatsapp-media').getPublicUrl(storagePath);
+        const avatarUrl = urlData?.publicUrl;
+        if (!avatarUrl) return res.status(500).json({ error: 'Não foi possível gerar o link da imagem.' });
+
         const { error } = await getSupabase(req).from('perfis').update({ avatar_url: avatarUrl }).eq('id', req.user.id);
         if (error) return res.status(500).json({ error: error.message });
 
