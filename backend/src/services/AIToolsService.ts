@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabaseClient';
 import { LocalAgentSandbox } from './LocalAgentSandbox';
 import { ReuniaoService } from './ReuniaoService';
 
-const pesquisarBaseConhecimentoTool = {
+export const pesquisarBaseConhecimentoTool = {
     type: "function" as const,
     function: {
         name: "pesquisar_base_conhecimento",
@@ -22,7 +22,7 @@ const pesquisarBaseConhecimentoTool = {
 // para marcar/consultar/remarcar/cancelar diretamente na conversa,
 // sem nunca precisar de enviar um link ao cliente.
 // ============================================================
-const agendamentoTools = [
+export const agendamentoTools = [
     {
         type: "function" as const,
         function: {

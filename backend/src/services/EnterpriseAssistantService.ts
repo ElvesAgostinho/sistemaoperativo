@@ -1,14 +1,34 @@
 import OpenAI from 'openai';
 import { supabase } from '../lib/supabaseClient'; // Service role client
-import { aiTools, whatsappCustomerTools, executeAITool, WhatsAppToolContext } from './AIToolsService';
+import { aiTools, whatsappCustomerTools, pesquisarBaseConhecimentoTool, executeAITool, WhatsAppToolContext } from './AIToolsService';
 
 const WHATSAPP_CUSTOMER_ROLE = 'cliente (WhatsApp)';
+
+async function empresaTemAgendamentoLicenciado(empresaId?: number): Promise<boolean> {
+    if (!empresaId) return false;
+    try {
+        const { data: row } = await supabase.from('configuracoes')
+            .select('valor').eq('empresa_id', empresaId).eq('chave', 'modulos_empresa').maybeSingle();
+        if (!row?.valor) return false;
+        const modulos = JSON.parse(row.valor);
+        return Array.isArray(modulos) && modulos.includes('agendamento');
+    } catch {
+        return false;
+    }
+}
 
 export class EnterpriseAssistantService {
     static async chat(userId: string, userRole: string, prompt: string, conversaId?: number, empresaId?: number, whatsappContext?: WhatsAppToolContext) {
         let currentConversaId = conversaId;
         const isWhatsAppCustomer = userRole === WHATSAPP_CUSTOMER_ROLE;
-        const toolsForThisChat = isWhatsAppCustomer ? whatsappCustomerTools : aiTools;
+        // O Agendamento é um módulo pago à parte — só disponibilizamos as
+        // ferramentas de marcação ao Assistente IA do WhatsApp se a empresa
+        // tiver mesmo esse módulo licenciado (evita dar de graça a quem não
+        // contratou, mesmo que já tenha o WhatsApp ligado).
+        const hasAgendamento = isWhatsAppCustomer && await empresaTemAgendamentoLicenciado(empresaId);
+        const toolsForThisChat = isWhatsAppCustomer
+            ? (hasAgendamento ? whatsappCustomerTools : [pesquisarBaseConhecimentoTool])
+            : aiTools;
 
         // 1. Setup DB conversation if not exists
         if (!currentConversaId) {
@@ -44,18 +64,18 @@ export class EnterpriseAssistantService {
 
 === O QUE PODES FAZER ===
 - Responder a perguntas sobre a empresa usando 'pesquisar_base_conhecimento' (horários, políticas, preços, etc.).
-- Marcar, consultar, remarcar e cancelar agendamentos diretamente na conversa, usando as ferramentas de agendamento.
+${hasAgendamento ? `- Marcar, consultar, remarcar e cancelar agendamentos diretamente na conversa, usando as ferramentas de agendamento.
 
 === COMO MARCAR UMA MARCAÇÃO ===
 1. Se não souberes o serviço exato que o cliente quer, usa 'listar_servicos_agendamento' para veres as opções.
 2. Usa SEMPRE 'verificar_disponibilidade_agendamento' antes de propor ou confirmar qualquer horário — nunca inventes horários.
 3. Confirma com o cliente o serviço, dia, hora e o nome dele antes de chamar 'criar_agendamento_whatsapp'.
 4. Para cancelar ou remarcar, usa primeiro 'listar_minhas_marcacoes_agendamento' para saberes o ID certo, e confirma com o cliente antes de agir.
-5. NUNCA envies um link — todo o processo de marcação acontece aqui na conversa.
+5. NUNCA envies um link — todo o processo de marcação acontece aqui na conversa.` : ''}
 
 === REGRAS ===
-- Não tens acesso a ficheiros, base de dados livre, CRM interno ou outras ferramentas administrativas — usa apenas as ferramentas de agendamento e de base de conhecimento.
-- Se a pergunta não estiver coberta pela Base de Conhecimento nem for sobre agendamento, diz que vais encaminhar para um humano em vez de inventar.
+- Não tens acesso a ficheiros, base de dados livre, CRM interno ou outras ferramentas administrativas — usa apenas as ferramentas disponíveis acima.
+- Se a pergunta não estiver coberta pela Base de Conhecimento${hasAgendamento ? ' nem for sobre agendamento' : ''}, diz que vais encaminhar para um humano em vez de inventar.
 - Responde sempre em Português de Angola, de forma simpática, curta e direta — isto é uma conversa de WhatsApp, não um relatório.`;
 
         const messages: any[] = [

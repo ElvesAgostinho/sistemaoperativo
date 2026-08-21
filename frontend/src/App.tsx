@@ -387,7 +387,7 @@ function App() {
             >
               {user?.avatar_url ? (
                 <img
-                  src={`${import.meta.env.VITE_API_URL}${user.avatar_url}`}
+                  src={user.avatar_url}
                   alt="Foto de perfil"
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
