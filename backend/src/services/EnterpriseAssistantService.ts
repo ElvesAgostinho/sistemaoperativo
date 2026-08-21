@@ -1,10 +1,14 @@
 import OpenAI from 'openai';
 import { supabase } from '../lib/supabaseClient'; // Service role client
-import { aiTools, executeAITool } from './AIToolsService';
+import { aiTools, whatsappCustomerTools, executeAITool, WhatsAppToolContext } from './AIToolsService';
+
+const WHATSAPP_CUSTOMER_ROLE = 'cliente (WhatsApp)';
 
 export class EnterpriseAssistantService {
-    static async chat(userId: string, userRole: string, prompt: string, conversaId?: number, empresaId?: number) {
+    static async chat(userId: string, userRole: string, prompt: string, conversaId?: number, empresaId?: number, whatsappContext?: WhatsAppToolContext) {
         let currentConversaId = conversaId;
+        const isWhatsAppCustomer = userRole === WHATSAPP_CUSTOMER_ROLE;
+        const toolsForThisChat = isWhatsAppCustomer ? whatsappCustomerTools : aiTools;
 
         // 1. Setup DB conversation if not exists
         if (!currentConversaId) {
@@ -36,10 +40,28 @@ export class EnterpriseAssistantService {
         
         const { data: historyRows } = await historyQuery.order('id', { ascending: true });
 
+        const whatsappSystemPrompt = `Tu és o assistente de atendimento ao cliente da empresa, a falar diretamente pelo WhatsApp com ${whatsappContext?.nomeContato || 'um cliente'}.
+
+=== O QUE PODES FAZER ===
+- Responder a perguntas sobre a empresa usando 'pesquisar_base_conhecimento' (horários, políticas, preços, etc.).
+- Marcar, consultar, remarcar e cancelar agendamentos diretamente na conversa, usando as ferramentas de agendamento.
+
+=== COMO MARCAR UMA MARCAÇÃO ===
+1. Se não souberes o serviço exato que o cliente quer, usa 'listar_servicos_agendamento' para veres as opções.
+2. Usa SEMPRE 'verificar_disponibilidade_agendamento' antes de propor ou confirmar qualquer horário — nunca inventes horários.
+3. Confirma com o cliente o serviço, dia, hora e o nome dele antes de chamar 'criar_agendamento_whatsapp'.
+4. Para cancelar ou remarcar, usa primeiro 'listar_minhas_marcacoes_agendamento' para saberes o ID certo, e confirma com o cliente antes de agir.
+5. NUNCA envies um link — todo o processo de marcação acontece aqui na conversa.
+
+=== REGRAS ===
+- Não tens acesso a ficheiros, base de dados livre, CRM interno ou outras ferramentas administrativas — usa apenas as ferramentas de agendamento e de base de conhecimento.
+- Se a pergunta não estiver coberta pela Base de Conhecimento nem for sobre agendamento, diz que vais encaminhar para um humano em vez de inventar.
+- Responde sempre em Português de Angola, de forma simpática, curta e direta — isto é uma conversa de WhatsApp, não um relatório.`;
+
         const messages: any[] = [
-            { 
-                role: 'system', 
-                content: `Tu és o Assistente Operacional Empresarial da empresa (Nível 5 - BusinessOS).
+            {
+                role: 'system',
+                content: isWhatsAppCustomer ? whatsappSystemPrompt : `Tu és o Assistente Operacional Empresarial da empresa (Nível 5 - BusinessOS).
                 O teu objetivo NÃO é apenas responder perguntas. O teu objetivo é EXECUTAR trabalho real dentro da empresa, de forma segura, profissional e eficiente.
 
                 === MÓDULOS DISPONÍVEIS ===
@@ -117,7 +139,7 @@ export class EnterpriseAssistantService {
         let result = await client.chat.completions.create({
             model: 'gpt-4o-mini',
             messages,
-            tools: aiTools
+            tools: toolsForThisChat
         });
 
         let choice = result.choices[0];
@@ -143,7 +165,7 @@ export class EnterpriseAssistantService {
             for (const toolCall of choice.message.tool_calls) {
                 const tc = toolCall as any;
                 const args = JSON.parse(tc.function.arguments);
-                const toolResponse = await executeAITool(tc.function.name, args, empresaId);
+                const toolResponse = await executeAITool(tc.function.name, args, empresaId, whatsappContext);
                 
                 // Grava a resposta da tool
                 await supabase.from('mensagens_ia').insert({
@@ -199,7 +221,7 @@ export class EnterpriseAssistantService {
             result = await client.chat.completions.create({
                 model: 'gpt-4o-mini',
                 messages: updatedMessages,
-                tools: aiTools
+                tools: toolsForThisChat
             });
 
             choice = result.choices[0];

@@ -560,8 +560,22 @@ function LinkView({ empresaId }: { empresaId: string | null }) {
 
   return (
     <>
-      <div className="ag-content-head"><div><h2>Link de Marcação</h2><p>Partilhe este link com os seus clientes — no WhatsApp, Instagram ou onde preferir.</p></div></div>
+      <div className="ag-content-head"><div><h2>Link de Marcação</h2><p>Um extra opcional — a marcação automática já funciona sem link, diretamente pelo WhatsApp.</p></div></div>
+
+      <div className="ag-panel" style={{ background: 'var(--ag-gold-soft)', borderColor: 'var(--ag-gold)' }}>
+        <div className="ag-panel-title" style={{ marginBottom: '8px' }}>Como a marcação automática funciona hoje</div>
+        <p style={{ fontSize: '13px', color: 'var(--ag-ink)', lineHeight: 1.7, margin: 0 }}>
+          Quando um cliente escreve para o seu número de WhatsApp a pedir para marcar, o Assistente IA conduz a
+          conversa sozinho — mostra os serviços, verifica os horários realmente livres, confirma o nome e cria a
+          marcação ali mesmo no chat. O mesmo cliente também pode pedir para ver, remarcar ou cancelar as suas
+          marcações, sempre pela conversa. Não é enviado nenhum link a ninguém neste processo.
+          <br /><br />
+          Além disso, você (dono) pode sempre criar, cancelar ou remarcar marcações manualmente em "Marcações".
+        </p>
+      </div>
+
       <div className="ag-panel">
+        <div className="ag-panel-title" style={{ marginBottom: '8px' }}>Link opcional para partilhar</div>
         {!empresaId ? (
           <div className="ag-empty-state"><div className="ag-empty-state-icon"><LinkIcon size={20} /></div>Não foi possível determinar a sua empresa.</div>
         ) : (
@@ -573,7 +587,8 @@ function LinkView({ empresaId }: { empresaId: string | null }) {
               </button>
             </div>
             <p style={{ fontSize: '12.5px', color: 'var(--ag-ink-muted)', marginTop: '16px', lineHeight: 1.6 }}>
-              Quando um cliente marca por este link, o sistema mostra automaticamente só os horários realmente livres, cria a marcação e envia uma confirmação por WhatsApp (se tiver um número ligado no módulo WhatsApp).
+              Só é preciso se quiser publicar um link direto (ex: na bio do Instagram ou num site). O WhatsApp
+              não depende disto.
             </p>
           </>
         )}

@@ -102,7 +102,7 @@ export class AgendamentoService {
     public static async criarAgendamento(
         empresaId: string,
         dados: { servico_id: number; profissional_id?: number; cliente_nome: string; cliente_telefone: string; data: string; hora_inicio: string; notas?: string },
-        origem: 'manual' | 'cliente',
+        origem: 'manual' | 'cliente' | 'whatsapp',
         client: any = supabase
     ) {
         const { data: servico } = await client.from('agendamento_servicos')
@@ -111,7 +111,7 @@ export class AgendamentoService {
 
         const horaFim = addMinutes(dados.hora_inicio, servico.duracao_minutos);
 
-        if (origem === 'cliente') {
+        if (origem === 'cliente' || origem === 'whatsapp') {
             const { horarios } = await AgendamentoService.getDisponibilidade(empresaId, dados.servico_id, dados.data, dados.profissional_id, client);
             if (!horarios.includes(dados.hora_inicio)) {
                 throw new Error('Esse horário deixou de estar disponível. Por favor escolha outro.');
@@ -174,6 +174,71 @@ export class AgendamentoService {
             `Olá ${ag.cliente_nome}, a sua marcação de *${(ag as any).agendamento_servicos?.nome}* foi remarcada para o dia ${AgendamentoService.formatarData(novaData)} às ${novaHora}.`,
             client
         );
+    }
+
+    // ============================================================
+    // Variantes por telefone — usadas pelo Assistente IA do WhatsApp,
+    // onde não há sessão de staff (req) e a única identidade fiável é
+    // o próprio número que está a conversar. Nunca confiar num ID de
+    // marcação sem confirmar que pertence a este telefone + empresa —
+    // caso contrário um cliente poderia cancelar a marcação de outro.
+    // ============================================================
+    public static async listarAgendamentosPorTelefone(empresaId: string, telefone: string, client: any = supabase) {
+        const hoje = new Date().toISOString().slice(0, 10);
+        const { data, error } = await client.from('agendamentos')
+            .select('id, data, hora_inicio, estado, agendamento_servicos(nome), agendamento_profissionais(nome)')
+            .eq('empresa_id', empresaId).eq('cliente_telefone', telefone)
+            .neq('estado', 'Cancelado').gte('data', hoje)
+            .order('data', { ascending: true }).order('hora_inicio', { ascending: true });
+        if (error) throw error;
+        return (data || []).map((a: any) => ({
+            id: a.id, data: a.data, hora_inicio: String(a.hora_inicio).slice(0, 5), estado: a.estado,
+            servico_nome: a.agendamento_servicos?.nome, profissional_nome: a.agendamento_profissionais?.nome,
+        }));
+    }
+
+    private static async buscarAgendamentoDoTelefone(empresaId: string, telefone: string, id: number, client: any) {
+        const { data: ag } = await client.from('agendamentos').select('*, agendamento_servicos(nome, duracao_minutos)')
+            .eq('id', id).eq('empresa_id', empresaId).eq('cliente_telefone', telefone).maybeSingle();
+        return ag;
+    }
+
+    public static async cancelarAgendamentoPorTelefone(empresaId: string, telefone: string, id: number, client: any = supabase) {
+        const ag = await AgendamentoService.buscarAgendamentoDoTelefone(empresaId, telefone, id, client);
+        if (!ag) throw new Error('Marcação não encontrada para este número.');
+
+        const { error } = await client.from('agendamentos').update({ estado: 'Cancelado' }).eq('id', id);
+        if (error) throw error;
+
+        await AgendamentoService.notificarCliente(empresaId, telefone,
+            `A sua marcação de *${(ag as any).agendamento_servicos?.nome}* no dia ${AgendamentoService.formatarData(ag.data)} às ${String(ag.hora_inicio).slice(0, 5)} foi cancelada.`,
+            client
+        );
+        return ag;
+    }
+
+    public static async remarcarAgendamentoPorTelefone(empresaId: string, telefone: string, id: number, novaData: string, novaHora: string, client: any = supabase) {
+        const ag = await AgendamentoService.buscarAgendamentoDoTelefone(empresaId, telefone, id, client);
+        if (!ag) throw new Error('Marcação não encontrada para este número.');
+
+        const { horarios } = await AgendamentoService.getDisponibilidade(empresaId, ag.servico_id, novaData, ag.profissional_id || undefined, client);
+        if (!horarios.includes(novaHora)) {
+            throw new Error('Esse horário não está disponível. Escolha outro.');
+        }
+
+        const duracao = (ag as any).agendamento_servicos?.duracao_minutos || 30;
+        const novaHoraFim = addMinutes(novaHora, duracao);
+
+        const { error } = await client.from('agendamentos').update({
+            data: novaData, hora_inicio: novaHora, hora_fim: novaHoraFim, estado: 'Agendado'
+        }).eq('id', id);
+        if (error) throw error;
+
+        await AgendamentoService.notificarCliente(empresaId, telefone,
+            `A sua marcação de *${(ag as any).agendamento_servicos?.nome}* foi remarcada para o dia ${AgendamentoService.formatarData(novaData)} às ${novaHora}.`,
+            client
+        );
+        return ag;
     }
 
     public static async atualizarEstado(req: Request, id: number, estado: string) {

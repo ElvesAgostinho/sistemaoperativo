@@ -2,6 +2,109 @@ import { supabase } from '../lib/supabaseClient';
 import { LocalAgentSandbox } from './LocalAgentSandbox';
 import { ReuniaoService } from './ReuniaoService';
 
+const pesquisarBaseConhecimentoTool = {
+    type: "function" as const,
+    function: {
+        name: "pesquisar_base_conhecimento",
+        description: "Faz busca semântica (por significado, não só palavra exata) nos documentos da Base de Conhecimento da empresa (regras, FAQs, políticas). Use esta ferramenta SEMPRE que a pergunta do utilizador puder estar coberta por documentos internos da empresa, antes de responder.",
+        parameters: {
+            type: "object",
+            properties: {
+                query: { type: "string", description: "A pergunta ou tema a pesquisar, em linguagem natural (ex: 'qual o horário de atendimento', 'política de devolução')." }
+            },
+            required: ["query"]
+        }
+    }
+};
+
+// ============================================================
+// Ferramentas de Agendamento — usadas pelo Assistente IA do WhatsApp
+// para marcar/consultar/remarcar/cancelar diretamente na conversa,
+// sem nunca precisar de enviar um link ao cliente.
+// ============================================================
+const agendamentoTools = [
+    {
+        type: "function" as const,
+        function: {
+            name: "listar_servicos_agendamento",
+            description: "Lista os serviços que a empresa oferece para marcação (com duração e preço) e os profissionais disponíveis. Use isto quando o cliente perguntar o que a empresa oferece, ou antes de verificar disponibilidade se não souber o nome exato do serviço.",
+            parameters: { type: "object", properties: {} }
+        }
+    },
+    {
+        type: "function" as const,
+        function: {
+            name: "verificar_disponibilidade_agendamento",
+            description: "Verifica os horários realmente disponíveis para marcar um serviço num dia específico. Use SEMPRE antes de criar uma marcação, para propor horários reais ao cliente.",
+            parameters: {
+                type: "object",
+                properties: {
+                    servico_nome: { type: "string", description: "Nome do serviço (ex: 'Corte de Cabelo'). Use exatamente um nome devolvido por listar_servicos_agendamento." },
+                    data: { type: "string", description: "Data no formato YYYY-MM-DD." },
+                    profissional_nome: { type: "string", description: "Opcional. Nome do profissional preferido." }
+                },
+                required: ["servico_nome", "data"]
+            }
+        }
+    },
+    {
+        type: "function" as const,
+        function: {
+            name: "criar_agendamento_whatsapp",
+            description: "Cria a marcação para o cliente com quem está a conversar, num horário que já foi confirmado como disponível com verificar_disponibilidade_agendamento. NUNCA invente um horário — use sempre um que a ferramenta de disponibilidade tenha devolvido.",
+            parameters: {
+                type: "object",
+                properties: {
+                    servico_nome: { type: "string", description: "Nome do serviço, exatamente como devolvido por listar_servicos_agendamento." },
+                    data: { type: "string", description: "Data no formato YYYY-MM-DD." },
+                    hora_inicio: { type: "string", description: "Hora no formato HH:MM, um dos horários confirmados como disponíveis." },
+                    profissional_nome: { type: "string", description: "Opcional. Nome do profissional escolhido." },
+                    cliente_nome: { type: "string", description: "Nome do cliente para a marcação. Pergunte sempre se ainda não souber." }
+                },
+                required: ["servico_nome", "data", "hora_inicio", "cliente_nome"]
+            }
+        }
+    },
+    {
+        type: "function" as const,
+        function: {
+            name: "listar_minhas_marcacoes_agendamento",
+            description: "Lista as marcações futuras (ainda não canceladas) do cliente com quem está a conversar. Use antes de remarcar ou cancelar, para saber o ID correto, ou quando o cliente perguntar 'quais são as minhas marcações'.",
+            parameters: { type: "object", properties: {} }
+        }
+    },
+    {
+        type: "function" as const,
+        function: {
+            name: "cancelar_agendamento_whatsapp",
+            description: "Cancela uma marcação existente do cliente com quem está a conversar. Use listar_minhas_marcacoes_agendamento primeiro para confirmar qual marcação (ID) o cliente quer cancelar.",
+            parameters: {
+                type: "object",
+                properties: {
+                    agendamento_id: { type: "integer", description: "O ID da marcação a cancelar, obtido via listar_minhas_marcacoes_agendamento." }
+                },
+                required: ["agendamento_id"]
+            }
+        }
+    },
+    {
+        type: "function" as const,
+        function: {
+            name: "remarcar_agendamento_whatsapp",
+            description: "Remarca (muda a data/hora de) uma marcação existente do cliente com quem está a conversar, para um novo horário já confirmado como disponível com verificar_disponibilidade_agendamento.",
+            parameters: {
+                type: "object",
+                properties: {
+                    agendamento_id: { type: "integer", description: "O ID da marcação a remarcar, obtido via listar_minhas_marcacoes_agendamento." },
+                    nova_data: { type: "string", description: "Nova data no formato YYYY-MM-DD." },
+                    nova_hora: { type: "string", description: "Nova hora no formato HH:MM, confirmada como disponível." }
+                },
+                required: ["agendamento_id", "nova_data", "nova_hora"]
+            }
+        }
+    }
+];
+
 export const aiTools = [
     {
         type: "function" as const,
@@ -176,20 +279,7 @@ export const aiTools = [
             }
         }
     },
-    {
-        type: "function" as const,
-        function: {
-            name: "pesquisar_base_conhecimento",
-            description: "Faz busca semântica (por significado, não só palavra exata) nos documentos da Base de Conhecimento da empresa (regras, FAQs, políticas). Use esta ferramenta SEMPRE que a pergunta do utilizador puder estar coberta por documentos internos da empresa, antes de responder.",
-            parameters: {
-                type: "object",
-                properties: {
-                    query: { type: "string", description: "A pergunta ou tema a pesquisar, em linguagem natural (ex: 'qual o horário de atendimento', 'política de devolução')." }
-                },
-                required: ["query"]
-            }
-        }
-    },
+    pesquisarBaseConhecimentoTool,
     {
         type: "function" as const,
         function: {
@@ -386,10 +476,21 @@ export const aiTools = [
                 required: ["query"]
             }
         }
-    }
+    },
+    ...agendamentoTools
 ];
 
-export async function executeAITool(name: string, args: any, empresaId?: number) {
+// Subconjunto seguro de ferramentas exposto ao Assistente IA quando fala
+// com um cliente externo pelo WhatsApp — nunca dá acesso a ficheiros,
+// base de dados livre, CRM interno, etc.
+export const whatsappCustomerTools = [pesquisarBaseConhecimentoTool, ...agendamentoTools];
+
+export interface WhatsAppToolContext {
+    telefone: string;
+    nomeContato?: string;
+}
+
+export async function executeAITool(name: string, args: any, empresaId?: number, whatsappContext?: WhatsAppToolContext) {
     if (name === 'consultar_db') {
         return JSON.stringify({ error: "consultar_db não está ativo para query livre. O agente não deve executar SQL direto." });
     } else if (name === 'criar_funcionario_draft') {
@@ -713,10 +814,101 @@ export async function executeAITool(name: string, args: any, empresaId?: number)
             return JSON.stringify({ status: 'error', error: error.message });
         }
     } else if (name === 'pesquisar_web') {
-        return JSON.stringify({ 
-            status: 'info', 
-            message: `Pesquisa web por "${args.query}" — O módulo de navegação web está em modo de conhecimento interno.` 
+        return JSON.stringify({
+            status: 'info',
+            message: `Pesquisa web por "${args.query}" — O módulo de navegação web está em modo de conhecimento interno.`
         });
+    } else if (name === 'listar_servicos_agendamento') {
+        try {
+            if (!empresaId) return JSON.stringify({ status: 'error', error: 'empresaId não fornecido.' });
+            const { AgendamentoService } = require('./AgendamentoService');
+            const info = await AgendamentoService.getInfoPublica(String(empresaId));
+            return JSON.stringify({
+                status: 'success',
+                servicos: info.servicos.map((s: any) => ({ nome: s.nome, duracao_minutos: s.duracao_minutos, preco: s.preco })),
+                profissionais: info.profissionais.map((p: any) => p.nome),
+            });
+        } catch (error: any) {
+            return JSON.stringify({ status: 'error', error: error.message });
+        }
+    } else if (name === 'verificar_disponibilidade_agendamento') {
+        try {
+            if (!empresaId) return JSON.stringify({ status: 'error', error: 'empresaId não fornecido.' });
+            const { AgendamentoService } = require('./AgendamentoService');
+            const info = await AgendamentoService.getInfoPublica(String(empresaId));
+            const resolvido = resolverServicoEProfissional(info, args.servico_nome, args.profissional_nome);
+            if (!resolvido.servico) {
+                return JSON.stringify({ status: 'error', error: 'Serviço não encontrado.', servicos_disponiveis: info.servicos.map((s: any) => s.nome) });
+            }
+            const resultado = await AgendamentoService.getDisponibilidade(String(empresaId), resolvido.servico.id, args.data, resolvido.profissionalId, supabase);
+            return JSON.stringify({ status: 'success', servico_nome: resolvido.servico.nome, duracao_minutos: resolvido.servico.duracao_minutos, preco: resolvido.servico.preco, ...resultado });
+        } catch (error: any) {
+            return JSON.stringify({ status: 'error', error: error.message });
+        }
+    } else if (name === 'criar_agendamento_whatsapp') {
+        try {
+            if (!empresaId) return JSON.stringify({ status: 'error', error: 'empresaId não fornecido.' });
+            if (!whatsappContext?.telefone) return JSON.stringify({ status: 'error', error: 'Esta ferramenta só pode ser usada numa conversa de WhatsApp.' });
+            const { AgendamentoService } = require('./AgendamentoService');
+            const info = await AgendamentoService.getInfoPublica(String(empresaId));
+            const resolvido = resolverServicoEProfissional(info, args.servico_nome, args.profissional_nome);
+            if (!resolvido.servico) {
+                return JSON.stringify({ status: 'error', error: 'Serviço não encontrado.', servicos_disponiveis: info.servicos.map((s: any) => s.nome) });
+            }
+            const id = await AgendamentoService.criarAgendamento(String(empresaId), {
+                servico_id: resolvido.servico.id, profissional_id: resolvido.profissionalId,
+                cliente_nome: args.cliente_nome, cliente_telefone: whatsappContext.telefone,
+                data: args.data, hora_inicio: args.hora_inicio,
+            }, 'whatsapp', supabase);
+            return JSON.stringify({ status: 'success', message: 'Marcação criada com sucesso.', agendamento_id: id });
+        } catch (error: any) {
+            return JSON.stringify({ status: 'error', error: error.message });
+        }
+    } else if (name === 'listar_minhas_marcacoes_agendamento') {
+        try {
+            if (!empresaId) return JSON.stringify({ status: 'error', error: 'empresaId não fornecido.' });
+            if (!whatsappContext?.telefone) return JSON.stringify({ status: 'error', error: 'Esta ferramenta só pode ser usada numa conversa de WhatsApp.' });
+            const { AgendamentoService } = require('./AgendamentoService');
+            const marcacoes = await AgendamentoService.listarAgendamentosPorTelefone(String(empresaId), whatsappContext.telefone, supabase);
+            return JSON.stringify({ status: 'success', marcacoes });
+        } catch (error: any) {
+            return JSON.stringify({ status: 'error', error: error.message });
+        }
+    } else if (name === 'cancelar_agendamento_whatsapp') {
+        try {
+            if (!empresaId) return JSON.stringify({ status: 'error', error: 'empresaId não fornecido.' });
+            if (!whatsappContext?.telefone) return JSON.stringify({ status: 'error', error: 'Esta ferramenta só pode ser usada numa conversa de WhatsApp.' });
+            const { AgendamentoService } = require('./AgendamentoService');
+            await AgendamentoService.cancelarAgendamentoPorTelefone(String(empresaId), whatsappContext.telefone, Number(args.agendamento_id), supabase);
+            return JSON.stringify({ status: 'success', message: 'Marcação cancelada com sucesso.' });
+        } catch (error: any) {
+            return JSON.stringify({ status: 'error', error: error.message });
+        }
+    } else if (name === 'remarcar_agendamento_whatsapp') {
+        try {
+            if (!empresaId) return JSON.stringify({ status: 'error', error: 'empresaId não fornecido.' });
+            if (!whatsappContext?.telefone) return JSON.stringify({ status: 'error', error: 'Esta ferramenta só pode ser usada numa conversa de WhatsApp.' });
+            const { AgendamentoService } = require('./AgendamentoService');
+            await AgendamentoService.remarcarAgendamentoPorTelefone(String(empresaId), whatsappContext.telefone, Number(args.agendamento_id), args.nova_data, args.nova_hora, supabase);
+            return JSON.stringify({ status: 'success', message: 'Marcação remarcada com sucesso.' });
+        } catch (error: any) {
+            return JSON.stringify({ status: 'error', error: error.message });
+        }
     }
     return JSON.stringify({ error: "Ferramenta desconhecida." });
+}
+
+function resolverServicoEProfissional(info: { servicos: any[]; profissionais: any[] }, servicoNome?: string, profissionalNome?: string) {
+    const alvo = String(servicoNome || '').toLowerCase().trim();
+    const servico = info.servicos.find((s: any) => {
+        const nome = s.nome.toLowerCase();
+        return nome === alvo || nome.includes(alvo) || alvo.includes(nome);
+    });
+    let profissionalId: number | undefined;
+    if (profissionalNome) {
+        const alvoProf = profissionalNome.toLowerCase().trim();
+        const prof = info.profissionais.find((p: any) => p.nome.toLowerCase().includes(alvoProf));
+        profissionalId = prof?.id;
+    }
+    return { servico, profissionalId };
 }

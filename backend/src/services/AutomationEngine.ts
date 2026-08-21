@@ -789,12 +789,27 @@ export class AutomationEngine {
 
             const { EnterpriseAssistantService } = require('./EnterpriseAssistantService');
 
+            // Reaproveitar a conversa de IA já existente deste número (se houver) para
+            // manter o contexto entre mensagens — sem isto, cada mensagem recebida
+            // arrancava uma conversa nova sem memória do que já foi dito (ex: um
+            // agendamento a meio de confirmação perdia tudo na mensagem seguinte).
+            let existingConversaId: number | undefined;
+            try {
+                let conversaQuery = supabase.from('conversas_ia').select('id').eq('utilizador_id', message.phone_number);
+                conversaQuery = empresaId ? conversaQuery.eq('empresa_id', empresaId) : conversaQuery.is('empresa_id', null);
+                const { data: existingConversa } = await conversaQuery.order('id', { ascending: false }).limit(1).maybeSingle();
+                existingConversaId = existingConversa?.id;
+            } catch (e) {
+                console.error('[Automation Engine] Erro ao procurar conversa de IA existente:', e);
+            }
+
             const aiResponseObj = await EnterpriseAssistantService.chat(
                 message.phone_number,
                 'cliente (WhatsApp)',
                 message.content,
-                undefined,
-                empresaId
+                existingConversaId,
+                empresaId,
+                { telefone: message.phone_number, nomeContato: message.contact_name }
             );
 
             const aiResponse = aiResponseObj?.response;
