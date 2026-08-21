@@ -1,145 +1,230 @@
 import React, { useState } from 'react';
-import { ArrowRight, Sparkles, Shield, Zap, Database, Users, Briefcase, MessageCircle, PieChart, Share2, Bot, BookOpen, Mail, Settings, Globe, Video, Calculator, CheckCircle2 } from 'lucide-react';
+import {
+  ArrowRight, Shield, Zap, Sparkles, CheckCircle2, Users, Briefcase, MessageCircle, PieChart,
+  Share2, Bot, BookOpen, Mail, Video, Calculator, Play
+} from 'lucide-react';
 import '../styles/landing.css';
-import heroImg from '../assets/hero_business_os_dark.png';
 
-const LogoSVG = () => (
-  <svg width="36" height="36" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="nav-logo-svg">
-    <path d="M50 10 L90 30 L90 70 L50 90 L10 70 L10 30 Z" stroke="url(#logo-grad)" strokeWidth="8" fill="rgba(255,255,255,0.02)" />
-    <path d="M50 10 L50 50 L90 30" stroke="url(#logo-grad)" strokeWidth="6" />
-    <path d="M10 30 L50 50 L50 90" stroke="url(#logo-grad)" strokeWidth="6" />
-    <circle cx="50" cy="50" r="12" fill="#fff" />
-    <defs>
-      <linearGradient id="logo-grad" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse">
-        <stop stopColor="#3b82f6" />
-        <stop offset="1" stopColor="#8b5cf6" />
-      </linearGradient>
-    </defs>
-  </svg>
-);
+// Para adicionar o vídeo de um cliente: cole aqui o ID do vídeo do YouTube
+// (a parte depois de "v=" no link, ex: https://www.youtube.com/watch?v=ABC123 -> "ABC123").
+// Deixe vazio ("") para mostrar o espaço reservado.
+const TESTIMONIAL_YOUTUBE_ID = '';
 
+const PRICE_PER_MODULE_KZ = 25000;
+
+// Módulos realmente vendáveis/ativáveis por empresa (exclui Definições e Painel SaaS Global,
+// que são administrativos e não módulos cobrados à parte).
 const modules = [
-  { name: 'RH & Triagem', icon: Users, color: '#956488' },
-  { name: 'Vendas CRM', icon: Briefcase, color: '#0097a7' },
-  { name: 'Autopilot', icon: Zap, color: '#9b51e0' },
-  { name: 'WhatsApp', icon: MessageCircle, color: '#27ae60' },
-  { name: 'Relatórios', icon: PieChart, color: '#f39c12' },
-  { name: 'Parcerias', icon: Share2, color: '#0f9d58' },
-  { name: 'Assistente IA', icon: Bot, color: '#34495e' },
-  { name: 'Conhecimento IA', icon: BookOpen, color: '#2d7ff9' },
-  { name: 'Email', icon: Mail, color: '#1a3687' },
-  { name: 'Definições', icon: Settings, color: '#4b5363' },
-  { name: 'SaaS Global', icon: Globe, color: '#2c3338' },
-  { name: 'Reuniões IA', icon: Video, color: '#d32f2f' },
-  { name: 'Contabilidade', icon: Calculator, color: '#059669' }
+  { name: 'RH & Recrutamento', icon: Users },
+  { name: 'Vendas (CRM)', icon: Briefcase },
+  { name: 'Financeiro', icon: Calculator },
+  { name: 'Autopilot (IA)', icon: Zap },
+  { name: 'WhatsApp', icon: MessageCircle },
+  { name: 'Relatórios', icon: PieChart },
+  { name: 'Assistente IA', icon: Bot },
+  { name: 'Conhecimento IA', icon: BookOpen },
+  { name: 'Email', icon: Mail },
+  { name: 'Reuniões IA', icon: Video },
+  { name: 'Parcerias', icon: Share2 },
 ];
+
+function formatKz(value: number) {
+  return new Intl.NumberFormat('pt-AO', { maximumFractionDigits: 0 }).format(value) + ' Kz';
+}
 
 export default function LandingPage({ onGoToApp }: { onGoToApp: () => void }) {
   const [formStatus, setFormStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
 
   return (
-    <div className="dark-theme-container">
-      {/* Dynamic Backgrounds */}
-      <div className="bg-glow spot-1"></div>
-      <div className="bg-glow spot-2"></div>
-      <div className="grid-overlay"></div>
-
-      {/* Navbar */}
-      <nav className="glass-nav">
-        <div className="nav-content">
-          <div className="nav-logo">
-             <LogoSVG />
-             <span style={{ marginLeft: '8px' }}>BusinessOS</span>
+    <div className="lp-root">
+      {/* Nav */}
+      <nav className="lp-nav">
+        <div className="lp-nav-inner">
+          <div className="lp-logo">
+            <div className="lp-logo-mark"><Sparkles size={16} /></div>
+            BusinessOS
           </div>
-          <div className="nav-links">
-            <a href="#modulos">Os Seus Módulos</a>
-            <a href="#orcamento">Orçamento</a>
+          <div className="lp-nav-links">
+            <a href="#modulos">Módulos</a>
+            <a href="#precos">Preços</a>
             <a href="#faq">FAQ</a>
-            <a href="https://SEU-DOMINIO-AQUI.com/downloads/OpenClaw_OS_Setup_1.0.0.exe" download className="download-link" style={{ color: '#00e676', fontWeight: 'bold' }}>
-              ⬇ Download Windows
-            </a>
           </div>
-          <button className="nav-cta" onClick={onGoToApp}>
-            Aceder ao Sistema
-          </button>
-        </div>
-      </nav>
-
-      {/* Hero Section */}
-      <section className="hero-section">
-        <div className="hero-content">
-          <h1 className="hero-title">
-            O seu negócio. <span className="text-gradient">As suas regras.</span>
-          </h1>
-          <p className="hero-subtitle">
-            Pague apenas pelo que usa. Ative módulos de Vendas, RH ou IA apenas quando precisar, à medida que a sua empresa cresce.
-          </p>
-          
-          <ul className="hero-checklist">
-            <li><span className="hero-checklist-icon"><CheckCircle2 size={16} /></span> Todos os Módulos de Gestão</li>
-            <li><span className="hero-checklist-icon"><CheckCircle2 size={16} /></span> IA & Automação Avançada</li>
-            <li><span className="hero-checklist-icon"><CheckCircle2 size={16} /></span> Colaboração em Equipa Real-time</li>
-            <li><span className="hero-checklist-icon"><CheckCircle2 size={16} /></span> Relatórios Executivos</li>
-          </ul>
-
-          <div className="hero-actions">
-            <button className="primary-btn" onClick={onGoToApp}>
-              Iniciar Sessão <ArrowRight size={16} />
+          <div className="lp-nav-actions">
+            <a href="https://SEU-DOMINIO-AQUI.com/downloads/OpenClaw_OS_Setup_1.0.0.exe" download className="lp-btn">
+              Baixar Windows
+            </a>
+            <button className="lp-btn lp-btn-primary" onClick={onGoToApp}>
+              Aceder ao Sistema
             </button>
           </div>
         </div>
-        
-        <div className="hero-image-container">
-          <img src={heroImg} alt="BusinessOS Platform Interface Preview" />
-        </div>
-      </section>
+      </nav>
 
-      {/* Stunning Modules Grid */}
-      <section className="modules-section" id="modulos">
-         <p className="section-label">OS SEUS MÓDULOS</p>
-         <div className="modules-grid">
-           {modules.map((mod, index) => (
-              <div className="module-card" key={index} style={{ '--mod-index': index, '--total-mods': modules.length } as any}>
-                <div className="mod-glow" style={{ background: mod.color }}></div>
-                <div className="mod-content">
-                  <div className="mod-icon-wrapper" style={{ backgroundColor: mod.color }}>
-                    <mod.icon size={24} strokeWidth={2.5} color="#ffffff" />
-                  </div>
-                  <span className="mod-name">{mod.name}</span>
-                </div>
-              </div>
-           ))}
-         </div>
-      </section>
-
-      {/* Feature Highlights */}
-      <section className="features-section">
-        <div className="feature-box">
-           <div className="feat-icon-wrap"><Shield size={24} /></div>
-           <h3>Legal & Seguro</h3>
-           <p>Conformidade total com a LGT de Angola e encriptação militar.</p>
-        </div>
-        <div className="feature-box">
-           <div className="feat-icon-wrap"><Zap size={24} /></div>
-           <h3>Autopilot</h3>
-           <p>Workflows desenhados em n8n que automatizam tarefas invisíveis.</p>
-        </div>
-        <div className="feature-box">
-           <div className="feat-icon-wrap"><Database size={24} /></div>
-           <h3>Router IA</h3>
-           <p>Privacidade absoluta com processamento local de dados sensíveis.</p>
-        </div>
-      </section>
-
-      {/* Quote/Contact Section */}
-      <section className="quote-section" id="orcamento">
-        <div className="quote-container">
-          <div className="quote-text">
-            <h2>Pronto para escalar o seu negócio?</h2>
-            <p>Peça um orçamento à medida. Diga-nos quais os módulos que lhe interessam e a nossa equipa entrará em contacto com uma proposta personalizada.</p>
+      {/* Hero */}
+      <section className="lp-hero">
+        <div className="lp-wrap lp-hero-inner">
+          <div>
+            <h1>O seu negócio.<br /><em>As suas regras.</em></h1>
+            <p className="lp-hero-sub">
+              Gestão completa da sua empresa — vendas, RH, financeiro e IA — num só sistema.
+              Ative apenas os módulos de que precisa, hoje, e cresça sem trocar de sistema amanhã.
+            </p>
+            <ul className="lp-hero-check">
+              <li><span className="lp-hero-check-dot"><CheckCircle2 size={13} /></span> Todos os módulos de gestão num único sistema</li>
+              <li><span className="lp-hero-check-dot"><CheckCircle2 size={13} /></span> IA e automação em cada módulo</li>
+              <li><span className="lp-hero-check-dot"><CheckCircle2 size={13} /></span> Sem fidelização — ative e cancele quando quiser</li>
+              <li><span className="lp-hero-check-dot"><CheckCircle2 size={13} /></span> Feito para a realidade das empresas angolanas</li>
+            </ul>
+            <div className="lp-hero-actions">
+              <a href="#precos" className="lp-btn lp-btn-primary">Ver Preços <ArrowRight size={15} /></a>
+              <button className="lp-btn" onClick={onGoToApp}>Iniciar Sessão</button>
+            </div>
           </div>
-          <form 
-            className="quote-form"
+
+          <div className="lp-product-window">
+            <div className="lp-pw-titlebar"><span className="lp-pw-dot" /><span className="lp-pw-dot" /><span className="lp-pw-dot" /></div>
+            <div className="lp-pw-nav">
+              <div className="lp-pw-brand">Financeiro</div>
+              <div className="lp-pw-avatar" />
+            </div>
+            <div className="lp-pw-body">
+              <div className="lp-pw-pillnav"><span className="on">Visão Geral</span><span>Transações</span><span>Salários</span></div>
+              <div className="lp-pw-kpis">
+                <div className="lp-pw-kpi"><div className="lp-pw-kpi-icon" /><b>4.520.000 Kz</b><span>Saldo Atual</span></div>
+                <div className="lp-pw-kpi"><div className="lp-pw-kpi-icon" /><b>1.800.000 Kz</b><span>Entradas</span></div>
+                <div className="lp-pw-kpi"><div className="lp-pw-kpi-icon" /><b>2</b><span>Pendentes</span></div>
+              </div>
+              <div className="lp-pw-chart">
+                {[55, 35, 70, 40, 85, 50, 95, 48].map((h, i) => (
+                  <div key={i} className={`lp-pw-bar${i % 2 ? ' gold' : ''}`} style={{ height: `${h}%` }} />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Trust strip */}
+      <div className="lp-trust-strip">
+        <div className="lp-trust-inner">
+          <div className="lp-trust-item"><b>{modules.length}</b><span>Módulos integrados</span></div>
+          <div className="lp-trust-item"><b>100%</b><span>Modular — pague só o que usa</span></div>
+          <div className="lp-trust-item"><b>0</b><span>Fidelização ou contratos longos</span></div>
+          <div className="lp-trust-item"><b>AO</b><span>Feito para o mercado angolano</span></div>
+        </div>
+      </div>
+
+      {/* Módulos */}
+      <section className="lp-section" id="modulos">
+        <div className="lp-wrap">
+          <div className="lp-section-head">
+            <p className="lp-eyebrow">Os seus módulos</p>
+            <h2>Tudo o que a sua empresa precisa, num só lugar</h2>
+            <p>Cada módulo funciona sozinho ou em conjunto — os dados fluem automaticamente entre eles.</p>
+          </div>
+          <div className="lp-modules-grid">
+            {modules.map((mod, i) => (
+              <div className="lp-module-card" key={i}>
+                <div className="lp-mod-icon"><mod.icon size={19} /></div>
+                <span>{mod.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Value props */}
+      <section className="lp-props-section">
+        <div className="lp-wrap" style={{ padding: '84px 32px' }}>
+          <div className="lp-props-grid">
+            <div className="lp-prop-card">
+              <div className="lp-prop-icon"><Shield size={20} /></div>
+              <h3>Seguro por desenho</h3>
+              <p>Cada empresa só acede aos seus próprios dados. Isolamento total entre clientes, com autenticação e permissões por utilizador.</p>
+            </div>
+            <div className="lp-prop-card">
+              <div className="lp-prop-icon"><Zap size={20} /></div>
+              <h3>Autopilot</h3>
+              <p>Construa fluxos de trabalho visuais — sem código — que respondem clientes, atualizam o CRM e enviam mensagens sozinhos.</p>
+            </div>
+            <div className="lp-prop-card">
+              <div className="lp-prop-icon"><Sparkles size={20} /></div>
+              <h3>IA em cada módulo</h3>
+              <p>Da triagem de currículos à análise de relatórios, a inteligência artificial já está integrada — não é um extra.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Testemunho / vídeo */}
+      <section className="lp-testi-section">
+        <div className="lp-wrap lp-testi-inner" style={{ padding: '84px 32px' }}>
+          <div className="lp-testi-video">
+            {TESTIMONIAL_YOUTUBE_ID ? (
+              <iframe
+                src={`https://www.youtube.com/embed/${TESTIMONIAL_YOUTUBE_ID}`}
+                title="Depoimento de cliente"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            ) : (
+              <div className="lp-testi-placeholder">
+                <div className="lp-testi-play"><Play size={22} fill="white" /></div>
+                <span style={{ fontSize: '13px', maxWidth: '26ch' }}>O vídeo de um cliente a falar sobre a plataforma aparecerá aqui.</span>
+              </div>
+            )}
+          </div>
+          <div>
+            <p className="lp-eyebrow lp-testi-eyebrow">Na voz de quem usa</p>
+            <p className="lp-testi-quote">
+              {TESTIMONIAL_YOUTUBE_ID
+                ? 'Veja como esta empresa usa o BusinessOS no dia a dia.'
+                : 'Este espaço está pronto para o depoimento em vídeo de um cliente real — assim que tiver o vídeo, basta adicionar o link.'}
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Preços */}
+      <section className="lp-section" id="precos">
+        <div className="lp-wrap">
+          <div className="lp-section-head">
+            <p className="lp-eyebrow">Preços</p>
+            <h2>Simples: um preço, todos os módulos</h2>
+            <p>Sem escalões, sem letras pequenas. Ative os módulos que precisa e pague só por esses.</p>
+          </div>
+          <div className="lp-pricing-card">
+            <div className="lp-pricing-top">
+              <div className="lp-pricing-price">{formatKz(PRICE_PER_MODULE_KZ)} <span>/ módulo / mês</span></div>
+              <p className="lp-pricing-note">Exemplo: CRM + RH + WhatsApp = {formatKz(PRICE_PER_MODULE_KZ * 3)}/mês</p>
+            </div>
+            <div className="lp-pricing-body">
+              <div className="lp-pricing-list">
+                <div><CheckCircle2 size={15} /> Ative e cancele quando quiser</div>
+                <div><CheckCircle2 size={15} /> Sem contrato de fidelização</div>
+                <div><CheckCircle2 size={15} /> Suporte incluído</div>
+                <div><CheckCircle2 size={15} /> Atualizações incluídas</div>
+                <div><CheckCircle2 size={15} /> Dados isolados e seguros</div>
+                <div><CheckCircle2 size={15} /> Acesso via Windows e Web</div>
+              </div>
+              <div className="lp-pricing-cta">
+                <a href="#orcamento" className="lp-btn lp-btn-primary">Pedir Orçamento <ArrowRight size={15} /></a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Orçamento */}
+      <section className="lp-quote-section" id="orcamento">
+        <div className="lp-wrap lp-quote-inner" style={{ padding: '84px 32px' }}>
+          <div className="lp-quote-text">
+            <p className="lp-eyebrow">Orçamento</p>
+            <h2>Pronto para escalar o seu negócio?</h2>
+            <p>Diga-nos quais módulos lhe interessam e a nossa equipa entra em contacto com uma proposta à medida.</p>
+          </div>
+          <form
+            className="lp-quote-form"
             onSubmit={async (e) => {
               e.preventDefault();
               setFormStatus('submitting');
@@ -164,7 +249,7 @@ export default function LandingPage({ onGoToApp }: { onGoToApp: () => void }) {
                   },
                   body: json
                 });
-                
+
                 if (response.ok) {
                   setFormStatus('success');
                   (e.target as HTMLFormElement).reset();
@@ -179,75 +264,64 @@ export default function LandingPage({ onGoToApp }: { onGoToApp: () => void }) {
                 const subject = encodeURIComponent(`Pedido de Orçamento - BusinessOS (${formData.get('empresa')})`);
                 const body = encodeURIComponent(`Nome: ${formData.get('nome')}\nEmpresa: ${formData.get('empresa')}\nEmail: ${formData.get('email')}\nWhatsApp: ${formData.get('whatsapp')}\n\nMensagem/Módulos de Interesse:\n${formData.get('mensagem')}`);
                 window.location.href = `mailto:geral@topia.solutions?subject=${subject}&body=${body}`;
-                
+
                 setFormStatus('error');
                 setTimeout(() => setFormStatus('idle'), 5000);
               }
             }}
           >
-            <div className="form-group">
-              <input type="text" name="nome" placeholder="O seu nome" required />
-            </div>
-            <div className="form-group">
-              <input type="text" name="empresa" placeholder="Nome da empresa" required />
-            </div>
-            <div className="form-group">
-              <input type="email" name="email" placeholder="O seu email profissional" required />
-            </div>
-            <div className="form-group">
-              <input type="tel" name="whatsapp" placeholder="O seu WhatsApp" required />
-            </div>
-            <div className="form-group">
-              <textarea name="mensagem" placeholder="Que módulos gostaria de ativar? (ex: CRM, IA, RH...)" rows={4} required></textarea>
-            </div>
-            <button type="submit" className="primary-btn quote-btn" disabled={formStatus === 'submitting' || formStatus === 'success'}>
-              {formStatus === 'idle' && <>Solicitar Orçamento <ArrowRight size={16} /></>}
+            <input type="text" name="nome" placeholder="O seu nome" required />
+            <input type="text" name="empresa" placeholder="Nome da empresa" required />
+            <input type="email" name="email" placeholder="O seu email profissional" required />
+            <input type="tel" name="whatsapp" placeholder="O seu WhatsApp" required />
+            <textarea name="mensagem" placeholder="Que módulos gostaria de ativar? (ex: CRM, IA, RH...)" rows={3} required />
+            <button type="submit" className="lp-btn lp-btn-primary" disabled={formStatus === 'submitting' || formStatus === 'success'}>
+              {formStatus === 'idle' && <>Solicitar Orçamento <ArrowRight size={15} /></>}
               {formStatus === 'submitting' && 'A enviar...'}
-              {formStatus === 'success' && 'Pedido Enviado! ✅'}
+              {formStatus === 'success' && 'Pedido Enviado!'}
               {formStatus === 'error' && 'Erro. Tente novamente.'}
             </button>
           </form>
         </div>
       </section>
 
-      {/* FAQ Section */}
-      <section className="faq-section" id="faq">
-        <h2 className="section-title">Perguntas Frequentes</h2>
-        <div className="faq-list">
-          <details className="faq-item">
-            <summary className="faq-question">Tenho de pagar por todo o sistema se só usar um módulo?</summary>
-            <div className="faq-answer">
-              Não. O BusinessOS foi construído para ser 100% modular. Pode ativar apenas o módulo de CRM, por exemplo, e pagará apenas por ele. Se a sua empresa crescer, pode ativar os restantes à distância de um clique.
-            </div>
-          </details>
-          <details className="faq-item">
-            <summary className="faq-question">Existem fidelizações ou contratos de longo prazo?</summary>
-            <div className="faq-answer">
-              Não acreditamos em prender os nossos clientes. Pode subscrever ou cancelar módulos mensalmente com total liberdade. As suas regras, o seu orçamento.
-            </div>
-          </details>
-          <details className="faq-item">
-            <summary className="faq-question">Como funciona a integração entre os módulos?</summary>
-            <div className="faq-answer">
-              O ecossistema é nativo. Isso significa que, se ativar o CRM e o módulo de Email, um cliente inserido no CRM fica imediatamente pronto para receber campanhas automáticas de Email, sem qualquer configuração da sua parte. A comunicação é imediata e fluída.
-            </div>
-          </details>
-          <details className="faq-item">
-            <summary className="faq-question">O sistema funciona em telemóveis e tablets?</summary>
-            <div className="faq-answer">
-              Sim. A nossa arquitetura moderna garante uma experiência luxuosa e ultrarrápida em qualquer dispositivo, permitindo-lhe gerir o seu negócio de qualquer lugar.
-            </div>
-          </details>
+      {/* FAQ */}
+      <section className="lp-section" id="faq">
+        <div className="lp-wrap">
+          <div className="lp-section-head">
+            <p className="lp-eyebrow">FAQ</p>
+            <h2>Perguntas frequentes</h2>
+          </div>
+          <div className="lp-faq-list">
+            <details className="lp-faq-item">
+              <summary>Tenho de pagar por todo o sistema se só usar um módulo?</summary>
+              <p>Não. O BusinessOS foi construído para ser 100% modular. Pode ativar apenas o módulo de CRM, por exemplo, a {formatKz(PRICE_PER_MODULE_KZ)}/mês, e ativar os restantes quando precisar.</p>
+            </details>
+            <details className="lp-faq-item">
+              <summary>Existem fidelizações ou contratos de longo prazo?</summary>
+              <p>Não acreditamos em prender os nossos clientes. Pode subscrever ou cancelar módulos mensalmente com total liberdade.</p>
+            </details>
+            <details className="lp-faq-item">
+              <summary>Como funciona a integração entre os módulos?</summary>
+              <p>O ecossistema é nativo. Se ativar o CRM e o Email, por exemplo, um cliente inserido no CRM fica imediatamente pronto para receber emails, sem qualquer configuração da sua parte.</p>
+            </details>
+            <details className="lp-faq-item">
+              <summary>O sistema funciona em telemóveis e tablets?</summary>
+              <p>Sim. A nossa arquitetura moderna garante uma experiência rápida em qualquer dispositivo, permitindo-lhe gerir o seu negócio de qualquer lugar.</p>
+            </details>
+          </div>
         </div>
       </section>
 
-      <footer className="dark-footer">
-         <p>BusinessOS Angola &copy; 2026. Todos os direitos reservados.</p>
-         <p style={{ marginTop: '12px', fontSize: '13px', opacity: 0.7 }}>
-           Desenvolvido pela <a href="https://www.topia.solutions" target="_blank" rel="noopener noreferrer" style={{ color: '#fff', textDecoration: 'none', fontWeight: 600 }}>TOP IA</a> 
-           <span style={{ margin: '0 8px' }}>|</span> 
-           <a href="mailto:geral@topia.solutions" style={{ color: '#fff', textDecoration: 'none' }}>geral@topia.solutions</a>
-         </p>
+      <footer className="lp-footer">
+        <div className="lp-wrap lp-footer-inner">
+          <p>BusinessOS Angola &copy; 2026. Todos os direitos reservados.</p>
+          <p>
+            Desenvolvido pela <a href="https://www.topia.solutions" target="_blank" rel="noopener noreferrer">TOP IA</a>
+            <span style={{ margin: '0 8px' }}>|</span>
+            <a href="mailto:geral@topia.solutions">geral@topia.solutions</a>
+          </p>
+        </div>
       </footer>
     </div>
   );
