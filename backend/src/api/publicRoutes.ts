@@ -1,8 +1,34 @@
 import { Router, Request, Response } from 'express';
 import { supabase } from '../lib/supabaseClient';
 import { getReuniaoPublica, adicionarFragmentoTranscricao } from '../controllers/reunioesPublicController';
+import { AgendamentoService } from '../services/AgendamentoService';
 
 const router = Router();
+
+// ---------- Agendamento: página pública de marcação do cliente ----------
+router.get('/agendamento/:empresa_id/info', async (req: Request, res: Response) => {
+    try {
+        const info = await AgendamentoService.getInfoPublica(req.params.empresa_id);
+        res.json({ success: true, ...info });
+    } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+router.get('/agendamento/:empresa_id/disponibilidade', async (req: Request, res: Response) => {
+    try {
+        const { servico_id, data, profissional_id } = req.query;
+        const resultado = await AgendamentoService.getDisponibilidade(
+            req.params.empresa_id, Number(servico_id), String(data), profissional_id ? Number(profissional_id) : undefined
+        );
+        res.json({ success: true, ...resultado });
+    } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+router.post('/agendamento/:empresa_id/marcar', async (req: Request, res: Response) => {
+    try {
+        const id = await AgendamentoService.criarAgendamento(req.params.empresa_id, req.body, 'cliente');
+        res.json({ success: true, id });
+    } catch (err: any) { res.status(400).json({ success: false, error: err.message }); }
+});
 
 // Rotas públicas: página de reunião para convidados externos (sem sessão logada)
 router.get('/reuniao/:id', getReuniaoPublica);

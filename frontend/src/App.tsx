@@ -14,26 +14,28 @@ import ReunioesApp from './components/ReunioesApp';
 import DataApp from './components/DataApp';
 import AfiliadosApp from './components/AfiliadosApp';
 import FinanceiroApp from './components/FinanceiroApp';
+import AgendamentoApp from './components/AgendamentoApp';
 import PortalAfiliado from './components/PortalAfiliado';
 import PortalCarreiras from './pages/public/PortalCarreiras';
 import CandidaturaForm from './pages/public/CandidaturaForm';
 import ReuniaoConvidado from './pages/public/ReuniaoConvidado';
-import { LayoutGrid, Users, Briefcase, PieChart, Bot, Zap, LogOut, MessageSquare, BookOpen, Mail, Settings, Clock, Globe, Video, Share2, Calculator, Shield } from 'lucide-react';
+import PortalAgendamento from './pages/public/PortalAgendamento';
+import { LayoutGrid, Users, Briefcase, PieChart, Bot, Zap, LogOut, MessageSquare, BookOpen, Mail, Settings, Clock, Globe, Video, Share2, Calculator, Shield, CalendarClock } from 'lucide-react';
 
 const IS_AFFILIATE_PORTAL = window.location.pathname === '/portal-afiliado';
 
 const ROLE_PERMISSIONS: Record<string, string[]> = {
-  superadmin: ['home', 'superadmin', 'hr', 'crm', 'data', 'chat', 'auto', 'wa', 'kb', 'email', 'settings', 'reunioes', 'afiliados', 'contabilidade'],
-  admin: ['home', 'hr', 'crm', 'data', 'chat', 'auto', 'wa', 'kb', 'email', 'settings', 'reunioes', 'afiliados', 'contabilidade'],
+  superadmin: ['home', 'superadmin', 'hr', 'crm', 'data', 'chat', 'auto', 'wa', 'kb', 'email', 'settings', 'reunioes', 'afiliados', 'contabilidade', 'agendamento'],
+  admin: ['home', 'hr', 'crm', 'data', 'chat', 'auto', 'wa', 'kb', 'email', 'settings', 'reunioes', 'afiliados', 'contabilidade', 'agendamento'],
   hr_manager: ['home', 'hr', 'chat', 'kb', 'email', 'reunioes'],
   rh_user: ['home', 'hr', 'chat', 'kb', 'reunioes'],
-  sales_manager: ['home', 'crm', 'wa', 'email', 'data', 'chat', 'kb', 'reunioes', 'afiliados'],
-  agente: ['home', 'wa', 'chat', 'kb', 'email', 'reunioes'],
+  sales_manager: ['home', 'crm', 'wa', 'email', 'data', 'chat', 'kb', 'reunioes', 'afiliados', 'agendamento'],
+  agente: ['home', 'wa', 'chat', 'kb', 'email', 'reunioes', 'agendamento'],
   pending: [] // Bloqueado
 };
 
 function App() {
-  const [activeModule, setActiveModule] = useState<'home' | 'hr' | 'crm' | 'data' | 'chat' | 'auto' | 'wa' | 'kb' | 'email' | 'settings' | 'superadmin' | 'reunioes' | 'afiliados' | 'contabilidade'>('home');
+  const [activeModule, setActiveModule] = useState<'home' | 'hr' | 'crm' | 'data' | 'chat' | 'auto' | 'wa' | 'kb' | 'email' | 'settings' | 'superadmin' | 'reunioes' | 'afiliados' | 'contabilidade' | 'agendamento'>('home');
   const [user, setUser] = useState<any>(null);
   const [token, setToken] = useState<string | null>(null);
   const [showLanding, setShowLanding] = useState<boolean>(true);
@@ -246,6 +248,10 @@ function App() {
     return <ReuniaoConvidado />;
   }
 
+  if (pathname.startsWith('/agendar/')) {
+    return <PortalAgendamento />;
+  }
+
   if (!user || !token) {
     if (showLanding) {
       return <LandingPage onGoToApp={() => setShowLanding(false)} />;
@@ -253,7 +259,7 @@ function App() {
     return <AuthScreen onLogin={handleLogin} onBack={() => setShowLanding(true)} />;
   }
 
-  const navigateTo = (module: 'home' | 'hr' | 'crm' | 'data' | 'chat' | 'auto' | 'wa' | 'kb' | 'email' | 'settings' | 'superadmin' | 'reunioes' | 'afiliados' | 'contabilidade') => {
+  const navigateTo = (module: 'home' | 'hr' | 'crm' | 'data' | 'chat' | 'auto' | 'wa' | 'kb' | 'email' | 'settings' | 'superadmin' | 'reunioes' | 'afiliados' | 'contabilidade' | 'agendamento') => {
     if (hasAccess(module)) {
       setActiveModule(module);
     }
@@ -329,6 +335,7 @@ function App() {
             {activeModule === 'reunioes' && 'Reuniões Inteligentes'}
             {activeModule === 'afiliados' && 'Programa de Afiliados'}
             {activeModule === 'contabilidade' && 'Financeiro'}
+            {activeModule === 'agendamento' && 'Agendamento'}
           </div>
         )}
 
@@ -527,6 +534,15 @@ function App() {
               </div>
             )}
 
+            {hasAccess('agendamento') && (
+              <div className="odoo-app-icon-container" onClick={() => navigateTo('agendamento')}>
+                <div className="odoo-app-icon" style={{ background: 'linear-gradient(135deg, #14161C 0%, #C9992E 100%)' }}>
+                  <CalendarClock size={40} color="white" strokeWidth={1.5} />
+                </div>
+                <div className="odoo-app-name" style={{ fontWeight: 'bold' }}>Agendamento</div>
+              </div>
+            )}
+
           </div>
         </div>
       )}
@@ -553,6 +569,7 @@ function App() {
           {activeModule === 'data' && <DataApp />}
           {activeModule === 'afiliados' && <AfiliadosApp />}
           {activeModule === 'contabilidade' && <FinanceiroApp />}
+          {activeModule === 'agendamento' && <AgendamentoApp />}
 
           {activeModule === 'chat' && (
              <div className="odoo-content-area" style={{ padding: 0 }}>
