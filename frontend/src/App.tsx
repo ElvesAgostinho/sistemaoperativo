@@ -13,7 +13,7 @@ import SuperAdminApp from './components/SuperAdminApp';
 import ReunioesApp from './components/ReunioesApp';
 import DataApp from './components/DataApp';
 import AfiliadosApp from './components/AfiliadosApp';
-import ContabilidadeApp from './components/ContabilidadeApp';
+import FinanceiroApp from './components/FinanceiroApp';
 import PortalAfiliado from './components/PortalAfiliado';
 import PortalCarreiras from './pages/public/PortalCarreiras';
 import CandidaturaForm from './pages/public/CandidaturaForm';
@@ -294,7 +294,7 @@ function App() {
             {activeModule === 'superadmin' && 'Painel Global SaaS'}
             {activeModule === 'reunioes' && 'Reuniões Inteligentes'}
             {activeModule === 'afiliados' && 'Programa de Afiliados'}
-            {activeModule === 'contabilidade' && 'Contabilidade ERP'}
+            {activeModule === 'contabilidade' && 'Financeiro'}
           </div>
         )}
 
@@ -374,7 +374,7 @@ function App() {
                 <div className="odoo-app-icon" style={{ background: 'linear-gradient(135deg, #374151 0%, #111827 100%)' }}>
                   <Calculator size={40} color="white" strokeWidth={1.5} />
                 </div>
-                <div className="odoo-app-name">Contabilidade</div>
+                <div className="odoo-app-name">Financeiro</div>
               </div>
             )}
 
@@ -494,7 +494,7 @@ function App() {
           {activeModule === 'reunioes' && <ReunioesApp initialMeetingId={meetingIdFromUrl} userName={user?.nome} />}
           {activeModule === 'data' && <DataApp />}
           {activeModule === 'afiliados' && <AfiliadosApp />}
-          {activeModule === 'contabilidade' && <ContabilidadeApp />}
+          {activeModule === 'contabilidade' && <FinanceiroApp />}
 
           {activeModule === 'chat' && (
              <div className="odoo-content-area" style={{ padding: 0 }}>

@@ -1,0 +1,219 @@
+/* ============================================================
+   Estilo exclusivo do módulo Financeiro — mesma identidade visual
+   profissional do RH / Relatórios / Afiliados / CRM. Scoped sob
+   .fin-modern; não afeta outros módulos.
+   ============================================================ */
+
+.fin-modern {
+  --fin-accent: #017E84;
+  --fin-accent-hover: #016368;
+  --fin-accent-soft: #E3F3F1;
+  --fin-ink: #16211F;
+  --fin-ink-muted: #5B6B67;
+  --fin-ink-faint: #8B9B97;
+  --fin-canvas: #F5F8F7;
+  --fin-surface: #FFFFFF;
+  --fin-border: #E2E8E6;
+  --fin-border-soft: #EDF2F1;
+  --fin-good-bg: #E7F5EC; --fin-good-fg: #1F7A45;
+  --fin-warn-bg: #FCF3E3; --fin-warn-fg: #9C6B12;
+  --fin-bad-bg: #FBEAEA; --fin-bad-fg: #B23A3A;
+  --fin-shadow-card: 0 1px 2px rgba(22,33,31,0.04), 0 6px 20px rgba(22,33,31,0.06);
+  --fin-shadow-pop: 0 12px 32px rgba(22,33,31,0.16);
+  --fin-font-display: 'Manrope', 'Segoe UI', system-ui, sans-serif;
+  --fin-font-body: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  --fin-font-mono: 'IBM Plex Mono', 'Consolas', monospace;
+
+  font-family: var(--fin-font-body);
+  color: var(--fin-ink);
+  background: var(--fin-canvas);
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+.fin-modern * { box-sizing: border-box; }
+.fin-modern h1, .fin-modern h2, .fin-modern h3, .fin-modern h4 {
+  font-family: var(--fin-font-display);
+  margin: 0;
+}
+
+/* ---------- Cabeçalho ---------- */
+.fin-header {
+  background: var(--fin-surface);
+  border-bottom: 1px solid var(--fin-border);
+  padding: 18px 28px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.fin-header h1 { font-size: 20px; font-weight: 800; letter-spacing: -0.01em; }
+.fin-header p { margin: 2px 0 0; font-size: 12.5px; color: var(--fin-ink-muted); }
+.fin-pillnav {
+  display: flex; gap: 4px; padding: 4px;
+  background: var(--fin-canvas); border: 1px solid var(--fin-border-soft); border-radius: 12px;
+  flex-wrap: wrap;
+}
+.fin-pillnav button {
+  font-family: var(--fin-font-body); font-weight: 500; font-size: 12.5px;
+  padding: 8px 15px; border-radius: 9px; border: none; background: transparent;
+  color: var(--fin-ink-muted); cursor: pointer; transition: background 0.15s, color 0.15s;
+}
+.fin-pillnav button.active {
+  background: var(--fin-surface); color: var(--fin-accent); font-weight: 700;
+  box-shadow: 0 1px 3px rgba(22,33,31,0.1);
+}
+.fin-pillnav button:hover:not(.active) { color: var(--fin-ink); }
+
+.fin-body { flex: 1; overflow-y: auto; padding: 20px 28px 32px; }
+
+/* ---------- Toolbar ---------- */
+.fin-toolbar {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 14px; flex-wrap: wrap; margin-bottom: 18px;
+}
+.fin-filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.fin-filters select, .fin-filters input {
+  font-family: var(--fin-font-body); font-size: 12.5px; padding: 8px 11px;
+  border-radius: 9px; border: 1px solid var(--fin-border); background: var(--fin-surface); color: var(--fin-ink);
+}
+
+/* ---------- KPIs ---------- */
+.fin-kpi-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px; margin-bottom: 20px;
+}
+.fin-kpi-card {
+  background: var(--fin-surface); border: 1px solid var(--fin-border); border-radius: 14px;
+  padding: 18px 20px; box-shadow: var(--fin-shadow-card);
+}
+.fin-kpi-icon {
+  width: 32px; height: 32px; border-radius: 9px;
+  background: var(--fin-accent-soft); color: var(--fin-accent);
+  display: flex; align-items: center; justify-content: center; margin-bottom: 14px;
+}
+.fin-kpi-icon.bad { background: var(--fin-bad-bg); color: var(--fin-bad-fg); }
+.fin-kpi-icon.good { background: var(--fin-good-bg); color: var(--fin-good-fg); }
+.fin-kpi-icon.warn { background: var(--fin-warn-bg); color: var(--fin-warn-fg); }
+.fin-kpi-value {
+  font-family: var(--fin-font-mono); font-variant-numeric: tabular-nums;
+  font-size: 21px; font-weight: 600; margin-bottom: 4px; letter-spacing: -0.01em;
+}
+.fin-kpi-label { font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--fin-ink-faint); }
+
+/* ---------- Painéis ---------- */
+.fin-panel {
+  background: var(--fin-surface); border: 1px solid var(--fin-border); border-radius: 16px;
+  box-shadow: var(--fin-shadow-card); padding: 22px; margin-bottom: 20px;
+}
+.fin-panel-title { display: flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 700; margin-bottom: 18px; }
+.fin-panel-title .fin-panel-icon {
+  width: 28px; height: 28px; border-radius: 8px; background: var(--fin-accent-soft); color: var(--fin-accent);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+
+/* ---------- Botões ---------- */
+.fin-btn {
+  font-family: var(--fin-font-body); font-weight: 600; font-size: 13px;
+  padding: 10px 16px; border-radius: 10px; border: 1px solid var(--fin-border);
+  background: var(--fin-surface); color: var(--fin-ink); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  transition: border-color 0.15s, transform 0.1s;
+}
+.fin-btn:hover { border-color: var(--fin-accent); transform: translateY(-1px); }
+.fin-btn:disabled { opacity: 0.6; cursor: wait; transform: none; }
+.fin-btn-primary { background: var(--fin-accent); border-color: var(--fin-accent); color: white; }
+.fin-btn-primary:hover { background: var(--fin-accent-hover); border-color: var(--fin-accent-hover); }
+.fin-btn-sm { padding: 6px 11px; font-size: 11.5px; border-radius: 8px; }
+.fin-toggle-group { display: flex; border: 1px solid var(--fin-border); border-radius: 10px; overflow: hidden; }
+.fin-toggle-group button {
+  flex: 1; padding: 10px; font-family: var(--fin-font-body); font-weight: 600; font-size: 13px;
+  border: none; background: var(--fin-surface); color: var(--fin-ink-muted); cursor: pointer;
+}
+.fin-toggle-group button.active.entrada { background: var(--fin-good-bg); color: var(--fin-good-fg); }
+.fin-toggle-group button.active.saida { background: var(--fin-bad-bg); color: var(--fin-bad-fg); }
+
+/* ---------- Tabela ---------- */
+.fin-table-card {
+  background: var(--fin-surface); border: 1px solid var(--fin-border); border-radius: 16px;
+  box-shadow: var(--fin-shadow-card); overflow: hidden;
+}
+.fin-table-card table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
+.fin-table-card thead th {
+  padding: 13px 18px; font-family: var(--fin-font-display); font-weight: 700; font-size: 10.5px;
+  letter-spacing: 0.04em; text-transform: uppercase; color: var(--fin-ink-faint);
+  background: var(--fin-canvas); border-bottom: 1px solid var(--fin-border);
+}
+.fin-table-card tbody td { padding: 13px 18px; border-bottom: 1px solid var(--fin-border-soft); }
+.fin-table-card tbody tr:last-child td { border-bottom: none; }
+.fin-table-card tbody tr:hover { background: var(--fin-canvas); }
+.fin-empty-row { padding: 32px !important; text-align: center; color: var(--fin-ink-faint); }
+.fin-num { font-family: var(--fin-font-mono); font-variant-numeric: tabular-nums; }
+.fin-num.entrada { color: var(--fin-good-fg); font-weight: 600; }
+.fin-num.saida { color: var(--fin-bad-fg); font-weight: 600; }
+
+/* ---------- Chips / badges ---------- */
+.fin-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+.fin-badge-good { background: var(--fin-good-bg); color: var(--fin-good-fg); }
+.fin-badge-warn { background: var(--fin-warn-bg); color: var(--fin-warn-fg); }
+.fin-tag {
+  display: inline-block; padding: 3px 9px; background: var(--fin-canvas); border: 1px solid var(--fin-border);
+  border-radius: 6px; font-size: 11.5px; color: var(--fin-ink-muted);
+}
+.fin-attach-link {
+  display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--fin-accent);
+  text-decoration: none; font-weight: 600;
+}
+
+/* ---------- Modais ---------- */
+.fin-modal-overlay {
+  position: fixed; inset: 0; background: rgba(22,33,31,0.5);
+  display: flex; align-items: center; justify-content: center; z-index: 9999;
+}
+.fin-modal-card {
+  background: var(--fin-surface); border-radius: 16px; box-shadow: var(--fin-shadow-pop);
+  padding: 24px; max-height: 90vh; overflow-y: auto;
+}
+.fin-modal-card h3 {
+  font-size: 16px; font-weight: 800; margin-bottom: 20px; padding-bottom: 12px;
+  border-bottom: 1px solid var(--fin-border-soft);
+}
+
+/* ---------- Formulário ---------- */
+.fin-field { margin-bottom: 14px; }
+.fin-field label {
+  display: block; font-size: 11.5px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase;
+  color: var(--fin-ink-muted); margin-bottom: 6px;
+}
+.fin-field input, .fin-field select, .fin-field textarea {
+  width: 100%; font-family: var(--fin-font-body); font-size: 13.5px; padding: 9px 12px;
+  border-radius: 9px; border: 1px solid var(--fin-border); background: var(--fin-canvas); color: var(--fin-ink);
+  transition: border-color 0.15s, background 0.15s;
+}
+.fin-field input:focus, .fin-field select:focus, .fin-field textarea:focus {
+  outline: none; border-color: var(--fin-accent); background: var(--fin-surface);
+}
+.fin-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+/* ---------- Empty state ---------- */
+.fin-empty-state { text-align: center; padding: 50px 20px; color: var(--fin-ink-muted); }
+.fin-empty-state-icon {
+  width: 56px; height: 56px; border-radius: 50%; background: var(--fin-canvas); border: 1px solid var(--fin-border);
+  display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; color: var(--fin-ink-faint);
+}
+
+/* ---------- Avançado (sub-nav interna) ---------- */
+.fin-subnav { display: flex; gap: 4px; margin-bottom: 18px; border-bottom: 1px solid var(--fin-border); }
+.fin-subnav button {
+  font-family: var(--fin-font-body); font-weight: 600; font-size: 12.5px; padding: 10px 16px;
+  border: none; background: transparent; color: var(--fin-ink-muted); cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.fin-subnav button.active { color: var(--fin-accent); border-bottom-color: var(--fin-accent); }
+.fin-advanced-note {
+  display: flex; align-items: center; gap: 10px; padding: 12px 16px; margin-bottom: 18px;
+  background: var(--fin-warn-bg); color: var(--fin-warn-fg); border-radius: 10px; font-size: 12.5px;
+}
