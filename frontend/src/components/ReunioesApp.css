@@ -1,0 +1,132 @@
+/* ============================================================
+   Estilo exclusivo do módulo de Reuniões — mesma identidade visual
+   profissional do RH / Relatórios / Afiliados / CRM / Financeiro.
+   Scoped sob .reun-modern; não afeta outros módulos.
+   ============================================================ */
+
+.reun-modern {
+  --reun-accent: #017E84;
+  --reun-accent-hover: #016368;
+  --reun-accent-soft: #E3F3F1;
+  --reun-ink: #16211F;
+  --reun-ink-muted: #5B6B67;
+  --reun-ink-faint: #8B9B97;
+  --reun-canvas: #F5F8F7;
+  --reun-surface: #FFFFFF;
+  --reun-border: #E2E8E6;
+  --reun-border-soft: #EDF2F1;
+  --reun-good-bg: #E7F5EC; --reun-good-fg: #1F7A45;
+  --reun-info-bg: #E7EEF5; --reun-info-fg: #2E5C8A;
+  --reun-bad-bg: #FBEAEA; --reun-bad-fg: #B23A3A;
+  --reun-warn-bg: #FCF3E3; --reun-warn-fg: #9C6B12;
+  --reun-shadow-card: 0 1px 2px rgba(22,33,31,0.04), 0 6px 20px rgba(22,33,31,0.06);
+  --reun-font-display: 'Manrope', 'Segoe UI', system-ui, sans-serif;
+  --reun-font-body: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+
+  font-family: var(--reun-font-body);
+  color: var(--reun-ink);
+  background: var(--reun-canvas);
+  height: 100%;
+  width: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 28px 32px 40px;
+}
+.reun-modern * { box-sizing: border-box; }
+.reun-modern h1, .reun-modern h2, .reun-modern h3, .reun-modern h4, .reun-modern h5 {
+  font-family: var(--reun-font-display);
+  margin: 0;
+}
+
+.reun-header {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 18px; flex-wrap: wrap; margin-bottom: 26px;
+}
+.reun-header h1 {
+  font-size: 22px; font-weight: 800; letter-spacing: -0.01em;
+  display: flex; align-items: center; gap: 12px;
+}
+.reun-header-icon {
+  width: 40px; height: 40px; border-radius: 11px; background: var(--reun-accent-soft); color: var(--reun-accent);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.reun-header p { margin: 4px 0 0 52px; font-size: 13px; color: var(--reun-ink-muted); }
+
+.reun-btn {
+  font-family: var(--reun-font-body); font-weight: 700; font-size: 13.5px;
+  padding: 11px 20px; border-radius: 10px; border: 1px solid var(--reun-border);
+  background: var(--reun-surface); color: var(--reun-ink); cursor: pointer;
+  display: inline-flex; align-items: center; gap: 8px; transition: border-color 0.15s, transform 0.1s;
+}
+.reun-btn:hover { border-color: var(--reun-accent); transform: translateY(-1px); }
+.reun-btn:disabled { opacity: 0.6; cursor: wait; transform: none; }
+.reun-btn-primary { background: var(--reun-accent); border-color: var(--reun-accent); color: white; }
+.reun-btn-primary:hover { background: var(--reun-accent-hover); border-color: var(--reun-accent-hover); }
+.reun-btn-ghost { background: transparent; border: none; color: var(--reun-accent); font-weight: 700; padding: 0; }
+
+.reun-layout { display: grid; grid-template-columns: 340px 1fr; gap: 20px; align-items: start; }
+@media (max-width: 900px) { .reun-layout { grid-template-columns: 1fr; } }
+
+.reun-panel {
+  background: var(--reun-surface); border: 1px solid var(--reun-border); border-radius: 16px;
+  box-shadow: var(--reun-shadow-card); padding: 22px;
+}
+.reun-panel-title { font-size: 15px; font-weight: 800; margin-bottom: 18px; font-family: var(--reun-font-display); }
+
+.reun-field { margin-bottom: 16px; }
+.reun-field label {
+  display: block; font-size: 11.5px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase;
+  color: var(--reun-ink-muted); margin-bottom: 6px;
+}
+.reun-field input, .reun-field textarea {
+  width: 100%; font-family: var(--reun-font-body); font-size: 13.5px; padding: 10px 12px;
+  border-radius: 9px; border: 1px solid var(--reun-border); background: var(--reun-canvas); color: var(--reun-ink);
+  transition: border-color 0.15s, background 0.15s;
+}
+.reun-field input:focus, .reun-field textarea:focus { outline: none; border-color: var(--reun-accent); background: var(--reun-surface); }
+.reun-field-hint { font-size: 11px; color: var(--reun-ink-faint); margin-top: 5px; }
+.reun-checklist {
+  max-height: 130px; overflow-y: auto; border: 1px solid var(--reun-border); border-radius: 9px;
+  padding: 10px; background: var(--reun-canvas); display: flex; flex-direction: column; gap: 7px;
+}
+.reun-checklist label {
+  display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; color: var(--reun-ink);
+  text-transform: none; font-weight: 500; letter-spacing: normal;
+}
+.reun-checklist-empty { font-size: 12px; color: var(--reun-ink-faint); }
+
+.reun-empty-state {
+  text-align: center; padding: 50px 24px; background: var(--reun-surface); border: 1px dashed var(--reun-border);
+  border-radius: 16px; color: var(--reun-ink-muted);
+}
+.reun-empty-state-icon {
+  width: 56px; height: 56px; border-radius: 50%; background: var(--reun-canvas); border: 1px solid var(--reun-border);
+  display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; color: var(--reun-ink-faint);
+}
+
+.reun-meeting-card {
+  background: var(--reun-surface); border: 1px solid var(--reun-border); border-radius: 14px;
+  box-shadow: var(--reun-shadow-card); padding: 18px 20px;
+  display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;
+}
+.reun-meeting-title { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+.reun-meeting-meta { display: flex; gap: 16px; flex-wrap: wrap; color: var(--reun-ink-muted); font-size: 12.5px; }
+.reun-meeting-meta span { display: flex; align-items: center; gap: 5px; }
+.reun-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 10.5px; font-weight: 700; }
+.reun-badge-good { background: var(--reun-good-bg); color: var(--reun-good-fg); }
+.reun-badge-info { background: var(--reun-info-bg); color: var(--reun-info-fg); }
+
+/* ---------- Ata (Summary) ---------- */
+.reun-ata-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 360px); gap: 20px; align-items: start; }
+.reun-ata-subgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 860px) {
+  .reun-ata-grid { grid-template-columns: 1fr; }
+  .reun-ata-subgrid { grid-template-columns: 1fr; }
+}
+.reun-ata-card { background: var(--reun-surface); border: 1px solid var(--reun-border); border-radius: 14px; padding: 20px; box-shadow: var(--reun-shadow-card); }
+.reun-ata-card-title { display: flex; align-items: center; gap: 9px; margin-bottom: 14px; font-size: 14.5px; font-weight: 800; font-family: var(--reun-font-display); }
+.reun-ata-card-subtitle { display: flex; align-items: center; gap: 7px; margin-bottom: 12px; font-size: 13px; font-weight: 700; }
+.reun-task-item {
+  padding: 12px 14px; background: var(--reun-canvas); border: 1px solid var(--reun-border-soft); border-left: 3px solid var(--reun-accent);
+  border-radius: 10px;
+}

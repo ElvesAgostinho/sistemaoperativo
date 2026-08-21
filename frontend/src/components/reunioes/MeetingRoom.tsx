@@ -177,16 +177,18 @@ export default function MeetingRoom({ reuniaoId, roomName, titulo, participanteN
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'white', color: '#0f172a' }}>
-            <div style={{ padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
+            <div style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #E2E8E6', background: '#F5F8F7', fontFamily: "'IBM Plex Sans', 'Segoe UI', sans-serif" }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <Video size={24} color="#60a5fa" />
-                    <h2 style={{ margin: 0, fontSize: '18px' }}>{titulo}</h2>
+                    <div style={{ width: '34px', height: '34px', borderRadius: '9px', background: '#E3F3F1', color: '#017E84', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Video size={18} />
+                    </div>
+                    <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 800, fontFamily: "'Manrope', sans-serif", color: '#16211F' }}>{titulo}</h2>
                 </div>
                 {onEnd && (
                     <button
                         onClick={onEnd}
                         disabled={endLoading}
-                        style={{ background: '#ef4444', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', fontWeight: 'bold', cursor: endLoading ? 'wait' : 'pointer' }}
+                        style={{ background: '#B23A3A', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '10px', fontWeight: 700, fontSize: '13.5px', cursor: endLoading ? 'wait' : 'pointer', fontFamily: 'inherit' }}
                     >
                         {endLoading ? 'A processar Resumo da IA...' : 'Terminar Reunião & Gerar Resumo IA'}
                     </button>
@@ -211,10 +213,10 @@ export default function MeetingRoom({ reuniaoId, roomName, titulo, participanteN
                 </div>
 
                 {/* AI Copilot Side Panel */}
-                <div style={{ width: '320px', background: '#1f2937', borderLeft: '1px solid #374151', display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ padding: '16px', borderBottom: '1px solid #374151', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div className={isListening ? 'pulse-dot' : ''} style={{ width: '10px', height: '10px', borderRadius: '50%', background: isListening ? '#10b981' : '#6b7280' }}></div>
-                        <span style={{ fontWeight: 'bold' }}>Copilot IA (A ouvir...)</span>
+                <div style={{ width: '320px', background: '#16211F', borderLeft: '1px solid #2A3B37', display: 'flex', flexDirection: 'column', fontFamily: "'IBM Plex Sans', 'Segoe UI', sans-serif" }}>
+                    <div style={{ padding: '16px', borderBottom: '1px solid #2A3B37', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div className={isListening ? 'pulse-dot' : ''} style={{ width: '9px', height: '9px', borderRadius: '50%', background: isListening ? '#2CB5B0' : '#5B6B67' }}></div>
+                        <span style={{ fontWeight: 700, fontFamily: "'Manrope', sans-serif", fontSize: '13.5px' }}>Copilot IA (A ouvir...)</span>
                     </div>
                     <div style={{ flex: 1, padding: '16px', overflowY: 'auto', fontSize: '13px', lineHeight: 1.6, color: '#d1d5db', whiteSpace: 'pre-wrap' }}>
                         {transcription === '' && interimTranscription === '' ? (
@@ -231,11 +233,11 @@ export default function MeetingRoom({ reuniaoId, roomName, titulo, participanteN
                     </div>
                     <style>{`
                         .pulse-dot {
-                            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+                            box-shadow: 0 0 0 0 rgba(44, 181, 176, 0.6);
                             animation: pulse 1.5s infinite cubic-bezier(0.66, 0, 0, 1);
                         }
                         @keyframes pulse {
-                            to { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+                            to { box-shadow: 0 0 0 10px rgba(44, 181, 176, 0); }
                         }
                     `}</style>
                 </div>
