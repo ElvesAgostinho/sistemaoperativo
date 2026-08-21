@@ -1,0 +1,211 @@
+/* ============================================================
+   Estilo exclusivo do módulo de Recursos Humanos (Fase 2 — reskin).
+   Tudo aqui está scoped sob .hr-modern (raiz do HrApp), portanto não
+   afeta CRM, Automação, Definições nem nenhum outro módulo que também
+   usa as classes .odoo-*.
+   ============================================================ */
+
+.hr-modern {
+  --odoo-text-dark: #16211F;
+  --odoo-text-muted: #5B6B67;
+  --odoo-border: #E2E8E6;
+  --odoo-sheet-bg: #FFFFFF;
+  --odoo-bg-gray: #F5F8F7;
+
+  --hr-accent: #017E84;
+  --hr-accent-hover: #016368;
+  --hr-accent-soft: #E3F3F1;
+  --hr-ink: #16211F;
+  --hr-ink-muted: #5B6B67;
+  --hr-ink-faint: #8B9B97;
+  --hr-canvas: #F5F8F7;
+  --hr-surface: #FFFFFF;
+  --hr-border: #E2E8E6;
+  --hr-border-soft: #EDF2F1;
+  --hr-shadow-card: 0 1px 2px rgba(22,33,31,0.04), 0 6px 20px rgba(22,33,31,0.06);
+  --hr-shadow-pop: 0 12px 32px rgba(22,33,31,0.16);
+  --hr-font-display: 'Manrope', 'Segoe UI', system-ui, sans-serif;
+  --hr-font-body: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+
+  font-family: var(--hr-font-body);
+}
+
+.hr-modern h1, .hr-modern h2, .hr-modern h3, .hr-modern h4 {
+  font-family: var(--hr-font-display);
+}
+
+/* ---------- Navegação ---------- */
+.hr-topbar {
+  background: var(--hr-surface);
+  border-bottom: 1px solid var(--hr-border);
+  padding: 18px 24px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.hr-topbar-title h3 {
+  font-weight: 800;
+  font-size: 20px;
+  margin: 0 0 2px;
+  color: var(--hr-ink);
+  letter-spacing: -0.01em;
+}
+.hr-breadcrumb {
+  font-size: 12px;
+  color: var(--hr-ink-faint);
+  font-family: var(--hr-font-body);
+}
+.hr-pillnav {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--hr-canvas);
+  border: 1px solid var(--hr-border-soft);
+  border-radius: 12px;
+  flex-wrap: wrap;
+}
+.hr-pillnav button {
+  font-family: var(--hr-font-body);
+  font-weight: 500;
+  font-size: 12.5px;
+  padding: 8px 13px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: var(--hr-ink-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+.hr-pillnav button.active {
+  background: var(--hr-surface);
+  color: var(--hr-accent);
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(22,33,31,0.1);
+}
+.hr-pillnav button:hover:not(.active) {
+  color: var(--hr-ink);
+}
+
+/* ---------- Botões, inputs e ficha (partilhados via .odoo-*) ---------- */
+.hr-modern .odoo-btn {
+  border-radius: 10px;
+  font-family: var(--hr-font-body);
+  font-weight: 600;
+  padding: 9px 15px;
+  transition: border-color 0.15s, transform 0.1s, background-color 0.15s;
+}
+.hr-modern .odoo-btn:hover {
+  border-color: var(--hr-accent);
+  transform: translateY(-1px);
+}
+.hr-modern .odoo-btn-primary {
+  background-color: var(--hr-accent);
+  border-color: var(--hr-accent);
+}
+.hr-modern .odoo-btn-primary:hover {
+  background-color: var(--hr-accent-hover);
+  border-color: var(--hr-accent-hover);
+  color: white;
+}
+.hr-modern .odoo-form-group {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  margin-bottom: 14px;
+}
+.hr-modern .odoo-label {
+  width: auto;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--hr-ink-muted);
+  padding-right: 0;
+  margin-bottom: 6px;
+}
+.hr-modern .odoo-input,
+.hr-modern .odoo-textarea {
+  border: 1px solid var(--hr-border);
+  border-radius: 9px;
+  background: var(--hr-canvas);
+  padding: 9px 12px;
+  font-size: 13.5px;
+  transition: border-color 0.15s, background 0.15s;
+}
+.hr-modern .odoo-input:focus,
+.hr-modern .odoo-textarea:focus {
+  border: 1px solid var(--hr-accent);
+  background: var(--hr-surface);
+}
+.hr-modern .odoo-input[type="file"] {
+  border-style: dashed;
+  background: var(--hr-canvas);
+}
+.hr-modern .odoo-form-sheet {
+  border-radius: 16px;
+  box-shadow: var(--hr-shadow-card);
+  border: 1px solid var(--hr-border);
+}
+
+/* ---------- Modais ---------- */
+.hr-modern .hr-modal-card {
+  border-radius: 16px !important;
+  box-shadow: var(--hr-shadow-pop) !important;
+}
+.hr-modern .hr-modal-card h3 {
+  font-family: var(--hr-font-display);
+  font-weight: 800;
+}
+
+/* ---------- Cartões (colaboradores/departamentos) ---------- */
+.hr-modern .hr-emp-card {
+  border-radius: 14px !important;
+  box-shadow: var(--hr-shadow-card) !important;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.hr-modern .hr-emp-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--hr-shadow-pop) !important;
+}
+.hr-modern .hr-emp-actions button {
+  border-radius: 8px !important;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+.hr-modern .hr-emp-actions button:hover {
+  border-color: var(--hr-accent) !important;
+  color: var(--hr-accent) !important;
+  background: var(--hr-accent-soft) !important;
+}
+
+/* ---------- Tabelas ---------- */
+.hr-modern table {
+  border-radius: 14px !important;
+  overflow: hidden;
+  box-shadow: var(--hr-shadow-card);
+  font-family: var(--hr-font-body);
+}
+.hr-modern thead th {
+  background: var(--hr-canvas) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+  font-size: 10.5px !important;
+  font-weight: 700 !important;
+  font-family: var(--hr-font-display) !important;
+  color: var(--hr-ink-faint) !important;
+  padding: 13px 16px !important;
+}
+.hr-modern tbody td {
+  padding: 14px 16px !important;
+  border-bottom: 1px solid var(--hr-border-soft) !important;
+  color: var(--hr-ink);
+}
+.hr-modern tbody tr:last-child td {
+  border-bottom: none !important;
+}
+.hr-modern tbody tr:hover {
+  background: var(--hr-canvas);
+}

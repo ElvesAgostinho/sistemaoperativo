@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Upload, Users, FileText, Download, CheckCircle, AlertTriangle, Briefcase, Calendar, Plus, Bot, Trash2, Sun, Search, Lock, Edit2, DollarSign, Star, LayoutGrid, List } from 'lucide-react';
+import './HrApp.css';
 
 const authFetch = (url: string, options: any = {}) => { const token = localStorage.getItem('os_auth_token'); const headers = { ...options.headers }; if (token) headers['Authorization'] = `Bearer ${token}`; return fetch(url, { ...options, headers }); };
 
@@ -754,72 +755,37 @@ export default function HrApp() {
   };
 
 
+  const HR_TABS: { key: typeof activeTab; label: string; title: string }[] = [
+    { key: 'colaboradores', label: 'Diretório', title: 'Diretório de Colaboradores' },
+    { key: 'departamentos', label: 'Departamentos', title: 'Departamentos' },
+    { key: 'presencas', label: 'Presenças', title: 'Presenças e Faltas' },
+    { key: 'salarios', label: 'Processamento', title: 'Processamento de Salários' },
+    { key: 'rubricas', label: 'Config Salarial', title: 'Rubricas e Impostos' },
+    { key: 'recrutamento', label: 'Triagem IA', title: 'Triagem de CVs (IA)' },
+    { key: 'adiantamentos', label: 'Adiantamentos', title: 'Adiantamentos Salariais' },
+    { key: 'desempenho', label: 'Desempenho', title: 'Avaliações de Desempenho' },
+  ];
+  const hrActiveTitle = HR_TABS.find(t => t.key === activeTab)?.title || '';
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      
-      {/* Submenu de Controlo Odoo */}
-      <div className="odoo-control-panel">
-        <div className="odoo-breadcrumb">
-          Recursos Humanos / <span style={{ fontWeight: 600, marginLeft: '8px' }}>
-            {activeTab === 'colaboradores' && 'Diretório de Colaboradores'}
-            {activeTab === 'departamentos' && 'Departamentos'}
-            {activeTab === 'presencas' && 'Presenças e Faltas'}
-            {activeTab === 'salarios' && 'Processamento de Salários'}
-            {activeTab === 'rubricas' && 'Rubricas e Impostos'}
-            {activeTab === 'recrutamento' && 'Triagem de CVs (IA)'}
-            {activeTab === 'adiantamentos' && 'Adiantamentos Salariais'}
-            {activeTab === 'desempenho' && 'Avaliações de Desempenho'}
-          </span>
+    <div className="hr-modern" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+
+      {/* Navegação */}
+      <div className="hr-topbar">
+        <div className="hr-topbar-title">
+          <h3>{hrActiveTitle}</h3>
+          <div className="hr-breadcrumb">Recursos Humanos</div>
         </div>
-        <div className="odoo-control-actions">
-          <button 
-            className={`odoo-btn ${activeTab === 'colaboradores' ? 'odoo-btn-primary' : ''}`}
-            onClick={() => setActiveTab('colaboradores')}
-          >
-            Diretório
-          </button>
-          <button 
-            className={`odoo-btn ${activeTab === 'departamentos' ? 'odoo-btn-primary' : ''}`}
-            onClick={() => setActiveTab('departamentos')}
-          >
-            Departamentos
-          </button>
-          <button 
-            className={`odoo-btn ${activeTab === 'presencas' ? 'odoo-btn-primary' : ''}`}
-            onClick={() => setActiveTab('presencas')}
-          >
-            Presenças
-          </button>
-          <button 
-            className={`odoo-btn ${activeTab === 'salarios' ? 'odoo-btn-primary' : ''}`}
-            onClick={() => setActiveTab('salarios')}
-          >
-            Processamento
-          </button>
-          <button 
-            className={`odoo-btn ${activeTab === 'rubricas' ? 'odoo-btn-primary' : ''}`}
-            onClick={() => setActiveTab('rubricas')}
-          >
-            Config Salarial
-          </button>
-          <button 
-            className={`odoo-btn ${activeTab === 'recrutamento' ? 'odoo-btn-primary' : ''}`}
-            onClick={() => setActiveTab('recrutamento')}
-          >
-            Triagem IA
-          </button>
-          <button 
-            className={`odoo-btn ${activeTab === 'adiantamentos' ? 'odoo-btn-primary' : ''}`}
-            onClick={() => setActiveTab('adiantamentos')}
-          >
-            Adiantamentos
-          </button>
-          <button 
-            className={`odoo-btn ${activeTab === 'desempenho' ? 'odoo-btn-primary' : ''}`}
-            onClick={() => setActiveTab('desempenho')}
-          >
-            Desempenho
-          </button>
+        <div className="hr-pillnav">
+          {HR_TABS.map(tab => (
+            <button
+              key={tab.key}
+              className={activeTab === tab.key ? 'active' : ''}
+              onClick={() => setActiveTab(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -907,7 +873,7 @@ export default function HrApp() {
                 {viewMode === 'kanban' ? (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px', alignItems: 'start' }}>
                     {employees.map(emp => (
-                      <div key={emp.id} style={{ backgroundColor: 'white', border: '1px solid var(--odoo-border)', borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', padding: '16px', display: 'flex', flexDirection: 'row', gap: '16px', position: 'relative' }}>
+                      <div key={emp.id} className="hr-emp-card" style={{ backgroundColor: 'white', border: '1px solid var(--odoo-border)', borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', padding: '16px', display: 'flex', flexDirection: 'row', gap: '16px', position: 'relative' }}>
                         <button 
                           onClick={() => deleteEmployee(emp.id)}
                           style={{ position: 'absolute', top: '8px', right: '8px', background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', opacity: 0.5 }}
@@ -918,14 +884,14 @@ export default function HrApp() {
                           <Trash2 size={16} />
                         </button>
                         
-                        <div style={{ width: '60px', height: '60px', backgroundColor: 'var(--odoo-teal)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '4px', fontSize: '24px', fontWeight: 'bold', flexShrink: 0 }}>
+                        <div className="hr-avatar" style={{ width: '52px', height: '52px', backgroundColor: 'var(--odoo-teal)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px', fontSize: '20px', fontWeight: 'bold', flexShrink: 0 }}>
                           {emp.nome.charAt(0)}
                         </div>
                         
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
                             <h4 style={{ margin: '0', color: 'var(--odoo-text-dark)', fontSize: '16px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{emp.nome}</h4>
-                            <span style={{ fontSize: '11px', padding: '2px 6px', backgroundColor: emp.estado === 'Ativo' ? '#d4edda' : '#f8d7da', color: emp.estado === 'Ativo' ? '#155724' : '#721c24', borderRadius: '12px', flexShrink: 0, marginLeft: '8px' }}>
+                            <span className="hr-chip" style={{ fontSize: '11px', fontWeight: 600, padding: '4px 10px', backgroundColor: emp.estado === 'Ativo' ? '#E7F5EC' : '#FBEAEA', color: emp.estado === 'Ativo' ? '#1F7A45' : '#B23A3A', borderRadius: '20px', flexShrink: 0, marginLeft: '8px' }}>
                               {emp.estado}
                             </span>
                           </div>
@@ -957,7 +923,7 @@ export default function HrApp() {
                             </div>
                           )}
 
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', borderTop: '1px solid var(--odoo-border)', paddingTop: '12px' }}>
+                          <div className="hr-emp-actions" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', borderTop: '1px solid var(--odoo-border)', paddingTop: '12px' }}>
                             <button 
                               className="odoo-btn" 
                               style={{ fontSize: '11px', padding: '4px 8px', color: 'var(--odoo-purple)', border: '1px solid var(--odoo-purple)', backgroundColor: 'transparent' }}
@@ -1075,7 +1041,7 @@ export default function HrApp() {
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px', alignItems: 'start' }}>
                 {departamentos.map(d => (
-                  <div key={d.id} style={{ backgroundColor: 'white', border: '1px solid var(--odoo-border)', borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', padding: '16px', position: 'relative' }}>
+                  <div key={d.id} className="hr-emp-card" style={{ backgroundColor: 'white', border: '1px solid var(--odoo-border)', borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', padding: '16px', position: 'relative' }}>
                     <button 
                       onClick={() => deleteDepartamento(d.id)}
                       style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', opacity: 0.5 }}
@@ -1292,8 +1258,8 @@ export default function HrApp() {
 
             {/* Modal Nova Rubrica */}
             {showNovaRubricaModal && (
-              <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-                <div style={{ backgroundColor: 'white', borderRadius: '8px', width: '500px', padding: '24px' }}>
+              <div className="hr-modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+                <div className="hr-modal-card" style={{ backgroundColor: 'white', borderRadius: '8px', width: '500px', padding: '24px' }}>
                   <h3 style={{ marginTop: 0, marginBottom: '24px' }}>Criar Rubrica Salarial</h3>
                   <form onSubmit={handleSaveRubrica}>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '16px', marginBottom: '16px' }}>
@@ -1534,8 +1500,8 @@ export default function HrApp() {
 
         {/* ================= MODAL NOVO COLABORADOR ================= */}
         {showNewEmployeeModal && (
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-            <div style={{ backgroundColor: 'white', borderRadius: '8px', width: '800px', maxWidth: '95%', padding: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', maxHeight: '90vh', overflowY: 'auto' }}>
+          <div className="hr-modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+            <div className="hr-modal-card" style={{ backgroundColor: 'white', borderRadius: '8px', width: '800px', maxWidth: '95%', padding: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', maxHeight: '90vh', overflowY: 'auto' }}>
               <h3 style={{ marginTop: 0, marginBottom: '24px', borderBottom: '1px solid var(--odoo-border)', paddingBottom: '12px' }}>Registar Novo Colaborador (Ficha Completa)</h3>
               
               <form onSubmit={handleSaveEmployee}>
@@ -1719,8 +1685,8 @@ export default function HrApp() {
 
         {/* ================= MODAL NOVA AUSENCIA ================= */}
         {showNovaAusenciaModal && (
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-            <div style={{ backgroundColor: 'white', borderRadius: '8px', width: '500px', maxWidth: '90%', padding: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+          <div className="hr-modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+            <div className="hr-modal-card" style={{ backgroundColor: 'white', borderRadius: '8px', width: '500px', maxWidth: '90%', padding: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
               <h3 style={{ marginTop: 0, marginBottom: '24px', borderBottom: '1px solid var(--odoo-border)', paddingBottom: '12px' }}>Declarar Falta / Ausência</h3>
               
               <form onSubmit={async (e) => {
@@ -1789,8 +1755,8 @@ export default function HrApp() {
 
         {/* ================= MODAL EDITAR RECIBO (RASCUNHO) ================= */}
         {editingRecibo && (
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-            <div style={{ backgroundColor: 'white', borderRadius: '8px', width: '500px', maxWidth: '90%', padding: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+          <div className="hr-modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+            <div className="hr-modal-card" style={{ backgroundColor: 'white', borderRadius: '8px', width: '500px', maxWidth: '90%', padding: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
               <h3 style={{ marginTop: 0, marginBottom: '24px', borderBottom: '1px solid var(--odoo-border)', paddingBottom: '12px' }}>
                 Editar Valores: {editingRecibo.nome}
               </h3>
@@ -1864,8 +1830,8 @@ export default function HrApp() {
 
         {/* ================= MODAL NOVO DEPARTAMENTO ================= */}
         {showNewDepartamentoModal && (
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-            <div style={{ backgroundColor: 'white', borderRadius: '8px', width: '500px', maxWidth: '90%', padding: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+          <div className="hr-modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+            <div className="hr-modal-card" style={{ backgroundColor: 'white', borderRadius: '8px', width: '500px', maxWidth: '90%', padding: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
               <h3 style={{ marginTop: 0, marginBottom: '24px', borderBottom: '1px solid var(--odoo-border)', paddingBottom: '12px' }}>Criar Novo Departamento</h3>
               
               <form onSubmit={handleSaveDepartamento}>
@@ -2179,8 +2145,8 @@ export default function HrApp() {
 
         {/* ================= MODAL NOVA VAGA ================= */}
         {showNovaVagaModal && (
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-            <div style={{ backgroundColor: 'white', borderRadius: '8px', width: '500px', maxWidth: '90%', padding: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+          <div className="hr-modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+            <div className="hr-modal-card" style={{ backgroundColor: 'white', borderRadius: '8px', width: '500px', maxWidth: '90%', padding: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
               <h3 style={{ marginTop: 0, marginBottom: '24px', borderBottom: '1px solid var(--odoo-border)', paddingBottom: '12px' }}>Criar Nova Vaga</h3>
               <form onSubmit={handleCreateVaga}>
                 <div className="odoo-form-group" style={{ marginBottom: '16px' }}>
@@ -2228,8 +2194,8 @@ export default function HrApp() {
 
         {/* ================= MODAL SUBMETER CV ================= */}
         {showNovaCandidaturaModal && (
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-            <div style={{ backgroundColor: 'white', borderRadius: '8px', width: '500px', maxWidth: '90%', padding: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+          <div className="hr-modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+            <div className="hr-modal-card" style={{ backgroundColor: 'white', borderRadius: '8px', width: '500px', maxWidth: '90%', padding: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
               <h3 style={{ marginTop: 0, marginBottom: '24px', borderBottom: '1px solid var(--odoo-border)', paddingBottom: '12px' }}>Submeter Candidatura (Triagem IA)</h3>
               <form onSubmit={handleUploadCv}>
                 <div className="odoo-form-group" style={{ marginBottom: '16px' }}>
@@ -2271,8 +2237,8 @@ export default function HrApp() {
 
         {/* ================= MODAL NOVO ADIANTAMENTO ================= */}
         {showNovoAdiantamentoModal && (
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-            <div style={{ backgroundColor: 'white', borderRadius: '8px', width: '480px', maxWidth: '90%', padding: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+          <div className="hr-modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+            <div className="hr-modal-card" style={{ backgroundColor: 'white', borderRadius: '8px', width: '480px', maxWidth: '90%', padding: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
               <h3 style={{ marginTop: 0, marginBottom: '8px' }}>Registar Novo Adiantamento (Vale)</h3>
               <p style={{ fontSize: '12px', color: 'var(--odoo-text-muted)', marginBottom: '24px', borderBottom: '1px solid var(--odoo-border)', paddingBottom: '12px' }}>
                 O desconto mensal será calculado automaticamente: <strong>Valor Total ÷ Nº de Parcelas</strong>.
@@ -2313,8 +2279,8 @@ export default function HrApp() {
 
         {/* ================= MODAL NOVA AVALIAÇÃO ================= */}
         {showNovaAvaliacaoModal && (
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-            <div style={{ backgroundColor: 'white', borderRadius: '8px', width: '500px', maxWidth: '90%', padding: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+          <div className="hr-modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+            <div className="hr-modal-card" style={{ backgroundColor: 'white', borderRadius: '8px', width: '500px', maxWidth: '90%', padding: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
               <h3 style={{ marginTop: 0, marginBottom: '24px', borderBottom: '1px solid var(--odoo-border)', paddingBottom: '12px' }}>Nova Avaliação de Desempenho</h3>
               <form onSubmit={handleSaveAvaliacao}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
@@ -2370,8 +2336,8 @@ export default function HrApp() {
 
         {/* ================= MODAL FÉRIAS E AUSÊNCIAS ================= */}
         {showVacationModal !== null && (
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-            <div style={{ backgroundColor: 'white', borderRadius: '8px', width: '600px', maxWidth: '90%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+          <div className="hr-modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+            <div className="hr-modal-card" style={{ backgroundColor: 'white', borderRadius: '8px', width: '600px', maxWidth: '90%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
               
               <div style={{ padding: '24px', borderBottom: '1px solid var(--odoo-border)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -2481,8 +2447,8 @@ export default function HrApp() {
 
         {/* ================= MODAL DOSSIER DO FUNCIONÁRIO ================= */}
         {showDossierModal && dossierEmployeeId && (
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-            <div style={{ backgroundColor: 'white', borderRadius: '8px', width: '600px', maxWidth: '95%', padding: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', maxHeight: '90vh', overflowY: 'auto' }}>
+          <div className="hr-modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+            <div className="hr-modal-card" style={{ backgroundColor: 'white', borderRadius: '8px', width: '600px', maxWidth: '95%', padding: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', maxHeight: '90vh', overflowY: 'auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', borderBottom: '1px solid var(--odoo-border)', paddingBottom: '12px' }}>
                 <h3 style={{ margin: 0, color: 'var(--odoo-text-dark)' }}>Dossier do Colaborador</h3>
                 <button onClick={() => setShowDossierModal(false)} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}>&times;</button>
@@ -2545,8 +2511,8 @@ export default function HrApp() {
 
         {/* ================= MODAL EDITAR COLABORADOR ================= */}
         {showEditEmployeeModal && editEmployee && (
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-            <div style={{ backgroundColor: 'white', borderRadius: '8px', width: '800px', maxWidth: '95%', padding: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', maxHeight: '90vh', overflowY: 'auto' }}>
+          <div className="hr-modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+            <div className="hr-modal-card" style={{ backgroundColor: 'white', borderRadius: '8px', width: '800px', maxWidth: '95%', padding: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', maxHeight: '90vh', overflowY: 'auto' }}>
               <h3 style={{ marginTop: 0, marginBottom: '24px', borderBottom: '1px solid var(--odoo-border)', paddingBottom: '12px' }}>Editar Colaborador: {editEmployee.nome}</h3>
               
               <form onSubmit={handleUpdateEmployee}>
