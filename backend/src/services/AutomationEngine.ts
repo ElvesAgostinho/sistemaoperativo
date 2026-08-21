@@ -9,6 +9,7 @@ export interface WhatsAppMessage {
     channel_id: string;
     phone_number: string;
     contact_name: string;
+    contact_picture?: string | null;
     content: string;
     direction: 'inbound' | 'outbound';
 }
@@ -748,6 +749,12 @@ export class AutomationEngine {
             if (message.contact_name && message.contact_name !== message.phone_number) {
                 updates.contact_name = message.contact_name;
             }
+            // Refrescar a foto sempre que tivermos uma nova — os links da CDN do
+            // WhatsApp expiram ao fim de algum tempo, por isso não basta guardar
+            // uma vez; cada mensagem nova é uma oportunidade de renovar o link.
+            if (message.contact_picture) {
+                updates.contact_picture = message.contact_picture;
+            }
             await supabase.from('wa_conversations').update(updates).eq('id', existing.id);
             return existing.id;
         }
@@ -758,6 +765,7 @@ export class AutomationEngine {
                 channel_id: message.channel_id,
                 phone_number: message.phone_number,
                 contact_name: message.contact_name,
+                contact_picture: message.contact_picture || null,
                 status: 'open',
                 last_message_at: updates.last_message_at,
                 last_client_message_at: updates.last_client_message_at || null

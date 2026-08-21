@@ -148,6 +148,12 @@ export default function WhatsAppChatApp() {
         if (storedUser) setCurrentUser(JSON.parse(storedUser));
     }, []);
 
+    // Fotos de perfil do WhatsApp (CDN da Meta) expiram ao fim de algum tempo —
+    // quando isso acontece, mostramos o círculo com a inicial em vez de um
+    // ícone de imagem partida.
+    const [brokenPictures, setBrokenPictures] = useState<Set<string>>(new Set());
+    const markPictureBroken = (id: string) => setBrokenPictures(prev => prev.has(id) ? prev : new Set(prev).add(id));
+
     const formatPhoneNumber = (phone: string) => formatPhoneNumberGlobal(phone);
 
     const displayContactName = (name: string, phone: string) => {
@@ -678,8 +684,8 @@ export default function WhatsAppChatApp() {
                                     }}
                                 >
                                     <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: '#dfe5e7', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '16px', overflow: 'hidden' }}>
-                                        {conv.contact_picture ? (
-                                            <img src={conv.contact_picture} alt={conv.contact_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        {conv.contact_picture && !brokenPictures.has(conv.id) ? (
+                                            <img src={conv.contact_picture} alt={conv.contact_name} onError={() => markPictureBroken(conv.id)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                         ) : (
                                             <UserIcon name={displayContactName(conv.contact_name, conv.phone_number)} />
                                         )}
@@ -840,8 +846,8 @@ export default function WhatsAppChatApp() {
                         <div style={{ padding: '10px 16px', backgroundColor: '#f0f2f5', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '59px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                                 <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#dfe5e7', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                                    {activeConv.contact_picture ? (
-                                        <img src={activeConv.contact_picture} alt={displayContactName(activeConv.contact_name, activeConv.phone_number)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    {activeConv.contact_picture && !brokenPictures.has(activeConv.id) ? (
+                                        <img src={activeConv.contact_picture} alt={displayContactName(activeConv.contact_name, activeConv.phone_number)} onError={() => markPictureBroken(activeConv.id)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                     ) : (
                                         <UserIcon name={displayContactName(activeConv.contact_name, activeConv.phone_number)} />
                                     )}

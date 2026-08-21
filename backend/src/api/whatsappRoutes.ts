@@ -236,6 +236,29 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                 }
                 contactName = contactName || phoneNumber;
 
+                // Foto de perfil — os links da CDN do WhatsApp expiram ao fim de algum
+                // tempo, por isso vamos buscar de novo a cada mensagem recebida (não só
+                // na sincronização manual), para a foto se manter atualizada nas
+                // conversas que continuam ativas.
+                let contactPicture: string | null = null;
+                if (phoneNumber && !phoneNumber.includes('@lid')) {
+                    const evolutionUrl = process.env.EVOLUTION_API_URL || 'https://evolution.topconsultores.pt';
+                    const apikey = process.env.AUTHENTICATION_API_KEY || '';
+                    if (instanceName && apikey) {
+                        try {
+                            const picRes = await fetch(`${evolutionUrl}/chat/fetchProfilePictureUrl/${instanceName}`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'apikey': apikey },
+                                body: JSON.stringify({ number: phoneNumber })
+                            });
+                            if (picRes.ok) {
+                                const picData = await picRes.json();
+                                if (picData.profilePictureUrl) contactPicture = picData.profilePictureUrl;
+                            }
+                        } catch (e) { /* silent fail — não bloqueia a mensagem por causa da foto */ }
+                    }
+                }
+
                 if (!phoneNumber || !content) continue;
 
                 // Buscar canal evolution correto usando instanceName
@@ -259,6 +282,7 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                     channel_id: channelId,
                     phone_number: phoneNumber,
                     contact_name: contactName,
+                    contact_picture: contactPicture,
                     content: content,
                     direction: 'inbound',
                     id: msg.key.id
