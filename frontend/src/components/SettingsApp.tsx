@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Mail, Key, CheckCircle, AlertCircle, Loader, Save, Wifi, Users, UserCheck, Shield, FileText, Building } from 'lucide-react';
+import { Settings, Mail, CheckCircle, AlertCircle, Loader, Save, Wifi, Users, UserCheck, Shield, FileText, Building } from 'lucide-react';
 
 type TestStatus = 'idle' | 'testing' | 'ok' | 'error';
 
@@ -26,7 +26,7 @@ export default function SettingsApp() {
     const [testStatus, setTestStatus] = useState<TestStatus>('idle');
     const [testMsg, setTestMsg] = useState('');
     const [showPass, setShowPass] = useState(false);
-    const [activeTab, setActiveTab] = useState<'email' | 'empresa' | 'openai' | 'equipa' | 'seguranca' | 'documentos'>('email');
+    const [activeTab, setActiveTab] = useState<'email' | 'empresa' | 'equipa' | 'seguranca' | 'documentos'>('email');
 
     // Segurança
     const [newPassword, setNewPassword] = useState('');
@@ -216,7 +216,6 @@ export default function SettingsApp() {
                 {[
                     { id: 'empresa', label: 'Dados da Empresa', icon: <Building size={16} /> },
                     { id: 'email', label: 'Email & SMTP', icon: <Mail size={16} /> },
-                    { id: 'openai', label: 'OpenAI / IA', icon: <Key size={16} /> },
                     { id: 'documentos', label: 'Personalização de Documentos', icon: <FileText size={16} /> },
                     { id: 'seguranca', label: 'Segurança', icon: <Shield size={16} /> },
                     ...((currentUser?.role === 'admin' || currentUser?.role === 'superadmin') ? [{ id: 'equipa', label: 'Gestão de Equipa', icon: <Users size={16} /> }] : []),
@@ -463,21 +462,6 @@ export default function SettingsApp() {
                             {saving ? <Loader className="spin" size={16} /> : <Save size={16} />}
                             {saving ? 'A Guardar...' : 'Guardar Dados da Empresa'}
                         </button>
-                    </div>
-                )}
-
-                {activeTab === 'openai' && (
-                    <div style={{ maxWidth: '680px' }}>
-                        <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#0f172a', margin: '0 0 8px 0' }}>Configurações de IA</h1>
-                        <p style={{ color: '#64748b', fontSize: '14px', margin: '0 0 32px 0' }}>
-                            A chave OpenAI está configurada no ficheiro <code style={{ backgroundColor: '#f1f5f9', padding: '2px 6px', borderRadius: '4px' }}>.env</code> do backend como <code style={{ backgroundColor: '#f1f5f9', padding: '2px 6px', borderRadius: '4px' }}>OPENAI_API_KEY</code>. Esta configuração é global para o sistema.
-                        </p>
-                        <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fcd34d', borderRadius: '10px', padding: '20px 24px' }}>
-                            <div style={{ fontWeight: '700', color: '#92400e', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}><Key size={16} /> Nota de Segurança</div>
-                            <p style={{ margin: 0, fontSize: '14px', color: '#78350f', lineHeight: '1.6' }}>
-                                Para um SaaS multi-cliente, a OpenAI API Key deve ser centralizada numa conta própria, e o custo de tokens debitado ao cliente via modelo de subscrição. Não partilhes a tua API key com os clientes finais.
-                            </p>
-                        </div>
                     </div>
                 )}
 

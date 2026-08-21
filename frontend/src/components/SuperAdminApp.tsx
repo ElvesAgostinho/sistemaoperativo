@@ -38,7 +38,6 @@ const SuperAdminApp = () => {
     { id: 'wa', name: 'WhatsApp Omnichannel' },
     { id: 'data', name: 'Relatórios' },
     { id: 'chat', name: 'Assistente IA' },
-    { id: 'pc', name: 'Meu PC (Desktop)' },
     { id: 'kb', name: 'Conhecimento IA' },
     { id: 'email', name: 'Caixa de Email' },
     { id: 'reunioes', name: 'Reuniões Inteligentes' },

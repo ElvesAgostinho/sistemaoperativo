@@ -122,7 +122,7 @@ export const aiTools = [
         type: "function" as const,
         function: {
             name: "listar_ficheiros_pc",
-            description: "Lista ficheiros existentes no módulo Meu PC (diretório local de documentos ou desktop do utilizador) para dizer quantos documentos existem.",
+            description: "Lista ficheiros existentes na pasta de documentos da empresa para dizer quantos documentos existem.",
             parameters: {
                 type: "object",
                 properties: {
@@ -489,7 +489,7 @@ export async function executeAITool(name: string, args: any, empresaId?: number)
                 status: 'success',
                 total_ficheiros: count,
                 exemplos: files,
-                mensagem: `O módulo Meu PC detetou ${count} ficheiros locais.`
+                mensagem: `Foram encontrados ${count} ficheiros na pasta de documentos da empresa.`
             });
         } catch (error: any) {
             return JSON.stringify({ status: 'error', error: error.message });

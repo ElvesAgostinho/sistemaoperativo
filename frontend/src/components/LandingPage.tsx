@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, Sparkles, Shield, Zap, Database, Users, Briefcase, MessageCircle, PieChart, Share2, Bot, Monitor, BookOpen, Mail, Settings, Globe, Video, Calculator, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, Sparkles, Shield, Zap, Database, Users, Briefcase, MessageCircle, PieChart, Share2, Bot, BookOpen, Mail, Settings, Globe, Video, Calculator, CheckCircle2 } from 'lucide-react';
 import '../styles/landing.css';
 import heroImg from '../assets/hero_business_os_dark.png';
 
@@ -26,7 +26,6 @@ const modules = [
   { name: 'Relatórios', icon: PieChart, color: '#f39c12' },
   { name: 'Parcerias', icon: Share2, color: '#0f9d58' },
   { name: 'Assistente IA', icon: Bot, color: '#34495e' },
-  { name: 'Meu PC', icon: Monitor, color: '#95a5a6' },
   { name: 'Conhecimento IA', icon: BookOpen, color: '#2d7ff9' },
   { name: 'Email', icon: Mail, color: '#1a3687' },
   { name: 'Definições', icon: Settings, color: '#4b5363' },

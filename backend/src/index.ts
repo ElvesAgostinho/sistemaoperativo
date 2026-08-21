@@ -2,7 +2,6 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import documentRoutes from './api/documentRoutes';
-import systemRoutes from './api/systemRoutes';
 import aiRoutes from './api/aiRoutes';
 import hrRoutes from './api/hrRoutes';
 import crmRoutes from './api/crmRoutes';
@@ -47,7 +46,6 @@ import agentWebhookRoutes from './api/agentWebhookRoutes';
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/documents', requireAuth, documentRoutes);
-app.use('/api/system', requireAuth, systemRoutes);
 app.use('/api/ai', requireAuth, aiRoutes);
 app.use('/api/hr', requireAuth, hrRoutes);
 app.use('/api/crm', requireAuth, crmRoutes);

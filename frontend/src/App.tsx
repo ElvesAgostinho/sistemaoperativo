@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import ChatApp from './components/ChatApp';
 import HrApp from './components/HrApp';
 import CrmApp from './components/CrmApp';
-import LocalSystemApp from './components/LocalSystemApp';
 import AutomationApp from './components/AutomationApp';
 import AuthScreen from './components/AuthScreen';
 import LandingPage from './components/LandingPage';
@@ -19,13 +18,13 @@ import PortalAfiliado from './components/PortalAfiliado';
 import PortalCarreiras from './pages/public/PortalCarreiras';
 import CandidaturaForm from './pages/public/CandidaturaForm';
 import ReuniaoConvidado from './pages/public/ReuniaoConvidado';
-import { LayoutGrid, Users, Briefcase, PieChart, Bot, Monitor, Zap, LogOut, MessageSquare, BookOpen, Mail, Settings, Clock, Globe, Video, Share2, Calculator, Shield } from 'lucide-react';
+import { LayoutGrid, Users, Briefcase, PieChart, Bot, Zap, LogOut, MessageSquare, BookOpen, Mail, Settings, Clock, Globe, Video, Share2, Calculator, Shield } from 'lucide-react';
 
 const IS_AFFILIATE_PORTAL = window.location.pathname === '/portal-afiliado';
 
 const ROLE_PERMISSIONS: Record<string, string[]> = {
-  superadmin: ['home', 'superadmin', 'hr', 'crm', 'data', 'chat', 'pc', 'auto', 'wa', 'kb', 'email', 'settings', 'reunioes', 'afiliados', 'contabilidade'],
-  admin: ['home', 'hr', 'crm', 'data', 'chat', 'pc', 'auto', 'wa', 'kb', 'email', 'settings', 'reunioes', 'afiliados', 'contabilidade'],
+  superadmin: ['home', 'superadmin', 'hr', 'crm', 'data', 'chat', 'auto', 'wa', 'kb', 'email', 'settings', 'reunioes', 'afiliados', 'contabilidade'],
+  admin: ['home', 'hr', 'crm', 'data', 'chat', 'auto', 'wa', 'kb', 'email', 'settings', 'reunioes', 'afiliados', 'contabilidade'],
   hr_manager: ['home', 'hr', 'chat', 'kb', 'email', 'reunioes'],
   rh_user: ['home', 'hr', 'chat', 'kb', 'reunioes'],
   sales_manager: ['home', 'crm', 'wa', 'email', 'data', 'chat', 'kb', 'reunioes', 'afiliados'],
@@ -34,7 +33,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
 };
 
 function App() {
-  const [activeModule, setActiveModule] = useState<'home' | 'hr' | 'crm' | 'data' | 'chat' | 'pc' | 'auto' | 'wa' | 'kb' | 'email' | 'settings' | 'superadmin' | 'reunioes' | 'afiliados' | 'contabilidade'>('home');
+  const [activeModule, setActiveModule] = useState<'home' | 'hr' | 'crm' | 'data' | 'chat' | 'auto' | 'wa' | 'kb' | 'email' | 'settings' | 'superadmin' | 'reunioes' | 'afiliados' | 'contabilidade'>('home');
   const [user, setUser] = useState<any>(null);
   const [token, setToken] = useState<string | null>(null);
   const [showLanding, setShowLanding] = useState<boolean>(true);
@@ -220,7 +219,7 @@ function App() {
     return <AuthScreen onLogin={handleLogin} onBack={() => setShowLanding(true)} />;
   }
 
-  const navigateTo = (module: 'home' | 'hr' | 'crm' | 'data' | 'chat' | 'pc' | 'auto' | 'wa' | 'kb' | 'email' | 'settings' | 'superadmin' | 'reunioes' | 'afiliados' | 'contabilidade') => {
+  const navigateTo = (module: 'home' | 'hr' | 'crm' | 'data' | 'chat' | 'auto' | 'wa' | 'kb' | 'email' | 'settings' | 'superadmin' | 'reunioes' | 'afiliados' | 'contabilidade') => {
     if (hasAccess(module)) {
       setActiveModule(module);
     }
@@ -236,7 +235,7 @@ function App() {
     if (module === 'superadmin') return user.role === 'superadmin';
 
     // Enterprise Licensing Check (Applies to all companies, even the superadmin's company if configured)
-    let companyModules = user.modulos_contratados || ['hr', 'crm', 'reunioes', 'auto', 'wa', 'kb', 'email', 'data', 'chat', 'pc', 'afiliados', 'contabilidade'];
+    let companyModules = user.modulos_contratados || ['hr', 'crm', 'reunioes', 'auto', 'wa', 'kb', 'email', 'data', 'chat', 'afiliados', 'contabilidade'];
     
     // Força a inclusão do novo módulo para sessões cacheadas
     if (!companyModules.includes('afiliados')) {
@@ -287,7 +286,6 @@ function App() {
             {activeModule === 'crm' && 'CRM'}
             {activeModule === 'data' && 'Relatórios'}
             {activeModule === 'chat' && 'Assistente IA'}
-            {activeModule === 'pc' && 'Meu Computador'}
             {activeModule === 'auto' && 'Autopilot (Workflows)'}
             {activeModule === 'wa' && 'WhatsApp Omnichannel'}
             {activeModule === 'kb' && 'Base de Conhecimento'}
@@ -425,14 +423,6 @@ function App() {
               </div>
             )}
 
-            {hasAccess('pc') && (
-              <div className="odoo-app-icon-container" onClick={() => navigateTo('pc')}>
-                <div className="odoo-app-icon" style={{ background: 'linear-gradient(135deg, #7f8c8d 0%, #95a5a6 100%)' }}>
-                  <Monitor size={40} color="white" strokeWidth={1.5} />
-                </div>
-                <div className="odoo-app-name">Meu PC</div>
-              </div>
-            )}
 
             {hasAccess('kb') && (
               <div className="odoo-app-icon-container" onClick={() => navigateTo('kb')}>
@@ -487,7 +477,6 @@ function App() {
       {activeModule !== 'home' && (
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', backgroundColor: '#ffffff' }}>
           {activeModule === 'hr' && <HrApp />}
-          {activeModule === 'pc' && <LocalSystemApp />}
           {activeModule === 'crm' && <CrmApp />}
           {activeModule === 'auto' && <AutomationApp />}
           {activeModule === 'wa' && <WhatsAppChatApp />}

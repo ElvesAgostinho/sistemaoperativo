@@ -250,7 +250,7 @@ async function processLogin(res: any, data: any, perfil: any, email: string) {
     }
 
     // Fetch contracted modules
-    let modulos = ['hr', 'crm', 'reunioes', 'auto', 'wa', 'kb', 'email', 'data', 'chat', 'pc', 'afiliados', 'contabilidade'];
+    let modulos = ['hr', 'crm', 'reunioes', 'auto', 'wa', 'kb', 'email', 'data', 'chat', 'afiliados', 'contabilidade'];
     if (perfil?.empresa_id && data?.session?.access_token) {
         try {
             const userClient = makeUserClient(data.session.access_token);
@@ -341,7 +341,7 @@ router.get('/me', requireAuth, async (req: AuthRequest, res: Response) => {
         .eq('id', req.user!.id)
         .single();
 
-    let modulos = ['hr', 'crm', 'reunioes', 'auto', 'wa', 'kb', 'email', 'data', 'chat', 'pc', 'afiliados', 'contabilidade'];
+    let modulos = ['hr', 'crm', 'reunioes', 'auto', 'wa', 'kb', 'email', 'data', 'chat', 'afiliados', 'contabilidade'];
     if (perfil?.empresa_id) {
         try {
             const { data: row } = await userClient.from('configuracoes')
