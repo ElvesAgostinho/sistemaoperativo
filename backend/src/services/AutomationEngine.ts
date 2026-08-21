@@ -185,7 +185,7 @@ export class AutomationEngine {
      * Percorre o grafo a partir de startNodeId até não haver mais aresta de saída,
      * executando nós de ação e escolhendo o branch correto em nós de condição.
      */
-    private static async executeGraph(nodes: FlowNode[], edges: FlowEdge[], startNodeId: string, initialContext: any, empresa_id: number | null) {
+    private static async executeGraph(nodes: FlowNode[], edges: FlowEdge[], startNodeId: string, initialContext: any, empresa_id: number | null): Promise<any> {
         let context = { ...initialContext };
         let currentNodeId: string | undefined = startNodeId;
         let iterations = 0;
@@ -222,6 +222,8 @@ export class AutomationEngine {
             // trigger nodes não deveriam ser re-visitados no meio do grafo; se acontecer, encerra
             break;
         }
+
+        return context;
     }
 
     private static evaluateCondition(data: any, context: any): boolean {
