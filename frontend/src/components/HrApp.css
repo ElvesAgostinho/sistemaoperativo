@@ -154,6 +154,8 @@
 .hr-modern .hr-modal-card {
   border-radius: 16px !important;
   box-shadow: var(--hr-shadow-pop) !important;
+  max-height: 90vh !important;
+  overflow-y: auto !important;
 }
 .hr-modern .hr-modal-card h3 {
   font-family: var(--hr-font-display);
