@@ -276,6 +276,73 @@ export class PdfService {
         });
     }
 
+    public static async gerarDeclaracaoServico(
+        colaborador: { nome: string; bi: string; nif?: string; cargo?: string; salario_base: number; data_inicio?: string },
+        empresaId?: number
+    ): Promise<string> {
+        const confMap = await PdfService.getCompanyConfig(empresaId);
+
+        return new Promise((resolve, reject) => {
+            try {
+                const doc = new PDFDocument({ margin: 50 });
+                const fileName = `Declaracao_${colaborador.nome.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
+                const filePath = path.join(__dirname, '..', '..', 'tmp', fileName);
+
+                const dir = path.dirname(filePath);
+                if (!fs.existsSync(dir)) {
+                    fs.mkdirSync(dir, { recursive: true });
+                }
+
+                const stream = fs.createWriteStream(filePath);
+                doc.pipe(stream);
+
+                if (confMap['COMPANY_LOGO_BASE64']) {
+                    PdfService.applyCompanyLogo(doc, confMap['COMPANY_LOGO_BASE64'], confMap['COMPANY_LOGO_POSITION'] || 'top-left');
+                }
+
+                const companyName = confMap['COMPANY_NAME'] || 'BUSINESS OS, LDA';
+                const companyNif = confMap['COMPANY_NIF'] || '5000000000';
+                const companyAddress = confMap['COMPANY_ADDRESS'] || 'Luanda, Angola';
+                const companyPhone = confMap['COMPANY_PHONE'] || '';
+
+                doc.rect(50, 40, doc.page.width - 100, 80).fill('#f8f9fa');
+                doc.strokeColor('#dee2e6').lineWidth(1).rect(50, 40, doc.page.width - 100, 80).stroke();
+
+                doc.fillColor('#212529').fontSize(22).font('Helvetica-Bold').text(companyName, 70, 55);
+                doc.fontSize(10).font('Helvetica').fillColor('#6c757d')
+                   .text(`${companyAddress} | NIF: ${companyNif} ${companyPhone ? '| Tel: ' + companyPhone : ''}`, 70, 80);
+
+                doc.fillColor('#017E84').fontSize(16).font('Helvetica-Bold').text('DECLARAÇÃO DE VÍNCULO LABORAL', 50, 150, { align: 'center', width: doc.page.width - 100 });
+
+                const dataInicioFmt = colaborador.data_inicio ? new Date(colaborador.data_inicio).toLocaleDateString('pt-PT') : 'data não especificada';
+                const hoje = new Date().toLocaleDateString('pt-PT');
+
+                const corpo = `Para os devidos efeitos, a ${companyName}, contribuinte fiscal n.º ${companyNif}, com sede em ${companyAddress}, declara que ${colaborador.nome}, portador(a) do documento de identificação n.º ${colaborador.bi}${colaborador.nif ? `, NIF ${colaborador.nif}` : ''}, exerce funções nesta empresa desde ${dataInicioFmt}, desempenhando atualmente o cargo de ${colaborador.cargo || 'colaborador(a)'}, com uma retribuição mensal base de ${PdfService.formatCurrency(colaborador.salario_base)}.
+
+Esta declaração é emitida a pedido do(a) interessado(a) para os fins que se mostrarem necessários.`;
+
+                doc.fillColor('#212529').fontSize(11).font('Helvetica')
+                   .text(corpo, 50, 195, { width: doc.page.width - 100, align: 'justify', lineGap: 6 });
+
+                doc.fontSize(11).text(`Luanda, ${hoje}`, 50, doc.page.height - 160, { align: 'right', width: doc.page.width - 100 });
+
+                doc.moveTo(doc.page.width / 2 - 100, doc.page.height - 110).lineTo(doc.page.width / 2 + 100, doc.page.height - 110).strokeColor('#212529').lineWidth(1).stroke();
+                doc.fontSize(10).text('Assinatura e Carimbo da Entidade Empregadora', 0, doc.page.height - 100, { align: 'center', width: doc.page.width });
+
+                doc.fillColor('#adb5bd').fontSize(9).font('Helvetica');
+                doc.text('Documento gerado automaticamente pelo BusinessOS', 50, doc.page.height - 50, { align: 'center' });
+
+                doc.end();
+
+                stream.on('finish', () => resolve(filePath));
+                stream.on('error', (err) => reject(err));
+
+            } catch (error) {
+                reject(error);
+            }
+        });
+    }
+
     private static formatCurrency(value: number): string {
         return new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA' }).format(value);
     }

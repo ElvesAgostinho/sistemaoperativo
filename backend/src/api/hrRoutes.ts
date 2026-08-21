@@ -31,10 +31,10 @@ router.get('/tabelas-imposto', getTabelasImposto);
 // Gestão de Colaboradores
 router.get('/employees', getEmployees);
 router.post('/employees', createEmployee);
-router.put('/employees/:id', (req, res) => {
+router.put('/employees/:id', async (req, res) => {
     try {
         const id = Number(req.params.id);
-        require('../services/EmployeeService').EmployeeService.updateEmployee(id, req.body);
+        await require('../services/EmployeeService').EmployeeService.updateEmployee(req, id, req.body);
         res.json({ success: true, message: 'Colaborador atualizado com sucesso.' });
     } catch (err: any) {
         res.status(500).json({ success: false, error: err.message });

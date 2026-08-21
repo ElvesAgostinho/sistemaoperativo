@@ -16,6 +16,7 @@ import reunioesRoutes from './api/reunioesRoutes';
 import afiliadosRoutes from './api/afiliadosRoutes';
 import recrutamentoRoutes from './api/recrutamentoRoutes';
 import accountingRoutes from './api/accountingRoutes';
+import financeiroRoutes from './api/financeiroRoutes';
 import emailRoutes from './api/emailRoutes';
 import publicRoutes from './api/publicRoutes';
 import { EmailSyncService } from './services/EmailSyncService';
@@ -62,6 +63,7 @@ app.use('/api/reunioes', requireAuth, reunioesRoutes);
 app.use('/api/afiliados', requireAuth, afiliadosRoutes);
 app.use('/api/recrutamento', requireAuth, recrutamentoRoutes);
 app.use('/api/accounting', requireAuth, accountingRoutes);
+app.use('/api/financeiro', requireAuth, financeiroRoutes);
 app.use('/api/email', requireAuth, emailRoutes);
 app.use('/api/public', publicRoutes);
 

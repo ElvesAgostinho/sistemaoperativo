@@ -161,11 +161,33 @@ export class CrmService {
     }
 
     public static async registerPayment(req: Request, negocio_id: number, valor: number, metodo_pagamento: string, data_pagamento: string) {
-        // Implementação simplificada para Supabase
         const supabase = getSupabase(req);
-        const { error } = await supabase.from('negocios').update({ fase: 'Ganho' }).eq('id', negocio_id);
-        if (error) throw error;
-        return 1;
+        const empresa_id = (req as any).user?.empresa_id;
+
+        const { data: negocio, error: negErr } = await supabase.from('negocios')
+            .select('titulo, clientes(nome)').eq('id', negocio_id).single();
+        if (negErr) throw negErr;
+
+        const { error: faseErr } = await supabase.from('negocios').update({ fase: 'Ganho' }).eq('id', negocio_id);
+        if (faseErr) throw faseErr;
+
+        const clienteNome = (negocio as any)?.clientes?.nome || 'Cliente';
+        const { data: transacao, error: transErr } = await supabase.from('financeiro_transacoes').insert({
+            empresa_id,
+            tipo: 'entrada',
+            categoria: 'Vendas',
+            descricao: `${negocio?.titulo || 'Negócio'} — ${clienteNome}`,
+            valor,
+            data: data_pagamento,
+            estado: 'Pago',
+            forma_pagamento: metodo_pagamento,
+            origem: 'crm',
+            referencia_tipo: 'negocio',
+            referencia_id: String(negocio_id)
+        }).select('id').single();
+        if (transErr) throw transErr;
+
+        return transacao.id;
     }
 
     public static formatAOA(value: number): string {
