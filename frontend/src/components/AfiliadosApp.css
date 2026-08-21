@@ -1,0 +1,287 @@
+/* ============================================================
+   Estilo exclusivo do módulo de Afiliados — mesma linguagem visual
+   profissional do RH/Relatórios (sem gradientes nem "glow" de fundo).
+   Scoped sob .affiliates-modern; não afeta outros módulos.
+   ============================================================ */
+
+.affiliates-modern {
+  --af-accent: #017E84;
+  --af-accent-hover: #016368;
+  --af-accent-soft: #E3F3F1;
+  --af-ink: #16211F;
+  --af-ink-muted: #5B6B67;
+  --af-ink-faint: #8B9B97;
+  --af-canvas: #F5F8F7;
+  --af-surface: #FFFFFF;
+  --af-border: #E2E8E6;
+  --af-border-soft: #EDF2F1;
+  --af-good-bg: #E7F5EC; --af-good-fg: #1F7A45;
+  --af-warn-bg: #FCF3E3; --af-warn-fg: #9C6B12;
+  --af-bad-bg: #FBEAEA; --af-bad-fg: #B23A3A;
+  --af-info-bg: #E7EEF5; --af-info-fg: #2E5C8A;
+  --af-shadow-card: 0 1px 2px rgba(22,33,31,0.04), 0 6px 20px rgba(22,33,31,0.06);
+  --af-font-display: 'Manrope', 'Segoe UI', system-ui, sans-serif;
+  --af-font-body: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  --af-font-mono: 'IBM Plex Mono', 'Consolas', monospace;
+
+  font-family: var(--af-font-body);
+  color: var(--af-ink);
+  background: var(--af-canvas);
+  height: 100%;
+  width: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 28px 32px 60px;
+}
+.affiliates-modern * { box-sizing: border-box; }
+.affiliates-modern h1, .affiliates-modern h2, .affiliates-modern h3, .affiliates-modern h4 {
+  font-family: var(--af-font-display);
+  margin: 0;
+}
+
+/* ---------- Cabeçalho ---------- */
+.af-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+.af-header h1 {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.af-pillnav {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--af-surface);
+  border: 1px solid var(--af-border);
+  border-radius: 12px;
+  flex-wrap: wrap;
+}
+.af-pillnav button {
+  font-family: var(--af-font-body);
+  font-weight: 500;
+  font-size: 12.5px;
+  padding: 9px 15px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: var(--af-ink-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+.af-pillnav button.active {
+  background: var(--af-accent);
+  color: white;
+  font-weight: 700;
+}
+.af-pillnav button:hover:not(.active) { color: var(--af-ink); }
+
+/* ---------- KPIs ---------- */
+.af-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.af-kpi-card {
+  background: var(--af-surface);
+  border: 1px solid var(--af-border);
+  border-radius: 14px;
+  padding: 20px 22px;
+  box-shadow: var(--af-shadow-card);
+}
+.af-kpi-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--af-accent-soft);
+  color: var(--af-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+.af-kpi-value {
+  font-family: var(--af-font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  letter-spacing: -0.01em;
+}
+.af-kpi-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--af-ink-faint);
+}
+
+/* ---------- Layout ---------- */
+.af-split { display: grid; grid-template-columns: 1fr 2fr; gap: 16px; align-items: start; }
+@media (max-width: 900px) { .af-split { grid-template-columns: 1fr; } }
+
+.af-panel {
+  background: var(--af-surface);
+  border: 1px solid var(--af-border);
+  border-radius: 16px;
+  box-shadow: var(--af-shadow-card);
+  padding: 22px;
+}
+.af-panel-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 18px;
+}
+
+/* ---------- Formulário ---------- */
+.af-field { margin-bottom: 14px; }
+.af-field label {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--af-ink-muted);
+  margin-bottom: 6px;
+}
+.af-field input, .af-field select, .af-field textarea {
+  width: 100%;
+  font-family: var(--af-font-body);
+  font-size: 13.5px;
+  padding: 9px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--af-border);
+  background: var(--af-canvas);
+  color: var(--af-ink);
+  transition: border-color 0.15s, background 0.15s;
+}
+.af-field input:focus, .af-field select:focus, .af-field textarea:focus {
+  outline: none;
+  border-color: var(--af-accent);
+  background: var(--af-surface);
+}
+.af-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.af-hint {
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: var(--af-canvas);
+  border: 1px solid var(--af-border-soft);
+  border-radius: 10px;
+  font-size: 12.5px;
+  color: var(--af-ink-muted);
+  line-height: 1.6;
+}
+.af-hint code {
+  background: var(--af-surface);
+  border: 1px solid var(--af-border);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: var(--af-font-mono);
+  font-size: 12px;
+}
+
+/* ---------- Botões ---------- */
+.af-btn {
+  font-family: var(--af-font-body);
+  font-weight: 600;
+  font-size: 13px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--af-border);
+  background: var(--af-surface);
+  color: var(--af-ink);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: border-color 0.15s, transform 0.1s;
+}
+.af-btn:hover { border-color: var(--af-accent); transform: translateY(-1px); }
+.af-btn-primary { background: var(--af-accent); border-color: var(--af-accent); color: white; width: 100%; }
+.af-btn-primary:hover { background: var(--af-accent-hover); border-color: var(--af-accent-hover); }
+.af-btn-danger-soft { background: var(--af-bad-bg); border-color: var(--af-bad-bg); color: var(--af-bad-fg); }
+.af-btn-danger-soft:hover { border-color: var(--af-bad-fg); }
+.af-btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 8px; }
+
+/* ---------- Tabelas ---------- */
+.af-table-card {
+  background: var(--af-surface);
+  border: 1px solid var(--af-border);
+  border-radius: 16px;
+  box-shadow: var(--af-shadow-card);
+  overflow: hidden;
+}
+.af-table-card table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
+.af-table-card thead th {
+  padding: 13px 18px;
+  font-family: var(--af-font-display);
+  font-weight: 700;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--af-ink-faint);
+  background: var(--af-canvas);
+  border-bottom: 1px solid var(--af-border);
+}
+.af-table-card tbody td {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--af-border-soft);
+  vertical-align: top;
+}
+.af-table-card tbody tr:last-child td { border-bottom: none; }
+.af-table-card tbody tr:hover { background: var(--af-canvas); }
+.af-empty-row { padding: 32px !important; text-align: center; color: var(--af-ink-faint); }
+
+/* ---------- Chips / badges ---------- */
+.af-code-chip {
+  display: inline-block;
+  padding: 4px 9px;
+  background: var(--af-canvas);
+  border: 1px dashed var(--af-border);
+  border-radius: 6px;
+  font-family: var(--af-font-mono);
+  font-weight: 600;
+  font-size: 12.5px;
+  color: var(--af-ink);
+}
+.af-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.af-badge-good { background: var(--af-good-bg); color: var(--af-good-fg); }
+.af-badge-warn { background: var(--af-warn-bg); color: var(--af-warn-fg); }
+.af-badge-info { background: var(--af-info-bg); color: var(--af-info-fg); }
+.af-badge-neutral { background: var(--af-canvas); color: var(--af-ink-muted); border: 1px solid var(--af-border); }
+
+/* ---------- Materiais ---------- */
+.af-material-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 18px;
+  background: var(--af-canvas);
+  border: 1px solid var(--af-border-soft);
+  border-radius: 12px;
+}
+.af-material-tag {
+  padding: 2px 9px;
+  background: var(--af-accent-soft);
+  color: var(--af-accent);
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
