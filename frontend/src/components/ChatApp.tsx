@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react';
 import { ShieldAlert, CheckCircle, Zap, Mic, MicOff, Volume2, VolumeX, DollarSign } from 'lucide-react';
 
+const authHeaders = () => {
+  const token = localStorage.getItem('os_auth_token');
+  return { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+};
+
 export default function ChatApp() {
   const [messages, setMessages] = useState<{role: 'user'|'ai'|'system', content: string | React.ReactNode}[]>([
     { role: 'ai', content: 'Olá! Sou o seu Assistente Empresarial. Tenho acesso a toda a base de dados (colaboradores, recibos, crm, etc) e posso executar ações por si. Como posso ajudar hoje?' }
@@ -88,7 +93,7 @@ export default function ChatApp() {
     try {
         const response = await fetch(import.meta.env.VITE_API_URL + '/api/ai/execute-action', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: authHeaders(),
             body: JSON.stringify({ action_type: actionType, payload, conversaId })
         });
         const data = await response.json();
@@ -323,7 +328,7 @@ export default function ChatApp() {
     try {
       const response = await fetch(import.meta.env.VITE_API_URL + '/api/ai/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ prompt: userMessage, conversaId })
       });
       
@@ -359,7 +364,7 @@ export default function ChatApp() {
 
   const fetchConversations = async () => {
       try {
-          const res = await fetch(import.meta.env.VITE_API_URL + '/api/ai/conversas');
+          const res = await fetch(import.meta.env.VITE_API_URL + '/api/ai/conversas', { headers: authHeaders() });
           const data = await res.json();
           if (data.success) {
               setConversations(data.conversas);
@@ -372,7 +377,7 @@ export default function ChatApp() {
   const handleLoadConversation = async (id: number) => {
       setLoading(true);
       try {
-          const res = await fetch(`${import.meta.env.VITE_API_URL}/api/ai/conversas/${id}/mensagens`);
+          const res = await fetch(`${import.meta.env.VITE_API_URL}/api/ai/conversas/${id}/mensagens`, { headers: authHeaders() });
           const data = await res.json();
           if (data.success && data.mensagens.length > 0) {
               setConversaId(id);

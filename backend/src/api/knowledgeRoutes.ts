@@ -30,7 +30,11 @@ const storage = multer.diskStorage({
         }
     },
     filename: (req, file, cb) => {
-        cb(null, file.originalname); // Mantém o nome original para ser mais legível pela IA
+        // O multer/busboy interpreta o nome do ficheiro como latin1 por definição do
+        // multipart/form-data — nomes com acentos (ex: "Currículo") chegam corrompidos
+        // ("CurrÃculo") se não forem reconvertidos para utf8 aqui.
+        const nomeCorrigido = Buffer.from(file.originalname, 'latin1').toString('utf8');
+        cb(null, nomeCorrigido);
     }
 });
 const upload = multer({ storage });

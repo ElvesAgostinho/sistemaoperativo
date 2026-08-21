@@ -43,10 +43,12 @@ export default function KnowledgeBaseApp() {
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData
       });
-      if (res.ok) {
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.success) {
         fetchFiles();
+        if (data.message) alert(data.message);
       } else {
-        alert('Erro no upload.');
+        alert(data?.error || 'Erro no upload.');
       }
     } catch (err) {
       alert('Erro na conexão de upload.');
@@ -100,7 +102,7 @@ export default function KnowledgeBaseApp() {
   const filteredFiles = files.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#f8fafc', padding: '32px' }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#f8fafc', padding: '32px', overflowY: 'auto', boxSizing: 'border-box' }}>
       
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
         <div>
