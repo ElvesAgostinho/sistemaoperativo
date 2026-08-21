@@ -959,6 +959,26 @@ export default function WhatsAppChatApp() {
                                                     return (<>{cleanText && <div>{cleanText}</div>}{mediaElement}</>);
                                                 }
 
+                                                // Placeholders internos (mídia que falhou a transferir da Evolution API,
+                                                // ou um tipo de mensagem que ainda não sabemos processar) — nunca mostrar
+                                                // o texto em bruto com chavetas, mostrar um estado limpo em vez disso.
+                                                const UNAVAILABLE_LABELS: Record<string, string> = {
+                                                    '[Imagem]': 'Imagem indisponível',
+                                                    '[Vídeo]': 'Vídeo indisponível',
+                                                    '[Áudio]': 'Áudio indisponível',
+                                                    '[Sticker]': 'Sticker indisponível',
+                                                    '[Media]': 'Tipo de mensagem não suportado',
+                                                };
+                                                if (UNAVAILABLE_LABELS[content]) {
+                                                    return <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#8696a0', fontStyle: 'italic' }}><AlertCircle size={14} /> {UNAVAILABLE_LABELS[content]}</span>;
+                                                }
+                                                if (content.startsWith('[Documento]')) {
+                                                    return <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#8696a0', fontStyle: 'italic' }}><AlertCircle size={14} /> Documento indisponível</span>;
+                                                }
+                                                if (content === '[Localização]') {
+                                                    return <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#54656f' }}>📍 Localização partilhada</span>;
+                                                }
+
                                                 return content;
                                             })()}
                                         </div>

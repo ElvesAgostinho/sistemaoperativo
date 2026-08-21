@@ -149,10 +149,16 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                         msg.message?.documentMessage?.base64 ||
                         msg.message?.stickerMessage?.base64;
 
+                    // Nota: a legenda (caption) real do WhatsApp e o marcador interno
+                    // [MEDIA_URL:...] nunca se misturam com o placeholder ([Imagem],
+                    // [Áudio], etc.) — esse placeholder só aparece sozinho quando o
+                    // download/upload da mídia falha de facto (ex: erro a decifrar
+                    // um áudio na Evolution API), para o frontend saber mostrar um
+                    // estado "mídia indisponível" em vez de texto em bruto.
                     if (msg.message?.imageMessage) {
                         const mime = msg.message.imageMessage.mimetype || 'image/jpeg';
                         const fname = 'imagem.jpg';
-                        content = msg.message.imageMessage.caption || '[Imagem]';
+                        const caption = msg.message.imageMessage.caption || '';
                         mediaType = 'image';
                         mediaFilename = fname;
                         if (b64) {
@@ -161,11 +167,11 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                             const dl = await downloadMediaFromEvolution(instanceName, msg.key);
                             if (dl) mediaUrl = await uploadMediaToStorage(dl.base64, fname, dl.mimeType);
                         }
-                        if (mediaUrl) content += `\n[MEDIA_URL:${mediaUrl}]`;
+                        content = mediaUrl ? [caption, `[MEDIA_URL:${mediaUrl}]`].filter(Boolean).join('\n') : (caption || '[Imagem]');
                     } else if (msg.message?.videoMessage) {
                         const mime = msg.message.videoMessage.mimetype || 'video/mp4';
                         const fname = `video_${Date.now()}.mp4`;
-                        content = msg.message.videoMessage.caption || '[Vídeo]';
+                        const caption = msg.message.videoMessage.caption || '';
                         mediaType = 'video';
                         mediaFilename = fname;
                         if (b64) {
@@ -174,11 +180,10 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                             const dl = await downloadMediaFromEvolution(instanceName, msg);
                             if (dl) mediaUrl = await uploadMediaToStorage(dl.base64, fname, dl.mimeType);
                         }
-                        if (mediaUrl) content += `\n[MEDIA_URL:${mediaUrl}]`;
+                        content = mediaUrl ? [caption, `[MEDIA_URL:${mediaUrl}]`].filter(Boolean).join('\n') : (caption || '[Vídeo]');
                     } else if (msg.message?.audioMessage) {
                         const mime = msg.message.audioMessage.mimetype || 'audio/ogg';
                         const fname = `audio_${Date.now()}.ogg`;
-                        content = '[Áudio]';
                         mediaType = 'audio';
                         mediaFilename = fname;
                         if (b64) {
@@ -187,11 +192,11 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                             const dl = await downloadMediaFromEvolution(instanceName, msg);
                             if (dl) mediaUrl = await uploadMediaToStorage(dl.base64, fname, dl.mimeType);
                         }
-                        if (mediaUrl) content += `\n[MEDIA_URL:${mediaUrl}]`;
+                        content = mediaUrl ? `[MEDIA_URL:${mediaUrl}]` : '[Áudio]';
                     } else if (msg.message?.documentMessage) {
                         const originalName = msg.message.documentMessage.fileName || 'ficheiro';
                         const mime = msg.message.documentMessage.mimetype || 'application/octet-stream';
-                        content = `[Documento] ${originalName}`;
+                        const caption = msg.message.documentMessage.caption || '';
                         mediaType = 'document';
                         mediaFilename = originalName;
                         if (b64) {
@@ -200,12 +205,11 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                             const dl = await downloadMediaFromEvolution(instanceName, msg);
                             if (dl) mediaUrl = await uploadMediaToStorage(dl.base64, originalName, dl.mimeType);
                         }
-                        if (mediaUrl) content += `\n[MEDIA_URL:${mediaUrl}]`;
+                        content = mediaUrl ? [caption, `[MEDIA_URL:${mediaUrl}]`].filter(Boolean).join('\n') : `[Documento] ${originalName}`;
                     } else if (msg.message?.stickerMessage) {
-                        content = '[Sticker]';
                         mediaType = 'image';
                         if (b64) mediaUrl = await uploadMediaToStorage(b64, 'sticker.webp', 'image/webp');
-                        if (mediaUrl) content += `\n[MEDIA_URL:${mediaUrl}]`;
+                        content = mediaUrl ? `[MEDIA_URL:${mediaUrl}]` : '[Sticker]';
                     } else if (msg.message?.locationMessage) {
                         content = '[Localização]';
                     } else if (Object.keys(msg.message || {}).length > 0) {
