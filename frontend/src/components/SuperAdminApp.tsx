@@ -41,6 +41,9 @@ const SuperAdminApp = () => {
     { id: 'kb', name: 'Conhecimento IA' },
     { id: 'email', name: 'Caixa de Email' },
     { id: 'reunioes', name: 'Reuniões Inteligentes' },
+    { id: 'afiliados', name: 'Parcerias' },
+    { id: 'contabilidade', name: 'Financeiro' },
+    { id: 'agendamento', name: 'Agendamento' },
   ];
 
   useEffect(() => {
