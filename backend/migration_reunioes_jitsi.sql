@@ -1,11 +1,11 @@
--- Migração: Jitsi público (meet.jit.si) -> Jitsi auto-hospedado no VPS (sala
--- privada via JWT, sem custo a terceiros) + gravação de áudio por participante
--- (cada um grava o próprio microfone no navegador, o backend transcreve com
--- Whisper e junta tudo numa ata). Rode este ficheiro manualmente no SQL Editor
--- do Supabase.
+-- Migração: continua a usar o Jitsi público (meet.jit.si, sem custo, sem
+-- servidor próprio) para a videochamada em si, e acrescenta gravação de áudio
+-- por participante (cada um grava o próprio microfone no navegador, o backend
+-- transcreve com Whisper e junta tudo numa ata). Rode este ficheiro
+-- manualmente no SQL Editor do Supabase.
 
 ALTER TABLE public.reunioes ADD COLUMN IF NOT EXISTS jitsi_room_name text;
-COMMENT ON COLUMN public.reunioes.link_jitsi IS 'URL da sala de videochamada — Jitsi auto-hospedado no VPS.';
+COMMENT ON COLUMN public.reunioes.link_jitsi IS 'URL da sala de videochamada no Jitsi público (meet.jit.si).';
 
 -- Cada linha é UM ficheiro de áudio enviado por UM participante (o seu próprio
 -- microfone, captado no navegador via MediaRecorder). Uma reunião com 3 pessoas

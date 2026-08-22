@@ -13,7 +13,7 @@ interface CriarReuniaoInput {
 
 export class ReuniaoService {
     /**
-     * Cria o registo de uma reunião com sala Jitsi (auto-hospedado no VPS) gerada.
+     * Cria o registo de uma reunião com sala Jitsi (público, meet.jit.si) gerada.
      * Ponto único de criação usado tanto pela rota REST (reunioesController) quanto
      * pela tool de IA (AIToolsService), para evitar que a fórmula de roomName/link
      * divirja entre os dois lugares.

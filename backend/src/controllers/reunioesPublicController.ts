@@ -3,15 +3,14 @@ import fs from 'fs';
 import path from 'path';
 import multer from 'multer';
 import { supabase } from '../lib/supabaseClient';
-import { JitsiService } from '../services/JitsiService';
 
 const MAX_FRAGMENTO_LENGTH = 5000;
 
 /**
  * Dados mínimos de uma reunião para a página pública de convidados — nunca expõe
- * emails_convidados, transcricao_raw, resumo_ia, etc. Não devolve nenhum URL de
- * sala aqui — a sala Jitsi é privada (exige JWT), o link só é mintado (com token)
- * depois de o convidado indicar o nome, ver entrarReuniaoPublica.
+ * emails_convidados, transcricao_raw, resumo_ia, etc. O link da sala só é
+ * devolvido depois de o convidado indicar o nome, ver entrarReuniaoPublica —
+ * assim o nome fica sempre associado à gravação/fragmentos dessa pessoa.
  */
 export const getReuniaoPublica = async (req: Request, res: Response) => {
     try {
@@ -40,10 +39,10 @@ export const getReuniaoPublica = async (req: Request, res: Response) => {
 };
 
 /**
- * Chamado depois de o convidado escrever o nome no ecrã de entrada — minta um
- * token de convidado (moderator: false) na sala Jitsi da reunião, embutindo esse
- * nome. Sem autenticação por design, mesmo modelo de confiança que já existia
- * para participante_nome nos fragmentos de transcrição.
+ * Chamado depois de o convidado escrever o nome no ecrã de entrada. Jitsi
+ * público (meet.jit.si) não precisa de nenhum token — devolve o link da sala
+ * diretamente. Sem autenticação por design, mesmo modelo de confiança que já
+ * existia para participante_nome nos fragmentos de transcrição.
  */
 export const entrarReuniaoPublica = async (req: Request, res: Response) => {
     try {
@@ -55,7 +54,7 @@ export const entrarReuniaoPublica = async (req: Request, res: Response) => {
 
         const { data: reuniao, error } = await supabase
             .from('reunioes')
-            .select('id, link_jitsi, jitsi_room_name, estado')
+            .select('id, link_jitsi, estado')
             .eq('id', id)
             .single();
         if (error || !reuniao) {
@@ -64,17 +63,11 @@ export const entrarReuniaoPublica = async (req: Request, res: Response) => {
         if (reuniao.estado === 'Concluida') {
             return res.status(400).json({ success: false, error: 'Esta reunião já terminou.' });
         }
-        if (!reuniao.jitsi_room_name) {
+        if (!reuniao.link_jitsi) {
             return res.status(400).json({ success: false, error: 'Esta reunião não tem sala de videochamada associada.' });
         }
 
-        const token = JitsiService.criarTokenReuniao({
-            roomName: reuniao.jitsi_room_name,
-            nomeParticipante: nome.trim().slice(0, 200),
-            isOwner: false
-        });
-
-        res.json({ success: true, daily_url: `${reuniao.link_jitsi}?jwt=${token}` });
+        res.json({ success: true, daily_url: reuniao.link_jitsi });
     } catch (error: any) {
         res.status(500).json({ success: false, error: error.message });
     }

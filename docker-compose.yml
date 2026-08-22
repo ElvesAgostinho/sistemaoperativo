@@ -7,9 +7,8 @@ services:
       dockerfile: Dockerfile
     image: businessos-backend
     container_name: businessos_backend
-    # Sem "ports:" publicado para o host — só o Caddy fala com este serviço,
-    # pelo nome (backend:3001) na rede interna do Docker Compose. Deixa de estar
-    # acessível diretamente por IP:porta a partir da internet.
+    ports:
+      - "3001:3001"
     env_file:
       - ./backend/.env
     environment:
@@ -24,34 +23,6 @@ services:
         VITE_API_URL: ${VITE_API_URL}
     image: businessos-frontend
     container_name: businessos_frontend
-    # Idem — sem porta publicada, só o Caddy acede (frontend:80).
-    restart: unless-stopped
-
-  caddy:
-    image: caddy:2-alpine
-    container_name: businessos_caddy
     ports:
       - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
-    networks:
-      - default
-      - businessos_net
-    depends_on:
-      - backend
-      - frontend
     restart: unless-stopped
-
-volumes:
-  caddy_data:
-  caddy_config:
-
-networks:
-  # Rede partilhada com o stack (separado) do Jitsi auto-hospedado — ver
-  # Caddyfile e Passo 0 do plano de implementação. Tem de ser criada uma vez
-  # antes do "docker compose up": docker network create businessos_net
-  businessos_net:
-    external: true

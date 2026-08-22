@@ -3,7 +3,6 @@ import { getSupabase } from '../lib/supabaseClient';
 import { EmailService } from '../services/EmailService';
 import { ReuniaoService } from '../services/ReuniaoService';
 import { PdfService } from '../services/PdfService';
-import { JitsiService } from '../services/JitsiService';
 
 export const listarReunioes = async (req: Request, res: Response) => {
     try {
@@ -25,19 +24,9 @@ export const detalhesReuniao = async (req: Request, res: Response) => {
 
         const { data: tarefas, error: tErr } = await supabase.from('reunioes_tarefas').select('*').eq('reuniao_id', id);
 
-        // Só minta um token de acesso à sala (anfitrião) se a reunião ainda não
-        // terminou — a sala Jitsi é privada (exige JWT), não há URL cru que
-        // funcione sozinho.
-        let daily_url: string | null = null;
-        if (reuniao.estado !== 'Concluida' && reuniao.jitsi_room_name) {
-            try {
-                const nomeAnfitriao = (req as any).user?.email?.split('@')[0] || 'Anfitrião';
-                const token = JitsiService.criarTokenReuniao({ roomName: reuniao.jitsi_room_name, nomeParticipante: nomeAnfitriao, isOwner: true });
-                daily_url = `${reuniao.link_jitsi}?jwt=${token}`;
-            } catch (e) {
-                console.error('[reunioesController] Falha ao mintar token do Jitsi:', e);
-            }
-        }
+        // Jitsi público — o link da sala já é suficiente para entrar, sem
+        // precisar de mintar nenhum token.
+        const daily_url = reuniao.estado !== 'Concluida' ? reuniao.link_jitsi : null;
 
         res.json({ success: true, reuniao: { ...reuniao, daily_url }, tarefas: tarefas || [] });
     } catch (error: any) {
