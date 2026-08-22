@@ -917,28 +917,41 @@ router.post('/evolution/instance', requireAuth, async (req: AuthRequest, res: Re
 
     if (!apiKey) return res.status(500).json({ error: 'AUTHENTICATION_API_KEY não configurada no servidor' });
 
+    // Ligação por número de telefone (código de pareamento) em vez de QR Code —
+    // normaliza como o resto do sistema (adiciona 244 se vier só com 9 dígitos).
+    let pairingNumber: string | undefined = req.body?.number ? String(req.body.number).replace(/\D/g, '') : undefined;
+    if (pairingNumber && pairingNumber.length === 9) pairingNumber = `${process.env.DEFAULT_COUNTRY_CODE || '244'}${pairingNumber}`;
+    const connectUrl = `${apiUrl}/instance/connect/${instanceName}${pairingNumber ? `?number=${pairingNumber}` : ''}`;
+    const extrairPairingCode = (d: any): string | undefined => d?.pairingCode || d?.code;
+
     try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 25000); // 25s timeout
-        
+
         let connectData: any = {};
         let finalQrBase64: string | undefined;
+        let finalPairingCode: string | undefined;
 
         let createRes = await fetch(`${apiUrl}/instance/create`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
-            body: JSON.stringify({ instanceName: instanceName, integration: 'WHATSAPP-BAILEYS', qrcode: true }),
+            body: JSON.stringify({
+                instanceName: instanceName, integration: 'WHATSAPP-BAILEYS', qrcode: !pairingNumber,
+                ...(pairingNumber ? { number: pairingNumber } : {})
+            }),
             signal: controller.signal
         });
 
+        const pronto = (d: any) => d.base64 || d.qrcode?.base64 || extrairPairingCode(d) || d.instance?.state === 'open';
+
         if (createRes.status === 403) {
-            // A instância já existe. Fazemos logout para forçar a geração de um novo QR Code.
+            // A instância já existe. Fazemos logout para forçar uma nova ligação.
             try {
                 await fetch(`${apiUrl}/instance/logout/${instanceName}`, { method: 'DELETE', headers: { 'apikey': apiKey }, signal: controller.signal });
                 await new Promise(resolve => setTimeout(resolve, 1500));
             } catch(e) {}
-            
-            let connectRes = await fetch(`${apiUrl}/instance/connect/${instanceName}`, { 
+
+            let connectRes = await fetch(connectUrl, {
                 headers: { 'apikey': apiKey },
                 signal: controller.signal
             });
@@ -949,11 +962,11 @@ router.post('/evolution/instance', requireAuth, async (req: AuthRequest, res: Re
             }
             connectData = await connectRes.json();
 
-            // Polling: se a API não retornar logo o QR Code, tenta buscar a cada 2 segs (max 5 vezes)
+            // Polling: se a API não retornar logo o QR Code/código, tenta buscar a cada 2 segs (max 5 vezes)
             let attempts = 0;
-            while (!connectData.base64 && !connectData.qrcode?.base64 && connectData.instance?.state !== 'open' && attempts < 5) {
+            while (!pronto(connectData) && attempts < 5) {
                 await new Promise(resolve => setTimeout(resolve, 2000));
-                connectRes = await fetch(`${apiUrl}/instance/connect/${instanceName}`, { 
+                connectRes = await fetch(connectUrl, {
                     headers: { 'apikey': apiKey },
                     signal: controller.signal
                 });
@@ -969,20 +982,20 @@ router.post('/evolution/instance', requireAuth, async (req: AuthRequest, res: Re
             return res.status(400).json({ error: `Erro ao criar instância: ${createErr}` });
         } else {
             connectData = await createRes.json();
-            // Na v2, a API de create já devolve o QR code se 'qrcode: true' no payload
+            // Na v2, a API de create já devolve o QR code (ou o pairingCode, consoante o pedido) se pronto
             if (connectData.qrcode?.base64) {
                 finalQrBase64 = connectData.qrcode.base64;
-            } else if (!connectData.base64 && connectData.instance?.state !== 'open') {
-                let connectRes = await fetch(`${apiUrl}/instance/connect/${instanceName}`, { 
+            } else if (!pronto(connectData)) {
+                let connectRes = await fetch(connectUrl, {
                     headers: { 'apikey': apiKey },
                     signal: controller.signal
                 });
                 if (connectRes.ok) connectData = await connectRes.json();
-                
+
                 let attempts = 0;
-                while (!connectData.base64 && !connectData.qrcode?.base64 && connectData.instance?.state !== 'open' && attempts < 5) {
+                while (!pronto(connectData) && attempts < 5) {
                     await new Promise(resolve => setTimeout(resolve, 2000));
-                    connectRes = await fetch(`${apiUrl}/instance/connect/${instanceName}`, { 
+                    connectRes = await fetch(connectUrl, {
                         headers: { 'apikey': apiKey },
                         signal: controller.signal
                     });
@@ -991,9 +1004,10 @@ router.post('/evolution/instance', requireAuth, async (req: AuthRequest, res: Re
                 }
             }
         }
-        
+
         clearTimeout(timeoutId);
         finalQrBase64 = finalQrBase64 || connectData.base64 || connectData.qrcode?.base64;
+        finalPairingCode = extrairPairingCode(connectData);
 
         // Ensure Webhook is set
         const publicUrl = process.env.BACKEND_PUBLIC_URL || `https://${req.headers.host}`;
@@ -1010,7 +1024,9 @@ router.post('/evolution/instance', requireAuth, async (req: AuthRequest, res: Re
             await userClient.from('wa_channels').insert({ name: 'Evolution API', provider: 'evolution', status: 'connected', credentials: { instanceName }, empresa_id: empresaId });
         }
 
-        if (finalQrBase64) {
+        if (finalPairingCode) {
+            return res.json({ success: true, pairingCode: finalPairingCode, state: 'connecting' });
+        } else if (finalQrBase64) {
             return res.json({ success: true, qr: finalQrBase64, state: 'connecting' });
         } else {
             return res.json({ success: true, state: connectData.instance?.state || 'connected', message: 'Já ligado ou a aguardar' });

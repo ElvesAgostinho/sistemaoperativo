@@ -119,6 +119,9 @@ export default function WhatsAppChatApp() {
     // Evolution API Settings
     const [showQr, setShowQr] = useState(false);
     const [qrCodeData, setQrCodeData] = useState<string | null>(null);
+    const [connectMode, setConnectMode] = useState<'qr' | 'pairing'>('qr');
+    const [pairingPhone, setPairingPhone] = useState('');
+    const [pairingCode, setPairingCode] = useState<string | null>(null);
     const [qrStatus, setQrStatus] = useState<string>('');
 
     // Meta API Settings
@@ -136,6 +139,9 @@ export default function WhatsAppChatApp() {
     const [isBotPaused, setIsBotPaused] = useState<boolean>(false);
     const [aiFallbackEnabled, setAiFallbackEnabled] = useState<boolean>(true);
     const [savingAiFallback, setSavingAiFallback] = useState(false);
+    const [produtosServicos, setProdutosServicos] = useState('');
+    const [savingProdutosServicos, setSavingProdutosServicos] = useState(false);
+    const [savedProdutosServicos, setSavedProdutosServicos] = useState(false);
 
     // Multi-agent state
     const [agents, setAgents] = useState<Agent[]>([]);
@@ -233,19 +239,24 @@ export default function WhatsAppChatApp() {
         }
     };
 
-    const handleGenerateQr = async () => {
+    const handleGenerateQr = async (numeroParaPareamento?: string) => {
         setShowQr(true);
-        setQrStatus('A gerar QR Code da Evolution API...');
+        setQrStatus(numeroParaPareamento ? 'A gerar código de pareamento...' : 'A gerar QR Code da Evolution API...');
         setQrCodeData(null);
+        setPairingCode(null);
         try {
             const token = localStorage.getItem('os_auth_token');
             const res = await fetch(import.meta.env.VITE_API_URL + '/api/whatsapp/evolution/instance', {
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify(numeroParaPareamento ? { number: numeroParaPareamento } : {})
             });
             const data = await res.json();
             if (data.success) {
-                if (data.qr) {
+                if (data.pairingCode) {
+                    setPairingCode(data.pairingCode);
+                    setQrStatus('Introduza este código no WhatsApp...');
+                } else if (data.qr) {
                     setQrCodeData(data.qr);
                     setQrStatus('Aguardando leitura no WhatsApp...');
                 } else {
@@ -330,6 +341,15 @@ export default function WhatsAppChatApp() {
         return () => clearInterval(interval);
     }, [showQr, evolutionStatus]);
 
+    // Gera o QR Code automaticamente ao abrir o modal no modo QR (o modo
+    // pareamento espera o número antes de pedir qualquer coisa à API).
+    useEffect(() => {
+        if (showQr && connectMode === 'qr' && !qrCodeData && evolutionStatus !== 'connected') {
+            handleGenerateQr();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [showQr, connectMode]);
+
     // Interruptor geral do Assistente IA no WhatsApp — desativar uma automação
     // do Autopilot NÃO desliga isto; sem nenhuma automação a apanhar a
     // mensagem, é este fallback que responde a tudo. Isto dá controlo real.
@@ -345,6 +365,41 @@ export default function WhatsAppChatApp() {
     };
 
     useEffect(() => { fetchAiFallbackSetting(); }, []);
+
+    // Produtos/Serviços — texto usado como contexto direto do Assistente IA
+    // do WhatsApp (mesma tabela do perfil da empresa em Definições).
+    useEffect(() => {
+        (async () => {
+            try {
+                const token = localStorage.getItem('os_auth_token');
+                const res = await fetch(import.meta.env.VITE_API_URL + '/api/settings/empresa', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success) setProdutosServicos(data.config?.COMPANY_PRODUTOS_SERVICOS || '');
+            } catch (err) { console.error(err); }
+        })();
+    }, []);
+
+    const salvarProdutosServicos = async () => {
+        setSavingProdutosServicos(true);
+        setSavedProdutosServicos(false);
+        try {
+            const token = localStorage.getItem('os_auth_token');
+            const res = await fetch(import.meta.env.VITE_API_URL + '/api/settings/empresa', {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ configs: { COMPANY_PRODUTOS_SERVICOS: produtosServicos } })
+            });
+            const data = await res.json();
+            if (data.success) { setSavedProdutosServicos(true); setTimeout(() => setSavedProdutosServicos(false), 3000); }
+            else alert(data.error || 'Erro ao guardar.');
+        } catch {
+            alert('Erro de comunicação com o servidor.');
+        } finally {
+            setSavingProdutosServicos(false);
+        }
+    };
 
     const toggleAiFallback = async () => {
         const novoValor = !aiFallbackEnabled;
@@ -812,10 +867,37 @@ export default function WhatsAppChatApp() {
                             </div>
                         )}
 
+                        {hasChatLicense && (
+                            <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', marginBottom: '20px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
+                                    <Bot size={20} color="#00a884" />
+                                    <h4 style={{ margin: 0, fontSize: '15px', color: '#111b21' }}>Produtos / Serviços</h4>
+                                </div>
+                                <p style={{ fontSize: '12.5px', color: '#667781', margin: '0 0 10px' }}>
+                                    O que a sua empresa vende — a IA usa isto para responder aos clientes no WhatsApp, sem precisar de consultar a Base de Conhecimento.
+                                </p>
+                                <textarea
+                                    value={produtosServicos}
+                                    onChange={e => setProdutosServicos(e.target.value)}
+                                    rows={4}
+                                    placeholder={'Ex:\nCorte de cabelo — 3.000 Kz\nConsultoria (1h) — 15.000 Kz\nEntregamos em toda Luanda'}
+                                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '13.5px', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }}
+                                />
+                                <button
+                                    onClick={salvarProdutosServicos}
+                                    disabled={savingProdutosServicos}
+                                    style={{ marginTop: '10px', padding: '8px 16px', backgroundColor: '#00a884', color: 'white', border: 'none', borderRadius: '6px', cursor: savingProdutosServicos ? 'wait' : 'pointer', fontSize: '13px', fontWeight: 600 }}
+                                >
+                                    {savingProdutosServicos ? 'A guardar...' : 'Guardar'}
+                                </button>
+                                {savedProdutosServicos && <span style={{ marginLeft: '10px', color: '#16a34a', fontSize: '12.5px' }}>Guardado!</span>}
+                            </div>
+                        )}
+
                         <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', marginBottom: '20px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
                                 <QrCode size={24} color="#00a884" />
-                                <h4 style={{ margin: 0, fontSize: '16px', color: '#111b21' }}>Evolution API (QR Code)</h4>
+                                <h4 style={{ margin: 0, fontSize: '16px', color: '#111b21' }}>Evolution API (QR Code / Pareamento)</h4>
                                 {evolutionStatus === 'connected' && (
                                     <span style={{ marginLeft: 'auto', backgroundColor: '#dcfce7', color: '#16a34a', padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' }}>Ligado</span>
                                 )}
@@ -855,8 +937,8 @@ export default function WhatsAppChatApp() {
                                     </div>
                                 </div>
                             ) : (
-                                <button onClick={handleGenerateQr} style={{ width: '100%', padding: '10px', backgroundColor: '#00a884', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 500, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
-                                    <Plus size={16} /> {showQr ? 'A abrir QR Code...' : 'Gerar QR Code'}
+                                <button onClick={() => { setConnectMode('qr'); setShowQr(true); }} style={{ width: '100%', padding: '10px', backgroundColor: '#00a884', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 500, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+                                    <Plus size={16} /> Ligar WhatsApp
                                 </button>
                             )}
                         </div>
@@ -1304,44 +1386,106 @@ export default function WhatsAppChatApp() {
                 </div>
             )}
 
-            {/* Modal Seguro QR Code */}
+            {/* Modal Seguro de Ligação — QR Code ou Código de Pareamento */}
             {showQr && evolutionStatus !== 'connected' && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, backdropFilter: 'blur(4px)' }}>
-                    <div style={{ backgroundColor: 'white', width: '380px', borderRadius: '16px', padding: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+                    <div style={{ backgroundColor: 'white', width: '400px', borderRadius: '16px', padding: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
                             <div style={{ backgroundColor: '#e2e8f0', padding: '8px', borderRadius: '50%' }}>
                                 <QrCode size={24} color="#0f172a" />
                             </div>
                             <h3 style={{ margin: 0, fontSize: '20px', color: '#0f172a' }}>Ligar WhatsApp</h3>
                         </div>
-                        
-                        <div style={{ width: '260px', height: '260px', backgroundColor: '#f8fafc', border: qrCodeData ? 'none' : '2px dashed #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', borderRadius: '12px', overflow: 'hidden', marginBottom: '20px', position: 'relative' }}>
-                            {qrCodeData ? (
-                                <img src={qrCodeData} alt="QR Code" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                            ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-                                    <div className="spinner" style={{ width: '24px', height: '24px', border: '3px solid #cbd5e1', borderTopColor: '#00a884', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-                                    <span style={{ fontSize: '14px', fontWeight: 500 }}>A gerar QR Code...</span>
-                                    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+
+                        <div style={{ display: 'flex', width: '100%', backgroundColor: '#f1f5f9', borderRadius: '10px', padding: '4px', marginBottom: '20px' }}>
+                            <button
+                                onClick={() => { setConnectMode('qr'); setPairingCode(null); setQrCodeData(null); handleGenerateQr(); }}
+                                style={{ flex: 1, padding: '9px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, backgroundColor: connectMode === 'qr' ? 'white' : 'transparent', color: connectMode === 'qr' ? '#0f172a' : '#64748b', boxShadow: connectMode === 'qr' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}
+                            >
+                                QR Code
+                            </button>
+                            <button
+                                onClick={() => { setConnectMode('pairing'); setPairingCode(null); setQrCodeData(null); setQrStatus(''); }}
+                                style={{ flex: 1, padding: '9px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, backgroundColor: connectMode === 'pairing' ? 'white' : 'transparent', color: connectMode === 'pairing' ? '#0f172a' : '#64748b', boxShadow: connectMode === 'pairing' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}
+                            >
+                                Código de Pareamento
+                            </button>
+                        </div>
+
+                        {connectMode === 'qr' ? (
+                            <>
+                                <div style={{ width: '260px', height: '260px', backgroundColor: '#f8fafc', border: qrCodeData ? 'none' : '2px dashed #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', borderRadius: '12px', overflow: 'hidden', marginBottom: '20px', position: 'relative' }}>
+                                    {qrCodeData ? (
+                                        <img src={qrCodeData} alt="QR Code" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                    ) : (
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                                            <div className="spinner" style={{ width: '24px', height: '24px', border: '3px solid #cbd5e1', borderTopColor: '#00a884', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                                            <span style={{ fontSize: '14px', fontWeight: 500 }}>A gerar QR Code...</span>
+                                            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                                        </div>
+                                    )}
                                 </div>
-                            )}
-                        </div>
-                        
-                        <div style={{ width: '100%', padding: '12px', backgroundColor: '#f1f5f9', borderRadius: '8px', marginBottom: '24px' }}>
-                            <span style={{ fontSize: '14px', color: '#334155', fontWeight: 500, textAlign: 'center', display: 'block' }}>
-                                {qrStatus || 'Aguarde um momento...'}
-                            </span>
-                        </div>
-                        
-                        <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
-                            <button onClick={() => setShowQr(false)} style={{ flex: 1, padding: '12px', border: '1px solid #e2e8f0', background: 'white', color: '#475569', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 500 }}>
-                                Cancelar
-                            </button>
-                            <button onClick={handleGenerateQr} style={{ flex: 1, padding: '12px', border: 'none', background: '#00a884', color: 'white', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.59-11.12l5.67 5.67"/></svg>
-                                Atualizar
-                            </button>
-                        </div>
+
+                                <div style={{ width: '100%', padding: '12px', backgroundColor: '#f1f5f9', borderRadius: '8px', marginBottom: '24px' }}>
+                                    <span style={{ fontSize: '14px', color: '#334155', fontWeight: 500, textAlign: 'center', display: 'block' }}>
+                                        {qrStatus || 'Aguarde um momento...'}
+                                    </span>
+                                </div>
+
+                                <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
+                                    <button onClick={() => setShowQr(false)} style={{ flex: 1, padding: '12px', border: '1px solid #e2e8f0', background: 'white', color: '#475569', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 500 }}>
+                                        Cancelar
+                                    </button>
+                                    <button onClick={() => handleGenerateQr()} style={{ flex: 1, padding: '12px', border: 'none', background: '#00a884', color: 'white', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.59-11.12l5.67 5.67"/></svg>
+                                        Atualizar
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                {!pairingCode ? (
+                                    <>
+                                        <p style={{ fontSize: '13px', color: '#64748b', textAlign: 'center', margin: '0 0 16px' }}>
+                                            Introduza o número do WhatsApp a ligar (com indicativo do país) para gerar um código de pareamento.
+                                        </p>
+                                        <input
+                                            value={pairingPhone}
+                                            onChange={e => setPairingPhone(e.target.value)}
+                                            placeholder="Ex: 244923456789"
+                                            style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '15px', marginBottom: '20px', boxSizing: 'border-box', textAlign: 'center' }}
+                                        />
+                                        <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
+                                            <button onClick={() => setShowQr(false)} style={{ flex: 1, padding: '12px', border: '1px solid #e2e8f0', background: 'white', color: '#475569', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 500 }}>
+                                                Cancelar
+                                            </button>
+                                            <button onClick={() => handleGenerateQr(pairingPhone)} disabled={pairingPhone.replace(/\D/g, '').length < 9} style={{ flex: 1, padding: '12px', border: 'none', background: pairingPhone.replace(/\D/g, '').length < 9 ? '#cbd5e1' : '#00a884', color: 'white', borderRadius: '8px', cursor: pairingPhone.replace(/\D/g, '').length < 9 ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 600 }}>
+                                                Gerar Código
+                                            </button>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div style={{ width: '100%', padding: '24px 12px', backgroundColor: '#f0fdf9', border: '1.5px dashed #00a884', borderRadius: '12px', marginBottom: '20px', textAlign: 'center' }}>
+                                            <div style={{ fontSize: '30px', fontWeight: 700, letterSpacing: '4px', color: '#0f172a', fontFamily: 'monospace' }}>{pairingCode}</div>
+                                        </div>
+                                        <div style={{ width: '100%', padding: '14px', backgroundColor: '#f1f5f9', borderRadius: '8px', marginBottom: '24px' }}>
+                                            <p style={{ fontSize: '12.5px', color: '#334155', margin: 0, lineHeight: 1.6 }}>
+                                                No telemóvel: <strong>WhatsApp → Definições → Aparelhos conectados → Conectar um aparelho → Conectar com número de telefone</strong> — depois introduza este código.
+                                            </p>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
+                                            <button onClick={() => setShowQr(false)} style={{ flex: 1, padding: '12px', border: '1px solid #e2e8f0', background: 'white', color: '#475569', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 500 }}>
+                                                Cancelar
+                                            </button>
+                                            <button onClick={() => handleGenerateQr(pairingPhone)} style={{ flex: 1, padding: '12px', border: 'none', background: '#00a884', color: 'white', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600 }}>
+                                                Gerar Novo Código
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
+                            </>
+                        )}
                     </div>
                 </div>
             )}
