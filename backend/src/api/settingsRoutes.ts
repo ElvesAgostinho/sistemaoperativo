@@ -83,4 +83,54 @@ router.put('/', requireAuth, async (req, res) => {
     }
 });
 
+/**
+ * GET /api/settings/empresa
+ * Perfil da empresa (nome, NIF, contactos, logótipo) e modelo de proforma —
+ * usado para gerar documentos (proformas, recibos, relatórios, declarações)
+ * com a identidade real da empresa. Tabela própria (configuracoes_sistema),
+ * separada da tabela genérica de interruptores de funcionalidades.
+ */
+router.get('/empresa', requireAuth, async (req, res) => {
+    try {
+        const supabase = getSupabase(req);
+        const empresa_id = (req as any).user?.empresa_id;
+        const { data, error } = await supabase.from('configuracoes_sistema').select('chave, valor').eq('empresa_id', empresa_id);
+        if (error) throw error;
+
+        const config: Record<string, string> = {};
+        (data || []).forEach((r: any) => { config[r.chave] = r.valor || ''; });
+        res.json({ success: true, config });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * PUT /api/settings/empresa
+ * Body: { configs: { CHAVE: valor, ... } }
+ */
+router.put('/empresa', requireAuth, async (req, res) => {
+    const { configs } = req.body;
+    if (!configs || typeof configs !== 'object') {
+        return res.status(400).json({ error: 'Body deve conter { configs: { chave: valor } }' });
+    }
+    try {
+        const supabase = getSupabase(req);
+        const empresa_id = (req as any).user?.empresa_id;
+        if (!empresa_id) return res.status(400).json({ error: 'Empresa não encontrada.' });
+
+        // Sem garantia de constraint única (empresa_id, chave) na tabela — em vez de
+        // upsert, apaga e reinsere cada chave para nunca deixar linhas duplicadas.
+        for (const [chave, valor] of Object.entries(configs)) {
+            if (typeof valor !== 'string') continue;
+            await supabase.from('configuracoes_sistema').delete().eq('empresa_id', empresa_id).eq('chave', chave);
+            await supabase.from('configuracoes_sistema').insert({ empresa_id, chave, valor });
+        }
+
+        res.json({ success: true, message: 'Dados da empresa guardados com sucesso!' });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 export default router;

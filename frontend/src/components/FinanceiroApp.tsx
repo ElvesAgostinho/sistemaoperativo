@@ -4,6 +4,7 @@ import {
   CheckCircle2, FileText, Users, Settings, BarChart3, Receipt, Loader2
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
+import ConfiguracaoProforma from './settings/ConfiguracaoProforma';
 import './FinanceiroApp.css';
 
 const authFetch = (url: string, options: any = {}) => {
@@ -26,7 +27,7 @@ const CATEGORIAS: Record<'entrada' | 'saida', string[]> = {
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 export default function FinanceiroApp() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'transacoes' | 'salarios' | 'avancado'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'transacoes' | 'salarios' | 'avancado' | 'documentos'>('dashboard');
 
   return (
     <div className="fin-modern">
@@ -40,6 +41,7 @@ export default function FinanceiroApp() {
           <button className={activeTab === 'transacoes' ? 'active' : ''} onClick={() => setActiveTab('transacoes')}>Transações</button>
           <button className={activeTab === 'salarios' ? 'active' : ''} onClick={() => setActiveTab('salarios')}>Salários</button>
           <button className={activeTab === 'avancado' ? 'active' : ''} onClick={() => setActiveTab('avancado')}>Avançado</button>
+          <button className={activeTab === 'documentos' ? 'active' : ''} onClick={() => setActiveTab('documentos')}>Documentos</button>
         </div>
       </div>
 
@@ -48,6 +50,11 @@ export default function FinanceiroApp() {
         {activeTab === 'transacoes' && <TransacoesTab />}
         {activeTab === 'salarios' && <SalariosTab />}
         {activeTab === 'avancado' && <AvancadoTab />}
+        {activeTab === 'documentos' && (
+          <div style={{ padding: '24px' }}>
+            <ConfiguracaoProforma />
+          </div>
+        )}
       </div>
     </div>
   );

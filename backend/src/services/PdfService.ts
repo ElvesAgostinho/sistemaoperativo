@@ -343,6 +343,121 @@ Esta declaração é emitida a pedido do(a) interessado(a) para os fins que se m
         });
     }
 
+    // Gera a proforma em PDF com a identidade real da empresa (nome, NIF,
+    // morada, logótipo) e o modelo de termos/condições/rodapé configurados
+    // em Definições > Empresa (ou Financeiro > Documentos) — nunca texto
+    // fixo/genérico. Só desenha o PDF; quem chama trata da parte de BD
+    // (atualizar o negócio, guardar o registo da proforma).
+    public static async gerarProformaPdf(
+        negocio: { id: number; clientes?: { nome?: string; empresa?: string; telefone?: string; email?: string } },
+        itens: Array<{ descricao: string; qtd: number; preco_unitario: number }>,
+        empresaId?: number
+    ): Promise<{ filePath: string; totalGeral: number }> {
+        const confMap = await PdfService.getCompanyConfig(empresaId);
+
+        return new Promise((resolve, reject) => {
+            try {
+                const doc = new PDFDocument({ margin: 50 });
+                const fileName = `Proforma_${negocio.id}_${Date.now()}.pdf`;
+                const filePath = path.join(__dirname, '..', '..', 'tmp', fileName);
+
+                const dir = path.dirname(filePath);
+                if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+                const stream = fs.createWriteStream(filePath);
+                doc.pipe(stream);
+
+                if (confMap['COMPANY_LOGO_BASE64']) {
+                    PdfService.applyCompanyLogo(doc, confMap['COMPANY_LOGO_BASE64'], confMap['COMPANY_LOGO_POSITION'] || 'top-left');
+                }
+
+                const companyName = confMap['COMPANY_NAME'] || 'BUSINESS OS, LDA';
+                const companyNif = confMap['COMPANY_NIF'] || '5000000000';
+                const companyAddress = confMap['COMPANY_ADDRESS'] || 'Luanda, Angola';
+                const companyPhone = confMap['COMPANY_PHONE'] || '';
+                const companyEmail = confMap['COMPANY_EMAIL'] || '';
+
+                doc.rect(50, 40, doc.page.width - 100, 80).fill('#f8f9fa');
+                doc.strokeColor('#dee2e6').lineWidth(1).rect(50, 40, doc.page.width - 100, 80).stroke();
+                doc.fillColor('#212529').fontSize(22).font('Helvetica-Bold').text(companyName, 70, 55);
+                doc.fontSize(9.5).font('Helvetica').fillColor('#6c757d')
+                    .text(`${companyAddress} | NIF: ${companyNif}${companyPhone ? ' | Tel: ' + companyPhone : ''}${companyEmail ? ' | ' + companyEmail : ''}`, 70, 80, { width: doc.page.width - 140 });
+
+                doc.fillColor('#C9992E').fontSize(16).font('Helvetica-Bold').text('PROPOSTA COMERCIAL / PROFORMA', 50, 145);
+                doc.fillColor('#495057').fontSize(10).font('Helvetica')
+                    .text(`Ref: PRF-${new Date().getFullYear()}-${String(negocio.id).padStart(4, '0')}    ·    Data: ${new Date().toLocaleDateString('pt-PT')}`, 50, 166);
+
+                const validadeDias = Number(confMap['PROFORMA_VALIDADE_DIAS']) || 30;
+                const dataValidade = new Date(Date.now() + validadeDias * 86400000).toLocaleDateString('pt-PT');
+                doc.text(`Válida até: ${dataValidade}`, 50, 180);
+
+                let y = 210;
+                doc.rect(50, y, doc.page.width - 100, 55).fill('#ffffff').strokeColor('#dee2e6').lineWidth(1).stroke();
+                doc.fillColor('#495057').fontSize(9).font('Helvetica-Bold').text('CLIENTE', 60, y + 8);
+                doc.font('Helvetica').fontSize(10.5).fillColor('#212529');
+                doc.text(negocio.clientes?.empresa || negocio.clientes?.nome || 'Cliente', 60, y + 22);
+                const contactoLinha = [
+                    negocio.clientes?.empresa ? `A/C: ${negocio.clientes?.nome}` : null,
+                    negocio.clientes?.telefone ? `Tel: ${negocio.clientes?.telefone}` : null,
+                    negocio.clientes?.email ? `Email: ${negocio.clientes?.email}` : null,
+                ].filter(Boolean).join('   ·   ');
+                if (contactoLinha) doc.fontSize(9).fillColor('#6c757d').text(contactoLinha, 60, y + 38);
+
+                y += 75;
+                doc.rect(50, y, doc.page.width - 100, 22).fill('#e9ecef');
+                doc.fillColor('#495057').fontSize(9).font('Helvetica-Bold');
+                doc.text('DESCRIÇÃO', 60, y + 7);
+                doc.text('QTD', 330, y + 7, { width: 50, align: 'right' });
+                doc.text('PREÇO UNIT.', 385, y + 7, { width: 90, align: 'right' });
+                doc.text('TOTAL', 480, y + 7, { width: 85, align: 'right' });
+                y += 22;
+
+                doc.font('Helvetica').fontSize(10).fillColor('#212529');
+                let totalGeral = 0;
+                itens.forEach(item => {
+                    const totalItem = item.qtd * item.preco_unitario;
+                    totalGeral += totalItem;
+                    doc.text(item.descricao, 60, y + 7, { width: 260 });
+                    doc.text(String(item.qtd), 330, y + 7, { width: 50, align: 'right' });
+                    doc.text(PdfService.formatCurrency(item.preco_unitario), 385, y + 7, { width: 90, align: 'right' });
+                    doc.text(PdfService.formatCurrency(totalItem), 480, y + 7, { width: 85, align: 'right' });
+                    doc.moveTo(50, y + 26).lineTo(doc.page.width - 50, y + 26).strokeColor('#f1f3f5').lineWidth(1).stroke();
+                    y += 26;
+                });
+
+                y += 10;
+                doc.rect(330, y, doc.page.width - 380, 34).fill('#C9992E');
+                doc.fillColor('#201705').fontSize(12).font('Helvetica-Bold');
+                doc.text('TOTAL GERAL', 345, y + 11);
+                doc.text(PdfService.formatCurrency(totalGeral), 460, y + 11, { width: 105, align: 'right' });
+                y += 55;
+
+                const condicoesPagamento = confMap['PROFORMA_CONDICOES_PAGAMENTO'];
+                if (condicoesPagamento) {
+                    doc.fillColor('#495057').fontSize(9).font('Helvetica-Bold').text('CONDIÇÕES DE PAGAMENTO', 50, y);
+                    doc.font('Helvetica').fontSize(9.5).fillColor('#212529').text(condicoesPagamento, 50, y + 14, { width: doc.page.width - 100, lineGap: 3 });
+                    y += 14 + doc.heightOfString(condicoesPagamento, { width: doc.page.width - 100 }) + 16;
+                }
+
+                const termos = confMap['PROFORMA_TERMOS'];
+                if (termos) {
+                    doc.fillColor('#495057').fontSize(9).font('Helvetica-Bold').text('TERMOS E CONDIÇÕES', 50, y);
+                    doc.font('Helvetica').fontSize(9).fillColor('#6c757d').text(termos, 50, y + 14, { width: doc.page.width - 100, lineGap: 3 });
+                }
+
+                const rodape = confMap['PROFORMA_RODAPE'] || 'Documento gerado automaticamente pelo BusinessOS.';
+                doc.fillColor('#adb5bd').fontSize(8.5).font('Helvetica').text(rodape, 50, doc.page.height - 50, { align: 'center', width: doc.page.width - 100 });
+
+                doc.end();
+
+                stream.on('finish', () => resolve({ filePath, totalGeral }));
+                stream.on('error', reject);
+            } catch (error) {
+                reject(error);
+            }
+        });
+    }
+
     private static formatCurrency(value: number): string {
         return new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA' }).format(value);
     }

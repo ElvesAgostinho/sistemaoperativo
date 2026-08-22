@@ -1,8 +1,5 @@
 import { Request } from 'express';
 import { getSupabase } from '../lib/supabaseClient';
-import PDFDocument from 'pdfkit';
-import path from 'path';
-import fs from 'fs';
 import { PdfService } from './PdfService';
 
 export class CrmService {
@@ -87,77 +84,21 @@ export class CrmService {
     public static async gerarProformaPdf(req: Request, negocio_id: number, itens: Array<{descricao: string, qtd: number, preco_unitario: number}>): Promise<string> {
         const supabase = getSupabase(req);
         const empresa_id = (req as any).user?.empresa_id;
-        
-        return new Promise(async (resolve, reject) => {
-            try {
-                const { data: negocio, error } = await supabase.from('negocios').select('*, clientes(nome, empresa, telefone, email)').eq('id', negocio_id).single();
-                if (error || !negocio) throw new Error('Negócio não encontrado');
 
-                const doc = new PDFDocument({ margin: 50 });
-                const fileName = `Proforma_${negocio.id}_${Date.now()}.pdf`;
-                const filePath = path.join(__dirname, '..', '..', 'tmp', fileName);
-                
-                if (!fs.existsSync(path.dirname(filePath))) {
-                    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-                }
+        const { data: negocio, error } = await supabase.from('negocios').select('*, clientes(nome, empresa, telefone, email)').eq('id', negocio_id).single();
+        if (error || !negocio) throw new Error('Negócio não encontrado');
 
-                const writeStream = fs.createWriteStream(filePath);
-                doc.pipe(writeStream);
+        const { filePath, totalGeral } = await PdfService.gerarProformaPdf(negocio, itens, empresa_id);
 
-                const { data: configs } = await supabase.from('configuracoes_sistema').select('chave, valor');
-                const confMap = (configs || []).reduce((acc: any, c: any) => ({...acc, [c.chave]: c.valor}), {});
-
-                const companyName = confMap['COMPANY_NAME'] || 'BUSINESS OS, LDA';
-                const companyNif = confMap['COMPANY_NIF'] || '5000000000';
-                const companyAddress = confMap['COMPANY_ADDRESS'] || 'Luanda, Angola';
-                const companyPhone = confMap['COMPANY_PHONE'] || '';
-                const companyEmail = confMap['COMPANY_EMAIL'] || 'geral@businessos.ao';
-
-                // Skip logo for simplicity or implement it
-                // if (confMap['COMPANY_LOGO_BASE64']) {
-                //     PdfService.applyCompanyLogo(doc, confMap['COMPANY_LOGO_BASE64'], 'top-left');
-                // }
-
-                doc.fontSize(22).fillColor('#0078D4').text(companyName, { align: 'right' });
-                doc.fontSize(10).fillColor('gray').text(`${companyAddress} | NIF: ${companyNif} | ${companyEmail} ${companyPhone ? '| ' + companyPhone : ''}`, { align: 'right' });
-                doc.moveDown(2);
-
-                doc.fontSize(18).fillColor('black').text('PROPOSTA COMERCIAL / PROFORMA', { align: 'left', underline: true });
-                doc.fontSize(10).text(`Ref: PRF-${new Date().getFullYear()}-${negocio.id.toString().padStart(4, '0')}`, { align: 'left' });
-                doc.text(`Data: ${new Date().toLocaleDateString('pt-PT')}`, { align: 'left' });
-                doc.moveDown(2);
-
-                doc.fontSize(12).fillColor('#333333').text('A Exmos. Senhores,', { continued: false });
-                doc.font('Helvetica-Bold').text(negocio.clientes?.empresa || negocio.clientes?.nome);
-                doc.font('Helvetica').fontSize(10);
-                if (negocio.clientes?.empresa) doc.text(`A/C: ${negocio.clientes?.nome}`);
-                if (negocio.clientes?.telefone) doc.text(`Tel: ${negocio.clientes?.telefone}`);
-                if (negocio.clientes?.email) doc.text(`Email: ${negocio.clientes?.email}`);
-                doc.moveDown(2);
-
-                let totalGeral = 0;
-                itens.forEach(item => {
-                    const totalItem = item.qtd * item.preco_unitario;
-                    totalGeral += totalItem;
-                });
-
-                doc.end();
-
-                writeStream.on('finish', async () => {
-                    await supabase.from('negocios').update({ valor_estimado: totalGeral }).eq('id', negocio_id);
-                    await supabase.from('proformas').insert({
-                        empresa_id,
-                        negocio_id,
-                        detalhes_json: JSON.stringify(itens),
-                        pdf_path: filePath
-                    });
-                    resolve(filePath);
-                });
-                writeStream.on('error', reject);
-            } catch (err) {
-                reject(err);
-            }
+        await supabase.from('negocios').update({ valor_estimado: totalGeral }).eq('id', negocio_id);
+        await supabase.from('proformas').insert({
+            empresa_id,
+            negocio_id,
+            detalhes_json: JSON.stringify(itens),
+            pdf_path: filePath
         });
+
+        return filePath;
     }
 
     public static async registerPayment(req: Request, negocio_id: number, valor: number, metodo_pagamento: string, data_pagamento: string) {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Mail, CheckCircle, AlertCircle, Loader, Save, Wifi, Users, UserCheck, Shield, FileText, Building } from 'lucide-react';
+import ConfiguracaoProforma from './settings/ConfiguracaoProforma';
 
 type TestStatus = 'idle' | 'testing' | 'ok' | 'error';
 
@@ -41,6 +42,8 @@ export default function SettingsApp() {
         COMPANY_PHONE: '',
         COMPANY_ADDRESS: ''
     });
+    const [savingEmpresa, setSavingEmpresa] = useState(false);
+    const [savedEmpresa, setSavedEmpresa] = useState(false);
 
     // Documentos (Logo)
     const [logoBase64, setLogoBase64] = useState('');
@@ -92,6 +95,66 @@ export default function SettingsApp() {
         };
         loadSettings();
     }, []);
+
+    useEffect(() => {
+        const loadEmpresa = async () => {
+            try {
+                const token = localStorage.getItem('os_auth_token');
+                const res = await fetch(`${import.meta.env.VITE_API_URL}/api/settings/empresa`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success && data.config) {
+                    const c = data.config;
+                    setEmpresaConfig({
+                        COMPANY_NAME: c.COMPANY_NAME || '',
+                        COMPANY_NIF: c.COMPANY_NIF || '',
+                        COMPANY_EMAIL: c.COMPANY_EMAIL || '',
+                        COMPANY_PHONE: c.COMPANY_PHONE || '',
+                        COMPANY_ADDRESS: c.COMPANY_ADDRESS || '',
+                    });
+                    if (c.COMPANY_LOGO_BASE64) setLogoBase64(c.COMPANY_LOGO_BASE64);
+                    if (c.COMPANY_LOGO_POSITION) setLogoPosition(c.COMPANY_LOGO_POSITION);
+                }
+            } catch (err) {
+                console.error('Erro ao carregar dados da empresa:', err);
+            }
+        };
+        loadEmpresa();
+    }, []);
+
+    // Guarda tudo de uma vez (identidade da empresa, logótipo e modelo de
+    // proforma) — usado tanto pelo separador "Empresa" como "Documentos",
+    // para nunca haver dúvida sobre qual botão guarda o quê.
+    const handleSaveEmpresa = async () => {
+        setSavingEmpresa(true);
+        setSavedEmpresa(false);
+        try {
+            const token = localStorage.getItem('os_auth_token');
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/settings/empresa`, {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    configs: {
+                        ...empresaConfig,
+                        COMPANY_LOGO_BASE64: logoBase64,
+                        COMPANY_LOGO_POSITION: logoPosition,
+                    }
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                setSavedEmpresa(true);
+                setTimeout(() => setSavedEmpresa(false), 3000);
+            } else {
+                alert(data.error || 'Erro ao guardar dados da empresa.');
+            }
+        } catch (err) {
+            alert('Erro de rede ao guardar dados da empresa.');
+        } finally {
+            setSavingEmpresa(false);
+        }
+    };
 
     const handleSave = async () => {
         setSaving(true);
@@ -454,14 +517,15 @@ export default function SettingsApp() {
                         </div>
 
                         <button
-                            onClick={handleSave}
-                            disabled={saving}
+                            onClick={handleSaveEmpresa}
+                            disabled={savingEmpresa}
                             className="odoo-btn odoo-btn-primary"
                             style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px', fontSize: '14px' }}
                         >
-                            {saving ? <Loader className="spin" size={16} /> : <Save size={16} />}
-                            {saving ? 'A Guardar...' : 'Guardar Dados da Empresa'}
+                            {savingEmpresa ? <Loader className="spin" size={16} /> : <Save size={16} />}
+                            {savingEmpresa ? 'A Guardar...' : 'Guardar Dados da Empresa'}
                         </button>
+                        {savedEmpresa && <span style={{ marginLeft: '12px', color: '#16a34a', fontSize: '13px' }}><CheckCircle size={14} style={{ verticalAlign: '-2px', marginRight: '4px' }} />Guardado!</span>}
                     </div>
                 )}
 
@@ -552,9 +616,9 @@ export default function SettingsApp() {
                 {activeTab === 'documentos' && (
                     <div style={{ maxWidth: '680px' }}>
                         <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#0f172a', margin: '0 0 8px 0' }}>Personalização de Documentos</h1>
-                        <p style={{ color: '#64748b', fontSize: '14px', margin: '0 0 32px 0' }}>Faça upload do logótipo da sua empresa para que apareça automaticamente nos PDFs (Recibos de Vencimento e Declarações).</p>
-                        
-                        <div style={{ backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        <p style={{ color: '#64748b', fontSize: '14px', margin: '0 0 32px 0' }}>Faça upload do logótipo da sua empresa para que apareça automaticamente nos PDFs (Recibos de Vencimento, Declarações e Proformas).</p>
+
+                        <div style={{ backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '24px' }}>
                             <div>
                                 <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Logótipo da Empresa (PNG ou JPG)</label>
                                 <input 
@@ -592,15 +656,20 @@ export default function SettingsApp() {
                                 </select>
                             </div>
 
-                            <button
-                                onClick={handleSave}
-                                disabled={saving}
-                                style={{ width: 'fit-content', padding: '10px 24px', backgroundColor: '#1d4ed8', color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: saving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
-                            >
-                                {saving ? <Loader size={16} className="animate-spin" /> : <Save size={16} />}
-                                {saving ? 'A Guardar...' : 'Guardar Logótipo'}
-                            </button>
-                            {saved && <span style={{ color: '#16a34a', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' }}><CheckCircle size={14} /> Guardado!</span>}
+                        </div>
+
+                        <button
+                            onClick={handleSaveEmpresa}
+                            disabled={savingEmpresa}
+                            style={{ width: 'fit-content', padding: '10px 24px', backgroundColor: '#1d4ed8', color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: savingEmpresa ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '32px' }}
+                        >
+                            {savingEmpresa ? <Loader size={16} className="animate-spin" /> : <Save size={16} />}
+                            {savingEmpresa ? 'A Guardar...' : 'Guardar Logótipo'}
+                        </button>
+                        {savedEmpresa && <span style={{ marginLeft: '12px', color: '#16a34a', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}><CheckCircle size={14} /> Guardado!</span>}
+
+                        <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '24px' }}>
+                            <ConfiguracaoProforma />
                         </div>
                     </div>
                 )}
