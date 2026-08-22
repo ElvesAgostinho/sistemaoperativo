@@ -1,6 +1,6 @@
 import { CrmService } from './CrmService';
 import { KnowledgeBaseService } from './KnowledgeBaseService';
-import OpenAI from 'openai';
+import { OpenClawService } from './OpenClawService';
 import { supabase } from '../lib/supabaseClient'; // Service role client
 
 export interface WhatsAppMessage {
@@ -458,9 +458,10 @@ export class AutomationEngine {
 
             case 'AI_REPLY': {
                 // Resposta gerada por IA com contexto da Base de Conhecimento (RAG) —
-                // chamada direta e enxuta à OpenAI, não o loop completo do
-                // EnterpriseAssistantService (que tem tools de sistema de ficheiros,
-                // Excel, etc. — pesadas demais para uma resposta pontual num fluxo).
+                // chamada enxuta ao OpenClawService (OpenClaw primeiro, OpenAI como
+                // reserva), não o loop completo do EnterpriseAssistantService (que tem
+                // tools de sistema de ficheiros, Excel, etc. — pesadas demais para uma
+                // resposta pontual num fluxo).
                 const aiPhone = this.parseString(config.telefone || config.phone || '{{telefone}}', context);
                 const aiPromptTemplate = this.parseString(config.prompt, context);
 
@@ -478,14 +479,10 @@ export class AutomationEngine {
                         ? `Você é um assistente de atendimento ao cliente via WhatsApp. Responda de forma direta, profissional e curta, usando APENAS as informações abaixo da Base de Conhecimento da empresa. Se a informação não estiver lá, diga que não tem essa informação em vez de inventar.\n\n=== BASE DE CONHECIMENTO ===\n${knowledgeContext}`
                         : 'Você é um assistente de atendimento ao cliente via WhatsApp. Responda de forma direta, profissional e curta.';
 
-                    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-                    const completion = await client.chat.completions.create({
-                        model: 'gpt-4o-mini',
-                        messages: [
-                            { role: 'system', content: systemPrompt },
-                            { role: 'user', content: aiPromptTemplate }
-                        ]
-                    });
+                    const completion = await OpenClawService.chamarComFallback([
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: aiPromptTemplate }
+                    ]);
 
                     const aiText = completion.choices[0]?.message?.content;
                     if (aiText) {

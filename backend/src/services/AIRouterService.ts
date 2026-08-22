@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { supabase } from '../lib/supabaseClient';
+import { OpenClawService } from './OpenClawService';
 
 /**
  * =============================================================
@@ -107,22 +108,14 @@ function decidirAI(taskType: TaskType, contexto: string, modo: string): RouterDe
 }
 
 // ─── Chamada "Local" (OpenClaw, self-hospedado no VPS próprio) ────────────────
+// Usa o ponto único OpenClawService.chamar (propaga erro em vez de cair para a
+// OpenAI sozinho — quem decide se pode ou não recorrer à OpenAI é o
+// rotearEExecutar abaixo, com base em isSensitive).
 async function chamarOpenClaw(prompt: string, systemPrompt?: string): Promise<string> {
-    const vpsUrl = process.env.OPENCLAW_VPS_URL || 'http://187.124.218.242';
-    const ip = vpsUrl.replace(/^https?:\/\//, '').split(':')[0];
-
-    const client = new OpenAI({
-        baseURL: process.env.OPENAI_BASE_URL || `http://${ip}:18789/v1`,
-        apiKey: process.env.OPENCLAW_API_KEY || process.env.OPENAI_API_KEY || 'admin123'
-    });
-
-    const completion = await client.chat.completions.create({
-        model: 'openclaw/default',
-        messages: [
-            { role: 'system', content: systemPrompt || 'És um assistente especializado em Recursos Humanos, legislação laboral angolana e gestão empresarial. Responde sempre em Português de Angola.' },
-            { role: 'user', content: prompt },
-        ],
-    });
+    const completion = await OpenClawService.chamar([
+        { role: 'system', content: systemPrompt || 'És um assistente especializado em Recursos Humanos, legislação laboral angolana e gestão empresarial. Responde sempre em Português de Angola.' },
+        { role: 'user', content: prompt },
+    ]);
 
     return completion.choices[0]?.message?.content || '';
 }
