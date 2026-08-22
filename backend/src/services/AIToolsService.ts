@@ -39,7 +39,7 @@ export const agendamentoTools = [
             parameters: {
                 type: "object",
                 properties: {
-                    servico_nome: { type: "string", description: "Nome do serviço (ex: 'Corte de Cabelo'). Use exatamente um nome devolvido por listar_servicos_agendamento." },
+                    servico_nome: { type: "string", description: "Nome do serviço (ex: 'Corte de Cabelo', 'Consulta', 'Reunião'). Use exatamente um nome devolvido por listar_servicos_agendamento." },
                     data: { type: "string", description: "Data no formato YYYY-MM-DD." },
                     profissional_nome: { type: "string", description: "Opcional. Nome do profissional preferido." }
                 },

@@ -434,7 +434,7 @@ function ServicosView() {
           <div className="ag-modal-card">
             <h3>Novo Serviço</h3>
             <form onSubmit={criar}>
-              <div className="ag-field"><label>Nome</label><input required value={nome} onChange={e => setNome(e.target.value)} placeholder="Ex: Corte de Cabelo" /></div>
+              <div className="ag-field"><label>Nome</label><input required value={nome} onChange={e => setNome(e.target.value)} placeholder="Ex: Consulta, Corte de Cabelo, Reunião..." /></div>
               <div className="ag-field-row">
                 <div className="ag-field"><label>Duração (min)</label><input required type="number" min="5" step="5" value={duracao} onChange={e => setDuracao(e.target.value)} /></div>
                 <div className="ag-field"><label>Preço (Kz, opcional)</label><input type="number" value={preco} onChange={e => setPreco(e.target.value)} /></div>

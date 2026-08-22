@@ -317,7 +317,7 @@ function ConfigTab({ grupo, onUpdated }: { grupo: Grupo; onUpdated: () => void }
                     formas de pagamento e entrega.
                 </p>
                 <textarea value={contexto} onChange={e => setContexto(e.target.value)} rows={8}
-                    placeholder={'Ex:\nCorte de cabelo — 3.000 Kz\nBarba — 1.500 Kz\nAberto de Seg a Sáb, 9h-18h\nPagamento: Multicaixa Express ou numerário'}
+                    placeholder={'Ex:\nVestido Modelo A — 8.000 Kz\nConsulta (1h) — 15.000 Kz\nAberto de Seg a Sáb, 9h-18h\nPagamento: Multicaixa Express ou numerário'}
                     style={{ width: '100%', padding: '11px', borderRadius: '9px', border: '1px solid #d1d7db', fontSize: '13.5px', fontFamily: 'inherit', resize: 'vertical' }} />
             </div>
 
