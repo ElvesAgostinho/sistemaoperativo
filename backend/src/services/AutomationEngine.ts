@@ -791,8 +791,30 @@ export class AutomationEngine {
         });
     }
 
+    // Interruptor geral: dá ao dono da empresa controlo real sobre se o
+    // Assistente IA responde automaticamente no WhatsApp. Desativar uma
+    // automação do Autopilot NÃO desliga isto — pelo contrário, sem nenhuma
+    // automação ativa a apanhar a mensagem, é este fallback que passa a
+    // responder a TUDO. Por omissão fica ativo (comportamento já existente)
+    // até a empresa desligar explicitamente nas Definições.
+    private static async isAIFallbackEnabled(empresaId?: number): Promise<boolean> {
+        if (!empresaId) return true;
+        try {
+            const { data } = await supabase.from('configuracoes').select('valor')
+                .eq('empresa_id', empresaId).eq('chave', 'ia_whatsapp_ativa').maybeSingle();
+            if (!data) return true;
+            return data.valor !== 'false';
+        } catch {
+            return true;
+        }
+    }
+
     private static async handleAIFallback(conversationId: string, message: WhatsAppMessage, empresaId?: number) {
         try {
+            if (!(await this.isAIFallbackEnabled(empresaId))) {
+                console.log(`[Automation Engine] Assistente IA desativado nas Definições desta empresa — a ignorar mensagem de ${message.phone_number} sem gastar tokens.`);
+                return;
+            }
             console.log(`[Automation Engine] Acionando IA (OpenClaw) para mensagem de ${message.phone_number}`);
 
             const { EnterpriseAssistantService } = require('./EnterpriseAssistantService');

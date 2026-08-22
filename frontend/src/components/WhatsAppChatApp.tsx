@@ -133,6 +133,8 @@ export default function WhatsAppChatApp() {
     const [showTemplateModal, setShowTemplateModal] = useState(false);
 
     const [isBotPaused, setIsBotPaused] = useState<boolean>(false);
+    const [aiFallbackEnabled, setAiFallbackEnabled] = useState<boolean>(true);
+    const [savingAiFallback, setSavingAiFallback] = useState(false);
 
     // Multi-agent state
     const [agents, setAgents] = useState<Agent[]>([]);
@@ -320,6 +322,42 @@ export default function WhatsAppChatApp() {
         }
         return () => clearInterval(interval);
     }, [showQr, evolutionStatus]);
+
+    // Interruptor geral do Assistente IA no WhatsApp — desativar uma automação
+    // do Autopilot NÃO desliga isto; sem nenhuma automação a apanhar a
+    // mensagem, é este fallback que responde a tudo. Isto dá controlo real.
+    const fetchAiFallbackSetting = async () => {
+        try {
+            const token = localStorage.getItem('os_auth_token');
+            const res = await fetch(import.meta.env.VITE_API_URL + '/api/settings', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (data.success) setAiFallbackEnabled(data.config?.ia_whatsapp_ativa !== 'false');
+        } catch (err) { console.error(err); }
+    };
+
+    useEffect(() => { fetchAiFallbackSetting(); }, []);
+
+    const toggleAiFallback = async () => {
+        const novoValor = !aiFallbackEnabled;
+        setSavingAiFallback(true);
+        try {
+            const token = localStorage.getItem('os_auth_token');
+            const res = await fetch(import.meta.env.VITE_API_URL + '/api/settings', {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ configs: { ia_whatsapp_ativa: String(novoValor) } })
+            });
+            const data = await res.json();
+            if (data.success) setAiFallbackEnabled(novoValor);
+            else alert(data.error || 'Erro ao guardar.');
+        } catch (err) {
+            alert('Erro de comunicação com o servidor.');
+        } finally {
+            setSavingAiFallback(false);
+        }
+    };
 
     const handleEvolutionDisconnect = async () => {
         if (!confirm('Tem a certeza que deseja desconectar o WhatsApp?')) return;
@@ -714,7 +752,39 @@ export default function WhatsAppChatApp() {
                 ) : (
                     <div style={{ padding: '20px', flex: 1, overflowY: 'auto', backgroundColor: '#fff' }}>
                         <h3 style={{ margin: '0 0 20px 0', color: '#111b21' }}>Gestão de Canais</h3>
-                        
+
+                        <div style={{ border: `1px solid ${aiFallbackEnabled ? '#e2e8f0' : '#fecaca'}`, borderRadius: '8px', padding: '16px', marginBottom: '20px', backgroundColor: aiFallbackEnabled ? 'white' : '#fef2f2' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <Bot size={22} color={aiFallbackEnabled ? '#00a884' : '#94a3b8'} />
+                                <div style={{ flex: 1 }}>
+                                    <h4 style={{ margin: 0, fontSize: '15px', color: '#111b21' }}>Assistente IA Automático</h4>
+                                    <p style={{ margin: '2px 0 0', fontSize: '12.5px', color: '#667781', lineHeight: 1.4 }}>
+                                        Responde sozinho no WhatsApp sempre que nenhuma automação do Autopilot apanha a mensagem
+                                        (usa tokens da OpenAI a cada resposta). <strong>Desativar uma automação não desliga isto.</strong>
+                                    </p>
+                                </div>
+                                <div
+                                    onClick={savingAiFallback ? undefined : toggleAiFallback}
+                                    style={{
+                                        width: '40px', height: '20px', borderRadius: '20px', flexShrink: 0,
+                                        backgroundColor: aiFallbackEnabled ? '#00a884' : '#cbd5e1',
+                                        position: 'relative', cursor: savingAiFallback ? 'wait' : 'pointer', transition: 'background-color 0.3s'
+                                    }}
+                                    title={aiFallbackEnabled ? 'Desativar Assistente IA no WhatsApp' : 'Ativar Assistente IA no WhatsApp'}
+                                >
+                                    <div style={{
+                                        width: '16px', height: '16px', backgroundColor: 'white', borderRadius: '50%',
+                                        position: 'absolute', top: '2px', left: aiFallbackEnabled ? '22px' : '2px', transition: 'left 0.3s'
+                                    }} />
+                                </div>
+                            </div>
+                            {!aiFallbackEnabled && (
+                                <p style={{ margin: '10px 0 0', fontSize: '12px', color: '#991b1b', fontWeight: 600 }}>
+                                    Desativado — as mensagens que não caírem numa automação ficam sem resposta automática.
+                                </p>
+                            )}
+                        </div>
+
                         <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', marginBottom: '20px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
                                 <QrCode size={24} color="#00a884" />
@@ -732,7 +802,8 @@ export default function WhatsAppChatApp() {
                                     <div style={{ padding: '16px', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px' }}>
                                         <h5 style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#166534' }}>WhatsApp Conectado com Sucesso</h5>
                                         <p style={{ fontSize: '13px', color: '#14532d', marginBottom: '12px', lineHeight: '1.4' }}>
-                                            O seu telemóvel está sincronizado e o bot já pode ouvir as mensagens (desde que tenham sido configurados Workflows automáticos).
+                                            O seu telemóvel está sincronizado e as mensagens já chegam ao sistema. O interruptor
+                                            "Assistente IA Automático" acima controla se a IA responde sozinha quando nenhuma automação apanha a mensagem.
                                         </p>
                                         <button 
                                             onClick={handleEvolutionDisconnect}
