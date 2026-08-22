@@ -6,10 +6,13 @@ import { supabase } from '../lib/supabaseClient';
  *  AI ROUTER INTELIGENTE
  *  Decide automaticamente qual IA usar baseado no tipo de tarefa:
  *
- *  SENSÍVEL     → Sempre IA Local (Ollama) - dados nunca saem
+ *  SENSÍVEL     → Sempre OpenClaw (self-hospedado) - dados nunca saem para terceiros
  *  COMPLEXO     → OpenAI (análise profunda, geração avançada)
- *  SIMPLES      → IA Local primeiro → fallback OpenAI se falhar
- *  FALLBACK     → Se local falhar em tarefa não-sensível → OpenAI
+ *  SIMPLES      → OpenClaw primeiro → fallback OpenAI se falhar
+ *  FALLBACK     → Se OpenClaw falhar em tarefa não-sensível → OpenAI
+ *
+ *  (Já não usa Ollama — o "local" abaixo é o OpenClaw, self-hospedado no VPS
+ *  próprio, não um modelo a correr no mesmo processo do backend.)
  * =============================================================
  */
 
@@ -103,21 +106,25 @@ function decidirAI(taskType: TaskType, contexto: string, modo: string): RouterDe
     };
 }
 
-// ─── Chamada Local (Ollama) ────────────────────────────────────────────────────
-async function chamarOllama(prompt: string): Promise<string> {
-    const ollamaUrl = process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
-    const model = process.env.OLLAMA_MODEL || 'gemma:2b';
+// ─── Chamada "Local" (OpenClaw, self-hospedado no VPS próprio) ────────────────
+async function chamarOpenClaw(prompt: string, systemPrompt?: string): Promise<string> {
+    const vpsUrl = process.env.OPENCLAW_VPS_URL || 'http://187.124.218.242';
+    const ip = vpsUrl.replace(/^https?:\/\//, '').split(':')[0];
 
-    const response = await fetch(`${ollamaUrl}/api/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, prompt, stream: false }),
-        signal: AbortSignal.timeout(60000),
+    const client = new OpenAI({
+        baseURL: process.env.OPENAI_BASE_URL || `http://${ip}:18789/v1`,
+        apiKey: process.env.OPENCLAW_API_KEY || process.env.OPENAI_API_KEY || 'admin123'
     });
 
-    if (!response.ok) throw new Error(`Ollama error: ${response.status}`);
-    const data = await response.json() as any;
-    return data.response || '';
+    const completion = await client.chat.completions.create({
+        model: 'openclaw/default',
+        messages: [
+            { role: 'system', content: systemPrompt || 'És um assistente especializado em Recursos Humanos, legislação laboral angolana e gestão empresarial. Responde sempre em Português de Angola.' },
+            { role: 'user', content: prompt },
+        ],
+    });
+
+    return completion.choices[0]?.message?.content || '';
 }
 
 // ─── Chamada OpenAI ────────────────────────────────────────────────────────────
@@ -167,13 +174,13 @@ export async function rotearEExecutar(
             texto = result.texto;
             tokens = result.tokens;
         } else {
-            // Tentar local
+            // Tentar OpenClaw (self-hospedado)
             try {
-                texto = await chamarOllama(prompt);
+                texto = await chamarOpenClaw(prompt);
             } catch (localErr: any) {
                 // Fallback → OpenAI se não for sensível e key existir
                 if (!decisao.isSensitive && process.env.OPENAI_API_KEY) {
-                    console.warn(`[AIRouter] Local falhou (${localErr.message}), a usar fallback OpenAI...`);
+                    console.warn(`[AIRouter] OpenClaw falhou (${localErr.message}), a usar fallback OpenAI...`);
                     aiUsado = 'openai';
                     const result = await chamarOpenAI(prompt);
                     texto = result.texto;
