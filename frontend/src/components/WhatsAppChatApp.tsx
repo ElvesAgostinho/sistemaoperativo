@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { MessageSquare, Phone, MoreVertical, Search, Paperclip, Smile, Send, Bot, Settings, QrCode, Key, Plus, UserPlus, ClipboardList, Filter, Check, CheckCheck, Clock, AlertCircle, Users } from 'lucide-react';
+import { MessageSquare, Phone, MoreVertical, Search, Paperclip, Smile, Send, Bot, Settings, QrCode, Key, Plus, UserPlus, ClipboardList, Filter, Check, CheckCheck, Clock, AlertCircle, Users, Megaphone } from 'lucide-react';
 import EmojiPicker from 'emoji-picker-react';
 import { createClient } from '@supabase/supabase-js';
 import WhatsAppGruposApp from './WhatsAppGruposApp';
+import CampanhasApp from './CampanhasApp';
 
 // FIX #5 — Supabase client para Realtime (usa as mesmas variáveis de ambiente)
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://lmxuixmmrglrqxjrhpgn.supabase.co';
@@ -112,8 +113,8 @@ export default function WhatsAppChatApp() {
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     
-    // View state: 'chats', 'groups' ou 'settings'
-    const [currentView, setCurrentView] = useState<'chats' | 'settings' | 'groups'>('chats');
+    // View state: 'chats', 'groups', 'campaigns' ou 'settings'
+    const [currentView, setCurrentView] = useState<'chats' | 'settings' | 'groups' | 'campaigns'>('chats');
     
     // Evolution API Settings
     const [showQr, setShowQr] = useState(false);
@@ -677,6 +678,10 @@ export default function WhatsAppChatApp() {
         return <WhatsAppGruposApp onNavigate={setCurrentView} />;
     }
 
+    if (currentView === 'campaigns') {
+        return <CampanhasApp onNavigate={setCurrentView} />;
+    }
+
     return (
         <div style={{ display: 'flex', height: '100%', width: '100%', backgroundColor: '#f0f2f5' }}>
 
@@ -688,6 +693,7 @@ export default function WhatsAppChatApp() {
                     <div style={{ display: 'flex', gap: '16px', color: '#54656f' }}>
                         <span title="Conversas"><MessageSquare size={20} style={{ cursor: 'pointer', color: currentView === 'chats' ? '#00a884' : '#54656f' }} onClick={() => setCurrentView('chats')} /></span>
                         <span title="Grupos"><Users size={20} style={{ cursor: 'pointer', color: currentView === 'groups' ? '#00a884' : '#54656f' }} onClick={() => setCurrentView('groups')} /></span>
+                        <span title="Campanhas"><Megaphone size={20} style={{ cursor: 'pointer', color: currentView === 'campaigns' ? '#00a884' : '#54656f' }} onClick={() => setCurrentView('campaigns')} /></span>
                         <span title="Configurações de Canais"><Settings size={20} style={{ cursor: 'pointer', color: currentView === 'settings' ? '#00a884' : '#54656f' }} onClick={() => setCurrentView('settings')} /></span>
                     </div>
                 </div>
@@ -1212,10 +1218,22 @@ export default function WhatsAppChatApp() {
                                         <div style={{ fontSize: '13px', color: '#475569', marginBottom: '12px' }}>
                                             {tpl.components?.find((c:any) => c.type === 'BODY')?.text || 'Template sem corpo de texto'}
                                         </div>
-                                        <button 
-                                            onClick={() => {
-                                                alert("Backend faria envio real com este template: " + tpl.name);
-                                                setShowTemplateModal(false);
+                                        <button
+                                            onClick={async () => {
+                                                if (!activeConv) return;
+                                                try {
+                                                    const token = localStorage.getItem('os_auth_token');
+                                                    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/whatsapp/templates/send`, {
+                                                        method: 'POST',
+                                                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({ conversation_id: activeConv.id, template_name: tpl.name, language_code: tpl.language })
+                                                    });
+                                                    const data = await res.json();
+                                                    if (data.success) { fetchMessages(); setShowTemplateModal(false); }
+                                                    else alert(data.error || 'Erro ao enviar o template.');
+                                                } catch {
+                                                    alert('Erro de comunicação com o servidor.');
+                                                }
                                             }}
                                             style={{ width: '100%', padding: '8px', backgroundColor: '#00a884', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
                                         >

@@ -333,8 +333,28 @@ router.post('/webhook/meta', async (req: Request, res: Response) => {
 
         const body = req.body;
         if (body.object) {
+            const change = body.entry?.[0]?.changes?.[0]?.value;
+
+            // Atualizações de estado (enviado/entregue/lido/falhado) — necessárias
+            // para as métricas de campanhas e para os "vistos" nas conversas.
+            // A Meta nunca envia isto junto com "messages" no mesmo evento.
+            if (change?.statuses?.length) {
+                for (const st of change.statuses) {
+                    if (!st.id) continue;
+                    const novoEstado = st.status === 'read' ? 'read' : st.status === 'delivered' ? 'delivered' : st.status === 'failed' ? 'failed' : st.status === 'sent' ? 'sent' : null;
+                    if (!novoEstado) continue;
+                    await supabase.from('wa_messages').update({ status: novoEstado }).eq('message_id', st.id);
+                    // Espelhar no destinatário da campanha, se esta mensagem pertencer a uma.
+                    await supabase.from('campanha_destinatarios').update({
+                        estado: novoEstado === 'failed' ? 'Falhou' : novoEstado === 'read' ? 'Lida' : novoEstado === 'delivered' ? 'Entregue' : 'Enviada',
+                        erro: st.errors?.[0]?.title || null,
+                        atualizado_em: new Date().toISOString()
+                    }).eq('message_id', st.id);
+                }
+                return res.status(200).send('EVENT_RECEIVED');
+            }
+
             if (body.entry && body.entry[0].changes && body.entry[0].changes[0].value.messages) {
-                const change = body.entry[0].changes[0].value;
                 const msg = change.messages[0];
                 const contact = change.contacts?.[0];
 
@@ -1060,20 +1080,22 @@ router.post('/templates/send', requireAuth, async (req: AuthRequest, res: Respon
         const conv = convData;
         const { WhatsAppChannelManager } = require('../services/WhatsAppChannelManager');
         const sent = await WhatsAppChannelManager.sendTemplateMessage(getSupabase(req), conv.channel_id, conv.phone_number, template_name, language_code);
+        const enviouComSucesso = sent === true || (typeof sent === 'string' && !sent.startsWith('ERROR:'));
 
-        if (sent) {
+        if (enviouComSucesso) {
             // Guardar mensagem na BD
             await getSupabase(req).from('wa_messages').insert({
                 conversation_id,
                 direction: 'outbound',
                 content: `[TEMPLATE ENVIADO]: ${template_name}`,
                 status: 'delivered',
+                message_id: typeof sent === 'string' ? sent : null,
                 agent_id: req.user!.id
             });
             await getSupabase(req).from('wa_conversations').update({ last_message_at: new Date().toISOString() }).eq('id', conversation_id);
             res.json({ success: true });
         } else {
-            res.status(500).json({ error: 'Falha ao enviar o template pela API' });
+            res.status(500).json({ error: typeof sent === 'string' ? sent.replace(/^ERROR: /, '') : 'Falha ao enviar o template pela API' });
         }
     } catch (err: any) {
         res.status(500).json({ error: err.message });

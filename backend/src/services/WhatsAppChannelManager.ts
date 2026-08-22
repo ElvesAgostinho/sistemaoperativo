@@ -128,30 +128,39 @@ export class WhatsAppChannelManager {
         return true;
     }
 
-    public static async sendTemplateMessage(supabaseClient: any, channel_id: string, phone_number: string, template_name: string, language_code: string): Promise<boolean> {
+    // bodyParams preenche as variáveis {{1}}, {{2}}, ... do componente BODY do
+    // template, na ordem em que aparecem — necessário para campanhas
+    // personalizadas (ex: "Olá {{1}}, o seu pedido {{2}} está a caminho.").
+    public static async sendTemplateMessage(supabaseClient: any, channel_id: string, phone_number: string, template_name: string, language_code: string, bodyParams?: string[]): Promise<string | boolean> {
         try {
             const { data: channel } = await supabaseClient.from('wa_channels').select('*').eq('id', channel_id).single();
             if (!channel || channel.provider !== 'meta') throw new Error('Canal inválido ou não é Meta');
 
             const { phoneNumberId, accessToken } = channel.credentials;
             const url = `https://graph.facebook.com/v20.0/${phoneNumberId}/messages`;
-            
+
             let formattedPhone = phone_number.replace(/\D/g, '');
             if (formattedPhone.length === 9) {
                 const defaultCountry = process.env.DEFAULT_COUNTRY_CODE || '244';
                 formattedPhone = `${defaultCountry}${formattedPhone}`;
             }
 
+            const template: any = {
+                name: template_name,
+                language: { code: language_code }
+            };
+            if (bodyParams && bodyParams.length > 0) {
+                template.components = [{
+                    type: 'body',
+                    parameters: bodyParams.map(p => ({ type: 'text', text: String(p ?? '') }))
+                }];
+            }
+
             const payload = {
                 messaging_product: 'whatsapp',
                 to: formattedPhone,
                 type: 'template',
-                template: {
-                    name: template_name,
-                    language: {
-                        code: language_code
-                    }
-                }
+                template
             };
 
             const response = await fetch(url, {
@@ -166,12 +175,12 @@ export class WhatsAppChannelManager {
             const data = await response.json();
             if (!response.ok) {
                 console.error('[Meta API Template Error]', data);
-                return false;
+                return `ERROR: ${data.error?.message || response.status}`;
             }
-            return true;
-        } catch (error) {
+            return data.messages?.[0]?.id || true;
+        } catch (error: any) {
             console.error('[WhatsAppChannelManager] Erro ao enviar template:', error);
-            return false;
+            return `ERROR: ${error.message || String(error)}`;
         }
     }
 

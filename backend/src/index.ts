@@ -18,9 +18,11 @@ import recrutamentoRoutes from './api/recrutamentoRoutes';
 import accountingRoutes from './api/accountingRoutes';
 import financeiroRoutes from './api/financeiroRoutes';
 import agendamentoRoutes from './api/agendamentoRoutes';
+import campanhasRoutes from './api/campanhasRoutes';
 import emailRoutes from './api/emailRoutes';
 import publicRoutes from './api/publicRoutes';
 import { EmailSyncService } from './services/EmailSyncService';
+import { CampaignService } from './services/CampaignService';
 
 dotenv.config();
 
@@ -66,6 +68,7 @@ app.use('/api/recrutamento', requireAuth, recrutamentoRoutes);
 app.use('/api/accounting', requireAuth, accountingRoutes);
 app.use('/api/financeiro', requireAuth, financeiroRoutes);
 app.use('/api/agendamento', requireAuth, agendamentoRoutes);
+app.use('/api/campanhas', requireAuth, campanhasRoutes);
 app.use('/api/email', requireAuth, emailRoutes);
 app.use('/api/public', publicRoutes);
 
@@ -87,4 +90,11 @@ app.listen(port, () => {
   setInterval(() => {
     EmailSyncService.syncAll().catch(console.error);
   }, 3 * 60 * 1000);
+
+  // Processar fila de campanhas de WhatsApp (a cada 20 segundos) — envia em
+  // lotes pequenos para respeitar a velocidade configurada por campanha,
+  // em vez de disparar tudo de uma vez.
+  setInterval(() => {
+    CampaignService.processarFila().catch(console.error);
+  }, 20 * 1000);
 });

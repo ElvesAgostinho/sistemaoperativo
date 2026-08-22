@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
     Users, MessageSquare, Settings, Plus, RefreshCw, Sparkles, TrendingUp,
-    AlertTriangle, Send, X, Bot, ChevronRight
+    AlertTriangle, Send, X, Bot, ChevronRight, Megaphone
 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL;
@@ -17,7 +17,7 @@ interface Grupo {
     mensagens_hoje?: number; ultima_mensagem_em?: string | null;
 }
 
-export default function WhatsAppGruposApp({ onNavigate }: { onNavigate: (v: 'chats' | 'settings' | 'groups') => void }) {
+export default function WhatsAppGruposApp({ onNavigate }: { onNavigate: (v: 'chats' | 'settings' | 'groups' | 'campaigns') => void }) {
     const [grupos, setGrupos] = useState<Grupo[]>([]);
     const [loading, setLoading] = useState(true);
     const [ativo, setAtivo] = useState<Grupo | null>(null);
@@ -49,6 +49,7 @@ export default function WhatsAppGruposApp({ onNavigate }: { onNavigate: (v: 'cha
                     <div style={{ display: 'flex', gap: '16px', color: '#54656f' }}>
                         <span title="Conversas"><MessageSquare size={20} style={{ cursor: 'pointer' }} onClick={() => onNavigate('chats')} /></span>
                         <span title="Grupos"><Users size={20} style={{ cursor: 'pointer', color: '#00a884' }} onClick={() => onNavigate('groups')} /></span>
+                        <span title="Campanhas"><Megaphone size={20} style={{ cursor: 'pointer' }} onClick={() => onNavigate('campaigns')} /></span>
                         <span title="Configurações de Canais"><Settings size={20} style={{ cursor: 'pointer' }} onClick={() => onNavigate('settings')} /></span>
                     </div>
                 </div>
