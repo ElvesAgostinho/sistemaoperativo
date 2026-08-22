@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Calendar, LayoutGrid, Scissors, Users, Clock, Link as LinkIcon, Plus, Trash2, Check, X,
-  RotateCcw, Bell, Settings as SettingsIcon, Copy, CalendarClock, CheckCircle2
+  RotateCcw, Settings as SettingsIcon, Copy, CalendarClock, CheckCircle2
 } from 'lucide-react';
 import './AgendamentoApp.css';
 
@@ -32,8 +32,7 @@ export default function AgendamentoApp() {
       <div className="ag-header">
         <div className="ag-header-title"><CalendarClock size={20} color="#C9992E" /> Agendamento</div>
         <div className="ag-header-actions">
-          <div className="ag-header-icon-btn"><Bell size={16} /></div>
-          <div className="ag-header-icon-btn"><SettingsIcon size={16} /></div>
+          <div className="ag-header-icon-btn" onClick={() => setView('horarios')} title="Configurações"><SettingsIcon size={16} /></div>
         </div>
       </div>
 
