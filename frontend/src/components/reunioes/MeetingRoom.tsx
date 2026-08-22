@@ -3,49 +3,32 @@ import { Video, AlertTriangle } from 'lucide-react';
 
 interface MeetingRoomProps {
     reuniaoId: string;
-    roomName: string;
+    /** URL completo da sala Daily.co, já com o token de acesso embutido (?t=...) — mintado no backend, nunca cru/partilhável. */
+    dailyUrl: string | null;
     titulo: string;
     participanteNome: string;
     participanteTipo: 'host' | 'convidado';
-    /** Só o host recebe — mostra o botão de terminar reunião e gerar o resumo IA. */
+    /** Só o host recebe — mostra o botão de terminar reunião. */
     onEnd?: () => void;
     endLoading?: boolean;
 }
 
-const loadJitsiScript = (): Promise<void> => {
-    return new Promise((resolve, reject) => {
-        if ((window as any).JitsiMeetExternalAPI) return resolve();
-        const existing = document.getElementById('jitsi-external-api-script');
-        if (existing) {
-            existing.addEventListener('load', () => resolve());
-            existing.addEventListener('error', reject);
-            return;
-        }
-        const script = document.createElement('script');
-        script.id = 'jitsi-external-api-script';
-        script.src = 'https://meet.jit.si/external_api.js';
-        script.async = true;
-        script.onload = () => resolve();
-        script.onerror = reject;
-        document.body.appendChild(script);
-    });
-};
-
 /**
- * Sala de reunião reutilizável (Jitsi + Copilot IA por transcrição de voz), usada
- * tanto pelo anfitrião autenticado (ReunioesApp) quanto pelo convidado externo sem
- * login (pages/public/ReuniaoConvidado). Cada participante que entra por aqui grava
- * a sua própria transcrição local e envia fragmentos ao backend — é isso que faz a
- * ata final incluir todos os participantes, não só quem criou a reunião.
+ * Sala de reunião reutilizável (Daily.co Prebuilt via iframe + legendas ao vivo
+ * por transcrição de voz no browser), usada tanto pelo anfitrião autenticado
+ * (ReunioesApp) quanto pelo convidado externo sem login (pages/public/ReuniaoConvidado).
+ *
+ * A videochamada em si (grelha, mudo, câmara, partilha de ecrã) e a gravação em
+ * nuvem são inteiramente geridas pela Daily — este componente só embebe o iframe
+ * e mantém, à parte, um painel de legendas ao vivo. Essas legendas são só uma
+ * pré-visualização: a ata definitiva é gerada a partir da gravação real (Whisper),
+ * processada pelo backend depois da reunião terminar — ver dailyRoutes.ts.
  */
-export default function MeetingRoom({ reuniaoId, roomName, titulo, participanteNome, participanteTipo, onEnd, endLoading }: MeetingRoomProps) {
-    const jitsiContainerRef = useRef<HTMLDivElement>(null);
-    const jitsiApiRef = useRef<any>(null);
+export default function MeetingRoom({ reuniaoId, dailyUrl, titulo, participanteNome, participanteTipo, onEnd, endLoading }: MeetingRoomProps) {
     const [transcription, setTranscription] = useState('');
     const [interimTranscription, setInterimTranscription] = useState('');
     const [isListening, setIsListening] = useState(false);
     const [speechUnsupported, setSpeechUnsupported] = useState(false);
-    const [jitsiError, setJitsiError] = useState<string | null>(null);
     const recognitionRef = useRef<any>(null);
     const isMeetingActiveRef = useRef(false);
 
@@ -127,53 +110,13 @@ export default function MeetingRoom({ reuniaoId, roomName, titulo, participanteN
     };
 
     useEffect(() => {
-        if (!jitsiContainerRef.current) return;
-        let disposed = false;
-
-        loadJitsiScript().then(() => {
-            if (disposed || !jitsiContainerRef.current) return;
-            const JitsiMeetExternalAPI = (window as any).JitsiMeetExternalAPI;
-            const api = new JitsiMeetExternalAPI('meet.jit.si', {
-                roomName,
-                parentNode: jitsiContainerRef.current,
-                width: '100%',
-                height: '100%',
-                configOverwrite: { prejoinPageEnabled: false },
-                userInfo: { displayName: participanteNome }
-            });
-            jitsiApiRef.current = api;
-
-            api.addListener('videoConferenceJoined', () => {
-                startListening();
-            });
-            api.addListener('videoConferenceLeft', () => {
-                stopListening();
-            });
-            api.addListener('readyToClose', () => {
-                stopListening();
-            });
-            api.addListener('errorOccurred', (e: any) => {
-                console.error('[Jitsi] errorOccurred:', e);
-                setJitsiError('Ocorreu um erro na videochamada. Tente recarregar a página.');
-            });
-            api.addListener('connectionFailed', () => {
-                setJitsiError('Falha na ligação à videochamada. Verifique a sua rede e tente novamente.');
-            });
-        }).catch((e: any) => {
-            console.error('Erro ao carregar a Jitsi External API:', e);
-            setJitsiError('Não foi possível carregar a videochamada. Verifique a sua ligação à internet.');
-        });
-
-        return () => {
-            disposed = true;
-            stopListening();
-            if (jitsiApiRef.current) {
-                jitsiApiRef.current.dispose();
-                jitsiApiRef.current = null;
-            }
-        };
+        // Sem evento externo do Daily para "entrei na chamada" (abordagem de iframe
+        // simples, sem o SDK @daily-co/daily-js) — arranca as legendas ao vivo assim
+        // que o iframe existe, para aproximar o mais possível.
+        startListening();
+        return () => stopListening();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [roomName]);
+    }, [dailyUrl]);
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'white', color: '#0f172a' }}>
@@ -190,33 +133,44 @@ export default function MeetingRoom({ reuniaoId, roomName, titulo, participanteN
                         disabled={endLoading}
                         style={{ background: '#B23A3A', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '10px', fontWeight: 700, fontSize: '13.5px', cursor: endLoading ? 'wait' : 'pointer', fontFamily: 'inherit' }}
                     >
-                        {endLoading ? 'A processar Resumo da IA...' : 'Terminar Reunião & Gerar Resumo IA'}
+                        {endLoading ? 'A processar...' : 'Terminar Reunião'}
                     </button>
                 )}
             </div>
 
-            {jitsiError && (
+            {!dailyUrl && (
                 <div style={{ padding: '10px 16px', background: '#fef2f2', color: '#991b1b', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #fecaca' }}>
-                    <AlertTriangle size={16} /> {jitsiError}
+                    <AlertTriangle size={16} /> Não foi possível gerar o acesso à sala. Recarregue a página ou contacte o suporte.
                 </div>
             )}
             {speechUnsupported && (
                 <div style={{ padding: '10px 16px', background: '#fffbeb', color: '#92400e', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #fde68a' }}>
-                    <AlertTriangle size={16} /> O seu navegador não suporta transcrição automática (use Google Chrome ou Edge). A videochamada continua normalmente, mas esta sessão não será incluída na ata.
+                    <AlertTriangle size={16} /> O seu navegador não suporta legendas ao vivo (use Google Chrome ou Edge). A videochamada e a gravação continuam normalmente — a ata final é gerada a partir da gravação, não depende disto.
                 </div>
             )}
 
             <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-                {/* Jitsi (via External API) */}
+                {/* Daily.co Prebuilt, via iframe simples — grelha, mudo, câmara, partilha de ecrã e gravação em nuvem já vêm todos prontos */}
                 <div style={{ flex: 1, position: 'relative' }}>
-                    <div ref={jitsiContainerRef} style={{ width: '100%', height: '100%' }} />
+                    {dailyUrl && (
+                        <iframe
+                            src={dailyUrl}
+                            allow="camera; microphone; fullscreen; display-capture; autoplay"
+                            style={{ width: '100%', height: '100%', border: 'none' }}
+                        />
+                    )}
                 </div>
 
-                {/* AI Copilot Side Panel */}
+                {/* Painel de legendas ao vivo — pré-visualização, não é a fonte da ata final */}
                 <div style={{ width: '320px', background: '#16211F', borderLeft: '1px solid #2A3B37', display: 'flex', flexDirection: 'column', fontFamily: "'IBM Plex Sans', 'Segoe UI', sans-serif" }}>
-                    <div style={{ padding: '16px', borderBottom: '1px solid #2A3B37', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div className={isListening ? 'pulse-dot' : ''} style={{ width: '9px', height: '9px', borderRadius: '50%', background: isListening ? '#2CB5B0' : '#5B6B67' }}></div>
-                        <span style={{ fontWeight: 700, fontFamily: "'Manrope', sans-serif", fontSize: '13.5px' }}>Copilot IA (A ouvir...)</span>
+                    <div style={{ padding: '16px', borderBottom: '1px solid #2A3B37' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div className={isListening ? 'pulse-dot' : ''} style={{ width: '9px', height: '9px', borderRadius: '50%', background: isListening ? '#2CB5B0' : '#5B6B67' }}></div>
+                            <span style={{ fontWeight: 700, fontFamily: "'Manrope', sans-serif", fontSize: '13.5px' }}>Legendas ao vivo</span>
+                        </div>
+                        <p style={{ margin: '6px 0 0', fontSize: '11px', color: '#8b9a96', lineHeight: 1.4 }}>
+                            Pré-visualização — a ata final é gerada a partir da gravação.
+                        </p>
                     </div>
                     <div style={{ flex: 1, padding: '16px', overflowY: 'auto', fontSize: '13px', lineHeight: 1.6, color: '#d1d5db', whiteSpace: 'pre-wrap' }}>
                         {transcription === '' && interimTranscription === '' ? (

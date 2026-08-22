@@ -3,7 +3,7 @@ import { getSupabase } from '../lib/supabaseClient';
 import { EmailService } from '../services/EmailService';
 import { ReuniaoService } from '../services/ReuniaoService';
 import { PdfService } from '../services/PdfService';
-import OpenAI from 'openai';
+import { DailyService } from '../services/DailyService';
 
 export const listarReunioes = async (req: Request, res: Response) => {
     try {
@@ -22,10 +22,23 @@ export const detalhesReuniao = async (req: Request, res: Response) => {
         const supabase = getSupabase(req);
         const { data: reuniao, error: rErr } = await supabase.from('reunioes').select('*').eq('id', id).single();
         if (rErr || !reuniao) return res.status(404).json({ error: 'Reunião não encontrada' });
-        
+
         const { data: tarefas, error: tErr } = await supabase.from('reunioes_tarefas').select('*').eq('reuniao_id', id);
-        
-        res.json({ success: true, reuniao, tarefas: tarefas || [] });
+
+        // Só minta um token de acesso à sala (anfitrião) se a reunião ainda não
+        // terminou — a sala Daily é privada, não há URL cru que funcione sozinho.
+        let daily_url: string | null = null;
+        if (reuniao.estado !== 'Concluida' && reuniao.daily_room_name) {
+            try {
+                const nomeAnfitriao = (req as any).user?.email?.split('@')[0] || 'Anfitrião';
+                const token = await DailyService.criarTokenReuniao({ roomName: reuniao.daily_room_name, nomeParticipante: nomeAnfitriao, isOwner: true });
+                daily_url = `${reuniao.link_jitsi}?t=${token}`;
+            } catch (e) {
+                console.error('[reunioesController] Falha ao mintar token da Daily:', e);
+            }
+        }
+
+        res.json({ success: true, reuniao: { ...reuniao, daily_url }, tarefas: tarefas || [] });
     } catch (error: any) {
         res.status(500).json({ success: false, error: error.message });
     }
@@ -79,9 +92,11 @@ export const processarTranscricao = async (req: Request, res: Response) => {
         const id = req.params.id;
         const supabase = getSupabase(req);
 
-        // A transcrição é reconstruída a partir dos fragmentos guardados por TODOS os
-        // participantes (host + convidados, ver reunioesPublicController), não apenas
-        // do que o criador da reunião capturou localmente.
+        // Atalho manual/imediato: usa os fragmentos de legendas ao vivo captados
+        // pelo browser (ver reunioesPublicController). Quando a gravação real da
+        // Daily ficar pronta, o webhook (dailyRoutes.ts) chama ReuniaoService
+        // .gerarResumoIA outra vez com a transcrição do Whisper, que é mais fiável
+        // e substitui este resultado — este botão só evita esperar por isso.
         const { data: fragmentos } = await supabase
             .from('reunioes_transcricoes')
             .select('participante_nome, fragmento, criado_em')
@@ -96,74 +111,9 @@ export const processarTranscricao = async (req: Request, res: Response) => {
 
         await supabase.from('reunioes').update({ transcricao_raw: transcricao, estado: 'Concluida' }).eq('id', id);
 
-        const apiKey = process.env.OPENAI_API_KEY;
-        if (!apiKey) {
-            throw new Error('OPENAI_API_KEY não configurada');
-        }
+        const resultado = await ReuniaoService.gerarResumoIA(transcricao, id, supabase);
 
-        const openai = new OpenAI({ apiKey });
-
-        const systemPrompt = `
-Você é o Agente IA de Reuniões do BusinessOS.
-Recebeu a transcrição (obtida via microfone/browser) de uma reunião em vídeo.
-A sua tarefa é:
-1. Fazer um resumo executivo bem estruturado.
-2. Identificar os "pontos_altos" (sucessos, boas notícias).
-3. Identificar os "pontos_baixos" (desafios, problemas, alertas).
-4. Extrair as "recomendacoes" ou sugestões que foram explicitamente mencionadas ou debatidas pelas pessoas durante a reunião (não invente conselhos, reporte apenas o que foi aconselhado na reunião).
-5. Extrair todas as tarefas mencionadas, com responsavel (se não houver, escreva 'Não definido') e prazo (se não houver, 'Sem prazo').
-
-Responda EXATAMENTE neste formato JSON:
-{
-  "resumo": "Resumo executivo...",
-  "pontos_altos": ["Ponto 1", "Ponto 2"],
-  "pontos_baixos": ["Ponto 1"],
-  "recomendacoes": ["Rec 1", "Rec 2"],
-  "tarefas": [
-    { "descricao": "Fazer X", "responsavel": "João", "prazo": "Amanhã" }
-  ]
-}
-`;
-
-        const response = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
-            messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: `Transcrição da reunião:\n\n${transcricao}` }
-            ],
-            response_format: { type: "json_object" }
-        });
-
-        const outputMsg = response.choices[0].message?.content;
-        if (!outputMsg) throw new Error("A IA não retornou um resumo válido.");
-
-        const jsonOut = JSON.parse(outputMsg);
-
-        await supabase.from('reunioes').update({
-            resumo_ia: jsonOut.resumo,
-            pontos_altos: JSON.stringify(jsonOut.pontos_altos || []),
-            pontos_baixos: JSON.stringify(jsonOut.pontos_baixos || []),
-            recomendacoes: JSON.stringify(jsonOut.recomendacoes || [])
-        }).eq('id', id);
-
-        const tarefasArr = jsonOut.tarefas || [];
-        for (const t of tarefasArr) {
-            await supabase.from('reunioes_tarefas').insert({
-                reuniao_id: id,
-                descricao: t.descricao,
-                responsavel: t.responsavel || 'Não definido',
-                prazo: t.prazo || 'Sem prazo'
-            });
-        }
-
-        res.json({ 
-            success: true, 
-            resumo: jsonOut.resumo, 
-            pontos_altos: jsonOut.pontos_altos, 
-            pontos_baixos: jsonOut.pontos_baixos, 
-            recomendacoes: jsonOut.recomendacoes, 
-            tarefas: tarefasArr 
-        });
+        res.json({ success: true, ...resultado });
     } catch (error: any) {
         console.error('Erro ao processar transcrição:', error);
         res.status(500).json({ success: false, error: error.message });

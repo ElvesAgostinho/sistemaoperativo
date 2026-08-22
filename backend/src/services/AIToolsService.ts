@@ -435,7 +435,7 @@ export const aiTools = [
         type: "function" as const,
         function: {
             name: "agendar_reuniao",
-            description: "Agenda uma reunião com link gerado automaticamente (Jitsi) no módulo de Reuniões da empresa.",
+            description: "Agenda uma reunião com sala de videochamada privada gerada automaticamente (Daily.co, com gravação em nuvem) no módulo de Reuniões da empresa.",
             parameters: {
                 type: "object",
                 properties: {

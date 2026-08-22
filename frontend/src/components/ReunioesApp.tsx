@@ -8,6 +8,7 @@ interface Reuniao {
     titulo: string;
     data_hora: string;
     link_jitsi: string;
+    daily_url?: string | null;
     emails_convidados: string;
     transcricao_raw?: string;
     resumo_ia?: string;
@@ -276,7 +277,7 @@ export default function ReunioesApp({ initialMeetingId, userName }: { initialMee
         return (
             <MeetingRoom
                 reuniaoId={activeReuniao.id}
-                roomName={activeReuniao.link_jitsi.split('/').pop() || ''}
+                dailyUrl={activeReuniao.daily_url || null}
                 titulo={activeReuniao.titulo}
                 participanteNome={userName || 'Anfitrião'}
                 participanteTipo="host"
@@ -475,7 +476,10 @@ export default function ReunioesApp({ initialMeetingId, userName }: { initialMee
                                         <span><Clock size={13} /> {new Date(r.data_hora).toLocaleString('pt-PT')}</span>
                                         <span title={r.emails_convidados}><UserPlus size={13} /> Convidados</span>
                                         <span style={{ cursor: 'pointer', color: 'var(--reun-accent)', fontWeight: 600 }} onClick={() => {
-                                            navigator.clipboard.writeText(r.link_jitsi);
+                                            // Copia o link de convite do BusinessOS (passa pelo ecrã de nome do
+                                            // convidado), nunca o URL cru da sala Daily — que é privada e não
+                                            // funciona sozinha sem um token mintado no momento da entrada.
+                                            navigator.clipboard.writeText(`${window.location.origin}/reuniao/${r.id}`);
                                             alert("Link da reunião copiado!");
                                         }}><LinkIcon size={13} /> Copiar Link</span>
                                     </div>

@@ -4,15 +4,16 @@ import MeetingRoom from '../../components/reunioes/MeetingRoom';
 
 interface ReuniaoPublica {
     titulo: string;
-    room: string;
     data_hora: string;
     estado: string;
 }
 
 /**
  * Página pública (sem login) para convidados externos entrarem numa reunião pelo
- * próprio BusinessOS em vez de um link cru do Jitsi — é isso que permite que a
- * transcrição/ata capte também quem foi convidado, não só quem criou a reunião.
+ * próprio BusinessOS em vez de um link cru da Daily — é isso que permite que a
+ * transcrição/ata capte também quem foi convidado, não só quem criou a reunião,
+ * e que a sala (privada) só seja acessível depois de um token ser mintado no
+ * backend com o nome que o convidado escreveu aqui.
  * URL: /reuniao/:id
  */
 export default function ReuniaoConvidado() {
@@ -23,6 +24,9 @@ export default function ReuniaoConvidado() {
     const [error, setError] = useState('');
     const [nome, setNome] = useState('');
     const [entrou, setEntrou] = useState(false);
+    const [entrando, setEntrando] = useState(false);
+    const [entrarError, setEntrarError] = useState('');
+    const [dailyUrl, setDailyUrl] = useState<string | null>(null);
 
     useEffect(() => {
         if (!id) {
@@ -42,6 +46,30 @@ export default function ReuniaoConvidado() {
             .catch(() => setError('Erro ao carregar os dados da reunião.'))
             .finally(() => setLoading(false));
     }, [id]);
+
+    const handleEntrar = async () => {
+        if (!nome.trim() || !id) return;
+        setEntrando(true);
+        setEntrarError('');
+        try {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/public/reuniao/${id}/entrar`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nome: nome.trim() })
+            });
+            const data = await res.json();
+            if (data.success) {
+                setDailyUrl(data.daily_url);
+                setEntrou(true);
+            } else {
+                setEntrarError(data.error || 'Não foi possível entrar na reunião.');
+            }
+        } catch {
+            setEntrarError('Erro de rede ao entrar na reunião.');
+        } finally {
+            setEntrando(false);
+        }
+    };
 
     if (loading) {
         return (
@@ -80,7 +108,7 @@ export default function ReuniaoConvidado() {
                     <p style={{ color: '#6b7280', fontSize: '13px', margin: '0 0 20px 0' }}>
                         {new Date(reuniao.data_hora).toLocaleString('pt-PT')}
                     </p>
-                    <form onSubmit={e => { e.preventDefault(); if (nome.trim()) setEntrou(true); }}>
+                    <form onSubmit={e => { e.preventDefault(); handleEntrar(); }}>
                         <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#374151', marginBottom: '6px' }}>O seu nome</label>
                         <input
                             type="text"
@@ -90,12 +118,15 @@ export default function ReuniaoConvidado() {
                             placeholder="Como quer ser identificado na reunião"
                             style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '14px', marginBottom: '16px', boxSizing: 'border-box' }}
                         />
+                        {entrarError && (
+                            <p style={{ color: '#dc2626', fontSize: '12.5px', margin: '0 0 12px' }}>{entrarError}</p>
+                        )}
                         <button
                             type="submit"
-                            disabled={!nome.trim()}
-                            style={{ width: '100%', padding: '11px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '14px', cursor: nome.trim() ? 'pointer' : 'not-allowed', opacity: nome.trim() ? 1 : 0.6 }}
+                            disabled={!nome.trim() || entrando}
+                            style={{ width: '100%', padding: '11px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '14px', cursor: (nome.trim() && !entrando) ? 'pointer' : 'not-allowed', opacity: (nome.trim() && !entrando) ? 1 : 0.6 }}
                         >
-                            Entrar na Reunião
+                            {entrando ? 'A entrar...' : 'Entrar na Reunião'}
                         </button>
                     </form>
                 </div>
@@ -107,7 +138,7 @@ export default function ReuniaoConvidado() {
         <div style={{ height: '100vh', width: '100vw' }}>
             <MeetingRoom
                 reuniaoId={id!}
-                roomName={reuniao.room}
+                dailyUrl={dailyUrl}
                 titulo={reuniao.titulo}
                 participanteNome={nome}
                 participanteTipo="convidado"
