@@ -4,6 +4,40 @@ import { aiTools, whatsappCustomerTools, pesquisarBaseConhecimentoTool, executeA
 
 const WHATSAPP_CUSTOMER_ROLE = 'cliente (WhatsApp)';
 
+/**
+ * OpenClaw (self-hospedado, endpoint compatível com a API da OpenAI) é a fonte
+ * principal do Assistente IA — mais barato que pagar tokens da OpenAI a cada
+ * conversa. Se o VPS do OpenClaw estiver em baixo (já aconteceu — ver histórico
+ * do commit f6beeee), cai automaticamente para a OpenAI real nesse pedido em
+ * vez de deixar o Assistente mudo. Nunca falha silenciosamente: regista um
+ * aviso sempre que precisa de usar a reserva.
+ */
+async function chamarChatIA(messages: any[], tools: any[]): Promise<any> {
+    const vpsUrl = process.env.OPENCLAW_VPS_URL || 'http://187.124.218.242';
+    const ip = vpsUrl.replace(/^https?:\/\//, '').split(':')[0];
+
+    try {
+        const openclawClient = new OpenAI({
+            baseURL: process.env.OPENAI_BASE_URL || `http://${ip}:18789/v1`,
+            apiKey: process.env.OPENCLAW_API_KEY || process.env.OPENAI_API_KEY || 'admin123'
+        });
+        return await openclawClient.chat.completions.create({
+            model: 'openclaw/default',
+            messages,
+            tools
+        });
+    } catch (e: any) {
+        console.warn('[EnterpriseAssistantService] OpenClaw indisponível, a usar OpenAI como reserva:', e?.message || e);
+    }
+
+    const openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    return await openaiClient.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages,
+        tools
+    });
+}
+
 async function empresaTemAgendamentoLicenciado(empresaId?: number): Promise<boolean> {
     if (!empresaId) return false;
     try {
@@ -153,14 +187,8 @@ ${hasAgendamento ? `- Marcar, consultar, remarcar e cancelar agendamentos direta
             messages.push(msg);
         }
 
-        // 4. Chamar a OpenAI diretamente (o OpenClaw/VPS deixou de estar disponível)
-        const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-        let result = await client.chat.completions.create({
-            model: 'gpt-4o-mini',
-            messages,
-            tools: toolsForThisChat
-        });
+        // 4. Chamar a IA — OpenClaw primeiro (mais barato), OpenAI como reserva automática
+        let result = await chamarChatIA(messages, toolsForThisChat);
 
         let choice = result.choices[0];
 
@@ -238,11 +266,7 @@ ${hasAgendamento ? `- Marcar, consultar, remarcar e cancelar agendamentos direta
                 updatedMessages.push(msg);
             }
 
-            result = await client.chat.completions.create({
-                model: 'gpt-4o-mini',
-                messages: updatedMessages,
-                tools: toolsForThisChat
-            });
+            result = await chamarChatIA(updatedMessages, toolsForThisChat);
 
             choice = result.choices[0];
         }
