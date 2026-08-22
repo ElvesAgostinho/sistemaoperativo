@@ -21,7 +21,6 @@ import agendamentoRoutes from './api/agendamentoRoutes';
 import campanhasRoutes from './api/campanhasRoutes';
 import emailRoutes from './api/emailRoutes';
 import publicRoutes from './api/publicRoutes';
-import dailyRoutes from './api/dailyRoutes';
 import { EmailSyncService } from './services/EmailSyncService';
 import { CampaignService } from './services/CampaignService';
 
@@ -72,7 +71,6 @@ app.use('/api/agendamento', requireAuth, agendamentoRoutes);
 app.use('/api/campanhas', requireAuth, campanhasRoutes);
 app.use('/api/email', requireAuth, emailRoutes);
 app.use('/api/public', publicRoutes);
-app.use('/api/daily', dailyRoutes); // Webhook da Daily.co — autenticação por assinatura HMAC, não por sessão
 
 // Basic health check route
 app.get('/health', (req, res) => {

@@ -1,14 +1,17 @@
 import { Request, Response } from 'express';
+import fs from 'fs';
+import path from 'path';
+import multer from 'multer';
 import { supabase } from '../lib/supabaseClient';
-import { DailyService } from '../services/DailyService';
+import { JitsiService } from '../services/JitsiService';
 
 const MAX_FRAGMENTO_LENGTH = 5000;
 
 /**
  * Dados mínimos de uma reunião para a página pública de convidados — nunca expõe
  * emails_convidados, transcricao_raw, resumo_ia, etc. Não devolve nenhum URL de
- * sala aqui — a sala Daily é privada, o link só é mintado (com token) depois de o
- * convidado indicar o nome, ver entrarReuniaoPublica.
+ * sala aqui — a sala Jitsi é privada (exige JWT), o link só é mintado (com token)
+ * depois de o convidado indicar o nome, ver entrarReuniaoPublica.
  */
 export const getReuniaoPublica = async (req: Request, res: Response) => {
     try {
@@ -38,7 +41,7 @@ export const getReuniaoPublica = async (req: Request, res: Response) => {
 
 /**
  * Chamado depois de o convidado escrever o nome no ecrã de entrada — minta um
- * token de convidado (is_owner: false) na sala Daily da reunião, embutindo esse
+ * token de convidado (moderator: false) na sala Jitsi da reunião, embutindo esse
  * nome. Sem autenticação por design, mesmo modelo de confiança que já existia
  * para participante_nome nos fragmentos de transcrição.
  */
@@ -52,7 +55,7 @@ export const entrarReuniaoPublica = async (req: Request, res: Response) => {
 
         const { data: reuniao, error } = await supabase
             .from('reunioes')
-            .select('id, link_jitsi, daily_room_name, estado')
+            .select('id, link_jitsi, jitsi_room_name, estado')
             .eq('id', id)
             .single();
         if (error || !reuniao) {
@@ -61,17 +64,17 @@ export const entrarReuniaoPublica = async (req: Request, res: Response) => {
         if (reuniao.estado === 'Concluida') {
             return res.status(400).json({ success: false, error: 'Esta reunião já terminou.' });
         }
-        if (!reuniao.daily_room_name) {
+        if (!reuniao.jitsi_room_name) {
             return res.status(400).json({ success: false, error: 'Esta reunião não tem sala de videochamada associada.' });
         }
 
-        const token = await DailyService.criarTokenReuniao({
-            roomName: reuniao.daily_room_name,
+        const token = JitsiService.criarTokenReuniao({
+            roomName: reuniao.jitsi_room_name,
             nomeParticipante: nome.trim().slice(0, 200),
             isOwner: false
         });
 
-        res.json({ success: true, daily_url: `${reuniao.link_jitsi}?t=${token}` });
+        res.json({ success: true, daily_url: `${reuniao.link_jitsi}?jwt=${token}` });
     } catch (error: any) {
         res.status(500).json({ success: false, error: error.message });
     }
@@ -117,3 +120,56 @@ export const adicionarFragmentoTranscricao = async (req: Request, res: Response)
         res.status(500).json({ success: false, error: error.message });
     }
 };
+
+// NÃO fica dentro de /tmp (essa pasta é servida publicamente por express.static
+// em index.ts) — áudio de reunião é sensível, não deve ficar acessível a quem
+// adivinhar o nome do ficheiro.
+const gravacaoStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const dir = path.join(__dirname, '..', '..', 'gravacoes_reunioes');
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        cb(null, dir);
+    },
+    filename: (req, file, cb) => cb(null, `${req.params.id}_${Date.now()}.webm`)
+});
+const uploadGravacao = multer({ storage: gravacaoStorage, limits: { fileSize: 100 * 1024 * 1024 } });
+
+/**
+ * Recebe o áudio gravado no navegador de UM participante (o seu próprio
+ * microfone, via MediaRecorder — ver MeetingRoom.tsx) no fim da chamada. Mesmo
+ * modelo de confiança sem autenticação de adicionarFragmentoTranscricao acima:
+ * protegido só pelo UUID aleatório da reunião.
+ */
+export const receberGravacao = [uploadGravacao.single('audio'), async (req: Request, res: Response) => {
+    try {
+        const id = req.params.id;
+        const { participante_nome, participante_tipo } = req.body;
+
+        if (!req.file) {
+            return res.status(400).json({ success: false, error: 'Ficheiro de áudio em falta.' });
+        }
+
+        const { data: reuniao, error: reuniaoErr } = await supabase
+            .from('reunioes')
+            .select('id, empresa_id')
+            .eq('id', id)
+            .single();
+        if (reuniaoErr || !reuniao) {
+            fs.unlink(req.file.path, () => {});
+            return res.status(404).json({ success: false, error: 'Reunião não encontrada.' });
+        }
+
+        const { error } = await supabase.from('reunioes_gravacoes').insert({
+            empresa_id: reuniao.empresa_id,
+            reuniao_id: id,
+            participante_nome: String(participante_nome || 'Participante').slice(0, 200),
+            participante_tipo: participante_tipo === 'host' ? 'host' : 'convidado',
+            ficheiro_path: req.file.path
+        });
+        if (error) throw error;
+
+        res.json({ success: true });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+}];

@@ -26,7 +26,7 @@ export default function ReuniaoConvidado() {
     const [entrou, setEntrou] = useState(false);
     const [entrando, setEntrando] = useState(false);
     const [entrarError, setEntrarError] = useState('');
-    const [dailyUrl, setDailyUrl] = useState<string | null>(null);
+    const [jitsiUrl, setJitsiUrl] = useState<string | null>(null);
 
     useEffect(() => {
         if (!id) {
@@ -59,7 +59,7 @@ export default function ReuniaoConvidado() {
             });
             const data = await res.json();
             if (data.success) {
-                setDailyUrl(data.daily_url);
+                setJitsiUrl(data.daily_url);
                 setEntrou(true);
             } else {
                 setEntrarError(data.error || 'Não foi possível entrar na reunião.');
@@ -138,7 +138,7 @@ export default function ReuniaoConvidado() {
         <div style={{ height: '100vh', width: '100vw' }}>
             <MeetingRoom
                 reuniaoId={id!}
-                dailyUrl={dailyUrl}
+                jitsiUrl={jitsiUrl}
                 titulo={reuniao.titulo}
                 participanteNome={nome}
                 participanteTipo="convidado"

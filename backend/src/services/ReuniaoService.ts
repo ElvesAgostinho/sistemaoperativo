@@ -1,7 +1,8 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
+import fs from 'fs';
 import OpenAI from 'openai';
-import { DailyService } from './DailyService';
+import { JitsiService } from './JitsiService';
 
 interface CriarReuniaoInput {
     empresa_id?: string | number | null;
@@ -12,22 +13,21 @@ interface CriarReuniaoInput {
 
 export class ReuniaoService {
     /**
-     * Cria o registo de uma reunião com sala Daily.co gerada (privada, gravação em
-     * nuvem automática). Ponto único de criação usado tanto pela rota REST
-     * (reunioesController) quanto pela tool de IA (AIToolsService), para evitar que
-     * a fórmula de roomName/link divirja entre os dois lugares.
+     * Cria o registo de uma reunião com sala Jitsi (auto-hospedado no VPS) gerada.
+     * Ponto único de criação usado tanto pela rota REST (reunioesController) quanto
+     * pela tool de IA (AIToolsService), para evitar que a fórmula de roomName/link
+     * divirja entre os dois lugares.
      */
     public static async criarReuniaoRegistro(dados: CriarReuniaoInput, supabaseClient: SupabaseClient) {
         const nomeInterno = `businessos-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
-        const { roomName, url } = await DailyService.criarSala(nomeInterno);
+        const { roomName, url } = JitsiService.criarSala(nomeInterno);
 
         const { data: info, error } = await supabaseClient.from('reunioes').insert({
             empresa_id: dados.empresa_id || null,
             titulo: dados.titulo,
             data_hora: dados.data_hora,
             link_jitsi: url,
-            daily_room_name: roomName,
-            gravacao_estado: 'pendente',
+            jitsi_room_name: roomName,
             emails_convidados: dados.emails_convidados || '',
             estado: 'Agendada'
         }).select('id').single();
@@ -38,12 +38,74 @@ export class ReuniaoService {
     }
 
     /**
+     * Transcreve todas as gravações de áudio ainda por processar desta reunião
+     * (uma por participante, ver reunioes_gravacoes / receberGravacao em
+     * reunioesPublicController.ts) com o Whisper da OpenAI, e junta tudo por ordem
+     * cronológica de fala entre participantes diferentes (usa os timestamps por
+     * segmento do `verbose_json`, não só a ordem de upload). Marca cada gravação
+     * como transcrita para nunca voltar a pagar Whisper sobre o mesmo ficheiro se
+     * "Terminar Reunião" for clicado mais que uma vez.
+     *
+     * Devolve null se não houver nenhuma gravação de áudio (ex: falha de upload em
+     * todos os participantes) — quem chama deve cair para o fallback dos
+     * fragmentos de voz do browser nesse caso.
+     */
+    public static async gerarAtaAPartirDeGravacoes(reuniaoId: string, supabaseClient: SupabaseClient): Promise<string | null> {
+        const { data: gravacoes } = await supabaseClient
+            .from('reunioes_gravacoes')
+            .select('id, participante_nome, ficheiro_path')
+            .eq('reuniao_id', reuniaoId)
+            .eq('transcrito', false);
+
+        if (!gravacoes || gravacoes.length === 0) return null;
+
+        const apiKey = process.env.OPENAI_API_KEY;
+        if (!apiKey) throw new Error('OPENAI_API_KEY não configurada');
+        const openai = new OpenAI({ apiKey });
+
+        type Segmento = { inicio: number; nome: string; texto: string };
+        const segmentos: Segmento[] = [];
+
+        for (const g of gravacoes) {
+            if (!fs.existsSync(g.ficheiro_path)) continue;
+            try {
+                const resultado: any = await openai.audio.transcriptions.create({
+                    file: fs.createReadStream(g.ficheiro_path),
+                    model: 'whisper-1',
+                    language: 'pt',
+                    response_format: 'verbose_json'
+                });
+
+                const segs = resultado.segments || [];
+                if (segs.length > 0) {
+                    for (const s of segs) {
+                        segmentos.push({ inicio: s.start || 0, nome: g.participante_nome, texto: (s.text || '').trim() });
+                    }
+                } else if (resultado.text) {
+                    segmentos.push({ inicio: 0, nome: g.participante_nome, texto: String(resultado.text).trim() });
+                }
+
+                await supabaseClient.from('reunioes_gravacoes').update({ transcrito: true }).eq('id', g.id);
+            } catch (e) {
+                console.error(`[ReuniaoService] Falha ao transcrever gravação ${g.id}:`, e);
+            }
+        }
+
+        if (segmentos.length === 0) return null;
+
+        segmentos.sort((a, b) => a.inicio - b.inicio);
+        return segmentos
+            .filter(s => s.texto)
+            .map(s => `[${s.nome}]: ${s.texto}`)
+            .join('\n');
+    }
+
+    /**
      * Chamada a OpenAI que transforma uma transcrição (bruta) em resumo executivo +
      * pontos altos/baixos + recomendações + tarefas, e grava tudo em `reunioes`/
-     * `reunioes_tarefas`. Extraído do antigo `processarTranscricao` para ser
-     * partilhado entre o botão manual "Terminar Reunião" (transcrição por
-     * fragmentos do browser) e o webhook de gravação da Daily (transcrição real via
-     * Whisper) — ambos alimentam a mesma lógica, só muda a origem do texto.
+     * `reunioes_tarefas`. Agnóstica de onde veio a transcrição (gravações reais via
+     * Whisper, ou o fallback de fragmentos de voz do browser) — chamada tanto pelo
+     * botão manual "Terminar Reunião" quanto por qualquer futuro gatilho automático.
      */
     public static async gerarResumoIA(transcricao: string, reuniaoId: string, supabaseClient: SupabaseClient): Promise<{
         resumo: string;

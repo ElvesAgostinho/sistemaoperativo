@@ -3,7 +3,7 @@ import { getSupabase } from '../lib/supabaseClient';
 import { EmailService } from '../services/EmailService';
 import { ReuniaoService } from '../services/ReuniaoService';
 import { PdfService } from '../services/PdfService';
-import { DailyService } from '../services/DailyService';
+import { JitsiService } from '../services/JitsiService';
 
 export const listarReunioes = async (req: Request, res: Response) => {
     try {
@@ -26,15 +26,16 @@ export const detalhesReuniao = async (req: Request, res: Response) => {
         const { data: tarefas, error: tErr } = await supabase.from('reunioes_tarefas').select('*').eq('reuniao_id', id);
 
         // Só minta um token de acesso à sala (anfitrião) se a reunião ainda não
-        // terminou — a sala Daily é privada, não há URL cru que funcione sozinho.
+        // terminou — a sala Jitsi é privada (exige JWT), não há URL cru que
+        // funcione sozinho.
         let daily_url: string | null = null;
-        if (reuniao.estado !== 'Concluida' && reuniao.daily_room_name) {
+        if (reuniao.estado !== 'Concluida' && reuniao.jitsi_room_name) {
             try {
                 const nomeAnfitriao = (req as any).user?.email?.split('@')[0] || 'Anfitrião';
-                const token = await DailyService.criarTokenReuniao({ roomName: reuniao.daily_room_name, nomeParticipante: nomeAnfitriao, isOwner: true });
-                daily_url = `${reuniao.link_jitsi}?t=${token}`;
+                const token = JitsiService.criarTokenReuniao({ roomName: reuniao.jitsi_room_name, nomeParticipante: nomeAnfitriao, isOwner: true });
+                daily_url = `${reuniao.link_jitsi}?jwt=${token}`;
             } catch (e) {
-                console.error('[reunioesController] Falha ao mintar token da Daily:', e);
+                console.error('[reunioesController] Falha ao mintar token do Jitsi:', e);
             }
         }
 
@@ -92,22 +93,28 @@ export const processarTranscricao = async (req: Request, res: Response) => {
         const id = req.params.id;
         const supabase = getSupabase(req);
 
-        // Atalho manual/imediato: usa os fragmentos de legendas ao vivo captados
-        // pelo browser (ver reunioesPublicController). Quando a gravação real da
-        // Daily ficar pronta, o webhook (dailyRoutes.ts) chama ReuniaoService
-        // .gerarResumoIA outra vez com a transcrição do Whisper, que é mais fiável
-        // e substitui este resultado — este botão só evita esperar por isso.
-        const { data: fragmentos } = await supabase
-            .from('reunioes_transcricoes')
-            .select('participante_nome, fragmento, criado_em')
-            .eq('reuniao_id', id)
-            .order('criado_em', { ascending: true });
+        // Fonte principal: gravações de áudio reais (uma por participante, o
+        // próprio microfone gravado no navegador), transcritas com Whisper — ver
+        // ReuniaoService.gerarAtaAPartirDeGravacoes. Se não houver nenhuma (ex:
+        // falha de upload em todos os participantes), cai para os fragmentos de
+        // legendas ao vivo do browser (webkitSpeechRecognition), como acontecia
+        // antes desta gravação existir — nunca fica sem ata nenhuma se havia
+        // alguma coisa captada.
+        let transcricao = await ReuniaoService.gerarAtaAPartirDeGravacoes(id, supabase);
 
-        const transcricaoFragmentos = (fragmentos || [])
-            .map(f => `[${f.participante_nome}]: ${f.fragmento}`)
-            .join('\n')
-            .trim();
-        const transcricao = transcricaoFragmentos || 'Reunião sem transcrição disponível (nenhum áudio foi captado).';
+        if (!transcricao) {
+            const { data: fragmentos } = await supabase
+                .from('reunioes_transcricoes')
+                .select('participante_nome, fragmento, criado_em')
+                .eq('reuniao_id', id)
+                .order('criado_em', { ascending: true });
+
+            const transcricaoFragmentos = (fragmentos || [])
+                .map(f => `[${f.participante_nome}]: ${f.fragmento}`)
+                .join('\n')
+                .trim();
+            transcricao = transcricaoFragmentos || 'Reunião sem transcrição disponível (nenhum áudio foi captado).';
+        }
 
         await supabase.from('reunioes').update({ transcricao_raw: transcricao, estado: 'Concluida' }).eq('id', id);
 

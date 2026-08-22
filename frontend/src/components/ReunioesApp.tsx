@@ -277,7 +277,7 @@ export default function ReunioesApp({ initialMeetingId, userName }: { initialMee
         return (
             <MeetingRoom
                 reuniaoId={activeReuniao.id}
-                dailyUrl={activeReuniao.daily_url || null}
+                jitsiUrl={activeReuniao.daily_url || null}
                 titulo={activeReuniao.titulo}
                 participanteNome={userName || 'Anfitrião'}
                 participanteTipo="host"
