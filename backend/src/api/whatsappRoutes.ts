@@ -1260,11 +1260,14 @@ router.post('/send-media', requireAuth, async (req: AuthRequest, res: Response) 
 });
 
 // Rota para alternar o estado de bot_paused de um cliente
-router.put('/toggle-bot/:telefone', requireAuth, async (req: Request, res: Response) => {
+router.put('/toggle-bot/:telefone', requireAuth, async (req: AuthRequest, res: Response) => {
     const telefone = req.params.telefone;
     const { paused } = req.body;
+    const empresaId = req.user?.empresa_id;
     try {
-        await getSupabase(req).from('clientes').update({ bot_paused: !!paused }).eq('telefone', telefone);
+        let query = getSupabase(req).from('clientes').update({ bot_paused: !!paused }).eq('telefone', telefone);
+        if (empresaId) query = query.eq('empresa_id', empresaId);
+        await query;
         res.json({ success: true, paused: !!paused });
     } catch(err: any) {
         res.status(500).json({ error: err.message });
@@ -1272,10 +1275,13 @@ router.put('/toggle-bot/:telefone', requireAuth, async (req: Request, res: Respo
 });
 
 // Rota para consultar o estado atual do bot de um cliente
-router.get('/bot-status/:telefone', requireAuth, async (req: Request, res: Response) => {
+router.get('/bot-status/:telefone', requireAuth, async (req: AuthRequest, res: Response) => {
     const telefone = req.params.telefone;
+    const empresaId = req.user?.empresa_id;
     try {
-        const { data: client } = await getSupabase(req).from('clientes').select('bot_paused').eq('telefone', telefone).single();
+        let query = getSupabase(req).from('clientes').select('bot_paused').eq('telefone', telefone);
+        if (empresaId) query = query.eq('empresa_id', empresaId);
+        const { data: client } = await query.single();
         res.json({ success: true, paused: client ? client.bot_paused === true : false });
     } catch(err: any) {
         res.status(500).json({ error: err.message });
