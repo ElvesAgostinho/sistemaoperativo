@@ -54,6 +54,7 @@ export default function CrmApp() {
   const [newCliente, setNewCliente] = useState({ nome: '', email: '', telefone: '', empresa: '' });
   const [newLead, setNewLead] = useState({ titulo: '', cliente_id: '', valor_estimado: '' });
   const [proformaItens, setProformaItens] = useState([{ descricao: '', qtd: 1, preco_unitario: 0 }]);
+  const [catalogoProforma, setCatalogoProforma] = useState<{ nome: string; preco: string }[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
@@ -78,6 +79,27 @@ export default function CrmApp() {
   useEffect(() => {
     fetchDados();
   }, []);
+
+  useEffect(() => {
+    if (showProformaModal === null) return;
+    (async () => {
+      try {
+        const res = await authFetch(import.meta.env.VITE_API_URL + '/api/settings/empresa');
+        const data = await res.json();
+        if (data.success && data.config?.PROFORMA_CATALOGO) {
+          const parsed = JSON.parse(data.config.PROFORMA_CATALOGO);
+          if (Array.isArray(parsed)) setCatalogoProforma(parsed);
+        }
+      } catch { /* catálogo é opcional — falha silenciosamente */ }
+    })();
+  }, [showProformaModal]);
+
+  const addItemDoCatalogo = (item: { nome: string; preco: string }) => {
+    setProformaItens(prev => {
+      const semLinhaVazia = prev.filter(i => i.descricao.trim() !== '');
+      return [...semLinhaVazia, { descricao: item.nome, qtd: 1, preco_unitario: Number(item.preco) || 0 }];
+    });
+  };
 
   const handleSaveCliente = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -449,6 +471,23 @@ export default function CrmApp() {
             <div className="crm-modal-card" style={{ width: '620px' }}>
               <h3>Gerar Proposta Comercial / Proforma</h3>
               <p style={{ fontSize: '13px', color: 'var(--crm-ink-muted)', marginBottom: '16px' }}>Adicione os itens e valores. O sistema irá gerar um PDF profissional para enviar ao cliente.</p>
+
+              {catalogoProforma.length > 0 && (
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em', color: 'var(--crm-ink-faint)', marginBottom: '8px' }}>
+                    Do seu catálogo — clique para adicionar
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {catalogoProforma.map((item, i) => (
+                      <button key={i} type="button" onClick={() => addItemDoCatalogo(item)}
+                        className="crm-btn crm-btn-sm"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        {item.nome} <span style={{ opacity: 0.6 }}>· {formatKz(Number(item.preco) || 0)}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div style={{ background: 'var(--crm-canvas)', border: '1px solid var(--crm-border-soft)', padding: '14px', borderRadius: '10px', marginBottom: '16px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr 2fr', gap: '12px', fontWeight: 700, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', color: 'var(--crm-ink-faint)', marginBottom: '10px' }}>

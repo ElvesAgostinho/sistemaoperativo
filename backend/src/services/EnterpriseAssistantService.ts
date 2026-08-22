@@ -4,21 +4,6 @@ import { aiTools, whatsappCustomerTools, pesquisarBaseConhecimentoTool, executeA
 
 const WHATSAPP_CUSTOMER_ROLE = 'cliente (WhatsApp)';
 
-// Texto livre "o que a empresa vende" definido em WhatsApp > Configurações
-// (ou Definições > Empresa) — dado sempre ao assistente do WhatsApp, sem
-// precisar de nenhuma tool call, para nunca responder às cegas sobre o que
-// o negócio oferece.
-async function getProdutosServicos(empresaId?: number): Promise<string> {
-    if (!empresaId) return '';
-    try {
-        const { data } = await supabase.from('configuracoes_sistema')
-            .select('valor').eq('empresa_id', empresaId).eq('chave', 'COMPANY_PRODUTOS_SERVICOS').maybeSingle();
-        return data?.valor || '';
-    } catch {
-        return '';
-    }
-}
-
 async function empresaTemAgendamentoLicenciado(empresaId?: number): Promise<boolean> {
     if (!empresaId) return false;
     try {
@@ -41,7 +26,6 @@ export class EnterpriseAssistantService {
         // tiver mesmo esse módulo licenciado (evita dar de graça a quem não
         // contratou, mesmo que já tenha o WhatsApp ligado).
         const hasAgendamento = isWhatsAppCustomer && await empresaTemAgendamentoLicenciado(empresaId);
-        const produtosServicos = isWhatsAppCustomer ? await getProdutosServicos(empresaId) : '';
         const toolsForThisChat = isWhatsAppCustomer
             ? (hasAgendamento ? whatsappCustomerTools : [pesquisarBaseConhecimentoTool])
             : aiTools;
@@ -77,7 +61,7 @@ export class EnterpriseAssistantService {
         const { data: historyRows } = await historyQuery.order('id', { ascending: true });
 
         const whatsappSystemPrompt = `Tu és o assistente de atendimento ao cliente da empresa, a falar diretamente pelo WhatsApp com ${whatsappContext?.nomeContato || 'um cliente'}.
-${produtosServicos ? `\n=== O QUE A EMPRESA VENDE ===\n${produtosServicos}\n` : ''}
+
 === O QUE PODES FAZER ===
 - Responder a perguntas sobre a empresa usando 'pesquisar_base_conhecimento' (horários, políticas, preços, etc.).
 ${hasAgendamento ? `- Marcar, consultar, remarcar e cancelar agendamentos diretamente na conversa, usando as ferramentas de agendamento.

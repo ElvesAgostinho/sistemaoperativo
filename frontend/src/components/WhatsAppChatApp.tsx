@@ -139,9 +139,6 @@ export default function WhatsAppChatApp() {
     const [isBotPaused, setIsBotPaused] = useState<boolean>(false);
     const [aiFallbackEnabled, setAiFallbackEnabled] = useState<boolean>(true);
     const [savingAiFallback, setSavingAiFallback] = useState(false);
-    const [produtosServicos, setProdutosServicos] = useState('');
-    const [savingProdutosServicos, setSavingProdutosServicos] = useState(false);
-    const [savedProdutosServicos, setSavedProdutosServicos] = useState(false);
 
     // Multi-agent state
     const [agents, setAgents] = useState<Agent[]>([]);
@@ -365,41 +362,6 @@ export default function WhatsAppChatApp() {
     };
 
     useEffect(() => { fetchAiFallbackSetting(); }, []);
-
-    // Produtos/Serviços — texto usado como contexto direto do Assistente IA
-    // do WhatsApp (mesma tabela do perfil da empresa em Definições).
-    useEffect(() => {
-        (async () => {
-            try {
-                const token = localStorage.getItem('os_auth_token');
-                const res = await fetch(import.meta.env.VITE_API_URL + '/api/settings/empresa', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const data = await res.json();
-                if (data.success) setProdutosServicos(data.config?.COMPANY_PRODUTOS_SERVICOS || '');
-            } catch (err) { console.error(err); }
-        })();
-    }, []);
-
-    const salvarProdutosServicos = async () => {
-        setSavingProdutosServicos(true);
-        setSavedProdutosServicos(false);
-        try {
-            const token = localStorage.getItem('os_auth_token');
-            const res = await fetch(import.meta.env.VITE_API_URL + '/api/settings/empresa', {
-                method: 'PUT',
-                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ configs: { COMPANY_PRODUTOS_SERVICOS: produtosServicos } })
-            });
-            const data = await res.json();
-            if (data.success) { setSavedProdutosServicos(true); setTimeout(() => setSavedProdutosServicos(false), 3000); }
-            else alert(data.error || 'Erro ao guardar.');
-        } catch {
-            alert('Erro de comunicação com o servidor.');
-        } finally {
-            setSavingProdutosServicos(false);
-        }
-    };
 
     const toggleAiFallback = async () => {
         const novoValor = !aiFallbackEnabled;
@@ -864,33 +826,6 @@ export default function WhatsAppChatApp() {
                                     </div>
                                     <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', backgroundColor: '#e2e8f0', padding: '4px 10px', borderRadius: '12px', flexShrink: 0 }}>Bloqueado</span>
                                 </div>
-                            </div>
-                        )}
-
-                        {hasChatLicense && (
-                            <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', marginBottom: '20px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
-                                    <Bot size={20} color="#00a884" />
-                                    <h4 style={{ margin: 0, fontSize: '15px', color: '#111b21' }}>Produtos / Serviços</h4>
-                                </div>
-                                <p style={{ fontSize: '12.5px', color: '#667781', margin: '0 0 10px' }}>
-                                    O que a sua empresa vende — a IA usa isto para responder aos clientes no WhatsApp, sem precisar de consultar a Base de Conhecimento.
-                                </p>
-                                <textarea
-                                    value={produtosServicos}
-                                    onChange={e => setProdutosServicos(e.target.value)}
-                                    rows={4}
-                                    placeholder={'Ex:\nCorte de cabelo — 3.000 Kz\nConsultoria (1h) — 15.000 Kz\nEntregamos em toda Luanda'}
-                                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '13.5px', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }}
-                                />
-                                <button
-                                    onClick={salvarProdutosServicos}
-                                    disabled={savingProdutosServicos}
-                                    style={{ marginTop: '10px', padding: '8px 16px', backgroundColor: '#00a884', color: 'white', border: 'none', borderRadius: '6px', cursor: savingProdutosServicos ? 'wait' : 'pointer', fontSize: '13px', fontWeight: 600 }}
-                                >
-                                    {savingProdutosServicos ? 'A guardar...' : 'Guardar'}
-                                </button>
-                                {savedProdutosServicos && <span style={{ marginLeft: '10px', color: '#16a34a', fontSize: '12.5px' }}>Guardado!</span>}
                             </div>
                         )}
 
