@@ -164,6 +164,12 @@ export default function WhatsAppChatApp() {
         return name;
     };
 
+    // Empresas antigas nunca chegaram a ter modulos_contratados persistido —
+    // mantém o mesmo comportamento "acesso total legado" que o App.tsx usa,
+    // para não parecer que perderam um módulo que sempre tiveram.
+    const LEGACY_DEFAULT_MODULES = ['hr', 'crm', 'reunioes', 'auto', 'wa', 'kb', 'email', 'data', 'chat', 'afiliados', 'contabilidade'];
+    const hasChatLicense = (currentUser?.modulos_contratados || LEGACY_DEFAULT_MODULES).includes('chat');
+
     const fetchTemplates = async () => {
         try {
             const token = localStorage.getItem('os_auth_token');
@@ -753,37 +759,52 @@ export default function WhatsAppChatApp() {
                     <div style={{ padding: '20px', flex: 1, overflowY: 'auto', backgroundColor: '#fff' }}>
                         <h3 style={{ margin: '0 0 20px 0', color: '#111b21' }}>Gestão de Canais</h3>
 
-                        <div style={{ border: `1px solid ${aiFallbackEnabled ? '#e2e8f0' : '#fecaca'}`, borderRadius: '8px', padding: '16px', marginBottom: '20px', backgroundColor: aiFallbackEnabled ? 'white' : '#fef2f2' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <Bot size={22} color={aiFallbackEnabled ? '#00a884' : '#94a3b8'} />
-                                <div style={{ flex: 1 }}>
-                                    <h4 style={{ margin: 0, fontSize: '15px', color: '#111b21' }}>Assistente IA Automático</h4>
-                                    <p style={{ margin: '2px 0 0', fontSize: '12.5px', color: '#667781', lineHeight: 1.4 }}>
-                                        Responde sozinho no WhatsApp sempre que nenhuma automação do Autopilot apanha a mensagem
-                                        (usa tokens da OpenAI a cada resposta). <strong>Desativar uma automação não desliga isto.</strong>
-                                    </p>
+                        {hasChatLicense ? (
+                            <div style={{ border: `1px solid ${aiFallbackEnabled ? '#e2e8f0' : '#fecaca'}`, borderRadius: '8px', padding: '16px', marginBottom: '20px', backgroundColor: aiFallbackEnabled ? 'white' : '#fef2f2' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <Bot size={22} color={aiFallbackEnabled ? '#00a884' : '#94a3b8'} />
+                                    <div style={{ flex: 1 }}>
+                                        <h4 style={{ margin: 0, fontSize: '15px', color: '#111b21' }}>Assistente IA Automático</h4>
+                                        <p style={{ margin: '2px 0 0', fontSize: '12.5px', color: '#667781', lineHeight: 1.4 }}>
+                                            Responde sozinho no WhatsApp sempre que nenhuma automação do Autopilot apanha a mensagem
+                                            (usa tokens da OpenAI a cada resposta). <strong>Desativar uma automação não desliga isto.</strong>
+                                        </p>
+                                    </div>
+                                    <div
+                                        onClick={savingAiFallback ? undefined : toggleAiFallback}
+                                        style={{
+                                            width: '40px', height: '20px', borderRadius: '20px', flexShrink: 0,
+                                            backgroundColor: aiFallbackEnabled ? '#00a884' : '#cbd5e1',
+                                            position: 'relative', cursor: savingAiFallback ? 'wait' : 'pointer', transition: 'background-color 0.3s'
+                                        }}
+                                        title={aiFallbackEnabled ? 'Desativar Assistente IA no WhatsApp' : 'Ativar Assistente IA no WhatsApp'}
+                                    >
+                                        <div style={{
+                                            width: '16px', height: '16px', backgroundColor: 'white', borderRadius: '50%',
+                                            position: 'absolute', top: '2px', left: aiFallbackEnabled ? '22px' : '2px', transition: 'left 0.3s'
+                                        }} />
+                                    </div>
                                 </div>
-                                <div
-                                    onClick={savingAiFallback ? undefined : toggleAiFallback}
-                                    style={{
-                                        width: '40px', height: '20px', borderRadius: '20px', flexShrink: 0,
-                                        backgroundColor: aiFallbackEnabled ? '#00a884' : '#cbd5e1',
-                                        position: 'relative', cursor: savingAiFallback ? 'wait' : 'pointer', transition: 'background-color 0.3s'
-                                    }}
-                                    title={aiFallbackEnabled ? 'Desativar Assistente IA no WhatsApp' : 'Ativar Assistente IA no WhatsApp'}
-                                >
-                                    <div style={{
-                                        width: '16px', height: '16px', backgroundColor: 'white', borderRadius: '50%',
-                                        position: 'absolute', top: '2px', left: aiFallbackEnabled ? '22px' : '2px', transition: 'left 0.3s'
-                                    }} />
+                                {!aiFallbackEnabled && (
+                                    <p style={{ margin: '10px 0 0', fontSize: '12px', color: '#991b1b', fontWeight: 600 }}>
+                                        Desativado — as mensagens que não caírem numa automação ficam sem resposta automática.
+                                    </p>
+                                )}
+                            </div>
+                        ) : (
+                            <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', marginBottom: '20px', backgroundColor: '#f8fafc' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <Bot size={22} color="#94a3b8" />
+                                    <div style={{ flex: 1 }}>
+                                        <h4 style={{ margin: 0, fontSize: '15px', color: '#334155' }}>Assistente IA Automático</h4>
+                                        <p style={{ margin: '2px 0 0', fontSize: '12.5px', color: '#64748b', lineHeight: 1.4 }}>
+                                            Não incluído no seu plano atual. Contacte o suporte para ativar este módulo.
+                                        </p>
+                                    </div>
+                                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', backgroundColor: '#e2e8f0', padding: '4px 10px', borderRadius: '12px', flexShrink: 0 }}>Bloqueado</span>
                                 </div>
                             </div>
-                            {!aiFallbackEnabled && (
-                                <p style={{ margin: '10px 0 0', fontSize: '12px', color: '#991b1b', fontWeight: 600 }}>
-                                    Desativado — as mensagens que não caírem numa automação ficam sem resposta automática.
-                                </p>
-                            )}
-                        </div>
+                        )}
 
                         <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', marginBottom: '20px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>

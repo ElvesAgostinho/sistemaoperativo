@@ -809,8 +809,29 @@ export class AutomationEngine {
         }
     }
 
+    // O Assistente IA é um módulo pago à parte (licenciado por empresa em
+    // SaaS Global > Licenciamento, mesmo id 'chat' já usado para o módulo
+    // interno "Assistente IA") — sem isto, qualquer empresa com WhatsApp
+    // ligado ganhava a IA de graça, mesmo sem ter contratado o módulo.
+    private static async empresaTemChatLicenciado(empresaId?: number): Promise<boolean> {
+        if (!empresaId) return false;
+        try {
+            const { data } = await supabase.from('configuracoes').select('valor')
+                .eq('empresa_id', empresaId).eq('chave', 'modulos_empresa').maybeSingle();
+            if (!data?.valor) return false;
+            const modulos = JSON.parse(data.valor);
+            return Array.isArray(modulos) && modulos.includes('chat');
+        } catch {
+            return false;
+        }
+    }
+
     private static async handleAIFallback(conversationId: string, message: WhatsAppMessage, empresaId?: number) {
         try {
+            if (!(await this.empresaTemChatLicenciado(empresaId))) {
+                console.log(`[Automation Engine] Módulo Assistente IA não licenciado para esta empresa — a ignorar mensagem de ${message.phone_number}.`);
+                return;
+            }
             if (!(await this.isAIFallbackEnabled(empresaId))) {
                 console.log(`[Automation Engine] Assistente IA desativado nas Definições desta empresa — a ignorar mensagem de ${message.phone_number} sem gastar tokens.`);
                 return;
