@@ -813,16 +813,25 @@ export class AutomationEngine {
     // SaaS Global > Licenciamento, mesmo id 'chat' já usado para o módulo
     // interno "Assistente IA") — sem isto, qualquer empresa com WhatsApp
     // ligado ganhava a IA de graça, mesmo sem ter contratado o módulo.
+    //
+    // Empresas criadas antes deste controlo existir nunca tiveram a linha
+    // "modulos_empresa" gravada em configuracoes — a mesma situação que o
+    // frontend já trata como "acesso concedido por defeito" (grandfather
+    // clause, LEGACY_DEFAULT_MODULES em App.tsx/WhatsAppChatApp.tsx, e o
+    // próprio /api/auth/login, que devolve esta mesma lista por omissão).
+    // Sem este fallback aqui, essas empresas — a maioria das já existentes —
+    // ficavam com o Assistente IA silenciosamente desligado, mesmo estando
+    // tudo "ativo" no ecrã.
     private static async empresaTemChatLicenciado(empresaId?: number): Promise<boolean> {
         if (!empresaId) return false;
         try {
             const { data } = await supabase.from('configuracoes').select('valor')
                 .eq('empresa_id', empresaId).eq('chave', 'modulos_empresa').maybeSingle();
-            if (!data?.valor) return false;
+            if (!data?.valor) return true; // sem registo explícito → grandfathered, como em todo o resto do sistema
             const modulos = JSON.parse(data.valor);
             return Array.isArray(modulos) && modulos.includes('chat');
         } catch {
-            return false;
+            return true;
         }
     }
 
