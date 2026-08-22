@@ -286,6 +286,7 @@ async function processLogin(res: any, data: any, perfil: any, email: string) {
             empresa_id: perfil?.empresa_id || null,
             empresa_nome: perfil?.empresas ? (perfil.empresas as any).nome : null,
             codigo_convite: perfil?.empresas ? (perfil.empresas as any).codigo_convite : null,
+            avatar_url: perfil?.avatar_url || null,
             modulos_contratados: modulos,
         },
     });

@@ -187,7 +187,7 @@ function App() {
             const prevModules = JSON.stringify(user.modulos_contratados);
             const newModules = JSON.stringify(data.user.modulos_contratados);
             
-            if (prevModules !== newModules || user.role !== data.user.role || user.nome !== data.user.nome) {
+            if (prevModules !== newModules || user.role !== data.user.role || user.nome !== data.user.nome || user.avatar_url !== data.user.avatar_url) {
               // Mescla em vez de substituir por completo: se este endpoint alguma vez
               // deixar de devolver um campo (ex: avatar_url), não apaga o que já tínhamos.
               const mergedUser = { ...user, ...data.user };
