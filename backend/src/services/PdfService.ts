@@ -458,6 +458,139 @@ Esta declaração é emitida a pedido do(a) interessado(a) para os fins que se m
         });
     }
 
+    // Ata de reunião gerada pela IA — usa o mesmo resumo/pontos-altos/pontos-baixos/
+    // recomendações já guardados em reunioes (ver processarTranscricao), mais as
+    // tarefas extraídas para a mesma reunião. Só desenha o PDF; a leitura dos dados
+    // é feita por quem chama (reunioesController).
+    public static async gerarAtaPdf(
+        reuniao: {
+            id: string; titulo: string; data_hora: string;
+            resumo_ia?: string | null;
+            pontos_altos?: string[] | null;
+            pontos_baixos?: string[] | null;
+            recomendacoes?: string[] | null;
+        },
+        tarefas: Array<{ descricao: string; responsavel?: string; prazo?: string }>,
+        empresaId?: number
+    ): Promise<string> {
+        const confMap = await PdfService.getCompanyConfig(empresaId);
+
+        return new Promise((resolve, reject) => {
+            try {
+                const doc = new PDFDocument({ margin: 50 });
+                const fileName = `Ata_${reuniao.id}_${Date.now()}.pdf`;
+                const filePath = path.join(__dirname, '..', '..', 'tmp', fileName);
+
+                const dir = path.dirname(filePath);
+                if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+                const stream = fs.createWriteStream(filePath);
+                doc.pipe(stream);
+
+                if (confMap['COMPANY_LOGO_BASE64']) {
+                    PdfService.applyCompanyLogo(doc, confMap['COMPANY_LOGO_BASE64'], confMap['COMPANY_LOGO_POSITION'] || 'top-left');
+                }
+
+                const companyName = confMap['COMPANY_NAME'] || 'BUSINESS OS, LDA';
+                const companyNif = confMap['COMPANY_NIF'] || '5000000000';
+                const companyAddress = confMap['COMPANY_ADDRESS'] || 'Luanda, Angola';
+                const companyPhone = confMap['COMPANY_PHONE'] || '';
+
+                doc.rect(50, 40, doc.page.width - 100, 80).fill('#f8f9fa');
+                doc.strokeColor('#dee2e6').lineWidth(1).rect(50, 40, doc.page.width - 100, 80).stroke();
+                doc.fillColor('#212529').fontSize(22).font('Helvetica-Bold').text(companyName, 70, 55);
+                doc.fontSize(9.5).font('Helvetica').fillColor('#6c757d')
+                    .text(`${companyAddress} | NIF: ${companyNif}${companyPhone ? ' | Tel: ' + companyPhone : ''}`, 70, 80, { width: doc.page.width - 140 });
+
+                doc.fillColor('#017E84').fontSize(16).font('Helvetica-Bold').text('ATA DE REUNIÃO', 50, 145);
+                doc.fillColor('#495057').fontSize(11).font('Helvetica-Bold').text(reuniao.titulo || 'Reunião', 50, 168);
+
+                const dataHoraFmt = new Date(reuniao.data_hora).toLocaleString('pt-PT', { dateStyle: 'long', timeStyle: 'short' });
+                doc.font('Helvetica').fontSize(9.5).fillColor('#6c757d').text(dataHoraFmt, 50, 186);
+
+                doc.moveTo(50, 208).lineTo(doc.page.width - 50, 208).strokeColor('#dee2e6').lineWidth(1).stroke();
+
+                let y = 224;
+                const width = doc.page.width - 100;
+
+                const secao = (titulo: string, corTitulo: string) => {
+                    if (y > doc.page.height - 100) { doc.addPage(); y = 50; }
+                    doc.fillColor(corTitulo).fontSize(10.5).font('Helvetica-Bold').text(titulo, 50, y);
+                    y += 16;
+                };
+
+                const paragrafo = (texto: string) => {
+                    doc.font('Helvetica').fontSize(10).fillColor('#212529').text(texto, 50, y, { width, lineGap: 3, align: 'justify' });
+                    y += doc.heightOfString(texto, { width, lineGap: 3 }) + 16;
+                };
+
+                const lista = (itens: string[]) => {
+                    itens.forEach(item => {
+                        const texto = `•  ${item}`;
+                        doc.font('Helvetica').fontSize(10).fillColor('#212529').text(texto, 50, y, { width, lineGap: 2 });
+                        y += doc.heightOfString(texto, { width, lineGap: 2 }) + 4;
+                    });
+                    y += 12;
+                };
+
+                if (reuniao.resumo_ia) {
+                    secao('RESUMO EXECUTIVO', '#017E84');
+                    paragrafo(reuniao.resumo_ia);
+                }
+
+                if (reuniao.pontos_altos && reuniao.pontos_altos.length > 0) {
+                    secao('PONTOS ALTOS', '#198754');
+                    lista(reuniao.pontos_altos);
+                }
+
+                if (reuniao.pontos_baixos && reuniao.pontos_baixos.length > 0) {
+                    secao('PONTOS DE ATENÇÃO', '#dc3545');
+                    lista(reuniao.pontos_baixos);
+                }
+
+                if (reuniao.recomendacoes && reuniao.recomendacoes.length > 0) {
+                    secao('RECOMENDAÇÕES', '#C9992E');
+                    lista(reuniao.recomendacoes);
+                }
+
+                if (tarefas.length > 0) {
+                    secao('TAREFAS', '#495057');
+                    if (y > doc.page.height - 120) { doc.addPage(); y = 50; }
+                    doc.rect(50, y, width, 20).fill('#e9ecef');
+                    doc.fillColor('#495057').fontSize(8.5).font('Helvetica-Bold');
+                    doc.text('DESCRIÇÃO', 58, y + 6, { width: 260 });
+                    doc.text('RESPONSÁVEL', 320, y + 6, { width: 110 });
+                    doc.text('PRAZO', 440, y + 6, { width: 90 });
+                    y += 20;
+
+                    tarefas.forEach(t => {
+                        if (y > doc.page.height - 80) { doc.addPage(); y = 50; }
+                        const alturaLinha = Math.max(doc.heightOfString(t.descricao, { width: 255 }), 14) + 10;
+                        doc.font('Helvetica').fontSize(9.5).fillColor('#212529');
+                        doc.text(t.descricao, 58, y + 5, { width: 255 });
+                        doc.fillColor('#6c757d').text(t.responsavel || 'Não definido', 320, y + 5, { width: 110 });
+                        doc.text(t.prazo || 'Sem prazo', 440, y + 5, { width: 90 });
+                        doc.moveTo(50, y + alturaLinha).lineTo(50 + width, y + alturaLinha).strokeColor('#f1f3f5').lineWidth(1).stroke();
+                        y += alturaLinha;
+                    });
+                }
+
+                if (!reuniao.resumo_ia && (!reuniao.pontos_altos || reuniao.pontos_altos.length === 0) && tarefas.length === 0) {
+                    doc.font('Helvetica').fontSize(10).fillColor('#adb5bd').text('Esta reunião ainda não tem ata gerada pela IA.', 50, y);
+                }
+
+                doc.fillColor('#adb5bd').fontSize(8.5).font('Helvetica').text('Ata gerada automaticamente pelo Assistente IA do BusinessOS.', 50, doc.page.height - 50, { align: 'center', width: doc.page.width - 100 });
+
+                doc.end();
+
+                stream.on('finish', () => resolve(filePath));
+                stream.on('error', reject);
+            } catch (error) {
+                reject(error);
+            }
+        });
+    }
+
     private static formatCurrency(value: number): string {
         return new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA' }).format(value);
     }

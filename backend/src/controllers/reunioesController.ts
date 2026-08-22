@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { getSupabase } from '../lib/supabaseClient';
 import { EmailService } from '../services/EmailService';
 import { ReuniaoService } from '../services/ReuniaoService';
+import { PdfService } from '../services/PdfService';
 import OpenAI from 'openai';
 
 export const listarReunioes = async (req: Request, res: Response) => {
@@ -165,6 +166,60 @@ Responda EXATAMENTE neste formato JSON:
         });
     } catch (error: any) {
         console.error('Erro ao processar transcrição:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+};
+
+export const apagarReuniao = async (req: Request, res: Response) => {
+    try {
+        const id = req.params.id;
+        const supabase = getSupabase(req);
+        const empresa_id = (req as any).user?.empresa_id;
+
+        let query = supabase.from('reunioes').delete().eq('id', id);
+        if (empresa_id) query = query.eq('empresa_id', empresa_id);
+        const { error } = await query;
+        if (error) throw error;
+
+        res.json({ success: true });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+};
+
+export const gerarAtaPdf = async (req: Request, res: Response) => {
+    try {
+        const id = req.params.id;
+        const supabase = getSupabase(req);
+        const empresa_id = (req as any).user?.empresa_id;
+
+        const { data: reuniao, error: rErr } = await supabase.from('reunioes').select('*').eq('id', id).single();
+        if (rErr || !reuniao) return res.status(404).json({ error: 'Reunião não encontrada' });
+
+        const { data: tarefas } = await supabase.from('reunioes_tarefas').select('descricao, responsavel, prazo').eq('reuniao_id', id);
+
+        const parseJsonArray = (v: any): string[] => {
+            if (Array.isArray(v)) return v;
+            if (typeof v === 'string') { try { const p = JSON.parse(v); return Array.isArray(p) ? p : []; } catch { return []; } }
+            return [];
+        };
+
+        const filePath = await PdfService.gerarAtaPdf({
+            id: reuniao.id,
+            titulo: reuniao.titulo,
+            data_hora: reuniao.data_hora,
+            resumo_ia: reuniao.resumo_ia,
+            pontos_altos: parseJsonArray(reuniao.pontos_altos),
+            pontos_baixos: parseJsonArray(reuniao.pontos_baixos),
+            recomendacoes: parseJsonArray(reuniao.recomendacoes),
+        }, tarefas || [], empresa_id);
+
+        // Serve pelo mesmo caminho estático "/tmp" já usado por Proforma/Recibos —
+        // o frontend faz window.open(pdf_path) sem precisar de repetir o token de
+        // autenticação no pedido do próprio ficheiro.
+        const fileName = filePath.split(/[\\/]/).pop();
+        res.json({ success: true, pdf_path: '/tmp/' + fileName });
+    } catch (error: any) {
         res.status(500).json({ success: false, error: error.message });
     }
 };

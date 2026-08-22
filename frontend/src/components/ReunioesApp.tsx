@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Video, Calendar, Clock, Link as LinkIcon, UserPlus, Play, CheckCircle, FileText, ListTodo, TrendingUp, AlertTriangle, Lightbulb } from 'lucide-react';
+import { Video, Calendar, Clock, Link as LinkIcon, UserPlus, Play, CheckCircle, FileText, ListTodo, TrendingUp, AlertTriangle, Lightbulb, Trash2, Download } from 'lucide-react';
 import MeetingRoom from './reunioes/MeetingRoom';
 import './ReunioesApp.css';
 
@@ -43,6 +43,8 @@ export default function ReunioesApp({ initialMeetingId, userName }: { initialMee
     const [tarefas, setTarefas] = useState<Tarefa[]>([]);
     const [colaboradores, setColaboradores] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
     // Form
     const [titulo, setTitulo] = useState('');
@@ -233,6 +235,43 @@ export default function ReunioesApp({ initialMeetingId, userName }: { initialMee
         }
     };
 
+    const handleDeleteReuniao = async (e: React.MouseEvent, id: string) => {
+        e.stopPropagation();
+        if (!window.confirm('Tem a certeza que deseja apagar esta reunião de forma permanente? A ata e as tarefas associadas também serão apagadas.')) return;
+        setDeletingId(id);
+        try {
+            const res = await fetchWithAuth(`${import.meta.env.VITE_API_URL}/api/reunioes/${id}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (data.success) {
+                setReunioes(prev => prev.filter(r => r.id !== id));
+            } else {
+                alert('Erro ao apagar reunião: ' + (data.error || 'erro desconhecido.'));
+            }
+        } catch (e) {
+            alert('Erro de rede ao apagar reunião.');
+        } finally {
+            setDeletingId(null);
+        }
+    };
+
+    const handleDownloadAta = async (e: React.MouseEvent, id: string) => {
+        e.stopPropagation();
+        setDownloadingId(id);
+        try {
+            const res = await fetchWithAuth(`${import.meta.env.VITE_API_URL}/api/reunioes/${id}/ata-pdf`);
+            const data = await res.json();
+            if (data.success) {
+                window.open(import.meta.env.VITE_API_URL + data.pdf_path, '_blank');
+            } else {
+                alert('Erro ao gerar PDF da ata: ' + (data.error || 'erro desconhecido.'));
+            }
+        } catch (e) {
+            alert('Erro de rede ao gerar PDF da ata.');
+        } finally {
+            setDownloadingId(null);
+        }
+    };
+
     if (view === 'room' && activeReuniao) {
         return (
             <MeetingRoom
@@ -257,9 +296,14 @@ export default function ReunioesApp({ initialMeetingId, userName }: { initialMee
 
         return (
             <div className="reun-modern">
-                <button onClick={() => setView('list')} className="reun-btn-ghost" style={{ marginBottom: '20px' }}>
-                    &larr; Voltar às Reuniões
-                </button>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <button onClick={() => setView('list')} className="reun-btn-ghost">
+                        &larr; Voltar às Reuniões
+                    </button>
+                    <button onClick={(e) => handleDownloadAta(e, activeReuniao.id)} disabled={downloadingId === activeReuniao.id} className="reun-btn reun-btn-primary">
+                        <Download size={15} /> {downloadingId === activeReuniao.id ? 'A gerar PDF...' : 'Baixar Ata em PDF'}
+                    </button>
+                </div>
 
                 <h1 style={{ marginBottom: '6px', fontSize: '22px' }}>{activeReuniao.titulo} — Ata de Reunião</h1>
                 <p style={{ color: 'var(--reun-ink-muted)', margin: '0 0 26px 0', fontSize: '13px' }}>Realizada a {new Date(activeReuniao.data_hora).toLocaleString('pt-PT')}</p>
@@ -437,15 +481,31 @@ export default function ReunioesApp({ initialMeetingId, userName }: { initialMee
                                     </div>
                                 </div>
 
-                                {r.estado === 'Agendada' || r.estado === 'Em Curso' ? (
-                                    <button onClick={() => joinMeeting(r.id)} className="reun-btn reun-btn-primary">
-                                        <Play size={15} /> Entrar na Sala
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    {r.estado === 'Agendada' || r.estado === 'Em Curso' ? (
+                                        <button onClick={() => joinMeeting(r.id)} className="reun-btn reun-btn-primary">
+                                            <Play size={15} /> Entrar na Sala
+                                        </button>
+                                    ) : (
+                                        <>
+                                            <button onClick={() => joinMeeting(r.id)} className="reun-btn">
+                                                <FileText size={15} /> Ver Ata IA
+                                            </button>
+                                            <button onClick={(e) => handleDownloadAta(e, r.id)} disabled={downloadingId === r.id} className="reun-btn" title="Baixar Ata em PDF">
+                                                <Download size={15} />
+                                            </button>
+                                        </>
+                                    )}
+                                    <button
+                                        onClick={(e) => handleDeleteReuniao(e, r.id)}
+                                        disabled={deletingId === r.id}
+                                        className="reun-btn"
+                                        title="Apagar Reunião"
+                                        style={{ color: '#dc2626', borderColor: '#fecaca' }}
+                                    >
+                                        <Trash2 size={15} />
                                     </button>
-                                ) : (
-                                    <button onClick={() => joinMeeting(r.id)} className="reun-btn">
-                                        <FileText size={15} /> Ver Ata IA
-                                    </button>
-                                )}
+                                </div>
                             </div>
                         ))
                     )}
