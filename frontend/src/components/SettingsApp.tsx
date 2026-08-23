@@ -241,28 +241,32 @@ export default function SettingsApp() {
     const handleChangeRole = async (id: string, newRole: string) => {
         try {
             const token = localStorage.getItem('os_auth_token');
-            await fetch(`${import.meta.env.VITE_API_URL}/api/users/${id}/role`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/${id}/role`, {
                 method: 'PUT',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ role: newRole })
             });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
             fetchUsers(); // Refresh
-        } catch (err) {
-            console.error(err);
+        } catch (err: any) {
+            alert(err.message || 'Erro ao atualizar a função do utilizador.');
         }
     };
 
     const handleChangeStatus = async (id: string, ativo: boolean) => {
         try {
             const token = localStorage.getItem('os_auth_token');
-            await fetch(`${import.meta.env.VITE_API_URL}/api/users/${id}/status`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/${id}/status`, {
                 method: 'PUT',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ativo })
             });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
             fetchUsers(); // Refresh
-        } catch (err) {
-            console.error(err);
+        } catch (err: any) {
+            alert(err.message || 'Erro ao atualizar o estado do utilizador.');
         }
     };
 

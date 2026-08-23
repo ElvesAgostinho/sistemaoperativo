@@ -60,6 +60,25 @@ router.put('/empresas/:id/status', requireAuth, requireSuperAdmin, async (req: A
     return res.json({ success: true, message: 'Status da empresa atualizado.' });
 });
 
+// Definir o limite de utilizadores de uma empresa (upsell de "lugares" por plano)
+router.put('/empresas/:id/limite', requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+    const { limite_usuarios } = req.body;
+
+    if (limite_usuarios !== null && (!Number.isInteger(limite_usuarios) || limite_usuarios < 0)) {
+        return res.status(400).json({ error: 'O limite tem de ser um número inteiro (0 ou mais) ou null para ilimitado.' });
+    }
+
+    const db = getClientForUser(req);
+    const { error } = await db
+        .from('empresas')
+        .update({ limite_usuarios })
+        .eq('id', id);
+
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ success: true, message: 'Limite de utilizadores atualizado.' });
+});
+
 // Listar todos os utilizadores (apenas leitura para superadmin)
 router.get('/users', requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
     const db = getClientForUser(req);

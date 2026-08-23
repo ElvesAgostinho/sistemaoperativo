@@ -58,6 +58,25 @@ const requireAdmin = (req: AuthRequest, res: Response, next: Function) => {
     next();
 };
 
+// Verifica se a empresa já atingiu o limite de utilizadores contratado (plano).
+// Um "lugar" só é ocupado por utilizadores ativos com role diferente de 'pending' —
+// contas pendentes não contam, para não bloquear novos registos antes da aprovação.
+async function limiteDeUtilizadoresAtingido(empresaId: string): Promise<{ atingido: boolean; limite: number; usados: number }> {
+    const { data: empresa } = await supabase.from('empresas').select('limite_usuarios').eq('id', empresaId).single();
+    const limite = empresa?.limite_usuarios;
+    if (limite === null || limite === undefined) return { atingido: false, limite: -1, usados: 0 };
+
+    const { count } = await supabase
+        .from('perfis')
+        .select('id', { count: 'exact', head: true })
+        .eq('empresa_id', empresaId)
+        .eq('ativo', true)
+        .neq('role', 'pending');
+
+    const usados = count || 0;
+    return { atingido: usados >= limite, limite, usados };
+}
+
 // Obter todos os utilizadores (perfis) da mesma empresa
 router.get('/', requireAuth, requireAdmin, async (req: AuthRequest, res: Response) => {
     if (!req.user?.empresa_id) {
@@ -84,9 +103,18 @@ router.put('/:id/role', requireAuth, requireAdmin, async (req: AuthRequest, res:
     if (!role) return res.status(400).json({ error: 'O role é obrigatório.' });
 
     // Primeiro verificar se o utilizador pertence à mesma empresa
-    const { data: userToUpdate } = await supabase.from('perfis').select('empresa_id').eq('id', id).single();
+    const { data: userToUpdate } = await supabase.from('perfis').select('empresa_id, role').eq('id', id).single();
     if (!userToUpdate || userToUpdate.empresa_id !== req.user?.empresa_id) {
         return res.status(403).json({ error: 'Não autorizado a alterar este utilizador.' });
+    }
+
+    // Só verificamos o limite ao APROVAR alguém (sair de 'pending'), que é o
+    // momento em que a empresa passa a ocupar mais um lugar do seu plano.
+    if (userToUpdate.role === 'pending' && role !== 'pending') {
+        const { atingido, limite, usados } = await limiteDeUtilizadoresAtingido(userToUpdate.empresa_id);
+        if (atingido) {
+            return res.status(403).json({ error: `Limite de utilizadores do plano atingido (${usados}/${limite}). Contacte o suporte para aumentar o número de lugares.` });
+        }
     }
 
     const { error } = await supabase
@@ -106,9 +134,18 @@ router.put('/:id/status', requireAuth, requireAdmin, async (req: AuthRequest, re
     if (ativo === undefined) return res.status(400).json({ error: 'O estado ativo é obrigatório.' });
 
     // Verificar empresa
-    const { data: userToUpdate } = await supabase.from('perfis').select('empresa_id').eq('id', id).single();
+    const { data: userToUpdate } = await supabase.from('perfis').select('empresa_id, role, ativo').eq('id', id).single();
     if (!userToUpdate || userToUpdate.empresa_id !== req.user?.empresa_id) {
         return res.status(403).json({ error: 'Não autorizado a alterar este utilizador.' });
+    }
+
+    // Reativar alguém que estava desativado volta a ocupar um lugar do plano
+    // (contas pendentes não contam, por isso não são bloqueadas aqui).
+    if (ativo === true && userToUpdate.ativo === false && userToUpdate.role !== 'pending') {
+        const { atingido, limite, usados } = await limiteDeUtilizadoresAtingido(userToUpdate.empresa_id);
+        if (atingido) {
+            return res.status(403).json({ error: `Limite de utilizadores do plano atingido (${usados}/${limite}). Contacte o suporte para aumentar o número de lugares.` });
+        }
     }
 
     const { error } = await supabase

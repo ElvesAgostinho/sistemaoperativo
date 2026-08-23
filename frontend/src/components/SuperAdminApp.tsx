@@ -6,6 +6,7 @@ interface Empresa {
   nome: string;
   status: 'pending' | 'active' | 'suspended';
   criado_em: string;
+  limite_usuarios: number | null;
 }
 
 interface Utilizador {
@@ -29,6 +30,7 @@ const SuperAdminApp = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingEmpresa, setEditingEmpresa] = useState<Empresa | null>(null);
   const [empresaModulos, setEmpresaModulos] = useState<string[]>([]);
+  const [empresaLimite, setEmpresaLimite] = useState<string>('');
   const [savingModulos, setSavingModulos] = useState(false);
 
   const AVAILABLE_MODULES = [
@@ -101,6 +103,7 @@ const SuperAdminApp = () => {
     setEditingEmpresa(empresa);
     setShowModal(true);
     setEmpresaModulos([]); // clear while loading
+    setEmpresaLimite(empresa.limite_usuarios === null || empresa.limite_usuarios === undefined ? '' : String(empresa.limite_usuarios));
     try {
       const token = localStorage.getItem('os_auth_token');
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/superadmin/empresas/${empresa.id}/modulos`, {
@@ -117,24 +120,44 @@ const SuperAdminApp = () => {
 
   const saveModulos = async () => {
     if (!editingEmpresa) return;
+
+    const limiteTrimmed = empresaLimite.trim();
+    if (limiteTrimmed !== '' && (!/^\d+$/.test(limiteTrimmed))) {
+      alert('O limite de utilizadores tem de ser um número inteiro (ou vazio, para ilimitado).');
+      return;
+    }
+    const limiteParaEnviar = limiteTrimmed === '' ? null : parseInt(limiteTrimmed, 10);
+
     setSavingModulos(true);
     try {
       const token = localStorage.getItem('os_auth_token');
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/superadmin/empresas/${editingEmpresa.id}/modulos`, {
         method: 'PUT',
-        headers: { 
+        headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json' 
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ modulos: empresaModulos })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      
+
+      const resLimite = await fetch(`${import.meta.env.VITE_API_URL}/api/superadmin/empresas/${editingEmpresa.id}/limite`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ limite_usuarios: limiteParaEnviar })
+      });
+      const dataLimite = await resLimite.json();
+      if (!resLimite.ok) throw new Error(dataLimite.error);
+
+      setEmpresas(prev => prev.map(emp => emp.id === editingEmpresa.id ? { ...emp, limite_usuarios: limiteParaEnviar } : emp));
       setShowModal(false);
       alert('Licenciamento atualizado com sucesso!');
     } catch (err: any) {
-      alert(err.message || 'Erro inesperado ao salvar módulos.');
+      alert(err.message || 'Erro inesperado ao salvar licenciamento.');
     } finally {
       setSavingModulos(false);
     }
@@ -192,6 +215,7 @@ const SuperAdminApp = () => {
                 <th style={{ padding: '16px 24px', borderBottom: '1px solid #e2e8f0' }}>Empresa</th>
                 <th style={{ padding: '16px 24px', borderBottom: '1px solid #e2e8f0' }}>Data de Registo</th>
                 <th style={{ padding: '16px 24px', borderBottom: '1px solid #e2e8f0' }}>Estado</th>
+                <th style={{ padding: '16px 24px', borderBottom: '1px solid #e2e8f0' }}>Limite de Utilizadores</th>
                 <th style={{ padding: '16px 24px', borderBottom: '1px solid #e2e8f0', textAlign: 'right' }}>Ações</th>
               </tr>
             </thead>
@@ -208,6 +232,9 @@ const SuperAdminApp = () => {
                     }}>
                       {empresa.status.toUpperCase()}
                     </span>
+                  </td>
+                  <td style={{ padding: '16px 24px', color: empresa.limite_usuarios === null || empresa.limite_usuarios === undefined ? '#94a3b8' : '#1e293b', fontWeight: 500 }}>
+                    {empresa.limite_usuarios === null || empresa.limite_usuarios === undefined ? 'Ilimitado' : `${empresa.limite_usuarios} utilizador${empresa.limite_usuarios === 1 ? '' : 'es'}`}
                   </td>
                   <td style={{ padding: '16px 24px', textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                     <button onClick={() => openModulosModal(empresa)} style={{ padding: '6px 12px', backgroundColor: '#334155', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }} title="Gerir Licenciamento">
@@ -227,7 +254,7 @@ const SuperAdminApp = () => {
                 </tr>
               ))}
               {empresas.length === 0 && (
-                <tr><td colSpan={4} style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>Nenhuma empresa registada.</td></tr>
+                <tr><td colSpan={5} style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>Nenhuma empresa registada.</td></tr>
               )}
             </tbody>
           </table>
@@ -279,10 +306,28 @@ const SuperAdminApp = () => {
             </div>
             
             <div style={{ padding: '24px', overflowY: 'auto', flex: 1 }}>
+              <div style={{ marginBottom: '24px', paddingBottom: '20px', borderBottom: '1px solid #e2e8f0' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
+                  Limite de Utilizadores (lugares do plano)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={empresaLimite}
+                  onChange={e => setEmpresaLimite(e.target.value)}
+                  placeholder="Ilimitado"
+                  style={{ width: '160px', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px', outline: 'none' }}
+                />
+                <p style={{ margin: '8px 0 0 0', color: '#64748b', fontSize: '12.5px' }}>
+                  Número máximo de utilizadores ativos que esta empresa pode ter. Deixe em branco para não limitar. Ao atingir o limite, os administradores da empresa deixam de conseguir aprovar ou reativar novos utilizadores.
+                </p>
+              </div>
+
               <p style={{ margin: '0 0 16px 0', color: '#475569', fontSize: '14px' }}>
                 Selecione os módulos que esta empresa contratou. Os utilizadores desta empresa apenas terão acesso às ferramentas selecionadas abaixo.
               </p>
-              
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {AVAILABLE_MODULES.map(mod => (
                   <label key={mod.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', background: empresaModulos.includes(mod.id) ? '#f0fdf4' : 'white', transition: 'all 0.2s' }}>
