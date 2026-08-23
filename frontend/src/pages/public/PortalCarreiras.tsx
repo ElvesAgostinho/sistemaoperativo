@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Briefcase, MapPin, Clock, Search, ArrowRight, Building2, Wallet } from 'lucide-react';
+import { Briefcase, MapPin, Clock, Search, ArrowRight, Wallet } from 'lucide-react';
 import { LogoMark } from '../../components/BrandLogo';
 
 const FONT_DISPLAY = "'Manrope', 'Segoe UI', sans-serif";
@@ -9,6 +9,7 @@ const ACCENT_SOFT = '#E3F3F1';
 const INK = '#16211F';
 const INK_MUTED = '#5B6B67';
 const BORDER = '#E2E8E6';
+const CANVAS = '#F7FAF9';
 
 interface Vaga {
     id: string;
@@ -34,6 +35,71 @@ function tempoRelativo(dataIso: string) {
     if (dias === 1) return 'Publicada há 1 dia';
     if (dias < 30) return `Publicada há ${dias} dias`;
     return `Publicada há ${Math.floor(dias / 30)} mês(es)`;
+}
+
+// Representação 3D do próprio logótipo da BusinessOS — construída só com
+// transforms CSS reais (perspective + preserve-3d), sem nenhuma imagem.
+// As duas fichas brancas sobrepostas espelham o LogoMark (BrandLogo.tsx).
+function LogoCube3D() {
+    return (
+        <div style={{ perspective: '1100px', width: '220px', height: '220px', margin: '0 auto' }}>
+            <div className="logo3d-cube">
+                <div className="logo3d-face logo3d-front">
+                    <div style={{ position: 'relative', width: '128px', height: '128px' }}>
+                        <div style={{ position: 'absolute', left: 0, top: 0, width: '76px', height: '76px', borderRadius: '20px', background: '#FFFFFF', boxShadow: '0 10px 24px rgba(1,40,42,0.22)' }} />
+                        <div style={{ position: 'absolute', left: '48px', top: '48px', width: '76px', height: '76px', borderRadius: '20px', background: '#FFFFFF', opacity: 0.55 }} />
+                    </div>
+                </div>
+                <div className="logo3d-face logo3d-right" />
+                <div className="logo3d-face logo3d-bottom" />
+            </div>
+            <div className="logo3d-shadow" />
+            <style>{`
+                .logo3d-cube {
+                    position: relative; width: 100%; height: 100%;
+                    transform-style: preserve-3d;
+                    transform: rotateX(20deg) rotateY(-32deg);
+                    animation: logo3d-float 7s ease-in-out infinite;
+                }
+                .logo3d-face { position: absolute; border-radius: 48px; }
+                .logo3d-front {
+                    width: 220px; height: 220px;
+                    background: linear-gradient(135deg, #01A2A8 0%, #017E84 55%, #015A5F 100%);
+                    transform: translateZ(26px);
+                    display: flex; align-items: center; justify-content: center;
+                    box-shadow: inset 0 3px 0 rgba(255,255,255,0.28), inset 0 -30px 50px rgba(0,0,0,0.08);
+                }
+                .logo3d-right {
+                    width: 52px; height: 220px; right: -26px; top: 0;
+                    background: linear-gradient(180deg, #014448 0%, #01363A 100%);
+                    transform: rotateY(90deg) translateZ(26px);
+                    border-radius: 0 48px 48px 0;
+                }
+                .logo3d-bottom {
+                    width: 220px; height: 52px; left: 0; bottom: -26px;
+                    background: linear-gradient(90deg, #012B2E 0%, #013438 100%);
+                    transform: rotateX(-90deg) translateZ(26px);
+                    border-radius: 0 0 48px 48px;
+                }
+                .logo3d-shadow {
+                    width: 200px; height: 34px; margin: 18px auto 0;
+                    background: radial-gradient(ellipse, rgba(1,40,42,0.28) 0%, rgba(1,40,42,0) 72%);
+                    animation: logo3d-shadow 7s ease-in-out infinite;
+                }
+                @keyframes logo3d-float {
+                    0%, 100% { transform: rotateX(20deg) rotateY(-32deg) translateY(0px); }
+                    50% { transform: rotateX(15deg) rotateY(-26deg) translateY(-16px); }
+                }
+                @keyframes logo3d-shadow {
+                    0%, 100% { transform: scale(1); opacity: 1; }
+                    50% { transform: scale(0.86); opacity: 0.7; }
+                }
+                @media (prefers-reduced-motion: reduce) {
+                    .logo3d-cube, .logo3d-shadow { animation: none; }
+                }
+            `}</style>
+        </div>
+    );
 }
 
 const PortalCarreiras = () => {
@@ -78,57 +144,66 @@ const PortalCarreiras = () => {
 
     if (loading) {
         return (
-            <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: FONT_BODY, color: INK_MUTED, backgroundColor: '#FAFCFB' }}>
+            <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: FONT_BODY, color: INK_MUTED, backgroundColor: 'white' }}>
                 A carregar oportunidades...
             </div>
         );
     }
     if (error) {
         return (
-            <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: FONT_BODY, color: '#B23A3A', backgroundColor: '#FAFCFB' }}>
+            <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: FONT_BODY, color: '#B23A3A', backgroundColor: 'white' }}>
                 {error}
             </div>
         );
     }
 
     return (
-        <div style={{ minHeight: '100vh', backgroundColor: '#FAFCFB', fontFamily: FONT_BODY, color: INK }}>
+        <div style={{ minHeight: '100vh', backgroundColor: 'white', fontFamily: FONT_BODY, color: INK }}>
+            {/* Barra superior simples, ao estilo de um job board profissional */}
+            <div style={{ borderBottom: `1px solid ${BORDER}`, padding: '16px 24px' }}>
+                <div style={{ maxWidth: '1080px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {logoBase64 ? (
+                        <img src={logoBase64} alt={empresaNome} style={{ height: '30px', maxWidth: '160px', objectFit: 'contain' }} />
+                    ) : (
+                        <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: '15px', color: INK }}>{empresaNome}</span>
+                    )}
+                    <span style={{ color: INK_MUTED, fontSize: '13px' }}>· Carreiras</span>
+                </div>
+            </div>
+
             {/* Hero */}
-            <header style={{ position: 'relative', background: '#0F1917', color: 'white', padding: '64px 24px 90px', overflow: 'hidden' }}>
-                <div style={{ position: 'absolute', top: '-15%', left: '-8%', width: '420px', height: '420px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(1,126,132,0.35) 0%, rgba(0,0,0,0) 70%)', filter: 'blur(40px)' }} />
-                <div style={{ position: 'absolute', bottom: '-25%', right: '-8%', width: '480px', height: '480px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(183,121,31,0.15) 0%, rgba(0,0,0,0) 70%)', filter: 'blur(40px)' }} />
+            <header style={{ backgroundColor: CANVAS, borderBottom: `1px solid ${BORDER}`, padding: '56px 24px' }}>
+                <div className="portal-hero-grid" style={{ maxWidth: '1080px', margin: '0 auto', display: 'grid', gridTemplateColumns: '1.15fr 0.85fr', gap: '48px', alignItems: 'center' }}>
+                    <div>
+                        <span style={{ display: 'inline-block', fontSize: '11.5px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: ACCENT, background: ACCENT_SOFT, padding: '5px 12px', borderRadius: '20px', marginBottom: '18px' }}>
+                            Estamos a contratar
+                        </span>
+                        <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: 'clamp(28px, 3.4vw, 40px)', fontWeight: 800, margin: '0 0 14px 0', letterSpacing: '-0.01em', lineHeight: 1.15 }}>
+                            Carreiras na {empresaNome}
+                        </h1>
+                        <p style={{ fontSize: '15.5px', color: INK_MUTED, maxWidth: '480px', margin: '0 0 30px 0', lineHeight: 1.6 }}>
+                            Junte-se a uma equipa que está a construir algo real. Vagas abertas agora, com respostas rápidas e um processo transparente.
+                        </p>
 
-                <div style={{ position: 'relative', maxWidth: '860px', margin: '0 auto', textAlign: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', marginBottom: '28px' }}>
-                        {logoBase64 ? (
-                            <img src={logoBase64} alt={empresaNome} style={{ height: '48px', maxWidth: '220px', objectFit: 'contain', borderRadius: '8px', background: 'white', padding: '6px 10px' }} />
-                        ) : (
-                            <div style={{ width: '52px', height: '52px', borderRadius: '14px', background: ACCENT_SOFT, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <Building2 size={26} color={ACCENT} />
-                            </div>
-                        )}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'white', border: `1px solid ${BORDER}`, borderRadius: '12px', padding: '4px 4px 4px 16px', maxWidth: '440px', boxShadow: '0 2px 10px rgba(15,23,20,0.05)' }}>
+                            <Search size={17} color={INK_MUTED} />
+                            <input
+                                value={busca}
+                                onChange={e => setBusca(e.target.value)}
+                                placeholder="Pesquisar por cargo, área ou cidade..."
+                                style={{ flex: 1, border: 'none', outline: 'none', padding: '11px 4px', fontSize: '13.5px', fontFamily: FONT_BODY, color: INK, background: 'transparent' }}
+                            />
+                        </div>
                     </div>
-                    <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: 'clamp(28px, 4vw, 42px)', fontWeight: 800, margin: '0 0 12px 0', letterSpacing: '-0.01em' }}>
-                        Carreiras na {empresaNome}
-                    </h1>
-                    <p style={{ fontSize: '16px', color: 'rgba(255,255,255,0.72)', maxWidth: '560px', margin: '0 auto 32px' }}>
-                        Junte-se a uma equipa que está a construir algo real. Vagas abertas agora, com respostas rápidas e um processo transparente.
-                    </p>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'white', borderRadius: '14px', padding: '6px 6px 6px 18px', maxWidth: '480px', margin: '0 auto', boxShadow: '0 12px 32px rgba(0,0,0,0.25)' }}>
-                        <Search size={18} color={INK_MUTED} />
-                        <input
-                            value={busca}
-                            onChange={e => setBusca(e.target.value)}
-                            placeholder="Pesquisar por cargo, área ou cidade..."
-                            style={{ flex: 1, border: 'none', outline: 'none', padding: '10px 4px', fontSize: '14px', fontFamily: FONT_BODY, color: INK }}
-                        />
+                    <div className="portal-hero-cube">
+                        <LogoCube3D />
                     </div>
                 </div>
             </header>
 
             {/* Lista de vagas */}
-            <main style={{ maxWidth: '760px', margin: '-48px auto 0', padding: '0 24px 80px', position: 'relative' }}>
+            <main style={{ maxWidth: '760px', margin: '0 auto', padding: '48px 24px 80px' }}>
                 <div style={{ background: 'white', border: `1px solid ${BORDER}`, borderRadius: '16px', boxShadow: '0 4px 24px rgba(15,23,20,0.06)', overflow: 'hidden' }}>
                     <div style={{ padding: '20px 24px', borderBottom: `1px solid ${BORDER}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: '15px', color: INK }}>
@@ -146,7 +221,7 @@ const PortalCarreiras = () => {
                                 key={vaga.id}
                                 onClick={() => navigateTo(`/carreiras/${empresa_id}/vaga/${vaga.id}`)}
                                 style={{ padding: '22px 24px', borderBottom: i === vagasFiltradas.length - 1 ? 'none' : `1px solid ${BORDER}`, cursor: 'pointer', transition: 'background-color 0.15s' }}
-                                onMouseOver={e => e.currentTarget.style.backgroundColor = '#FAFCFB'}
+                                onMouseOver={e => e.currentTarget.style.backgroundColor = CANVAS}
                                 onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
                             >
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px' }}>
@@ -185,6 +260,14 @@ const PortalCarreiras = () => {
                     <LogoMark size={16} /> Portal de carreiras criado com BusinessOS
                 </div>
             </main>
+
+            <style>{`
+                @media (max-width: 820px) {
+                    .portal-hero-grid { grid-template-columns: 1fr !important; text-align: center; }
+                    .portal-hero-grid > div:first-child { display: flex; flex-direction: column; align-items: center; }
+                    .portal-hero-cube { order: -1; }
+                }
+            `}</style>
         </div>
     );
 };
