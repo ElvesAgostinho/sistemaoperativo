@@ -1,6 +1,14 @@
 import React, { useState } from 'react';
-import { User, Lock, ArrowRight, ArrowLeft, Loader2, Mail, ShieldCheck } from 'lucide-react';
+import { User, Lock, ArrowRight, ArrowLeft, Loader2, Mail, ShieldCheck, Clock } from 'lucide-react';
 import { LogoMark } from './BrandLogo';
+
+// Mensagens de bloqueio de login que significam "conta/empresa a aguardar
+// aprovação humana" — nestes casos mostramos um ecrã dedicado em vez do
+// balão de erro genérico, para não parecer uma credencial errada.
+const MENSAGENS_PENDENTE = [
+  'A sua conta está a aguardar aprovação pelo administrador.',
+  'A subscrição da sua empresa está pendente ou suspensa. Contacte o suporte.'
+];
 
 const FONT_DISPLAY = "'Manrope', 'Segoe UI', sans-serif";
 const FONT_BODY = "'IBM Plex Sans', 'Segoe UI', sans-serif";
@@ -27,12 +35,14 @@ export default function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [pendingMessage, setPendingMessage] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     setSuccess('');
+    setPendingMessage('');
 
     try {
       if (isLogin) {
@@ -44,6 +54,12 @@ export default function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
 
         const data = await res.json();
         if (!res.ok || !data.success) {
+          // Conta/empresa a aguardar aprovação humana não é um erro de
+          // credenciais — merece o ecrã dedicado, não o balão vermelho.
+          if (data.error && MENSAGENS_PENDENTE.includes(data.error)) {
+            setPendingMessage(data.error);
+            return;
+          }
           throw new Error(data.error || 'Erro ao iniciar sessão.');
         }
 
@@ -75,6 +91,30 @@ export default function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
       setLoading(false);
     }
   };
+
+  if (pendingMessage) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', width: '100vw', backgroundColor: '#FAFCFB', fontFamily: FONT_BODY, padding: '24px' }}>
+        <div style={{ width: '100%', maxWidth: '420px', textAlign: 'center', backgroundColor: 'white', border: `1px solid ${BORDER}`, borderRadius: '16px', padding: '44px 36px', boxShadow: '0 4px 24px rgba(15,23,20,0.06)' }}>
+          <div style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: ACCENT_SOFT, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+            <Clock size={30} color={ACCENT} />
+          </div>
+          <h2 style={{ fontFamily: FONT_DISPLAY, fontSize: '21px', fontWeight: 800, color: INK, margin: '0 0 10px 0' }}>
+            Conta a aguardar aprovação
+          </h2>
+          <p style={{ color: INK_MUTED, fontSize: '14px', lineHeight: 1.6, margin: '0 0 28px 0' }}>
+            {pendingMessage} Assim que for aprovada, pode entrar normalmente com o mesmo email e palavra-passe.
+          </p>
+          <button
+            onClick={() => { setPendingMessage(''); setPassword(''); }}
+            style={{ padding: '11px 22px', backgroundColor: ACCENT, color: 'white', border: 'none', borderRadius: '10px', fontSize: '13.5px', fontWeight: 700, fontFamily: FONT_BODY, cursor: 'pointer' }}
+          >
+            Voltar ao login
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const inputStyle: React.CSSProperties = {
     width: '100%', padding: '12px 16px 12px 46px', border: `1px solid ${BORDER}`, borderRadius: '10px',
