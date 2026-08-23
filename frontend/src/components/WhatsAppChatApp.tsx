@@ -106,6 +106,9 @@ export default function WhatsAppChatApp() {
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [activeConv, setActiveConv] = useState<Conversation | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
+    // Guarda o id da conversa activa "no instante" — usado para descartar
+    // respostas de fetch que cheguem atrasadas de uma conversa já trocada.
+    const activeConvIdRef = useRef<string | null>(null);
     const [inputText, setInputText] = useState('');
     const [loading, setLoading] = useState(false);
     
@@ -492,6 +495,13 @@ export default function WhatsAppChatApp() {
     useEffect(() => {
         if (!activeConv) return;
 
+        // Limpa de imediato as mensagens da conversa anterior — sem isto ficam
+        // visíveis (erradamente) até o fetch da nova conversa responder, e se a
+        // pessoa mudar de conversa outra vez antes disso, a resposta antiga
+        // podia chegar depois e sobrepor-se à conversa nova (condição de corrida).
+        activeConvIdRef.current = activeConv.id;
+        setMessages([]);
+
         fetchMessages();
         fetchBotStatus();
 
@@ -534,11 +544,16 @@ export default function WhatsAppChatApp() {
 
     async function fetchMessages() {
         if (!activeConv) return;
+        const convId = activeConv.id;
         try {
             const token = localStorage.getItem('os_auth_token');
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/whatsapp/conversations/${activeConv.id}/messages`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/whatsapp/conversations/${convId}/messages`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
+            // A pessoa pode já ter mudado de conversa enquanto este pedido estava
+            // em curso — se sim, esta resposta é de uma conversa antiga e não deve
+            // sobrepor-se ao que está a ser mostrado agora.
+            if (activeConvIdRef.current !== convId) return;
             if (!res.ok) {
                 // Se a API ainda não existir, usa mensagens de demonstração
                 const dummyMsgs: Message[] = [
@@ -557,6 +572,7 @@ export default function WhatsAppChatApp() {
             }
         } catch (err) {
             console.error('Failed to fetch messages, showing demo:', err);
+            if (activeConvIdRef.current !== convId) return;
             // Em caso de erro de rede, mostra mensagens de demo para não ficar em branco
             const dummyMsgs: Message[] = [
                 { id: '1', content: 'Olá! Tenho interesse nos vossos serviços.', direction: 'inbound', created_at: new Date(Date.now() - 600000).toISOString(), status: 'read' },
@@ -1047,7 +1063,7 @@ export default function WhatsAppChatApp() {
                                                         mediaEl = <audio src={url} controls style={{ maxWidth: '100%', marginTop: cleanText ? '8px' : '0' }} />;
                                                     } else {
                                                         const fname = url.split('/').pop()?.split('?')[0] || 'ficheiro';
-                                                        mediaEl = <a href={url} target="_blank" rel="noreferrer" download style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: cleanText ? '8px' : '0', color: '#0854A0', textDecoration: 'underline' }}>&#0854A0; {decodeURIComponent(fname)}</a>;
+                                                        mediaEl = <a href={url} target="_blank" rel="noreferrer" download style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: cleanText ? '8px' : '0', color: '#0854A0', textDecoration: 'underline' }}>&#128196; {decodeURIComponent(fname)}</a>;
                                                     }
                                                     return (<>{cleanText && <div>{cleanText}</div>}{mediaEl}</>);
                                                 }
