@@ -25,13 +25,28 @@ FROM nginx:alpine
 # Copiar build para o nginx
 COPY --from=build /app/dist /usr/share/nginx/html
 
-# Configurar Nginx para SPA (React Router)
+# Configurar Nginx para SPA. Duas regras separadas são essenciais:
+# 1. /assets/* (ficheiros com hash no nome, gerados pelo build) nunca deve
+#    cair no fallback do index.html — se faltar, é suposto dar 404 a sério,
+#    e fica em cache longa porque o nome muda sempre que o conteúdo muda.
+# 2. index.html nunca deve ficar em cache no navegador — é o que garante que
+#    a app aponta sempre para os ficheiros .js/.css corretos do último
+#    deploy. Sem isto, um navegador com o index.html antigo em cache tenta
+#    carregar um ficheiro .js que já não existe (foi substituído no deploy
+#    seguinte), o nginx cai no fallback de SPA para esse pedido também, e o
+#    browser recebe HTML onde esperava JavaScript — página em branco com o
+#    erro "Expected a JavaScript-or-Wasm module script".
 RUN echo 'server { \
   listen 80; \
+  root /usr/share/nginx/html; \
+  index index.html; \
+  location /assets/ { \
+    try_files $uri =404; \
+    add_header Cache-Control "public, max-age=31536000, immutable"; \
+  } \
   location / { \
-    root /usr/share/nginx/html; \
-    index index.html index.htm; \
     try_files $uri $uri/ /index.html; \
+    add_header Cache-Control "no-cache"; \
   } \
 }' > /etc/nginx/conf.d/default.conf
 
