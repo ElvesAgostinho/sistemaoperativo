@@ -3,6 +3,47 @@
 -- migração existiam dois pares de tabelas desligados um do outro
 -- (vagas/candidaturas vs recrutamento_vagas/recrutamento_candidaturas) — ver
 -- plano "Triagem de CVs (IA) -> ATS profissional" para o contexto completo.
+-- Nenhum dos dois pares tinha alguma vez sido criado com uma migração
+-- rastreada — por isso este ficheiro cria a base de vagas/candidaturas do
+-- zero se ainda não existir, antes de as estender.
+
+-- ─── CRIAR AS TABELAS BASE, SE AINDA NÃO EXISTIREM ─────────────────────────────
+CREATE TABLE IF NOT EXISTS public.vagas (
+    id SERIAL PRIMARY KEY,
+    empresa_id UUID NOT NULL REFERENCES public.empresas(id),
+    titulo text NOT NULL,
+    criterios text,
+    estado text NOT NULL DEFAULT 'Aberta',
+    criado_em timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.candidaturas (
+    id SERIAL PRIMARY KEY,
+    empresa_id UUID NOT NULL REFERENCES public.empresas(id),
+    vaga_id integer REFERENCES public.vagas(id) ON DELETE CASCADE,
+    nome text NOT NULL,
+    email text,
+    telefone text,
+    cv_path text,
+    cv_texto text,
+    ai_score integer,
+    ai_parecer text,
+    estado text DEFAULT 'Pendente',
+    criado_em timestamp with time zone DEFAULT now()
+);
+
+ALTER TABLE public.vagas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.candidaturas ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "tenant_isolation" ON public.vagas;
+CREATE POLICY "tenant_isolation" ON public.vagas
+    FOR ALL USING (empresa_id IN (SELECT empresa_id FROM public.perfis WHERE id = auth.uid()) OR EXISTS (SELECT 1 FROM public.perfis WHERE id = auth.uid() AND role = 'superadmin'))
+    WITH CHECK (empresa_id IN (SELECT empresa_id FROM public.perfis WHERE id = auth.uid()) OR EXISTS (SELECT 1 FROM public.perfis WHERE id = auth.uid() AND role = 'superadmin'));
+
+DROP POLICY IF EXISTS "tenant_isolation" ON public.candidaturas;
+CREATE POLICY "tenant_isolation" ON public.candidaturas
+    FOR ALL USING (empresa_id IN (SELECT empresa_id FROM public.perfis WHERE id = auth.uid()) OR EXISTS (SELECT 1 FROM public.perfis WHERE id = auth.uid() AND role = 'superadmin'))
+    WITH CHECK (empresa_id IN (SELECT empresa_id FROM public.perfis WHERE id = auth.uid()) OR EXISTS (SELECT 1 FROM public.perfis WHERE id = auth.uid() AND role = 'superadmin'));
 
 -- ─── VAGAS ────────────────────────────────────────────────────────────────────
 ALTER TABLE public.vagas ADD COLUMN IF NOT EXISTS departamento text;
