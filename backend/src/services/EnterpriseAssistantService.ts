@@ -154,7 +154,7 @@ ${hasAgendamento ? `- Marcar, consultar, remarcar e cancelar agendamentos direta
         }
 
         // 4. Chamar a IA — OpenClaw primeiro (mais barato), OpenAI como reserva automática
-        let result = await OpenClawService.chamarComFallback(messages, toolsForThisChat);
+        let result = await OpenClawService.chamarComFallback({ messages, tools: toolsForThisChat });
 
         let choice = result.choices[0];
 
@@ -232,7 +232,7 @@ ${hasAgendamento ? `- Marcar, consultar, remarcar e cancelar agendamentos direta
                 updatedMessages.push(msg);
             }
 
-            result = await OpenClawService.chamarComFallback(updatedMessages, toolsForThisChat);
+            result = await OpenClawService.chamarComFallback({ messages: updatedMessages, tools: toolsForThisChat });
 
             choice = result.choices[0];
         }

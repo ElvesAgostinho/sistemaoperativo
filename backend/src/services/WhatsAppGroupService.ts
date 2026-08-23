@@ -1,12 +1,6 @@
-import OpenAI from 'openai';
 import { supabase } from '../lib/supabaseClient';
 import { WhatsAppChannelManager } from './WhatsAppChannelManager';
-
-function getOpenAI(): OpenAI | null {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) return null;
-    return new OpenAI({ apiKey });
-}
+import { OpenClawService } from './OpenClawService';
 
 interface IncomingGroupMessage {
     channelId: string;
@@ -99,9 +93,6 @@ export class WhatsAppGroupService {
     // conversa geral entre membros do grupo para não spammar.
     // ============================================================
     public static async classificarMensagem(contextoNegocio: string, mensagem: string): Promise<{ deve_responder: boolean; resposta: string | null; motivo?: string }> {
-        const openai = getOpenAI();
-        if (!openai) return { deve_responder: false, resposta: null, motivo: 'OPENAI_API_KEY não configurada' };
-
         const systemPrompt = `
 Você é o assistente de vendas de um negócio que usa um grupo de WhatsApp para vender produtos/serviços.
 Informação do negócio (catálogo, preços, condições) fornecida pelo dono:
@@ -124,8 +115,7 @@ privada para mais detalhes, mas não invente preços ou dados que não lhe foram
 Responda SEMPRE em JSON: { "deve_responder": boolean, "resposta": string ou null, "motivo": string curta }`;
 
         try {
-            const response = await openai.chat.completions.create({
-                model: 'gpt-4o-mini',
+            const response = await OpenClawService.chamarComFallback({
                 messages: [
                     { role: 'system', content: systemPrompt },
                     { role: 'user', content: mensagem },
@@ -169,9 +159,6 @@ Responda SEMPRE em JSON: { "deve_responder": boolean, "resposta": string ou null
             return saved || resumo;
         }
 
-        const openai = getOpenAI();
-        if (!openai) throw new Error('OPENAI_API_KEY não configurada no servidor.');
-
         const transcript = (mensagens || [])
             .map((m: any) => `${m.direction === 'outbound' ? '[Assistente]' : m.remetente_nome || 'Desconhecido'}: ${m.conteudo}`)
             .join('\n');
@@ -190,8 +177,7 @@ Responda em JSON:
 Só inclua em "leads" pessoas com intenção de compra real (perguntas de preço, disponibilidade, encomenda,
 entrega, pagamento). Não inclua conversa geral. Se não houver nenhum lead ou reclamação, devolva arrays vazios.`;
 
-        const response = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
+        const response = await OpenClawService.chamarComFallback({
             messages: [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: `Transcrição do grupo (últimas ${horasAtras}h):\n\n${transcript}` },

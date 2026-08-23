@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import OpenAI from 'openai';
 import { JitsiService } from './JitsiService';
+import { OpenClawService } from './OpenClawService';
 
 interface CriarReuniaoInput {
     empresa_id?: string | number | null;
@@ -114,11 +115,6 @@ export class ReuniaoService {
         recomendacoes: string[];
         tarefas: Array<{ descricao: string; responsavel?: string; prazo?: string }>;
     }> {
-        const apiKey = process.env.OPENAI_API_KEY;
-        if (!apiKey) throw new Error('OPENAI_API_KEY não configurada');
-
-        const openai = new OpenAI({ apiKey });
-
         const systemPrompt = `
 Você é o Agente IA de Reuniões do BusinessOS.
 Recebeu a transcrição de uma reunião em vídeo.
@@ -141,8 +137,7 @@ Responda EXATAMENTE neste formato JSON:
 }
 `;
 
-        const response = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
+        const response = await OpenClawService.chamarComFallback({
             messages: [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: `Transcrição da reunião:\n\n${transcricao}` }

@@ -7,6 +7,7 @@ import { getSupabase } from '../lib/supabaseClient';
 import { requireAuth } from '../middleware/authMiddleware';
 import { PdfService } from '../services/PdfService';
 import OpenAI from 'openai';
+import { OpenClawService } from '../services/OpenClawService';
 
 const router = Router();
 const upload = multer({ dest: 'uploads/' });
@@ -61,22 +62,20 @@ async function buildStats(supabase: SupabaseClient, empresa_id?: number) {
     };
 }
 
-const getOpenAI = async (req: Request): Promise<OpenAI> => {
+// Se a empresa tiver a própria chave da OpenAI configurada (BYOK), usamo-la
+// diretamente — é uma escolha explícita dela, não deve ser desviada para o
+// OpenClaw. Sem chave própria, cai no ponto único OpenClaw-primeiro-OpenAI-
+// reserva, como todo o resto do sistema.
+const getCustomOpenAIKey = async (req: Request): Promise<string | null> => {
     const supabase = getSupabase(req);
     const empresa_id = (req as any).user?.empresa_id;
 
     if (empresa_id) {
         const { data } = await supabase.from('configuracoes').select('valor').eq('chave', 'openai_api_key').single();
-        if (data && data.valor) {
-            return new OpenAI({ apiKey: data.valor });
-        }
+        if (data && data.valor) return data.valor;
     }
-    
-    if (process.env.OPENAI_API_KEY) {
-        return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    }
-    
-    throw new Error('OpenAI API key não configurada.');
+
+    return null;
 };
 
 // GET /api/data/stats - Fetch overall stats for dashboard
@@ -139,7 +138,7 @@ router.post('/upload', requireAuth, upload.single('file'), async (req: Request, 
     }
 
     try {
-        const ai = await getOpenAI(req);
+        const customKey = await getCustomOpenAIKey(req);
         const filePath = req.file.path;
         const filename = req.file.originalname;
 
@@ -169,14 +168,22 @@ Devolve a tua resposta num objeto JSON ESTRITO com o seguinte formato:
   "recomendacao": "..."
 }`;
 
-        const aiResponse = await ai.chat.completions.create({
-            model: 'gpt-4o',
-            messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: JSON.stringify(sampleData) }
-            ],
-            response_format: { type: 'json_object' }
-        });
+        const aiResponse = customKey
+            ? await new OpenAI({ apiKey: customKey }).chat.completions.create({
+                model: 'gpt-4o',
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: JSON.stringify(sampleData) }
+                ],
+                response_format: { type: 'json_object' }
+            })
+            : await OpenClawService.chamarComFallback({
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: JSON.stringify(sampleData) }
+                ],
+                response_format: { type: 'json_object' }
+            });
 
         const resultJson = aiResponse.choices[0]?.message?.content || '{}';
         

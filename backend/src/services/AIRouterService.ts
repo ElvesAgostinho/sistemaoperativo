@@ -112,10 +112,12 @@ function decidirAI(taskType: TaskType, contexto: string, modo: string): RouterDe
 // OpenAI sozinho — quem decide se pode ou não recorrer à OpenAI é o
 // rotearEExecutar abaixo, com base em isSensitive).
 async function chamarOpenClaw(prompt: string, systemPrompt?: string): Promise<string> {
-    const completion = await OpenClawService.chamar([
-        { role: 'system', content: systemPrompt || 'És um assistente especializado em Recursos Humanos, legislação laboral angolana e gestão empresarial. Responde sempre em Português de Angola.' },
-        { role: 'user', content: prompt },
-    ]);
+    const completion = await OpenClawService.chamar({
+        messages: [
+            { role: 'system', content: systemPrompt || 'És um assistente especializado em Recursos Humanos, legislação laboral angolana e gestão empresarial. Responde sempre em Português de Angola.' },
+            { role: 'user', content: prompt },
+        ]
+    });
 
     return completion.choices[0]?.message?.content || '';
 }

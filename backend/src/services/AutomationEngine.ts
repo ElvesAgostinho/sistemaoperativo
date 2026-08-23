@@ -479,10 +479,12 @@ export class AutomationEngine {
                         ? `Você é um assistente de atendimento ao cliente via WhatsApp. Responda de forma direta, profissional e curta, usando APENAS as informações abaixo da Base de Conhecimento da empresa. Se a informação não estiver lá, diga que não tem essa informação em vez de inventar.\n\n=== BASE DE CONHECIMENTO ===\n${knowledgeContext}`
                         : 'Você é um assistente de atendimento ao cliente via WhatsApp. Responda de forma direta, profissional e curta.';
 
-                    const completion = await OpenClawService.chamarComFallback([
-                        { role: 'system', content: systemPrompt },
-                        { role: 'user', content: aiPromptTemplate }
-                    ]);
+                    const completion = await OpenClawService.chamarComFallback({
+                        messages: [
+                            { role: 'system', content: systemPrompt },
+                            { role: 'user', content: aiPromptTemplate }
+                        ]
+                    });
 
                     const aiText = completion.choices[0]?.message?.content;
                     if (aiText) {

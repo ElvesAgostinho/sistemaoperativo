@@ -3,8 +3,8 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import pdfParse from 'pdf-parse';
-import OpenAI from 'openai';
 import { getSupabase } from '../lib/supabaseClient';
+import { OpenClawService } from '../services/OpenClawService';
 
 const router = Router();
 
@@ -28,9 +28,6 @@ const storage = multer.diskStorage({
     }
 });
 const upload = multer({ storage });
-
-// OpenAI Setup
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // === VAGAS ===
 
@@ -117,8 +114,7 @@ router.post('/upload', upload.single('cv'), async (req: Request, res: Response) 
         ${cvText}
         `;
 
-        const response = await openai.chat.completions.create({
-            model: "gpt-3.5-turbo",
+        const response = await OpenClawService.chamarComFallback({
             messages: [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: userPrompt }
@@ -188,8 +184,7 @@ router.post('/:id/decisao', async (req: Request, res: Response) => {
         Se for REJEITADO: sê muito educado, agradece, diz que não encaixa perfeitamente e deseja sucesso.
         `;
 
-        const response = await openai.chat.completions.create({
-            model: "gpt-3.5-turbo",
+        const response = await OpenClawService.chamarComFallback({
             messages: [{ role: "user", content: systemPrompt }],
             temperature: 0.6
         });
