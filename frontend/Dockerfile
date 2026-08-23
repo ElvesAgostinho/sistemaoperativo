@@ -16,8 +16,14 @@ RUN npm ci
 # Copiar código fonte
 COPY . .
 
-# Build de produção
-RUN npx vite build
+# Build de produção — o vite.config.ts também tem o plugin do Electron (app
+# desktop), que por defeito gera caminhos RELATIVOS (./assets/...), certos
+# para o file:// da app desktop mas errados na web: numa rota profunda como
+# /carreiras/xxx/vaga/1, o navegador resolve "./assets/x.js" para
+# /carreiras/xxx/vaga/assets/x.js (não existe), cai no fallback de SPA do
+# nginx, e recebe HTML onde esperava JavaScript — página em branco. --base=/
+# força caminhos absolutos (/assets/...), que funcionam em qualquer rota.
+RUN npx vite build --base=/
 
 # Production stage
 FROM nginx:alpine
