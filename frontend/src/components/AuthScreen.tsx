@@ -286,6 +286,15 @@ export default function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
               </div>
             </div>
 
+            {!isLogin && (
+              <p style={{ fontSize: '12px', color: INK_MUTED, textAlign: 'center', margin: '-4px 0 2px 0', lineHeight: 1.5 }}>
+                Ao criar conta, concorda com os nossos{' '}
+                <a href="/termos" target="_blank" rel="noopener noreferrer" style={{ color: ACCENT, fontWeight: 600 }}>Termos de Serviço</a>{' '}
+                e a{' '}
+                <a href="/privacidade" target="_blank" rel="noopener noreferrer" style={{ color: ACCENT, fontWeight: 600 }}>Política de Proteção de Dados</a>.
+              </p>
+            )}
+
             <button
               type="submit"
               disabled={loading}

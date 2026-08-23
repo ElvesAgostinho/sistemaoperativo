@@ -20,6 +20,9 @@ import PortalCarreiras from './pages/public/PortalCarreiras';
 import CandidaturaForm from './pages/public/CandidaturaForm';
 import ReuniaoConvidado from './pages/public/ReuniaoConvidado';
 import PortalAgendamento from './pages/public/PortalAgendamento';
+import TermosServico from './pages/public/TermosServico';
+import PoliticaPrivacidade from './pages/public/PoliticaPrivacidade';
+import PoliticaCookies from './pages/public/PoliticaCookies';
 import { LayoutGrid, Users, Briefcase, PieChart, Bot, Zap, LogOut, MessageSquare, BookOpen, Mail, Settings, Clock, Globe, Video, Share2, Calculator, Shield, CalendarClock } from 'lucide-react';
 
 const IS_AFFILIATE_PORTAL = window.location.pathname === '/portal-afiliado';
@@ -242,6 +245,18 @@ function App() {
         return <CandidaturaForm />;
     }
     return <PortalCarreiras />;
+  }
+
+  if (pathname.startsWith('/termos')) {
+    return <TermosServico />;
+  }
+
+  if (pathname.startsWith('/privacidade')) {
+    return <PoliticaPrivacidade />;
+  }
+
+  if (pathname.startsWith('/cookies')) {
+    return <PoliticaCookies />;
   }
 
   if (pathname.startsWith('/reuniao/')) {

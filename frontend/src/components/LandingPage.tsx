@@ -319,6 +319,13 @@ export default function LandingPage({ onGoToApp }: { onGoToApp: () => void }) {
             <span style={{ margin: '0 8px' }}>|</span>
             <a href="mailto:geral@topia.solutions">geral@topia.solutions</a>
           </p>
+          <p>
+            <a href="/termos">Termos de Serviço</a>
+            <span style={{ margin: '0 8px' }}>|</span>
+            <a href="/privacidade">Proteção de Dados</a>
+            <span style={{ margin: '0 8px' }}>|</span>
+            <a href="/cookies">Cookies</a>
+          </p>
         </div>
       </footer>
     </div>
