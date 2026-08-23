@@ -5,24 +5,24 @@
    ============================================================ */
 
 .affiliates-modern {
-  --af-accent: #017E84;
-  --af-accent-hover: #016368;
-  --af-accent-soft: #E3F3F1;
-  --af-ink: #16211F;
-  --af-ink-muted: #5B6B67;
-  --af-ink-faint: #8B9B97;
-  --af-canvas: #F5F8F7;
+  --af-accent: #0854A0;
+  --af-accent-hover: #063E78;
+  --af-accent-soft: #E4EDF7;
+  --af-ink: #1D2D3E;
+  --af-ink-muted: #5B738B;
+  --af-ink-faint: #8996A3;
+  --af-canvas: #F5F6F7;
   --af-surface: #FFFFFF;
-  --af-border: #E2E8E6;
-  --af-border-soft: #EDF2F1;
-  --af-good-bg: #E7F5EC; --af-good-fg: #1F7A45;
-  --af-warn-bg: #FCF3E3; --af-warn-fg: #9C6B12;
-  --af-bad-bg: #FBEAEA; --af-bad-fg: #B23A3A;
-  --af-info-bg: #E7EEF5; --af-info-fg: #2E5C8A;
-  --af-shadow-card: 0 1px 2px rgba(22,33,31,0.04), 0 6px 20px rgba(22,33,31,0.06);
-  --af-font-display: 'Manrope', 'Segoe UI', system-ui, sans-serif;
-  --af-font-body: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
-  --af-font-mono: 'IBM Plex Mono', 'Consolas', monospace;
+  --af-border: #D5D7DA;
+  --af-border-soft: #E7E9EB;
+  --af-good-bg: #DCEEE2; --af-good-fg: #107E3E;
+  --af-warn-bg: #FCEFDD; --af-warn-fg: #8A4B0B;
+  --af-bad-bg: #F6DEDE; --af-bad-fg: #BB0000;
+  --af-info-bg: #E4EDF7; --af-info-fg: #0854A0;
+  --af-shadow-card: none;
+  --af-font-display: 'Roboto', 'Segoe UI', system-ui, sans-serif;
+  --af-font-body: 'Roboto', 'Segoe UI', system-ui, sans-serif;
+  --af-font-mono: 'Roboto Mono', 'Consolas', monospace;
 
   font-family: var(--af-font-body);
   color: var(--af-ink);
@@ -50,8 +50,8 @@
 }
 .af-header h1 {
   font-size: 24px;
-  font-weight: 800;
-  letter-spacing: -0.01em;
+  font-weight: 700;
+  letter-spacing: 0;
 }
 .af-pillnav {
   display: flex;
@@ -59,7 +59,7 @@
   padding: 4px;
   background: var(--af-surface);
   border: 1px solid var(--af-border);
-  border-radius: 12px;
+  border-radius: 2px;
   flex-wrap: wrap;
 }
 .af-pillnav button {
@@ -67,7 +67,7 @@
   font-weight: 500;
   font-size: 12.5px;
   padding: 9px 15px;
-  border-radius: 9px;
+  border-radius: 2px;
   border: none;
   background: transparent;
   color: var(--af-ink-muted);
@@ -92,14 +92,14 @@
 .af-kpi-card {
   background: var(--af-surface);
   border: 1px solid var(--af-border);
-  border-radius: 14px;
+  border-radius: 2px;
   padding: 20px 22px;
   box-shadow: var(--af-shadow-card);
 }
 .af-kpi-icon {
   width: 34px;
   height: 34px;
-  border-radius: 9px;
+  border-radius: 2px;
   background: var(--af-accent-soft);
   color: var(--af-accent);
   display: flex;
@@ -113,7 +113,7 @@
   font-size: 24px;
   font-weight: 600;
   margin-bottom: 4px;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 .af-kpi-label {
   font-size: 11px;
@@ -130,7 +130,7 @@
 .af-panel {
   background: var(--af-surface);
   border: 1px solid var(--af-border);
-  border-radius: 16px;
+  border-radius: 2px;
   box-shadow: var(--af-shadow-card);
   padding: 22px;
 }
@@ -156,7 +156,7 @@
   font-family: var(--af-font-body);
   font-size: 13.5px;
   padding: 9px 12px;
-  border-radius: 9px;
+  border-radius: 2px;
   border: 1px solid var(--af-border);
   background: var(--af-canvas);
   color: var(--af-ink);
@@ -173,7 +173,7 @@
   padding: 12px 14px;
   background: var(--af-canvas);
   border: 1px solid var(--af-border-soft);
-  border-radius: 10px;
+  border-radius: 2px;
   font-size: 12.5px;
   color: var(--af-ink-muted);
   line-height: 1.6;
@@ -182,7 +182,7 @@
   background: var(--af-surface);
   border: 1px solid var(--af-border);
   padding: 1px 6px;
-  border-radius: 4px;
+  border-radius: 2px;
   font-family: var(--af-font-mono);
   font-size: 12px;
 }
@@ -193,7 +193,7 @@
   font-weight: 600;
   font-size: 13px;
   padding: 10px 16px;
-  border-radius: 10px;
+  border-radius: 2px;
   border: 1px solid var(--af-border);
   background: var(--af-surface);
   color: var(--af-ink);
@@ -202,20 +202,20 @@
   align-items: center;
   justify-content: center;
   gap: 7px;
-  transition: border-color 0.15s, transform 0.1s;
+  transition: border-color 0.15s;
 }
-.af-btn:hover { border-color: var(--af-accent); transform: translateY(-1px); }
+.af-btn:hover { border-color: var(--af-accent); }
 .af-btn-primary { background: var(--af-accent); border-color: var(--af-accent); color: white; width: 100%; }
 .af-btn-primary:hover { background: var(--af-accent-hover); border-color: var(--af-accent-hover); }
 .af-btn-danger-soft { background: var(--af-bad-bg); border-color: var(--af-bad-bg); color: var(--af-bad-fg); }
 .af-btn-danger-soft:hover { border-color: var(--af-bad-fg); }
-.af-btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 8px; }
+.af-btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 2px; }
 
 /* ---------- Tabelas ---------- */
 .af-table-card {
   background: var(--af-surface);
   border: 1px solid var(--af-border);
-  border-radius: 16px;
+  border-radius: 2px;
   box-shadow: var(--af-shadow-card);
   overflow: hidden;
 }
@@ -246,7 +246,7 @@
   padding: 4px 9px;
   background: var(--af-canvas);
   border: 1px dashed var(--af-border);
-  border-radius: 6px;
+  border-radius: 2px;
   font-family: var(--af-font-mono);
   font-weight: 600;
   font-size: 12.5px;
@@ -255,7 +255,7 @@
 .af-badge {
   display: inline-block;
   padding: 4px 10px;
-  border-radius: 20px;
+  border-radius: 2px;
   font-size: 11px;
   font-weight: 700;
 }
@@ -273,13 +273,13 @@
   padding: 16px 18px;
   background: var(--af-canvas);
   border: 1px solid var(--af-border-soft);
-  border-radius: 12px;
+  border-radius: 2px;
 }
 .af-material-tag {
   padding: 2px 9px;
   background: var(--af-accent-soft);
   color: var(--af-accent);
-  border-radius: 6px;
+  border-radius: 2px;
   font-size: 10.5px;
   font-weight: 700;
   text-transform: uppercase;

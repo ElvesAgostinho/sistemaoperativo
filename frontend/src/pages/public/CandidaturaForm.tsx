@@ -2,14 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Upload, CheckCircle, Briefcase, MapPin, Wallet, FileText, Loader2 } from 'lucide-react';
 import { LogoMark } from '../../components/BrandLogo';
 
-const FONT_DISPLAY = "'Manrope', 'Segoe UI', sans-serif";
-const FONT_BODY = "'IBM Plex Sans', 'Segoe UI', sans-serif";
-const ACCENT = '#017E84';
-const ACCENT_HOVER = '#016368';
-const ACCENT_SOFT = '#E3F3F1';
-const INK = '#16211F';
-const INK_MUTED = '#5B6B67';
-const BORDER = '#E2E8E6';
+const FONT_DISPLAY = "'Roboto', 'Segoe UI', sans-serif";
+const FONT_BODY = "'Roboto', 'Segoe UI', sans-serif";
+const ACCENT = '#0854A0';
+const ACCENT_HOVER = '#063E78';
+const ACCENT_SOFT = '#E4EDF7';
+const INK = '#1D2D3E';
+const INK_MUTED = '#5B738B';
+const BORDER = '#D5D7DA';
 
 interface Vaga {
     id: string;
@@ -29,7 +29,7 @@ function formatKz(v: number) {
 
 const inputStyle: React.CSSProperties = {
     width: '100%', padding: '11px 14px', border: `1px solid ${BORDER}`, borderRadius: '10px',
-    fontSize: '13.5px', outline: 'none', fontFamily: FONT_BODY, boxSizing: 'border-box', color: INK, background: '#FAFCFB'
+    fontSize: '13.5px', outline: 'none', fontFamily: FONT_BODY, boxSizing: 'border-box', color: INK, background: '#F5F6F7'
 };
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: '11.5px', fontWeight: 700, letterSpacing: '0.03em', textTransform: 'uppercase', color: INK_MUTED, marginBottom: '6px' };
 
@@ -102,20 +102,20 @@ const CandidaturaForm = () => {
     };
 
     if (loading) {
-        return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: FONT_BODY, color: INK_MUTED, backgroundColor: '#FAFCFB' }}>A carregar vaga...</div>;
+        return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: FONT_BODY, color: INK_MUTED, backgroundColor: '#F5F6F7' }}>A carregar vaga...</div>;
     }
     if (!vaga) {
-        return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: FONT_BODY, color: '#B23A3A', backgroundColor: '#FAFCFB' }}>Vaga não encontrada.</div>;
+        return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: FONT_BODY, color: '#BB0000', backgroundColor: '#F5F6F7' }}>Vaga não encontrada.</div>;
     }
 
     if (success) {
         return (
-            <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FAFCFB', fontFamily: FONT_BODY, padding: '24px' }}>
-                <div style={{ width: '100%', maxWidth: '440px', textAlign: 'center', backgroundColor: 'white', border: `1px solid ${BORDER}`, borderRadius: '18px', padding: '48px 36px', boxShadow: '0 4px 24px rgba(15,23,20,0.06)' }}>
+            <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F5F6F7', fontFamily: FONT_BODY, padding: '24px' }}>
+                <div style={{ width: '100%', maxWidth: '440px', textAlign: 'center', backgroundColor: 'white', border: `1px solid ${BORDER}`, borderRadius: '18px', padding: '48px 36px' }}>
                     <div style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: ACCENT_SOFT, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
                         <CheckCircle size={30} color={ACCENT} />
                     </div>
-                    <h2 style={{ fontFamily: FONT_DISPLAY, fontSize: '22px', fontWeight: 800, color: INK, margin: '0 0 10px 0' }}>Candidatura enviada!</h2>
+                    <h2 style={{ fontFamily: FONT_DISPLAY, fontSize: '22px', fontWeight: 700, color: INK, margin: '0 0 10px 0' }}>Candidatura enviada!</h2>
                     <p style={{ color: INK_MUTED, fontSize: '14px', lineHeight: 1.6, margin: '0 0 28px 0' }}>
                         Obrigado pelo seu interesse. A equipa da <strong>{vaga.empresas?.nome}</strong> vai analisar o seu perfil — já com a avaliação da nossa IA — e entrará em contacto em breve.
                     </p>
@@ -128,8 +128,8 @@ const CandidaturaForm = () => {
     }
 
     return (
-        <div style={{ minHeight: '100vh', backgroundColor: '#FAFCFB', fontFamily: FONT_BODY, color: INK }}>
-            <header style={{ background: '#0F1917', padding: '18px 24px', display: 'flex', alignItems: 'center', gap: '14px' }}>
+        <div style={{ minHeight: '100vh', backgroundColor: '#F5F6F7', fontFamily: FONT_BODY, color: INK }}>
+            <header style={{ background: '#354A5E', padding: '18px 24px', display: 'flex', alignItems: 'center', gap: '14px' }}>
                 <button onClick={() => navigateTo(`/carreiras/${empresa_id}`)} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'none', border: 'none', color: 'rgba(255,255,255,0.8)', cursor: 'pointer', fontSize: '13px', fontWeight: 600, fontFamily: FONT_BODY }}>
                     <ArrowLeft size={16} /> Todas as vagas
                 </button>
@@ -142,7 +142,7 @@ const CandidaturaForm = () => {
                 {/* Detalhes da vaga */}
                 <div>
                     {logoBase64 && <img src={logoBase64} alt="" style={{ height: '40px', maxWidth: '180px', objectFit: 'contain', marginBottom: '18px' }} />}
-                    <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: 'clamp(24px, 3vw, 32px)', fontWeight: 800, margin: '0 0 14px 0', letterSpacing: '-0.01em' }}>{vaga.titulo}</h1>
+                    <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: 'clamp(22px, 2.6vw, 28px)', fontWeight: 700, margin: '0 0 14px 0' }}>{vaga.titulo}</h1>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', fontSize: '13.5px', color: INK_MUTED, marginBottom: '28px' }}>
                         {vaga.departamento && <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Briefcase size={15} /> {vaga.departamento}</span>}
                         {vaga.localizacao && <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><MapPin size={15} /> {vaga.localizacao}</span>}
@@ -154,16 +154,16 @@ const CandidaturaForm = () => {
                         )}
                     </div>
                     <div style={{ height: '1px', background: BORDER, margin: '0 0 24px 0' }} />
-                    <h3 style={{ fontFamily: FONT_DISPLAY, fontSize: '16px', fontWeight: 800, margin: '0 0 12px 0' }}>Descrição da Função</h3>
+                    <h3 style={{ fontFamily: FONT_DISPLAY, fontSize: '16px', fontWeight: 700, margin: '0 0 12px 0' }}>Descrição da Função</h3>
                     <div style={{ color: INK_MUTED, fontSize: '14px', lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>{vaga.descricao}</div>
                 </div>
 
                 {/* Painel de candidatura */}
-                <div style={{ position: 'sticky', top: '24px', background: 'white', border: `1px solid ${BORDER}`, borderRadius: '16px', padding: '26px', boxShadow: '0 4px 24px rgba(15,23,20,0.06)' }}>
-                    <h3 style={{ fontFamily: FONT_DISPLAY, fontSize: '17px', fontWeight: 800, margin: '0 0 4px 0' }}>Candidatar-me</h3>
+                <div style={{ position: 'sticky', top: '24px', background: 'white', border: `1px solid ${BORDER}`, borderRadius: '16px', padding: '26px' }}>
+                    <h3 style={{ fontFamily: FONT_DISPLAY, fontSize: '17px', fontWeight: 700, margin: '0 0 4px 0' }}>Candidatar-me</h3>
                     <p style={{ fontSize: '12.5px', color: INK_MUTED, margin: '0 0 20px 0' }}>O seu CV é avaliado automaticamente pela nossa IA assim que submete.</p>
 
-                    {error && <div style={{ background: '#FBEAEA', color: '#B23A3A', padding: '10px 14px', borderRadius: '8px', fontSize: '12.5px', marginBottom: '16px' }}>{error}</div>}
+                    {error && <div style={{ background: '#F6DEDE', color: '#BB0000', padding: '10px 14px', borderRadius: '8px', fontSize: '12.5px', marginBottom: '16px' }}>{error}</div>}
 
                     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                         <div>
@@ -186,7 +186,7 @@ const CandidaturaForm = () => {
                             <label style={labelStyle}>Currículo (PDF) *</label>
                             <div
                                 onClick={() => document.getElementById('cv-upload')?.click()}
-                                style={{ border: `1.5px dashed ${file ? ACCENT : BORDER}`, borderRadius: '10px', padding: '18px', textAlign: 'center', cursor: 'pointer', background: file ? ACCENT_SOFT : '#FAFCFB' }}
+                                style={{ border: `1.5px dashed ${file ? ACCENT : BORDER}`, borderRadius: '10px', padding: '18px', textAlign: 'center', cursor: 'pointer', background: file ? ACCENT_SOFT : '#F5F6F7' }}
                             >
                                 <Upload size={20} color={file ? ACCENT : INK_MUTED} style={{ marginBottom: '6px' }} />
                                 <div style={{ fontSize: '12.5px', color: file ? ACCENT : INK_MUTED, fontWeight: 600 }}>

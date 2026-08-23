@@ -24,9 +24,27 @@ import TermosServico from './pages/public/TermosServico';
 import PoliticaPrivacidade from './pages/public/PoliticaPrivacidade';
 import PoliticaCookies from './pages/public/PoliticaCookies';
 import CookieBanner from './components/CookieBanner';
-import { LayoutGrid, Users, Briefcase, PieChart, Bot, Zap, LogOut, MessageSquare, BookOpen, Mail, Settings, Clock, Globe, Video, Share2, Calculator, Shield, CalendarClock } from 'lucide-react';
+import { Users, Briefcase, PieChart, Bot, Zap, LogOut, MessageSquare, BookOpen, Mail, Settings, Clock, Globe, Video, Share2, Calculator, Shield, CalendarClock } from 'lucide-react';
+import { LogoMark } from './components/BrandLogo';
 
 const IS_AFFILIATE_PORTAL = window.location.pathname === '/portal-afiliado';
+
+const MODULOS: { key: string; label: string; icon: any }[] = [
+  { key: 'hr', label: 'RH & Triagem', icon: Users },
+  { key: 'crm', label: 'Vendas CRM', icon: Briefcase },
+  { key: 'contabilidade', label: 'Financeiro', icon: Calculator },
+  { key: 'reunioes', label: 'Reuniões IA', icon: Video },
+  { key: 'agendamento', label: 'Agendamento', icon: CalendarClock },
+  { key: 'wa', label: 'WhatsApp', icon: MessageSquare },
+  { key: 'auto', label: 'Autopilot', icon: Zap },
+  { key: 'afiliados', label: 'Parcerias', icon: Share2 },
+  { key: 'data', label: 'Relatórios', icon: PieChart },
+  { key: 'chat', label: 'Assistente IA', icon: Bot },
+  { key: 'kb', label: 'Conhecimento IA', icon: BookOpen },
+  { key: 'email', label: 'Email', icon: Mail },
+  { key: 'settings', label: 'Definições', icon: Settings },
+  { key: 'superadmin', label: 'SaaS Global', icon: Globe },
+];
 
 const ROLE_PERMISSIONS: Record<string, string[]> = {
   superadmin: ['home', 'superadmin', 'hr', 'crm', 'data', 'chat', 'auto', 'wa', 'kb', 'email', 'settings', 'reunioes', 'afiliados', 'contabilidade', 'agendamento'],
@@ -330,14 +348,16 @@ function App() {
 
   return (
     <div className="odoo-layout">
-      {/* Odoo Topbar */}
+      {/* Shell Bar */}
       <div className="odoo-topbar">
-        <div className="odoo-app-switcher" onClick={() => navigateTo('home')} title="Aplicações">
-          <LayoutGrid color="white" size={20} />
+        <div className="sap-brand" onClick={() => navigateTo('home')} title="Página inicial">
+          <LogoMark size={20} />
+          <span>BusinessOS</span>
         </div>
-        
+
         {activeModule !== 'home' && (
           <div className="odoo-topbar-brand">
+            <span style={{ opacity: 0.5, margin: '0 4px' }}>/</span>
             {activeModule === 'hr' && 'Recursos Humanos'}
             {activeModule === 'crm' && 'CRM'}
             {activeModule === 'data' && 'Relatórios'}
@@ -427,176 +447,64 @@ function App() {
         </div>
       </div>
 
-      {/* Odoo Dashboard (Home) */}
-      {activeModule === 'home' && (
-        <div className="odoo-dashboard">
-          <div className="odoo-apps-grid">
-            
-            {hasAccess('hr') && (
-              <div className="odoo-app-icon-container" onClick={() => navigateTo('hr')}>
-                <div className="odoo-app-icon" style={{ background: 'linear-gradient(135deg, #714B67 0%, #a26591 100%)' }}>
-                  <Users size={40} color="white" strokeWidth={1.5} />
-                </div>
-                <div className="odoo-app-name">RH & Triagem</div>
-              </div>
-            )}
-
-            {hasAccess('crm') && (
-              <div className="odoo-app-icon-container" onClick={() => navigateTo('crm')}>
-                <div className="odoo-app-icon" style={{ background: 'linear-gradient(135deg, #017E84 0%, #03b6bd 100%)' }}>
-                  <Briefcase size={40} color="white" strokeWidth={1.5} />
-                </div>
-                <div className="odoo-app-name">Vendas CRM</div>
-              </div>
-            )}
-
-            {hasAccess('contabilidade') && (
-              <div className="odoo-app-icon-container" onClick={() => navigateTo('contabilidade')}>
-                <div className="odoo-app-icon" style={{ background: 'linear-gradient(135deg, #374151 0%, #111827 100%)' }}>
-                  <Calculator size={40} color="white" strokeWidth={1.5} />
-                </div>
-                <div className="odoo-app-name">Financeiro</div>
-              </div>
-            )}
-
-            {hasAccess('auto') && (
-              <div className="odoo-app-icon-container" onClick={() => navigateTo('auto')}>
-                <div className="odoo-app-icon" style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%)' }}>
-                  <Zap size={40} color="white" strokeWidth={1.5} />
-                </div>
-                <div className="odoo-app-name">Autopilot</div>
-              </div>
-            )}
-
-            {hasAccess('wa') && (
-              <div className="odoo-app-icon-container" onClick={() => navigateTo('wa')}>
-                <div className="odoo-app-icon" style={{ background: 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)' }}>
-                  <MessageSquare size={40} color="white" strokeWidth={1.5} />
-                </div>
-                <div className="odoo-app-name">WhatsApp</div>
-              </div>
-            )}
-
-            {hasAccess('data') && (
-              <div className="odoo-app-icon-container" onClick={() => navigateTo('data')}>
-                <div className="odoo-app-icon" style={{ background: 'linear-gradient(135deg, #E67E22 0%, #f39c12 100%)' }}>
-                  <PieChart size={40} color="white" strokeWidth={1.5} />
-                </div>
-                <div className="odoo-app-name">Relatórios</div>
-              </div>
-            )}
-
-            {hasAccess('afiliados') && (
-              <div className="odoo-app-icon-container" onClick={() => navigateTo('afiliados')}>
-                <div className="odoo-app-icon" style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}>
-                  <Share2 size={40} color="white" strokeWidth={1.5} />
-                </div>
-                <div className="odoo-app-name">Parcerias</div>
-              </div>
-            )}
-
-            {hasAccess('chat') && (
-              <div className="odoo-app-icon-container" onClick={() => navigateTo('chat')}>
-                <div className="odoo-app-icon" style={{ background: 'linear-gradient(135deg, #2C3E50 0%, #34495e 100%)' }}>
-                  <Bot size={40} color="white" strokeWidth={1.5} />
-                </div>
-                <div className="odoo-app-name">Assistente IA</div>
-              </div>
-            )}
-
-
-            {hasAccess('kb') && (
-              <div className="odoo-app-icon-container" onClick={() => navigateTo('kb')}>
-                <div className="odoo-app-icon" style={{ background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' }}>
-                  <BookOpen size={40} color="white" strokeWidth={1.5} />
-                </div>
-                <div className="odoo-app-name">Conhecimento IA</div>
-              </div>
-            )}
-
-            {hasAccess('email') && (
-              <div className="odoo-app-icon-container" onClick={() => navigateTo('email')}>
-                <div className="odoo-app-icon" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e40af 100%)' }}>
-                  <Mail size={40} color="white" strokeWidth={1.5} />
-                </div>
-                <div className="odoo-app-name">Email</div>
-              </div>
-            )}
-
-            {hasAccess('settings') && (
-              <div className="odoo-app-icon-container" onClick={() => navigateTo('settings')}>
-                <div className="odoo-app-icon" style={{ background: 'linear-gradient(135deg, #334155 0%, #64748b 100%)' }}>
-                  <Settings size={40} color="white" strokeWidth={1.5} />
-                </div>
-                <div className="odoo-app-name">Definições</div>
-              </div>
-            )}
-
-            {hasAccess('superadmin') && (
-              <div className="odoo-app-icon-container" onClick={() => navigateTo('superadmin')}>
-                <div className="odoo-app-icon" style={{ background: 'linear-gradient(135deg, #111827 0%, #374151 100%)', border: '2px solid #fbbf24' }}>
-                  <Globe size={40} color="#fbbf24" strokeWidth={1.5} />
-                </div>
-                <div className="odoo-app-name" style={{ fontWeight: 'bold' }}>SaaS Global</div>
-              </div>
-            )}
-
-            {hasAccess('reunioes') && (
-              <div className="odoo-app-icon-container" onClick={() => navigateTo('reunioes')}>
-                <div className="odoo-app-icon" style={{ background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' }}>
-                  <Video size={40} color="white" strokeWidth={1.5} />
-                </div>
-                <div className="odoo-app-name" style={{ fontWeight: 'bold' }}>Reuniões IA</div>
-              </div>
-            )}
-
-            {hasAccess('agendamento') && (
-              <div className="odoo-app-icon-container" onClick={() => navigateTo('agendamento')}>
-                <div className="odoo-app-icon" style={{ background: 'linear-gradient(135deg, #14161C 0%, #C9992E 100%)' }}>
-                  <CalendarClock size={40} color="white" strokeWidth={1.5} />
-                </div>
-                <div className="odoo-app-name" style={{ fontWeight: 'bold' }}>Agendamento</div>
-              </div>
-            )}
-
-          </div>
+      {/* Corpo: menu lateral em árvore (estilo SAP Easy Access) + conteúdo */}
+      <div className="sap-body">
+        <div className="sap-sidebar">
+          <div className="sap-sidebar-label">Menu</div>
+          {MODULOS.filter(m => hasAccess(m.key)).map(m => (
+            <div
+              key={m.key}
+              className={`sap-sidebar-item${activeModule === m.key ? ' active' : ''}`}
+              onClick={() => navigateTo(m.key as any)}
+            >
+              <m.icon size={16} strokeWidth={1.75} />
+              <span>{m.label}</span>
+            </div>
+          ))}
         </div>
-      )}
 
-      {/* Main Content Areas */}
-      {activeModule !== 'home' && (
-        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', backgroundColor: '#ffffff' }}>
-          {activeModule === 'hr' && <HrApp />}
-          {activeModule === 'crm' && <CrmApp />}
-          {activeModule === 'auto' && <AutomationApp />}
-          {activeModule === 'wa' && <WhatsAppChatApp />}
-          {activeModule === 'kb' && <KnowledgeBaseApp />}
-          {activeModule === 'email' && <EmailApp />}
-          {activeModule === 'settings' && <SettingsApp />}
-          {activeModule === 'superadmin' && user?.role === 'superadmin' && <SuperAdminApp />}
-          {activeModule === 'superadmin' && user?.role !== 'superadmin' && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '16px' }}>
-              <Shield size={48} color="#ef4444" />
-              <h2 style={{ color: '#0f172a', margin: 0 }}>Acesso Restrito</h2>
-              <p style={{ color: '#64748b' }}>Esta área é exclusiva para SuperAdmins.</p>
+        <div className="sap-main">
+          {activeModule === 'home' && (
+            <div className="sap-welcome">
+              <h1>Bem-vindo(a), {user?.nome?.split(' ')[0] || 'Utilizador'}</h1>
+              <p>Selecione um módulo no menu à esquerda para começar.</p>
             </div>
           )}
-          {activeModule === 'reunioes' && <ReunioesApp initialMeetingId={meetingIdFromUrl} userName={user?.nome} />}
-          {activeModule === 'data' && <DataApp />}
-          {activeModule === 'afiliados' && <AfiliadosApp />}
-          {activeModule === 'contabilidade' && <FinanceiroApp />}
-          {activeModule === 'agendamento' && <AgendamentoApp />}
 
-          {activeModule === 'chat' && (
-             <div className="odoo-content-area" style={{ padding: 0 }}>
-                <div style={{ width: '100%', height: '100%', maxWidth: '800px', margin: '0 auto', borderLeft: '1px solid var(--odoo-border)', borderRight: '1px solid var(--odoo-border)' }}>
-                  <ChatApp />
+          {activeModule !== 'home' && (
+            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', backgroundColor: '#ffffff' }}>
+              {activeModule === 'hr' && <HrApp />}
+              {activeModule === 'crm' && <CrmApp />}
+              {activeModule === 'auto' && <AutomationApp />}
+              {activeModule === 'wa' && <WhatsAppChatApp />}
+              {activeModule === 'kb' && <KnowledgeBaseApp />}
+              {activeModule === 'email' && <EmailApp />}
+              {activeModule === 'settings' && <SettingsApp />}
+              {activeModule === 'superadmin' && user?.role === 'superadmin' && <SuperAdminApp />}
+              {activeModule === 'superadmin' && user?.role !== 'superadmin' && (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '16px' }}>
+                  <Shield size={48} color="#BB0000" />
+                  <h2 style={{ color: '#1D2D3E', margin: 0 }}>Acesso Restrito</h2>
+                  <p style={{ color: '#5B738B' }}>Esta área é exclusiva para SuperAdmins.</p>
                 </div>
-             </div>
+              )}
+              {activeModule === 'reunioes' && <ReunioesApp initialMeetingId={meetingIdFromUrl} userName={user?.nome} />}
+              {activeModule === 'data' && <DataApp />}
+              {activeModule === 'afiliados' && <AfiliadosApp />}
+              {activeModule === 'contabilidade' && <FinanceiroApp />}
+              {activeModule === 'agendamento' && <AgendamentoApp />}
+
+              {activeModule === 'chat' && (
+                 <div className="odoo-content-area" style={{ padding: 0 }}>
+                    <div style={{ width: '100%', height: '100%', maxWidth: '800px', margin: '0 auto', borderLeft: '1px solid var(--odoo-border)', borderRight: '1px solid var(--odoo-border)' }}>
+                      <ChatApp />
+                    </div>
+                 </div>
+              )}
+            </div>
           )}
         </div>
-      )}
-
+      </div>
     </div>
   );
 }

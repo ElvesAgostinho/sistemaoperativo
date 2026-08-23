@@ -10,14 +10,14 @@ const MENSAGENS_PENDENTE = [
   'A subscrição da sua empresa está pendente ou suspensa. Contacte o suporte.'
 ];
 
-const FONT_DISPLAY = "'Manrope', 'Segoe UI', sans-serif";
-const FONT_BODY = "'IBM Plex Sans', 'Segoe UI', sans-serif";
-const ACCENT = '#017E84';
-const ACCENT_HOVER = '#016368';
-const ACCENT_SOFT = '#E3F3F1';
-const INK = '#16211F';
-const INK_MUTED = '#5B6B67';
-const BORDER = '#E2E8E6';
+const FONT_DISPLAY = "'Roboto', 'Segoe UI', sans-serif";
+const FONT_BODY = "'Roboto', 'Segoe UI', sans-serif";
+const ACCENT = '#0854A0';
+const ACCENT_HOVER = '#063E78';
+const ACCENT_SOFT = '#E4EDF7';
+const INK = '#1D2D3E';
+const INK_MUTED = '#5B738B';
+const BORDER = '#D5D7DA';
 
 interface AuthScreenProps {
   onLogin: (user: any, token: string, refreshToken?: string) => void;
@@ -94,12 +94,12 @@ export default function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
 
   if (pendingMessage) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', width: '100vw', backgroundColor: '#FAFCFB', fontFamily: FONT_BODY, padding: '24px' }}>
-        <div style={{ width: '100%', maxWidth: '420px', textAlign: 'center', backgroundColor: 'white', border: `1px solid ${BORDER}`, borderRadius: '16px', padding: '44px 36px', boxShadow: '0 4px 24px rgba(15,23,20,0.06)' }}>
-          <div style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: ACCENT_SOFT, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
-            <Clock size={30} color={ACCENT} />
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', width: '100vw', backgroundColor: '#F5F6F7', fontFamily: FONT_BODY, padding: '24px' }}>
+        <div style={{ width: '100%', maxWidth: '420px', textAlign: 'center', backgroundColor: 'white', border: `1px solid ${BORDER}`, padding: '44px 36px' }}>
+          <div style={{ width: '56px', height: '56px', borderRadius: '2px', backgroundColor: ACCENT_SOFT, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+            <Clock size={28} color={ACCENT} />
           </div>
-          <h2 style={{ fontFamily: FONT_DISPLAY, fontSize: '21px', fontWeight: 800, color: INK, margin: '0 0 10px 0' }}>
+          <h2 style={{ fontFamily: FONT_DISPLAY, fontSize: '19px', fontWeight: 700, color: INK, margin: '0 0 10px 0' }}>
             Conta a aguardar aprovação
           </h2>
           <p style={{ color: INK_MUTED, fontSize: '14px', lineHeight: 1.6, margin: '0 0 28px 0' }}>
@@ -107,7 +107,7 @@ export default function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
           </p>
           <button
             onClick={() => { setPendingMessage(''); setPassword(''); }}
-            style={{ padding: '11px 22px', backgroundColor: ACCENT, color: 'white', border: 'none', borderRadius: '10px', fontSize: '13.5px', fontWeight: 700, fontFamily: FONT_BODY, cursor: 'pointer' }}
+            style={{ padding: '10px 22px', backgroundColor: ACCENT, color: 'white', border: 'none', borderRadius: '2px', fontSize: '13.5px', fontWeight: 700, fontFamily: FONT_BODY, cursor: 'pointer' }}
           >
             Voltar ao login
           </button>
@@ -117,12 +117,12 @@ export default function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
   }
 
   const inputStyle: React.CSSProperties = {
-    width: '100%', padding: '12px 16px 12px 46px', border: `1px solid ${BORDER}`, borderRadius: '10px',
-    fontSize: '14px', outline: 'none', transition: 'border-color 0.15s, background 0.15s',
-    boxSizing: 'border-box', fontFamily: FONT_BODY, background: '#FAFCFB', color: INK
+    width: '100%', padding: '11px 16px 11px 46px', border: `1px solid ${BORDER}`, borderRadius: '2px',
+    fontSize: '14px', outline: 'none', transition: 'border-color 0.15s',
+    boxSizing: 'border-box', fontFamily: FONT_BODY, background: '#FFFFFF', color: INK
   };
-  const focusIn = (e: React.FocusEvent<HTMLInputElement>) => { e.target.style.borderColor = ACCENT; e.target.style.background = '#FFFFFF'; };
-  const focusOut = (e: React.FocusEvent<HTMLInputElement>) => { e.target.style.borderColor = BORDER; e.target.style.background = '#FAFCFB'; };
+  const focusIn = (e: React.FocusEvent<HTMLInputElement>) => { e.target.style.borderColor = ACCENT; };
+  const focusOut = (e: React.FocusEvent<HTMLInputElement>) => { e.target.style.borderColor = BORDER; };
   const labelStyle: React.CSSProperties = { display: 'block', fontSize: '11.5px', fontWeight: 700, letterSpacing: '0.03em', textTransform: 'uppercase', color: INK_MUTED, marginBottom: '8px' };
 
   return (
@@ -130,35 +130,32 @@ export default function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
 
       <button
         onClick={onBack}
-        style={{ position: 'absolute', top: '24px', left: '24px', display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', fontWeight: 600, fontFamily: FONT_BODY, cursor: 'pointer', padding: '10px 18px', borderRadius: '10px', transition: 'all 0.2s', zIndex: 10, fontSize: '13.5px' }}
-        onMouseOver={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.2)'; }}
-        onMouseOut={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; }}
+        style={{ position: 'absolute', top: '24px', left: '24px', display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.25)', color: 'white', fontWeight: 600, fontFamily: FONT_BODY, cursor: 'pointer', padding: '9px 16px', borderRadius: '2px', transition: 'background-color 0.15s', zIndex: 10, fontSize: '13.5px' }}
+        onMouseOver={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.18)'; }}
+        onMouseOut={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
       >
         <ArrowLeft size={16} />
         Início
       </button>
 
       {/* Lado Esquerdo - Branding */}
-      <div style={{ flex: 1, position: 'relative', background: '#0F1917', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '60px', paddingTop: '110px', color: 'white', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '420px', height: '420px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(1,126,132,0.35) 0%, rgba(0,0,0,0) 70%)', filter: 'blur(40px)' }}></div>
-        <div style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '480px', height: '480px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(183,121,31,0.15) 0%, rgba(0,0,0,0) 70%)', filter: 'blur(40px)' }}></div>
-
+      <div style={{ flex: 1, position: 'relative', background: '#354A5E', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '60px', paddingTop: '110px', color: 'white', overflow: 'hidden' }}>
         <div style={{ zIndex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '44px' }}>
-            <LogoMark size={44} />
-            <span style={{ fontFamily: FONT_DISPLAY, fontSize: '26px', fontWeight: 800, letterSpacing: '-0.01em', color: 'white' }}>BusinessOS</span>
+            <LogoMark size={40} />
+            <span style={{ fontFamily: FONT_DISPLAY, fontSize: '22px', fontWeight: 700, color: 'white' }}>BusinessOS</span>
           </div>
 
-          <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: '42px', fontWeight: 900, lineHeight: 1.15, marginBottom: '20px', maxWidth: '480px', letterSpacing: '-0.02em' }}>
+          <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: '36px', fontWeight: 700, lineHeight: 1.2, marginBottom: '20px', maxWidth: '480px' }}>
             O seu negócio,<br />
-            <span style={{ color: '#3ECAC4' }}>numa só plataforma.</span>
+            <span style={{ color: '#9CC3E8' }}>numa só plataforma.</span>
           </h1>
-          <p style={{ fontSize: '15.5px', color: '#A9BAB5', lineHeight: 1.7, maxWidth: '440px' }}>
+          <p style={{ fontSize: '15px', color: '#C6D2DD', lineHeight: 1.7, maxWidth: '440px' }}>
             Faça a gestão de vendas, recursos humanos, financeiro, suporte omnicanal e inteligência artificial num ambiente seguro e integrado.
           </p>
         </div>
 
-        <div style={{ zIndex: 1, fontSize: '12.5px', color: '#6E827D' }}>
+        <div style={{ zIndex: 1, fontSize: '12.5px', color: '#8CA0B3' }}>
           Feito para a realidade das empresas angolanas.
         </div>
       </div>
@@ -168,7 +165,7 @@ export default function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
         <div style={{ width: '100%', maxWidth: '420px', margin: 'auto', padding: '20px 0' }}>
 
           <div style={{ marginBottom: '32px' }}>
-            <h2 style={{ fontFamily: FONT_DISPLAY, fontSize: '26px', fontWeight: 800, color: INK, margin: '0 0 8px 0', letterSpacing: '-0.01em' }}>
+            <h2 style={{ fontFamily: FONT_DISPLAY, fontSize: '22px', fontWeight: 700, color: INK, margin: '0 0 8px 0' }}>
               {isLogin ? 'Bem-vindo de volta' : 'Crie a sua conta'}
             </h2>
             <p style={{ color: INK_MUTED, margin: 0, fontSize: '14px' }}>
@@ -177,13 +174,13 @@ export default function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
           </div>
 
           {error && (
-            <div style={{ padding: '12px 16px', backgroundColor: '#FBEAEA', borderLeft: '3px solid #B23A3A', color: '#B23A3A', borderRadius: '8px', fontSize: '13.5px', marginBottom: '22px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ padding: '12px 16px', backgroundColor: '#F6DEDE', borderLeft: '3px solid #BB0000', color: '#BB0000', fontSize: '13.5px', marginBottom: '22px', display: 'flex', alignItems: 'center', gap: '10px' }}>
               <ShieldCheck size={17} /> {error}
             </div>
           )}
 
           {success && (
-            <div style={{ padding: '12px 16px', backgroundColor: '#E7F5EC', borderLeft: '3px solid #1F7A45', color: '#1F7A45', borderRadius: '8px', fontSize: '13.5px', marginBottom: '22px' }}>
+            <div style={{ padding: '12px 16px', backgroundColor: '#DCEEE2', borderLeft: '3px solid #107E3E', color: '#107E3E', fontSize: '13.5px', marginBottom: '22px' }}>
               {success}
             </div>
           )}
@@ -196,14 +193,14 @@ export default function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
                   <button
                     type="button"
                     onClick={() => setIsCompany(false)}
-                    style={{ flex: 1, padding: '10px', borderRadius: '10px', border: isCompany ? `1px solid ${BORDER}` : `2px solid ${ACCENT}`, background: isCompany ? '#FAFCFB' : ACCENT_SOFT, color: isCompany ? INK_MUTED : ACCENT, fontWeight: 700, fontFamily: FONT_BODY, fontSize: '13px', cursor: 'pointer', transition: 'all 0.15s' }}
+                    style={{ flex: 1, padding: '10px', borderRadius: '2px', border: isCompany ? `1px solid ${BORDER}` : `2px solid ${ACCENT}`, background: isCompany ? '#FFFFFF' : ACCENT_SOFT, color: isCompany ? INK_MUTED : ACCENT, fontWeight: 700, fontFamily: FONT_BODY, fontSize: '13px', cursor: 'pointer' }}
                   >
                     Sou Funcionário
                   </button>
                   <button
                     type="button"
                     onClick={() => setIsCompany(true)}
-                    style={{ flex: 1, padding: '10px', borderRadius: '10px', border: !isCompany ? `1px solid ${BORDER}` : `2px solid ${ACCENT}`, background: !isCompany ? '#FAFCFB' : ACCENT_SOFT, color: !isCompany ? INK_MUTED : ACCENT, fontWeight: 700, fontFamily: FONT_BODY, fontSize: '13px', cursor: 'pointer', transition: 'all 0.15s' }}
+                    style={{ flex: 1, padding: '10px', borderRadius: '2px', border: !isCompany ? `1px solid ${BORDER}` : `2px solid ${ACCENT}`, background: !isCompany ? '#FFFFFF' : ACCENT_SOFT, color: !isCompany ? INK_MUTED : ACCENT, fontWeight: 700, fontFamily: FONT_BODY, fontSize: '13px', cursor: 'pointer' }}
                   >
                     Criar Empresa
                   </button>
@@ -213,7 +210,7 @@ export default function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
                   <div>
                     <label style={labelStyle}>Nome da sua Empresa</label>
                     <div style={{ position: 'relative' }}>
-                      <div style={{ position: 'absolute', top: '50%', left: '16px', transform: 'translateY(-50%)', color: '#8B9B97' }}><ShieldCheck size={17} /></div>
+                      <div style={{ position: 'absolute', top: '50%', left: '16px', transform: 'translateY(-50%)', color: '#8996A3' }}><ShieldCheck size={17} /></div>
                       <input
                         type="text" required placeholder="Ex: Apple Angola"
                         value={empresaNome} onChange={e => setEmpresaNome(e.target.value)}
@@ -227,7 +224,7 @@ export default function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
                   <div>
                     <label style={labelStyle}>Código de Convite da Empresa</label>
                     <div style={{ position: 'relative' }}>
-                      <div style={{ position: 'absolute', top: '50%', left: '16px', transform: 'translateY(-50%)', color: '#8B9B97' }}><Lock size={17} /></div>
+                      <div style={{ position: 'absolute', top: '50%', left: '16px', transform: 'translateY(-50%)', color: '#8996A3' }}><Lock size={17} /></div>
                       <input
                         type="text" required placeholder="Ex: EMP-A1B2C3"
                         value={codigoConvite} onChange={e => setCodigoConvite(e.target.value.toUpperCase())}
@@ -240,7 +237,7 @@ export default function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
                 <div>
                   <label style={labelStyle}>Seu Nome Completo</label>
                   <div style={{ position: 'relative' }}>
-                    <div style={{ position: 'absolute', top: '50%', left: '16px', transform: 'translateY(-50%)', color: '#8B9B97' }}><User size={17} /></div>
+                    <div style={{ position: 'absolute', top: '50%', left: '16px', transform: 'translateY(-50%)', color: '#8996A3' }}><User size={17} /></div>
                     <input
                       type="text" required placeholder="Ex: João Silva"
                       value={nome} onChange={e => setNome(e.target.value)}
@@ -254,7 +251,7 @@ export default function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
             <div>
               <label style={labelStyle}>Email Profissional</label>
               <div style={{ position: 'relative' }}>
-                <div style={{ position: 'absolute', top: '50%', left: '16px', transform: 'translateY(-50%)', color: '#8B9B97' }}><Mail size={17} /></div>
+                <div style={{ position: 'absolute', top: '50%', left: '16px', transform: 'translateY(-50%)', color: '#8996A3' }}><Mail size={17} /></div>
                 <input
                   type="email" required placeholder="nome@empresa.com"
                   value={email} onChange={e => setEmail(e.target.value)}
@@ -277,7 +274,7 @@ export default function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
                 )}
               </div>
               <div style={{ position: 'relative' }}>
-                <div style={{ position: 'absolute', top: '50%', left: '16px', transform: 'translateY(-50%)', color: '#8B9B97' }}><Lock size={17} /></div>
+                <div style={{ position: 'absolute', top: '50%', left: '16px', transform: 'translateY(-50%)', color: '#8996A3' }}><Lock size={17} /></div>
                 <input
                   type="password" required placeholder="••••••••"
                   value={password} onChange={e => setPassword(e.target.value)}
@@ -298,7 +295,7 @@ export default function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
             <button
               type="submit"
               disabled={loading}
-              style={{ padding: '13px', backgroundColor: ACCENT, color: 'white', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 700, fontFamily: FONT_BODY, cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', transition: 'background-color 0.15s', marginTop: '6px' }}
+              style={{ padding: '12px', backgroundColor: ACCENT, color: 'white', border: 'none', borderRadius: '2px', fontSize: '14px', fontWeight: 700, fontFamily: FONT_BODY, cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', transition: 'background-color 0.15s', marginTop: '6px' }}
               onMouseOver={e => { if (!loading) e.currentTarget.style.backgroundColor = ACCENT_HOVER; }}
               onMouseOut={e => { if (!loading) e.currentTarget.style.backgroundColor = ACCENT; }}
             >
