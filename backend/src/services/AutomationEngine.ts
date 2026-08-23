@@ -1,6 +1,6 @@
 import { CrmService } from './CrmService';
 import { KnowledgeBaseService } from './KnowledgeBaseService';
-import { OpenClawService } from './OpenClawService';
+import { AIGatewayService } from './AIGatewayService';
 import { supabase } from '../lib/supabaseClient'; // Service role client
 
 export interface WhatsAppMessage {
@@ -458,7 +458,7 @@ export class AutomationEngine {
 
             case 'AI_REPLY': {
                 // Resposta gerada por IA com contexto da Base de Conhecimento (RAG) —
-                // chamada enxuta ao OpenClawService (OpenClaw primeiro, OpenAI como
+                // chamada enxuta ao AIGatewayService (OpenClaw primeiro, OpenAI como
                 // reserva), não o loop completo do EnterpriseAssistantService (que tem
                 // tools de sistema de ficheiros, Excel, etc. — pesadas demais para uma
                 // resposta pontual num fluxo).
@@ -479,7 +479,7 @@ export class AutomationEngine {
                         ? `Você é um assistente de atendimento ao cliente via WhatsApp. Responda de forma direta, profissional e curta, usando APENAS as informações abaixo da Base de Conhecimento da empresa. Se a informação não estiver lá, diga que não tem essa informação em vez de inventar.\n\n=== BASE DE CONHECIMENTO ===\n${knowledgeContext}`
                         : 'Você é um assistente de atendimento ao cliente via WhatsApp. Responda de forma direta, profissional e curta.';
 
-                    const completion = await OpenClawService.chamarComFallback({
+                    const completion = await AIGatewayService.chamarComFallback({
                         messages: [
                             { role: 'system', content: systemPrompt },
                             { role: 'user', content: aiPromptTemplate }

@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabaseClient'; // Service role client
 import { aiTools, whatsappCustomerTools, pesquisarBaseConhecimentoTool, executeAITool, WhatsAppToolContext } from './AIToolsService';
-import { OpenClawService } from './OpenClawService';
+import { AIGatewayService } from './AIGatewayService';
 
 const WHATSAPP_CUSTOMER_ROLE = 'cliente (WhatsApp)';
 
@@ -154,7 +154,7 @@ ${hasAgendamento ? `- Marcar, consultar, remarcar e cancelar agendamentos direta
         }
 
         // 4. Chamar a IA — OpenClaw primeiro (mais barato), OpenAI como reserva automática
-        let result = await OpenClawService.chamarComFallback({ messages, tools: toolsForThisChat });
+        let result = await AIGatewayService.chamarComFallback({ messages, tools: toolsForThisChat });
 
         let choice = result.choices[0];
 
@@ -232,7 +232,7 @@ ${hasAgendamento ? `- Marcar, consultar, remarcar e cancelar agendamentos direta
                 updatedMessages.push(msg);
             }
 
-            result = await OpenClawService.chamarComFallback({ messages: updatedMessages, tools: toolsForThisChat });
+            result = await AIGatewayService.chamarComFallback({ messages: updatedMessages, tools: toolsForThisChat });
 
             choice = result.choices[0];
         }

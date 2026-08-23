@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import pdfParse from 'pdf-parse';
 import { getSupabase } from '../lib/supabaseClient';
-import { OpenClawService } from '../services/OpenClawService';
+import { AIGatewayService } from '../services/AIGatewayService';
 
 const router = Router();
 
@@ -114,7 +114,7 @@ router.post('/upload', upload.single('cv'), async (req: Request, res: Response) 
         ${cvText}
         `;
 
-        const response = await OpenClawService.chamarComFallback({
+        const response = await AIGatewayService.chamarComFallback({
             messages: [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: userPrompt }
@@ -184,7 +184,7 @@ router.post('/:id/decisao', async (req: Request, res: Response) => {
         Se for REJEITADO: sê muito educado, agradece, diz que não encaixa perfeitamente e deseja sucesso.
         `;
 
-        const response = await OpenClawService.chamarComFallback({
+        const response = await AIGatewayService.chamarComFallback({
             messages: [{ role: "user", content: systemPrompt }],
             temperature: 0.6
         });

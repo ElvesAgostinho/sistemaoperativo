@@ -7,7 +7,7 @@ import { getSupabase } from '../lib/supabaseClient';
 import { requireAuth } from '../middleware/authMiddleware';
 import { PdfService } from '../services/PdfService';
 import OpenAI from 'openai';
-import { OpenClawService } from '../services/OpenClawService';
+import { AIGatewayService } from '../services/AIGatewayService';
 
 const router = Router();
 const upload = multer({ dest: 'uploads/' });
@@ -177,7 +177,7 @@ Devolve a tua resposta num objeto JSON ESTRITO com o seguinte formato:
                 ],
                 response_format: { type: 'json_object' }
             })
-            : await OpenClawService.chamarComFallback({
+            : await AIGatewayService.chamarComFallback({
                 messages: [
                     { role: 'system', content: systemPrompt },
                     { role: 'user', content: JSON.stringify(sampleData) }

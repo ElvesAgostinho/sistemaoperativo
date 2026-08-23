@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import OpenAI from 'openai';
 import { JitsiService } from './JitsiService';
-import { OpenClawService } from './OpenClawService';
+import { AIGatewayService } from './AIGatewayService';
 
 interface CriarReuniaoInput {
     empresa_id?: string | number | null;
@@ -137,7 +137,7 @@ Responda EXATAMENTE neste formato JSON:
 }
 `;
 
-        const response = await OpenClawService.chamarComFallback({
+        const response = await AIGatewayService.chamarComFallback({
             messages: [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: `Transcrição da reunião:\n\n${transcricao}` }

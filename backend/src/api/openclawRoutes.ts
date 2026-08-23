@@ -2,8 +2,9 @@ import { Router } from 'express';
 
 const router = Router();
 
-// As rotas antigas do OpenClaw foram descontinuadas,
-// visto que o frontend usa a Evolution API para o QR Code
-// e o backend usa WebSockets (OpenClawService) para falar com a IA.
+// Router vazio, mantido só para não quebrar a montagem em index.ts. O
+// OpenClaw foi removido do VPS (ver AIGatewayService.ts) — as respostas de
+// IA passam agora por um gateway compatível com a API da OpenAI (LiteLLM),
+// chamado diretamente por HTTP, sem nenhuma rota própria neste backend.
 
 export default router;

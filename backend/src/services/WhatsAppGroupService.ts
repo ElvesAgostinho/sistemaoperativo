@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabaseClient';
 import { WhatsAppChannelManager } from './WhatsAppChannelManager';
-import { OpenClawService } from './OpenClawService';
+import { AIGatewayService } from './AIGatewayService';
 
 interface IncomingGroupMessage {
     channelId: string;
@@ -115,7 +115,7 @@ privada para mais detalhes, mas não invente preços ou dados que não lhe foram
 Responda SEMPRE em JSON: { "deve_responder": boolean, "resposta": string ou null, "motivo": string curta }`;
 
         try {
-            const response = await OpenClawService.chamarComFallback({
+            const response = await AIGatewayService.chamarComFallback({
                 messages: [
                     { role: 'system', content: systemPrompt },
                     { role: 'user', content: mensagem },
@@ -177,7 +177,7 @@ Responda em JSON:
 Só inclua em "leads" pessoas com intenção de compra real (perguntas de preço, disponibilidade, encomenda,
 entrega, pagamento). Não inclua conversa geral. Se não houver nenhum lead ou reclamação, devolva arrays vazios.`;
 
-        const response = await OpenClawService.chamarComFallback({
+        const response = await AIGatewayService.chamarComFallback({
             messages: [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: `Transcrição do grupo (últimas ${horasAtras}h):\n\n${transcript}` },
