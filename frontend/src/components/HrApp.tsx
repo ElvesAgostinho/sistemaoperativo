@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Upload, Users, FileText, Download, CheckCircle, AlertTriangle, Briefcase, Calendar, Plus, Bot, Trash2, Sun, Search, Lock, Edit2, DollarSign, Star, LayoutGrid, List } from 'lucide-react';
+import { Upload, Users, FileText, Download, CheckCircle, AlertTriangle, Briefcase, Calendar, Plus, Bot, Trash2, Sun, Search, Lock, Edit2, DollarSign, Star, LayoutGrid, List, Copy, X, MessageSquare, Video, PauseCircle, PlayCircle, XCircle, Target, Percent } from 'lucide-react';
 import './HrApp.css';
 
 const authFetch = (url: string, options: any = {}) => { const token = localStorage.getItem('os_auth_token'); const headers = { ...options.headers }; if (token) headers['Authorization'] = `Bearer ${token}`; return fetch(url, { ...options, headers }); };
@@ -387,16 +387,48 @@ export default function HrApp() {
     finally { setIsUploadingDoc(false); }
   };
 
-  // --- Estados de Recrutamento / Triagem ---
+  // --- Estados de Recrutamento / Triagem (ATS) ---
   const [vagas, setVagas] = useState<any[]>([]);
   const [candidaturas, setCandidaturas] = useState<any[]>([]);
   const [showNovaVagaModal, setShowNovaVagaModal] = useState(false);
-  const [novaVaga, setNovaVaga] = useState({ titulo: '', departamento: '', tipo: 'Tempo Inteiro', localizacao: 'Luanda, Angola', descricao: '', criterios: '' });
-  
+  const vagaVazia = { titulo: '', departamento: '', tipo: 'Tempo Inteiro', localizacao: 'Luanda, Angola', descricao: '', criterios: '', salario_min: '', salario_max: '', numero_vagas: 1 };
+  const [novaVaga, setNovaVaga] = useState<any>(vagaVazia);
+  const [editingVagaId, setEditingVagaId] = useState<number | null>(null);
+  const [linkVagaCriada, setLinkVagaCriada] = useState<string | null>(null);
+
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [novaCandidatura, setNovaCandidatura] = useState({ vaga_id: '', nome: '', email: '', telefone: '' });
   const [showNovaCandidaturaModal, setShowNovaCandidaturaModal] = useState(false);
   const [isProcessingCv, setIsProcessingCv] = useState(false);
+
+  const [pipelineVagaFiltro, setPipelineVagaFiltro] = useState('');
+  const [pipelineBusca, setPipelineBusca] = useState('');
+  const [candidatoDetalhe, setCandidatoDetalhe] = useState<any>(null);
+  const [novaNotaTexto, setNovaNotaTexto] = useState('');
+  const [entrevistaDataHora, setEntrevistaDataHora] = useState('');
+  const [isAgendandoEntrevista, setIsAgendandoEntrevista] = useState(false);
+  const [candidateBulkVagaId, setCandidateBulkVagaId] = useState('');
+
+  const ETAPAS_PIPELINE: { key: string; label: string; color: string }[] = [
+    { key: 'Novo', label: 'Novo', color: '#8B9B97' },
+    { key: 'Triagem', label: 'Em Triagem', color: '#2E5C8A' },
+    { key: 'Entrevista', label: 'Entrevista', color: '#B7791F' },
+    { key: 'Oferta', label: 'Oferta', color: '#017E84' },
+    { key: 'Contratado', label: 'Contratado', color: '#1F7A45' },
+    { key: 'Rejeitado', label: 'Rejeitado', color: '#B23A3A' },
+  ];
+
+  const recKpiVagasAbertas = vagas.filter(v => v.estado === 'Aberta').length;
+  const recKpiEmTriagem = candidaturas.filter(c => c.etapa === 'Triagem').length;
+  const recKpiEntrevistas = candidaturas.filter(c => c.etapa === 'Entrevista').length;
+  const recDecididos = candidaturas.filter(c => c.etapa === 'Contratado' || c.etapa === 'Rejeitado').length;
+  const recTaxaAprovacao = recDecididos > 0 ? Math.round((candidaturas.filter(c => c.etapa === 'Contratado').length / recDecididos) * 100) : 0;
+
+  const candidaturasFiltradas = candidaturas.filter(c => {
+    if (pipelineVagaFiltro && String(c.vaga_id) !== pipelineVagaFiltro) return false;
+    if (pipelineBusca && !String(c.nome || '').toLowerCase().includes(pipelineBusca.toLowerCase())) return false;
+    return true;
+  });
 
   const fetchVagas = async () => {
     try {
@@ -416,7 +448,11 @@ export default function HrApp() {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
       });
       const dataCand = await resCand.json();
-      if (dataCand.success) setCandidaturas(dataCand.candidaturas || []);
+      if (dataCand.success) {
+        setCandidaturas(dataCand.candidaturas || []);
+        // Mantém a ficha aberta sincronizada com os dados mais recentes.
+        setCandidatoDetalhe((prev: any) => prev ? (dataCand.candidaturas || []).find((c: any) => c.id === prev.id) || null : null);
+      }
     } catch (err) { console.error(err); }
   };
 
@@ -431,21 +467,54 @@ export default function HrApp() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('os_auth_token');
-      await fetch(import.meta.env.VITE_API_URL + '/api/recrutamento/vagas', {
-        method: 'POST',
+      const isEdit = editingVagaId !== null;
+      const res = await fetch(import.meta.env.VITE_API_URL + `/api/recrutamento/vagas${isEdit ? `/${editingVagaId}` : ''}`, {
+        method: isEdit ? 'PUT' : 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(novaVaga)
       });
-      setNovaVaga({ titulo: '', departamento: '', tipo: 'Tempo Inteiro', localizacao: 'Luanda, Angola', descricao: '', criterios: '' });
+      const data = await res.json();
+      if (!data.success) return alert('Erro: ' + data.error);
+      setNovaVaga(vagaVazia);
+      setEditingVagaId(null);
       setShowNovaVagaModal(false);
       fetchVagas();
-    } catch (err) { alert('Erro ao criar vaga'); }
+      if (!isEdit && data.linkPublico) setLinkVagaCriada(data.linkPublico);
+    } catch (err) { alert('Erro ao guardar vaga'); }
+  };
+
+  const handleEditarVaga = (v: any) => {
+    setEditingVagaId(v.id);
+    setNovaVaga({
+      titulo: v.titulo || '', departamento: v.departamento || '', tipo: v.tipo || 'Tempo Inteiro',
+      localizacao: v.localizacao || '', descricao: v.descricao || '', criterios: v.criterios || '',
+      salario_min: v.salario_min || '', salario_max: v.salario_max || '', numero_vagas: v.numero_vagas || 1
+    });
+    setShowNovaVagaModal(true);
+  };
+
+  const handleMudarEstadoVaga = async (id: number, estado: string) => {
+    try {
+      const token = localStorage.getItem('os_auth_token');
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/recrutamento/vagas/${id}/estado`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado })
+      });
+      const data = await res.json();
+      if (!data.success) return alert('Erro: ' + data.error);
+      fetchVagas();
+    } catch (err) { alert('Erro ao atualizar a vaga'); }
+  };
+
+  const copiarLink = (link: string) => {
+    navigator.clipboard.writeText(link).then(() => alert('Link copiado! Já pode partilhar a vaga.'));
   };
 
   const handleUploadCv = async (e: any) => {
     e.preventDefault();
     if (!cvFile || !novaCandidatura.vaga_id) return alert('Selecione uma vaga e um CV (PDF).');
-    
+
     setIsProcessingCv(true);
     const formData = new FormData();
     formData.append('cv', cvFile);
@@ -478,26 +547,65 @@ export default function HrApp() {
     }
   };
 
-  const handleDecisaoCandidatura = async (id: number, estado: string) => {
-    if (!window.confirm(`Tem a certeza que deseja marcar como ${estado}? O candidato será notificado.`)) return;
+  const handleAvancarEtapa = async (id: number, etapa: string, motivo_rejeicao?: string) => {
     try {
       const token = localStorage.getItem('os_auth_token');
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/recrutamento/${id}/decisao`, {
-        method: 'POST',
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/recrutamento/candidaturas/${id}/etapa`, {
+        method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ estado })
+        body: JSON.stringify({ etapa, motivo_rejeicao })
       });
       const data = await res.json();
-      if (data.success) {
-        alert(`Sucesso! Mensagem enviada gerada pela IA:\n\n${data.feedbackGerado}`);
-        fetchCandidaturas();
-      }
-    } catch (err) {
-      alert('Erro ao tomar decisão');
+      if (!data.success) return alert('Erro: ' + data.error);
+      if (data.feedbackGerado) alert(`Candidato notificado por email. Mensagem enviada:\n\n${data.feedbackGerado}`);
+      fetchCandidaturas();
+    } catch (err) { alert('Erro ao mover candidato'); }
+  };
+
+  const handleRejeitarCandidato = (id: number) => {
+    const motivo = window.prompt('Motivo da rejeição (opcional, fica registado internamente):') || undefined;
+    if (window.confirm('Confirma a rejeição? O candidato recebe um email de feedback automaticamente.')) {
+      handleAvancarEtapa(id, 'Rejeitado', motivo);
     }
   };
 
+  const handleAgendarEntrevista = async (id: number) => {
+    if (!entrevistaDataHora) return alert('Escolha a data e hora da entrevista.');
+    setIsAgendandoEntrevista(true);
+    try {
+      const token = localStorage.getItem('os_auth_token');
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/recrutamento/candidaturas/${id}/agendar-entrevista`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data_hora: entrevistaDataHora })
+      });
+      const data = await res.json();
+      if (!data.success) return alert('Erro: ' + data.error);
+      alert('Entrevista agendada! Foi criada uma reunião real com sala de videochamada e o candidato foi notificado por email.');
+      setEntrevistaDataHora('');
+      fetchCandidaturas();
+    } catch (err) { alert('Erro ao agendar entrevista'); }
+    finally { setIsAgendandoEntrevista(false); }
+  };
+
+  const handleAdicionarNota = async (id: number) => {
+    if (!novaNotaTexto.trim()) return;
+    try {
+      const token = localStorage.getItem('os_auth_token');
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/recrutamento/candidaturas/${id}/notas`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nota: novaNotaTexto })
+      });
+      const data = await res.json();
+      if (!data.success) return alert('Erro: ' + data.error);
+      setNovaNotaTexto('');
+      fetchCandidaturas();
+    } catch (err) { alert('Erro ao adicionar nota'); }
+  };
+
   const handleContratarCandidato = (c: any) => {
+    handleAvancarEtapa(c.id, 'Contratado');
     setNewEmployee({
       nome: c.nome || '', genero: 'Masculino', data_nascimento: '', estado_civil: 'Solteiro(a)', nacionalidade: 'Angolana', numero_dependentes: 0,
       endereco: '', telefone: c.telefone || '', email: c.email || '', contato_emergencia: '',
@@ -662,10 +770,12 @@ export default function HrApp() {
 
   const handleImportCandidates = async () => {
     if (!candidateBulkFile) return;
+    if (!candidateBulkVagaId) return alert('Escolha a vaga de destino antes de importar.');
     setIsImportingCandidates(true);
     setCandidateBulkResult(null);
     const formData = new FormData();
     formData.append('loteExcel', candidateBulkFile);
+    formData.append('vaga_id', candidateBulkVagaId);
     try {
       const token = localStorage.getItem('os_auth_token');
       const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/candidates-bulk', { 
@@ -676,6 +786,7 @@ export default function HrApp() {
       const data = await res.json();
       setCandidateBulkResult(data);
       setCandidateBulkFile(null);
+      if (data.success && data.total_criado > 0) fetchCandidaturas();
     } catch { alert('Erro de comunicação com o servidor.'); }
     finally { setIsImportingCandidates(false); }
   };
@@ -1985,17 +2096,17 @@ export default function HrApp() {
         )}
 
 
-        {/* ================= RECRUTAMENTO E TRIAGEM (IA) ================= */}
+        {/* ================= RECRUTAMENTO E TRIAGEM (IA) — ATS ================= */}
         {activeTab === 'recrutamento' && (
-          <div className="odoo-form-sheet" style={{ maxWidth: '1200px' }}>
-            
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', alignItems: 'center' }}>
+          <div className="odoo-form-sheet" style={{ maxWidth: '1400px' }}>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', alignItems: 'center' }}>
               <div>
                 <h2 style={{ fontSize: '22px', color: 'var(--odoo-text-dark)', margin: '0 0 4px 0' }}>Triagem de Candidatos (IA)</h2>
-                <p style={{ fontSize: '13px', color: 'var(--odoo-text-muted)', margin: 0 }}>Submeta o CV em PDF. A Inteligência Artificial avalia os candidatos mediante os Critérios da Vaga.</p>
+                <p style={{ fontSize: '13px', color: 'var(--odoo-text-muted)', margin: 0 }}>Publique a vaga, receba candidaturas com CV real e pontuação por IA, e conduza o processo até à contratação.</p>
               </div>
               <div style={{ display: 'flex', gap: '12px' }}>
-                <button className="odoo-btn" onClick={() => setShowNovaVagaModal(true)}>
+                <button className="odoo-btn" onClick={() => { setEditingVagaId(null); setNovaVaga(vagaVazia); setShowNovaVagaModal(true); }}>
                   + CRIAR VAGA
                 </button>
                 <button className="odoo-btn odoo-btn-primary" onClick={() => setShowNovaCandidaturaModal(true)}>
@@ -2004,22 +2115,49 @@ export default function HrApp() {
               </div>
             </div>
 
+            <div className="rec-kpi-grid">
+              <div className="rec-kpi-card">
+                <div className="rec-kpi-icon"><Target size={16} /></div>
+                <div className="rec-kpi-value">{recKpiVagasAbertas}</div>
+                <div className="rec-kpi-label">Vagas Abertas</div>
+              </div>
+              <div className="rec-kpi-card">
+                <div className="rec-kpi-icon"><Search size={16} /></div>
+                <div className="rec-kpi-value">{recKpiEmTriagem}</div>
+                <div className="rec-kpi-label">Candidatos em Triagem</div>
+              </div>
+              <div className="rec-kpi-card">
+                <div className="rec-kpi-icon"><Video size={16} /></div>
+                <div className="rec-kpi-value">{recKpiEntrevistas}</div>
+                <div className="rec-kpi-label">Entrevistas Agendadas</div>
+              </div>
+              <div className="rec-kpi-card">
+                <div className="rec-kpi-icon"><Percent size={16} /></div>
+                <div className="rec-kpi-value">{recTaxaAprovacao}%</div>
+                <div className="rec-kpi-label">Taxa de Aprovação</div>
+              </div>
+            </div>
+
             {/* --- Importação em Massa via Excel --- */}
-            <div style={{ marginBottom: '32px', padding: '20px', border: '1px dashed var(--odoo-border)', borderRadius: '8px', backgroundColor: '#f8f9fc' }}>
+            <div style={{ marginBottom: '28px', padding: '20px', border: '1px dashed var(--odoo-border)', borderRadius: '8px', backgroundColor: '#f8f9fc' }}>
               <h3 style={{ margin: '0 0 8px 0', fontSize: '15px', color: 'var(--odoo-text-dark)', display: 'flex', alignItems: 'center', gap: '8px' }}><FileText size={18} /> Importar Candidatos em Massa (Excel)</h3>
               <p style={{ margin: '0 0 16px 0', fontSize: '12px', color: 'var(--odoo-text-muted)' }}>
-                Ideal para feiras de emprego, candidaturas espontâneas em massa ou exportações de LinkedIn. Os candidatos são criados no Pipeline de CRM com fase "Nova Lead".
+                Ideal para feiras de emprego, candidaturas espontâneas em massa ou exportações de LinkedIn. Os candidatos entram diretamente no pipeline abaixo, na vaga escolhida.
               </p>
               <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
                 <button className="odoo-btn" onClick={() => window.location.href=import.meta.env.VITE_API_URL + '/api/hr/candidates-template'} style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <Download size={14} /> Baixar Template
                 </button>
+                <select className="odoo-input" style={{ fontSize: '12px', width: 'auto', padding: '8px 10px' }} value={candidateBulkVagaId} onChange={e => setCandidateBulkVagaId(e.target.value)}>
+                  <option value="">Vaga de destino...</option>
+                  {vagas.map(v => <option key={v.id} value={v.id}>{v.titulo}</option>)}
+                </select>
                 <input type="file" accept=".xlsx,.xls" style={{ fontSize: '12px' }} onChange={e => setCandidateBulkFile(e.target.files?.[0] || null)} />
                 <button
                   className="odoo-btn odoo-btn-primary"
                   onClick={handleImportCandidates}
-                  disabled={!candidateBulkFile || isImportingCandidates}
-                  style={{ backgroundColor: !candidateBulkFile ? '#ccc' : undefined, display: 'flex', alignItems: 'center', gap: '4px' }}
+                  disabled={!candidateBulkFile || !candidateBulkVagaId || isImportingCandidates}
+                  style={{ backgroundColor: (!candidateBulkFile || !candidateBulkVagaId) ? '#ccc' : undefined, display: 'flex', alignItems: 'center', gap: '4px' }}
                 >
                   {isImportingCandidates ? 'A IMPORTAR...' : <><Upload size={14} /> IMPORTAR CANDIDATOS</>}
                 </button>
@@ -2038,122 +2176,217 @@ export default function HrApp() {
               )}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: '24px' }}>
               {/* Lado Esquerdo: Vagas */}
               <div>
-                <h3 style={{ fontSize: '15px', color: 'var(--odoo-text-dark)', marginBottom: '16px' }}>Vagas Abertas</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {vagas.length === 0 ? (
-                    <div style={{ padding: '20px', textAlign: 'center', backgroundColor: '#f8f9fa', border: '1px dashed #ced4da', borderRadius: '6px', fontSize: '13px', color: 'var(--odoo-text-muted)' }}>
-                      Nenhuma vaga aberta. Crie uma para começar a receber candidaturas.
+                <h3 style={{ fontSize: '15px', color: 'var(--odoo-text-dark)', marginBottom: '16px' }}>Vagas</h3>
+                {vagas.length === 0 ? (
+                  <div style={{ padding: '20px', textAlign: 'center', backgroundColor: '#f8f9fa', border: '1px dashed #ced4da', borderRadius: '6px', fontSize: '13px', color: 'var(--odoo-text-muted)' }}>
+                    Nenhuma vaga criada. Crie uma para gerar o link público de candidatura.
+                  </div>
+                ) : vagas.map(v => (
+                  <div key={v.id} className="rec-vaga-card">
+                    <div className="rec-vaga-top">
+                      <div className="rec-vaga-title">{v.titulo}</div>
+                      <span className={`rec-vaga-badge ${v.estado === 'Aberta' ? 'aberta' : v.estado === 'Pausada' ? 'pausada' : 'fechada'}`}>{v.estado}</span>
                     </div>
-                  ) : vagas.map(v => (
-                    <div key={v.id} style={{ padding: '16px', backgroundColor: 'white', border: '1px solid var(--odoo-border)', borderRadius: '6px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                      <div style={{ fontWeight: 600, fontSize: '15px', color: 'var(--odoo-teal)', marginBottom: '8px' }}>{v.titulo}</div>
-                      <div style={{ fontSize: '12px', color: 'var(--odoo-text-dark)', backgroundColor: '#f0f4f8', padding: '8px', borderRadius: '4px' }}>
-                        <strong>Critérios:</strong><br/> {v.criterios}
-                      </div>
+                    <div className="rec-vaga-meta">
+                      {v.departamento && <span>{v.departamento}</span>}
+                      {v.localizacao && <span>{v.localizacao}</span>}
+                      {v.tipo && <span>{v.tipo}</span>}
                     </div>
-                  ))}
-                </div>
+                    <div className="rec-vaga-count">{v.total_candidaturas || 0} candidatura{v.total_candidaturas === 1 ? '' : 's'}</div>
+                    <div className="rec-vaga-actions">
+                      <button onClick={() => handleEditarVaga(v)}><Edit2 size={11} /> Editar</button>
+                      <button className="rec-link-btn" onClick={() => copiarLink(v.linkPublico)}><Copy size={11} /> Copiar Link</button>
+                      {v.estado === 'Aberta' && <button onClick={() => handleMudarEstadoVaga(v.id, 'Pausada')}><PauseCircle size={11} /> Pausar</button>}
+                      {v.estado === 'Pausada' && <button onClick={() => handleMudarEstadoVaga(v.id, 'Aberta')}><PlayCircle size={11} /> Reabrir</button>}
+                      {v.estado !== 'Fechada' && <button onClick={() => handleMudarEstadoVaga(v.id, 'Fechada')}><XCircle size={11} /> Fechar</button>}
+                    </div>
+                  </div>
+                ))}
               </div>
 
-              {/* Lado Direito: Candidaturas */}
+              {/* Lado Direito: Pipeline (Kanban) */}
               <div>
-                <h3 style={{ fontSize: '15px', color: 'var(--odoo-text-dark)', marginBottom: '16px' }}>Candidaturas Recentes</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  {candidaturas.length === 0 ? (
-                    <div style={{ padding: '40px', textAlign: 'center', backgroundColor: '#f8f9fa', border: '1px dashed #ced4da', borderRadius: '6px', fontSize: '13px', color: 'var(--odoo-text-muted)' }}>
-                      Sem candidaturas para mostrar. Submeta um CV para a IA analisar.
-                    </div>
-                  ) : candidaturas.map(c => {
-                    let parecer: any = {};
-                    try {
-                      parecer = JSON.parse(c.ai_parecer || '{}');
-                    } catch(e) {
-                      console.error("JSON parse error on ai_parecer", e);
-                    }
-                    return (
-                      <div key={c.id} style={{ padding: '16px', backgroundColor: 'white', border: '1px solid var(--odoo-border)', borderRadius: '6px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-                        
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                          <div>
-                            <div style={{ fontWeight: 600, fontSize: '16px', color: 'var(--odoo-text-dark)' }}>{c.nome}</div>
-                            <div style={{ fontSize: '12px', color: 'var(--odoo-text-muted)' }}>{c.email} | {c.telefone}</div>
-                            <div style={{ fontSize: '12px', color: 'var(--odoo-teal)', marginTop: '4px', fontWeight: 500 }}>Vaga: {c.vaga_titulo}</div>
-                          </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                            <div style={{ fontSize: '24px', fontWeight: 700, color: c.ai_score >= 70 ? '#28a745' : c.ai_score >= 40 ? '#fd7e14' : '#dc3545' }}>
-                              {c.ai_score}/100
-                            </div>
-                            <div style={{ fontSize: '10px', color: 'var(--odoo-text-muted)', textTransform: 'uppercase' }}>Fit Score (IA)</div>
-                          </div>
-                        </div>
-
-                        {Array.isArray(parecer.pontos_fortes) && parecer.pontos_fortes.length > 0 && (
-                          <div style={{ marginTop: '12px', fontSize: '13px' }}>
-                            <strong style={{ color: '#28a745' }}>Pontos Fortes:</strong>
-                            <ul style={{ margin: '4px 0 0 16px', padding: 0, color: 'var(--odoo-text-dark)' }}>
-                              {parecer.pontos_fortes.map((p: string, i: number) => <li key={i}>{p}</li>)}
-                            </ul>
-                          </div>
-                        )}
-                        {Array.isArray(parecer.pontos_fracos) && parecer.pontos_fracos.length > 0 && (
-                          <div style={{ marginTop: '12px', fontSize: '13px' }}>
-                            <strong style={{ color: '#dc3545' }}>Pontos Fracos / Faltas:</strong>
-                            <ul style={{ margin: '4px 0 0 16px', padding: 0, color: 'var(--odoo-text-dark)' }}>
-                              {parecer.pontos_fracos.map((p: string, i: number) => <li key={i}>{p}</li>)}
-                            </ul>
-                          </div>
-                        )}
-
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', paddingTop: '12px', borderTop: '1px solid var(--odoo-border)' }}>
-                          <div>
-                            {c.estado === 'Pendente' ? (
-                              <span style={{ fontSize: '12px', padding: '4px 8px', backgroundColor: '#fff3cd', color: '#856404', borderRadius: '4px', fontWeight: 500 }}>Pendente Decisão</span>
-                            ) : c.estado === 'Aprovado' ? (
-                              <span style={{ fontSize: '12px', padding: '4px 8px', backgroundColor: '#d4edda', color: '#155724', borderRadius: '4px', fontWeight: 500 }}>Aprovado</span>
-                            ) : (
-                              <span style={{ fontSize: '12px', padding: '4px 8px', backgroundColor: '#f8d7da', color: '#721c24', borderRadius: '4px', fontWeight: 500 }}>Rejeitado</span>
-                            )}
-                          </div>
-                          
-                          {c.estado === 'Pendente' && (
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                              <button onClick={() => handleDecisaoCandidatura(c.id, 'Rejeitado')} className="odoo-btn" style={{ fontSize: '12px', padding: '4px 12px', color: '#dc3545', borderColor: '#dc3545' }}>Rejeitar</button>
-                              <button onClick={() => handleDecisaoCandidatura(c.id, 'Aprovado')} className="odoo-btn" style={{ fontSize: '12px', padding: '4px 12px', backgroundColor: '#28a745', color: 'white', border: 'none' }}>Aprovar (Avançar)</button>
-                            </div>
-                          )}
-                          {c.estado === 'Aprovado' && (
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                <button onClick={() => handleContratarCandidato(c)} className="odoo-btn" style={{ fontSize: '12px', padding: '4px 12px', backgroundColor: 'var(--odoo-teal)', color: 'white', border: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    <Briefcase size={14} /> Contratar
-                                </button>
-                            </div>
-                          )}
-                        </div>
-
-                      </div>
-                    );
-                  })}
+                <div className="rec-toolbar">
+                  <select value={pipelineVagaFiltro} onChange={e => setPipelineVagaFiltro(e.target.value)}>
+                    <option value="">Todas as vagas</option>
+                    {vagas.map(v => <option key={v.id} value={v.id}>{v.titulo}</option>)}
+                  </select>
+                  <input type="text" placeholder="Pesquisar candidato..." value={pipelineBusca} onChange={e => setPipelineBusca(e.target.value)} style={{ minWidth: '200px' }} />
                 </div>
-              </div>
 
+                {candidaturas.length === 0 ? (
+                  <div style={{ padding: '40px', textAlign: 'center', backgroundColor: '#f8f9fa', border: '1px dashed #ced4da', borderRadius: '6px', fontSize: '13px', color: 'var(--odoo-text-muted)' }}>
+                    Sem candidaturas para mostrar. Partilhe o link público de uma vaga ou submeta um CV manualmente.
+                  </div>
+                ) : (
+                  <div className="rec-kanban">
+                    {ETAPAS_PIPELINE.map(etapa => {
+                      const lista = candidaturasFiltradas.filter(c => (c.etapa || 'Novo') === etapa.key);
+                      return (
+                        <div key={etapa.key} className="rec-kanban-col">
+                          <div className="rec-kanban-col-head">
+                            <div className="rec-kanban-col-title"><span className="rec-kanban-dot" style={{ backgroundColor: etapa.color }} />{etapa.label}</div>
+                            <span className="rec-kanban-count">{lista.length}</span>
+                          </div>
+                          {lista.map(c => (
+                            <div key={c.id} className="rec-card" onClick={() => setCandidatoDetalhe(c)}>
+                              <div className="rec-card-name">{c.nome}</div>
+                              <div className="rec-card-vaga">{c.vaga_titulo}</div>
+                              <div className="rec-card-score" style={{ backgroundColor: c.ai_score >= 70 ? '#E9F7EF' : c.ai_score >= 40 ? '#FFF3CD' : '#FBEAEA', color: c.ai_score >= 70 ? '#1F7A45' : c.ai_score >= 40 ? '#856404' : '#B23A3A' }}>
+                                {c.ai_score}/100
+                              </div>
+                              {etapa.key === 'Novo' && (
+                                <div className="rec-card-actions" onClick={e => e.stopPropagation()}>
+                                  <button className="rec-btn-accent" onClick={() => handleAvancarEtapa(c.id, 'Triagem')}>Enviar p/ Triagem</button>
+                                  <button className="rec-btn-bad" onClick={() => handleRejeitarCandidato(c.id)}>Rejeitar</button>
+                                </div>
+                              )}
+                              {etapa.key === 'Triagem' && (
+                                <div className="rec-card-actions" onClick={e => e.stopPropagation()}>
+                                  <button className="rec-btn-accent" onClick={() => setCandidatoDetalhe(c)}>Ver Ficha</button>
+                                  <button className="rec-btn-bad" onClick={() => handleRejeitarCandidato(c.id)}>Rejeitar</button>
+                                </div>
+                              )}
+                              {etapa.key === 'Entrevista' && (
+                                <div className="rec-card-actions" onClick={e => e.stopPropagation()}>
+                                  <button className="rec-btn-good" onClick={() => handleAvancarEtapa(c.id, 'Oferta')}>Avançar p/ Oferta</button>
+                                  <button className="rec-btn-bad" onClick={() => handleRejeitarCandidato(c.id)}>Rejeitar</button>
+                                </div>
+                              )}
+                              {etapa.key === 'Oferta' && (
+                                <div className="rec-card-actions" onClick={e => e.stopPropagation()}>
+                                  <button className="rec-btn-good" onClick={() => handleContratarCandidato(c)}><Briefcase size={11} /> Contratar</button>
+                                  <button className="rec-btn-bad" onClick={() => handleRejeitarCandidato(c.id)}>Rejeitar</button>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
 
-        {/* ================= MODAL NOVA VAGA ================= */}
+        {/* ================= FICHA DO CANDIDATO ================= */}
+        {candidatoDetalhe && (() => {
+          let parecer: any = {};
+          try { parecer = JSON.parse(candidatoDetalhe.ai_parecer || '{}'); } catch (e) {}
+          return (
+            <div className="rec-detail-overlay" onClick={() => setCandidatoDetalhe(null)}>
+              <div className="rec-detail-panel" onClick={e => e.stopPropagation()}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+                  <h2 style={{ margin: 0, fontSize: '19px', color: 'var(--hr-ink)' }}>{candidatoDetalhe.nome}</h2>
+                  <button onClick={() => setCandidatoDetalhe(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--hr-ink-muted)' }}><X size={20} /></button>
+                </div>
+                <div style={{ fontSize: '12.5px', color: 'var(--hr-ink-muted)', marginBottom: '18px' }}>
+                  {candidatoDetalhe.vaga_titulo} · {candidatoDetalhe.origem || 'Upload Manual'}
+                </div>
+
+                <div style={{ display: 'flex', gap: '16px', marginBottom: '18px', fontSize: '12.5px', color: 'var(--hr-ink)' }}>
+                  {candidatoDetalhe.email && <div>{candidatoDetalhe.email}</div>}
+                  {candidatoDetalhe.telefone && <div>{candidatoDetalhe.telefone}</div>}
+                </div>
+
+                {candidatoDetalhe.cv_url && (
+                  <a href={candidatoDetalhe.cv_url} target="_blank" rel="noreferrer" className="odoo-btn odoo-btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '20px', textDecoration: 'none' }}>
+                    <FileText size={14} /> Ver Currículo
+                  </a>
+                )}
+
+                <div style={{ background: 'var(--hr-canvas)', borderRadius: '10px', padding: '14px', marginBottom: '20px' }}>
+                  <div style={{ fontSize: '22px', fontWeight: 800, fontFamily: 'var(--hr-font-display)', color: candidatoDetalhe.ai_score >= 70 ? '#1F7A45' : candidatoDetalhe.ai_score >= 40 ? '#856404' : '#B23A3A' }}>
+                    {candidatoDetalhe.ai_score}/100 <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--hr-ink-muted)' }}>FIT SCORE (IA)</span>
+                  </div>
+                  {Array.isArray(parecer.pontos_fortes) && parecer.pontos_fortes.length > 0 && (
+                    <div style={{ marginTop: '10px', fontSize: '12.5px' }}>
+                      <strong style={{ color: '#1F7A45' }}>Pontos Fortes</strong>
+                      <ul style={{ margin: '4px 0 0 16px', padding: 0 }}>{parecer.pontos_fortes.map((p: string, i: number) => <li key={i}>{p}</li>)}</ul>
+                    </div>
+                  )}
+                  {Array.isArray(parecer.pontos_fracos) && parecer.pontos_fracos.length > 0 && (
+                    <div style={{ marginTop: '10px', fontSize: '12.5px' }}>
+                      <strong style={{ color: '#B23A3A' }}>Pontos Fracos / Faltas</strong>
+                      <ul style={{ margin: '4px 0 0 16px', padding: 0 }}>{parecer.pontos_fracos.map((p: string, i: number) => <li key={i}>{p}</li>)}</ul>
+                    </div>
+                  )}
+                </div>
+
+                {candidatoDetalhe.etapa === 'Entrevista' && !candidatoDetalhe.reuniao_id && (
+                  <div style={{ border: '1px solid var(--hr-border)', borderRadius: '10px', padding: '14px', marginBottom: '20px' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 700, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}><Video size={14} /> Agendar Entrevista Real</div>
+                    <input type="datetime-local" className="odoo-input" value={entrevistaDataHora} onChange={e => setEntrevistaDataHora(e.target.value)} style={{ marginBottom: '8px' }} />
+                    <button className="odoo-btn odoo-btn-primary" disabled={isAgendandoEntrevista} onClick={() => handleAgendarEntrevista(candidatoDetalhe.id)} style={{ width: '100%' }}>
+                      {isAgendandoEntrevista ? 'A agendar...' : 'Criar Reunião e Notificar Candidato'}
+                    </button>
+                  </div>
+                )}
+                {candidatoDetalhe.reuniao_id && (
+                  <div style={{ background: 'var(--hr-accent-soft)', color: 'var(--hr-accent)', borderRadius: '8px', padding: '10px 14px', marginBottom: '20px', fontSize: '12.5px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <CheckCircle size={14} /> Entrevista agendada — sala de videochamada criada e candidato notificado.
+                  </div>
+                )}
+
+                {candidatoDetalhe.etapa === 'Rejeitado' && candidatoDetalhe.motivo_rejeicao && (
+                  <div style={{ fontSize: '12.5px', color: 'var(--hr-ink-muted)', marginBottom: '20px' }}>
+                    <strong>Motivo da rejeição:</strong> {candidatoDetalhe.motivo_rejeicao}
+                  </div>
+                )}
+
+                <div style={{ marginBottom: '10px', fontSize: '13px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}><MessageSquare size={14} /> Notas Internas</div>
+                {candidatoDetalhe.notas && (
+                  <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'var(--hr-font-body)', fontSize: '12px', color: 'var(--hr-ink)', background: 'var(--hr-canvas)', borderRadius: '8px', padding: '10px', marginBottom: '10px' }}>{candidatoDetalhe.notas}</pre>
+                )}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input type="text" className="odoo-input" placeholder="Escrever uma nota..." value={novaNotaTexto} onChange={e => setNovaNotaTexto(e.target.value)} style={{ flex: 1 }} />
+                  <button className="odoo-btn" onClick={() => handleAdicionarNota(candidatoDetalhe.id)}>Adicionar</button>
+                </div>
+
+                {candidatoDetalhe.etapa !== 'Contratado' && candidatoDetalhe.etapa !== 'Rejeitado' && (
+                  <button className="odoo-btn" style={{ width: '100%', marginTop: '24px', color: '#B23A3A', borderColor: '#B23A3A' }} onClick={() => handleRejeitarCandidato(candidatoDetalhe.id)}>
+                    Rejeitar Candidato
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ================= MODAL LINK PÚBLICO DA VAGA CRIADA ================= */}
+        {linkVagaCriada && (
+          <div className="hr-modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+            <div className="hr-modal-card" style={{ backgroundColor: 'white', borderRadius: '12px', width: '460px', maxWidth: '90%', padding: '28px', textAlign: 'center' }}>
+              <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'var(--hr-accent-soft)', color: 'var(--hr-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                <CheckCircle size={26} />
+              </div>
+              <h3 style={{ margin: '0 0 8px 0' }}>Vaga criada com sucesso!</h3>
+              <p style={{ fontSize: '13px', color: 'var(--hr-ink-muted)', margin: '0 0 16px 0' }}>Partilhe este link — qualquer candidato pode candidatar-se diretamente, com o CV a ser avaliado automaticamente pela IA.</p>
+              <div style={{ display: 'flex', gap: '8px', background: 'var(--hr-canvas)', borderRadius: '8px', padding: '10px 12px', marginBottom: '20px' }}>
+                <input readOnly value={linkVagaCriada} style={{ flex: 1, border: 'none', background: 'transparent', fontSize: '12px', color: 'var(--hr-ink)' }} onFocus={e => e.target.select()} />
+                <button onClick={() => copiarLink(linkVagaCriada)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--hr-accent)' }}><Copy size={16} /></button>
+              </div>
+              <button className="odoo-btn odoo-btn-primary" style={{ width: '100%' }} onClick={() => setLinkVagaCriada(null)}>Concluído</button>
+            </div>
+          </div>
+        )}
+
+        {/* ================= MODAL CRIAR/EDITAR VAGA ================= */}
         {showNovaVagaModal && (
           <div className="hr-modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-            <div className="hr-modal-card" style={{ backgroundColor: 'white', borderRadius: '8px', width: '500px', maxWidth: '90%', padding: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
-              <h3 style={{ marginTop: 0, marginBottom: '24px', borderBottom: '1px solid var(--odoo-border)', paddingBottom: '12px' }}>Criar Nova Vaga</h3>
+            <div className="hr-modal-card" style={{ backgroundColor: 'white', borderRadius: '8px', width: '520px', maxWidth: '90%', padding: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', maxHeight: '90vh', overflowY: 'auto' }}>
+              <h3 style={{ marginTop: 0, marginBottom: '24px', borderBottom: '1px solid var(--odoo-border)', paddingBottom: '12px' }}>{editingVagaId ? 'Editar Vaga' : 'Criar Nova Vaga'}</h3>
               <form onSubmit={handleCreateVaga}>
                 <div className="odoo-form-group" style={{ marginBottom: '16px' }}>
                   <label className="odoo-label">Título da Vaga *</label>
                   <input required type="text" className="odoo-input" placeholder="Ex: Desenvolvedor Frontend React" value={novaVaga.titulo} onChange={e => setNovaVaga({...novaVaga, titulo: e.target.value})} />
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px', marginBottom: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                   <div className="odoo-form-group" style={{ marginBottom: 0 }}>
                     <label className="odoo-label">Departamento</label>
                     <input type="text" className="odoo-input" placeholder="Ex: TI" value={novaVaga.departamento} onChange={e => setNovaVaga({...novaVaga, departamento: e.target.value})} />
@@ -2171,6 +2404,18 @@ export default function HrApp() {
                     <label className="odoo-label">Localização</label>
                     <input type="text" className="odoo-input" placeholder="Ex: Luanda" value={novaVaga.localizacao} onChange={e => setNovaVaga({...novaVaga, localizacao: e.target.value})} />
                   </div>
+                  <div className="odoo-form-group" style={{ marginBottom: 0 }}>
+                    <label className="odoo-label">Nº de Vagas</label>
+                    <input type="number" min={1} className="odoo-input" value={novaVaga.numero_vagas} onChange={e => setNovaVaga({...novaVaga, numero_vagas: e.target.value})} />
+                  </div>
+                  <div className="odoo-form-group" style={{ marginBottom: 0 }}>
+                    <label className="odoo-label">Salário Mín. (Kz)</label>
+                    <input type="number" className="odoo-input" placeholder="Opcional" value={novaVaga.salario_min} onChange={e => setNovaVaga({...novaVaga, salario_min: e.target.value})} />
+                  </div>
+                  <div className="odoo-form-group" style={{ marginBottom: 0 }}>
+                    <label className="odoo-label">Salário Máx. (Kz)</label>
+                    <input type="number" className="odoo-input" placeholder="Opcional" value={novaVaga.salario_max} onChange={e => setNovaVaga({...novaVaga, salario_max: e.target.value})} />
+                  </div>
                 </div>
                 <div className="odoo-form-group" style={{ marginBottom: '16px' }}>
                   <label className="odoo-label">Descrição Pública da Função *</label>
@@ -2180,12 +2425,12 @@ export default function HrApp() {
                   <label className="odoo-label">Critérios Ocultos para a IA *</label>
                   <textarea required className="odoo-input" rows={4} placeholder="Ex: Tem de ter no mínimo 3 anos de experiência em React. É obrigatório saber Inglês. Valoriza-se conhecimento de NodeJS." value={novaVaga.criterios} onChange={e => setNovaVaga({...novaVaga, criterios: e.target.value})} />
                   <div style={{ fontSize: '11px', color: 'var(--odoo-text-muted)', marginTop: '4px' }}>
-                    Estes critérios serão lidos pela IA para atribuir um Fit Score ao CV do candidato.
+                    Estes critérios serão lidos pela IA para atribuir um Fit Score ao CV do candidato — nunca são mostrados publicamente.
                   </div>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid var(--odoo-border)', paddingTop: '16px' }}>
-                  <button type="button" className="odoo-btn" onClick={() => setShowNovaVagaModal(false)}>Cancelar</button>
-                  <button type="submit" className="odoo-btn odoo-btn-primary">Criar Vaga</button>
+                  <button type="button" className="odoo-btn" onClick={() => { setShowNovaVagaModal(false); setEditingVagaId(null); }}>Cancelar</button>
+                  <button type="submit" className="odoo-btn odoo-btn-primary">{editingVagaId ? 'Guardar Alterações' : 'Criar Vaga'}</button>
                 </div>
               </form>
             </div>

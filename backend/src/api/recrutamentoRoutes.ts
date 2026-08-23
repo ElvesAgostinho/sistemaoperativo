@@ -1,33 +1,19 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
-import path from 'path';
 import fs from 'fs';
 import pdfParse from 'pdf-parse';
 import { getSupabase } from '../lib/supabaseClient';
-import { AIGatewayService } from '../services/AIGatewayService';
+import { RecrutamentoService } from '../services/RecrutamentoService';
+import { ReuniaoService } from '../services/ReuniaoService';
+import { EmailService } from '../services/EmailService';
 
 const router = Router();
 
-// Configurar Upload de Currículos
-const uploadDir = path.join(__dirname, '..', '..', '..', 'Curriculos');
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-}
+// Ficheiro temporário só até ser lido e enviado para o Supabase Storage — não
+// fica em disco local (que não sobrevive a um redeploy do container).
+const upload = multer({ dest: 'tmp/', limits: { fileSize: 10 * 1024 * 1024 } });
 
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const empresa_id = (req as any).user?.empresa_id || 'default';
-        const tenantDir = path.join(uploadDir, empresa_id);
-        if (!fs.existsSync(tenantDir)) {
-            fs.mkdirSync(tenantDir, { recursive: true });
-        }
-        cb(null, tenantDir);
-    },
-    filename: (req, file, cb) => {
-        cb(null, Date.now() + '-' + file.originalname.replace(/\s+/g, '_'));
-    }
-});
-const upload = multer({ storage });
+const ETAPAS = ['Novo', 'Triagem', 'Entrevista', 'Oferta', 'Contratado', 'Rejeitado'];
 
 // === VAGAS ===
 
@@ -35,9 +21,19 @@ router.get('/vagas', async (req: Request, res: Response) => {
     try {
         const supabase = getSupabase(req);
         const empresa_id = (req as any).user?.empresa_id;
-        const { data: vagas, error } = await supabase.from('vagas').select('*').eq('empresa_id', empresa_id).order('criado_em', { ascending: false });
+        const { data: vagas, error } = await supabase
+            .from('vagas')
+            .select('*, candidaturas(count)')
+            .eq('empresa_id', empresa_id)
+            .order('criado_em', { ascending: false });
         if (error) throw error;
-        res.json({ success: true, vagas });
+        const comContagem = (vagas || []).map((v: any) => ({
+            ...v,
+            total_candidaturas: v.candidaturas?.[0]?.count || 0,
+            candidaturas: undefined,
+            linkPublico: `${process.env.FRONTEND_PUBLIC_URL || ''}/carreiras/${empresa_id}/vaga/${v.id}`
+        }));
+        res.json({ success: true, vagas: comContagem });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
@@ -45,14 +41,53 @@ router.get('/vagas', async (req: Request, res: Response) => {
 
 router.post('/vagas', async (req: Request, res: Response) => {
     try {
-        const { titulo, criterios } = req.body;
+        const { titulo, departamento, tipo, localizacao, descricao, criterios, salario_min, salario_max, numero_vagas } = req.body;
+        if (!titulo || !criterios) return res.status(400).json({ error: 'Título e critérios são obrigatórios.' });
+
         const supabase = getSupabase(req);
         const empresa_id = (req as any).user?.empresa_id;
         const { data: info, error } = await supabase.from('vagas').insert({
-            empresa_id, titulo, criterios, estado: 'Aberta'
+            empresa_id, titulo, departamento: departamento || null, tipo: tipo || 'Tempo Inteiro',
+            localizacao: localizacao || null, descricao: descricao || null, criterios,
+            salario_min: salario_min || null, salario_max: salario_max || null,
+            numero_vagas: numero_vagas || 1, estado: 'Aberta'
         }).select('id').single();
         if (error) throw error;
-        res.json({ success: true, id: info.id });
+
+        const linkPublico = `${process.env.FRONTEND_PUBLIC_URL || ''}/carreiras/${empresa_id}/vaga/${info.id}`;
+        res.json({ success: true, id: info.id, linkPublico });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.put('/vagas/:id', async (req: Request, res: Response) => {
+    try {
+        const { titulo, departamento, tipo, localizacao, descricao, criterios, salario_min, salario_max, numero_vagas } = req.body;
+        const supabase = getSupabase(req);
+        const empresa_id = (req as any).user?.empresa_id;
+        const { error } = await supabase.from('vagas').update({
+            titulo, departamento: departamento || null, tipo, localizacao: localizacao || null,
+            descricao: descricao || null, criterios, salario_min: salario_min || null,
+            salario_max: salario_max || null, numero_vagas: numero_vagas || 1,
+            atualizado_em: new Date().toISOString()
+        }).eq('id', req.params.id).eq('empresa_id', empresa_id);
+        if (error) throw error;
+        res.json({ success: true });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.put('/vagas/:id/estado', async (req: Request, res: Response) => {
+    try {
+        const { estado } = req.body;
+        if (!['Aberta', 'Pausada', 'Fechada'].includes(estado)) return res.status(400).json({ error: 'Estado inválido.' });
+        const supabase = getSupabase(req);
+        const empresa_id = (req as any).user?.empresa_id;
+        const { error } = await supabase.from('vagas').update({ estado, atualizado_em: new Date().toISOString() }).eq('id', req.params.id).eq('empresa_id', empresa_id);
+        if (error) throw error;
+        res.json({ success: true });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
@@ -64,7 +99,10 @@ router.get('/candidaturas', async (req: Request, res: Response) => {
     try {
         const supabase = getSupabase(req);
         const empresa_id = (req as any).user?.empresa_id;
-        const { data, error } = await supabase.from('candidaturas').select('*, vagas(titulo)').eq('empresa_id', empresa_id).order('criado_em', { ascending: false });
+        let query = supabase.from('candidaturas').select('*, vagas(titulo)').eq('empresa_id', empresa_id);
+        if (req.query.vaga_id) query = query.eq('vaga_id', req.query.vaga_id);
+        if (req.query.etapa) query = query.eq('etapa', req.query.etapa);
+        const { data, error } = await query.order('criado_em', { ascending: false });
         if (error) throw error;
         const candidaturas = data.map((c: any) => ({ ...c, vaga_titulo: c.vagas?.titulo }));
         res.json({ success: true, candidaturas });
@@ -73,150 +111,149 @@ router.get('/candidaturas', async (req: Request, res: Response) => {
     }
 });
 
-// Endpoint principal para Triagem Inteligente
+// Endpoint principal para Triagem Inteligente (upload manual pelo RH)
 router.post('/upload', upload.single('cv'), async (req: Request, res: Response) => {
     try {
-        const { nome, email, telefone, vaga_id } = req.body;
+        const { nome, email, telefone, vaga_id, linkedin_url } = req.body;
         const file = req.file;
-        
+
         if (!file || !vaga_id) {
             return res.status(400).json({ error: 'Ficheiro CV e Vaga são obrigatórios.' });
         }
 
-        // 1. Extrair Texto do PDF
-        const dataBuffer = fs.readFileSync(file.path);
-        const pdfData = await pdfParse(dataBuffer);
-        const cvText = pdfData.text;
-
-        // 2. Obter Critérios da Vaga
+        const empresa_id = (req as any).user?.empresa_id;
         const supabase = getSupabase(req);
-        const { data: vaga, error: vErr } = await supabase.from('vagas').select('titulo, criterios').eq('id', vaga_id).single();
+        const { data: vaga, error: vErr } = await supabase.from('vagas').select('titulo, criterios').eq('id', vaga_id).eq('empresa_id', empresa_id).single();
         if (vErr || !vaga) return res.status(404).json({ error: 'Vaga não encontrada.' });
 
-        // 3. Avaliação IA
-        const systemPrompt = `
-        És um sistema de Triagem de RH altamente minucioso. 
-        Vais receber o CV de um candidato e os critérios definidos para a Vaga de "${vaga.titulo}".
-        Avalia o CV puramente com base nestes critérios.
-        Retorna UM JSON ESTRITAMENTE com a seguinte estrutura:
-        {
-            "score": [0 a 100],
-            "pontos_fortes": ["ponto 1", "ponto 2"],
-            "pontos_fracos": ["falta X", "não menciona Y"]
-        }
-        `;
+        const buffer = fs.readFileSync(file.path);
+        const pdfData = await pdfParse(buffer);
+        const cvText = pdfData.text;
 
-        const userPrompt = `
-        CRITÉRIOS DA VAGA:
-        ${vaga.criterios}
+        const [parecer, cvUrl] = await Promise.all([
+            RecrutamentoService.avaliarCandidato(cvText, vaga.titulo, vaga.criterios),
+            RecrutamentoService.uploadCvParaStorage(buffer, file.originalname, file.mimetype, empresa_id)
+        ]);
+        fs.unlink(file.path, () => {});
 
-        TEXTO EXTRAÍDO DO CV:
-        ${cvText}
-        `;
-
-        const response = await AIGatewayService.chamarComFallback({
-            messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: userPrompt }
-            ],
-            response_format: { type: "json_object" },
-            temperature: 0.3
-        });
-
-        const aiResultRaw = response.choices[0]?.message?.content || '{}';
-        const aiResult = JSON.parse(aiResultRaw);
-
-        // 4. Gravar na BD
-        const empresa_id = (req as any).user?.empresa_id;
         const { data: info, error: insErr } = await supabase.from('candidaturas').insert({
-            empresa_id,
-            vaga_id,
-            nome,
-            email,
-            telefone,
-            cv_path: file.path,
-            cv_texto: cvText.substring(0, 5000),
-            ai_score: aiResult.score || 0,
-            ai_parecer: JSON.stringify(aiResult),
-            estado: 'Pendente'
+            empresa_id, vaga_id, nome, email: email || null, telefone: telefone || null, linkedin_url: linkedin_url || null,
+            cv_url: cvUrl, cv_texto: cvText.substring(0, 5000),
+            ai_score: parecer.score, ai_parecer: JSON.stringify(parecer),
+            etapa: 'Triagem', origem: 'Upload Manual'
         }).select('id').single();
-        
-        if (insErr) throw insErr;
-        res.json({ success: true, id: info.id, analise: aiResult });
 
+        if (insErr) throw insErr;
+        res.json({ success: true, id: info.id, analise: parecer });
     } catch (error: any) {
         console.error('Erro na triagem:', error);
         res.status(500).json({ error: 'Erro ao processar a candidatura: ' + error.message });
     }
 });
 
-// Decisão e Envio de Feedback Dinâmico
-router.post('/:id/decisao', async (req: Request, res: Response) => {
+// Avançar/mover a candidatura no pipeline. Ao entrar em "Oferta" ou "Rejeitado",
+// gera e envia automaticamente uma mensagem de feedback por email (a mesma que
+// antes era gerada por um endpoint /decisao à parte).
+router.put('/candidaturas/:id/etapa', async (req: Request, res: Response) => {
     try {
-        const { estado } = req.body; // 'Aprovado' ou 'Rejeitado'
-        const candidaturaId = req.params.id;
+        const { etapa, motivo_rejeicao } = req.body;
+        if (!ETAPAS.includes(etapa)) return res.status(400).json({ error: 'Etapa inválida.' });
 
         const supabase = getSupabase(req);
         const empresa_id = (req as any).user?.empresa_id;
-        const { data: c, error: cErr } = await supabase.from('candidaturas').select('*, vagas(titulo, criterios)').eq('id', candidaturaId).eq('empresa_id', empresa_id).single();
+        const { data: c, error: cErr } = await supabase.from('candidaturas').select('*, vagas(titulo)').eq('id', req.params.id).eq('empresa_id', empresa_id).single();
         if (cErr || !c) return res.status(404).json({ error: 'Candidatura não encontrada.' });
-        
-        const candidatura = {
-            ...c,
-            vaga_titulo: c.vagas?.titulo,
-            criterios: c.vagas?.criterios
-        };
 
-        // 1. Atualizar Estado
-        await supabase.from('candidaturas').update({ estado }).eq('id', candidaturaId);
+        await supabase.from('candidaturas').update({
+            etapa, motivo_rejeicao: etapa === 'Rejeitado' ? (motivo_rejeicao || null) : null,
+            atualizado_em: new Date().toISOString()
+        }).eq('id', req.params.id);
 
-        // 2. Gerar Mensagem Empática com IA
-        const systemPrompt = `
-        És um(a) Diretor(a) de Recursos Humanos a redigir uma mensagem de WhatsApp/Email para dar feedback a um candidato.
-        Tons: Empático, profissional, acolhedor.
-        A decisão foi: ${estado.toUpperCase()}.
-        A Vaga era para: ${candidatura.vaga_titulo}.
-        O nome do candidato é: ${candidatura.nome}.
-        A avaliação da IA detetou isto (usa se quiseres fundamentar a rejeição levemente): ${candidatura.ai_parecer}
-        
-        Gera APENAS o texto da mensagem final. Não uses variáveis por preencher.
-        Se for APROVADO: marca uma entrevista imaginária brevemente.
-        Se for REJEITADO: sê muito educado, agradece, diz que não encaixa perfeitamente e deseja sucesso.
-        `;
+        let feedbackGerado: string | null = null;
+        if (etapa === 'Oferta' || etapa === 'Rejeitado') {
+            let parecer;
+            try { parecer = JSON.parse(c.ai_parecer || '{}'); } catch { parecer = undefined; }
+            feedbackGerado = await RecrutamentoService.gerarMensagemDecisao(etapa, c.nome, c.vagas?.titulo || '', parecer);
 
-        const response = await AIGatewayService.chamarComFallback({
-            messages: [{ role: "user", content: systemPrompt }],
-            temperature: 0.6
-        });
-
-        const feedbackMsg = response.choices[0]?.message?.content || 'Feedback gerado com sucesso.';
-
-        // (No futuro ligar ao disparador de WhatsApp/Email)
-        console.log(`[SIMULAÇÃO DE ENVIO] Para: ${candidatura.telefone || candidatura.email}\nMensagem:\n${feedbackMsg}`);
-
-        // Integração direta com o motor WhatsApp (Autopilot)
-        if (candidatura.telefone) {
-            try {
-                // Tentar encontrar uma conversa existente
-                const { data: conv } = await getSupabase(req).from('wa_conversations').select('id').eq('phone_number', candidatura.telefone).single();
-                if (conv) {
-                    await getSupabase(req).from('wa_messages').insert({
-                        conversation_id: conv.id,
-                        direction: 'outbound',
-                        content: feedbackMsg,
-                        status: 'sending' // Será processado pelo WhatsAppChannelManager
-                    });
-                    // Simular entrega imediata para MVP
-                    await getSupabase(req).from('wa_conversations').update({ last_message_at: new Date().toISOString() }).eq('id', conv.id);
-                }
-            } catch(err) {
-                console.error("Aviso: Falha ao enviar WhatsApp de recrutamento. O cliente pode não existir no sistema de chat.", err);
+            if (c.email) {
+                await EmailService.enviarEmailPersonalizado(
+                    c.email,
+                    etapa === 'Oferta' ? `Boas notícias sobre a sua candidatura — ${c.vagas?.titulo}` : `Resultado da sua candidatura — ${c.vagas?.titulo}`,
+                    feedbackGerado.replace(/\n/g, '<br>'),
+                    empresa_id
+                );
+            }
+            // Canal adicional (bónus) se já existir uma conversa de WhatsApp com este candidato.
+            if (c.telefone) {
+                try {
+                    const { data: conv } = await supabase.from('wa_conversations').select('id').eq('phone_number', c.telefone).single();
+                    if (conv) {
+                        await supabase.from('wa_messages').insert({ conversation_id: conv.id, direction: 'outbound', content: feedbackGerado, status: 'sending' });
+                        await supabase.from('wa_conversations').update({ last_message_at: new Date().toISOString() }).eq('id', conv.id);
+                    }
+                } catch { /* candidato pode não ter conversa de WhatsApp — não bloqueia */ }
             }
         }
 
-        res.json({ success: true, feedbackGerado: feedbackMsg });
+        res.json({ success: true, feedbackGerado });
     } catch (error: any) {
-        console.error('Erro na decisão:', error);
+        console.error('Erro ao avançar etapa:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Agenda uma entrevista REAL (reunião com sala Jitsi), em vez de a IA inventar
+// uma entrevista imaginária no texto de feedback como acontecia antes.
+router.post('/candidaturas/:id/agendar-entrevista', async (req: Request, res: Response) => {
+    try {
+        const { data_hora } = req.body;
+        if (!data_hora) return res.status(400).json({ error: 'Data e hora são obrigatórias.' });
+
+        const supabase = getSupabase(req);
+        const empresa_id = (req as any).user?.empresa_id;
+        const { data: c, error: cErr } = await supabase.from('candidaturas').select('*, vagas(titulo)').eq('id', req.params.id).eq('empresa_id', empresa_id).single();
+        if (cErr || !c) return res.status(404).json({ error: 'Candidatura não encontrada.' });
+
+        const { id: reuniaoId, linkJitsi } = await ReuniaoService.criarReuniaoRegistro({
+            empresa_id, titulo: `Entrevista — ${c.vagas?.titulo || 'Vaga'} — ${c.nome}`,
+            data_hora, emails_convidados: c.email || ''
+        }, supabase);
+
+        await supabase.from('candidaturas').update({ etapa: 'Entrevista', reuniao_id: reuniaoId, atualizado_em: new Date().toISOString() }).eq('id', req.params.id);
+
+        if (c.email) {
+            await EmailService.enviarEmailPersonalizado(
+                c.email,
+                `Entrevista marcada — ${c.vagas?.titulo || ''}`,
+                `Olá ${c.nome},<br><br>A sua entrevista para a vaga de <strong>${c.vagas?.titulo || ''}</strong> foi marcada para <strong>${new Date(data_hora).toLocaleString('pt-PT')}</strong>.<br><br>Link da videochamada: <a href="${linkJitsi}">${linkJitsi}</a><br><br>Até breve!`,
+                empresa_id
+            );
+        }
+
+        res.json({ success: true, reuniaoId, linkJitsi });
+    } catch (error: any) {
+        console.error('Erro ao agendar entrevista:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/candidaturas/:id/notas', async (req: Request, res: Response) => {
+    try {
+        const { nota } = req.body;
+        if (!nota || !String(nota).trim()) return res.status(400).json({ error: 'Nota vazia.' });
+
+        const supabase = getSupabase(req);
+        const empresa_id = (req as any).user?.empresa_id;
+        const { data: c, error: cErr } = await supabase.from('candidaturas').select('notas').eq('id', req.params.id).eq('empresa_id', empresa_id).single();
+        if (cErr || !c) return res.status(404).json({ error: 'Candidatura não encontrada.' });
+
+        const linha = `[${new Date().toLocaleString('pt-PT')}] ${String(nota).trim()}`;
+        const notasAtualizadas = c.notas ? `${c.notas}\n${linha}` : linha;
+
+        const { error } = await supabase.from('candidaturas').update({ notas: notasAtualizadas, atualizado_em: new Date().toISOString() }).eq('id', req.params.id);
+        if (error) throw error;
+        res.json({ success: true, notas: notasAtualizadas });
+    } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
 });

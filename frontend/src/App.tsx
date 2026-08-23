@@ -23,6 +23,7 @@ import PortalAgendamento from './pages/public/PortalAgendamento';
 import TermosServico from './pages/public/TermosServico';
 import PoliticaPrivacidade from './pages/public/PoliticaPrivacidade';
 import PoliticaCookies from './pages/public/PoliticaCookies';
+import CookieBanner from './components/CookieBanner';
 import { LayoutGrid, Users, Briefcase, PieChart, Bot, Zap, LogOut, MessageSquare, BookOpen, Mail, Settings, Clock, Globe, Video, Share2, Calculator, Shield, CalendarClock } from 'lucide-react';
 
 const IS_AFFILIATE_PORTAL = window.location.pathname === '/portal-afiliado';
@@ -269,9 +270,9 @@ function App() {
 
   if (!user || !token) {
     if (showLanding) {
-      return <LandingPage onGoToApp={() => setShowLanding(false)} />;
+      return <><LandingPage onGoToApp={() => setShowLanding(false)} /><CookieBanner /></>;
     }
-    return <AuthScreen onLogin={handleLogin} onBack={() => setShowLanding(true)} />;
+    return <><AuthScreen onLogin={handleLogin} onBack={() => setShowLanding(true)} /><CookieBanner /></>;
   }
 
   const navigateTo = (module: 'home' | 'hr' | 'crm' | 'data' | 'chat' | 'auto' | 'wa' | 'kb' | 'email' | 'settings' | 'superadmin' | 'reunioes' | 'afiliados' | 'contabilidade' | 'agendamento') => {

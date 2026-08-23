@@ -586,12 +586,21 @@ export const baixarTemplateCandidatos = (req: Request, res: Response) => {
 export const importarCandidatosEmMassa = async (req: Request, res: Response) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'Nenhum ficheiro enviado.' });
+        const vaga_id = (req.body as any)?.vaga_id;
+        if (!vaga_id) {
+            if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+            return res.status(400).json({ error: 'Selecione a vaga de destino antes de importar.' });
+        }
+
         const wb = xlsx.readFile(req.file.path);
         const rows = xlsx.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]) as any[];
         if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
 
         const supabase = getSupabase(req);
         const empresa_id = (req as any).user?.empresa_id;
+
+        const { data: vaga } = await supabase.from('vagas').select('id').eq('id', vaga_id).eq('empresa_id', empresa_id).single();
+        if (!vaga) return res.status(404).json({ error: 'Vaga não encontrada.' });
 
         const criados: any[] = [];
         const erros: any[] = [];
@@ -604,24 +613,27 @@ export const importarCandidatosEmMassa = async (req: Request, res: Response) => 
                 continue;
             }
             try {
-                const { data: cliente, error: cliErr } = await supabase.from('clientes').insert({
-                    empresa_id,
+                const notas = [
+                    `Cargo pretendido (importação): ${row['cargo_pretendido'] || '-'}`,
+                    row['experiencia_anos'] ? `Experiência: ${row['experiencia_anos']} anos` : null,
+                    row['formacao'] ? `Formação: ${row['formacao']}` : null,
+                    row['universidade'] ? `Universidade: ${row['universidade']}` : null,
+                    row['idiomas'] ? `Idiomas: ${row['idiomas']}` : null,
+                    row['disponibilidade'] ? `Disponibilidade: ${row['disponibilidade']}` : null,
+                    row['pretensao_salarial'] ? `Pretensão salarial: ${row['pretensao_salarial']} AOA` : null,
+                    row['fonte'] ? `Fonte: ${row['fonte']}` : null,
+                    row['observacoes'] ? `Observações: ${row['observacoes']}` : null,
+                ].filter(Boolean).join('\n');
+
+                const { error: insErr } = await supabase.from('candidaturas').insert({
+                    empresa_id, vaga_id,
                     nome: String(row['nome']).trim(),
                     email: row['email'] ? String(row['email']) : null,
                     telefone: row['telefone'] ? String(row['telefone']) : null,
-                    empresa: `Candidato: ${row['cargo_pretendido']}`
-                }).select('id').single();
-                if (cliErr) throw cliErr;
-
-                const { error: negErr } = await supabase.from('negocios').insert({
-                    empresa_id,
-                    cliente_id: cliente.id,
-                    titulo: `[REC] ${row['cargo_pretendido']} — ${row['nome']}`,
-                    valor_estimado: row['pretensao_salarial'] ? Number(row['pretensao_salarial']) : 0,
-                    fase: 'Nova Lead'
+                    etapa: 'Novo', origem: 'Importação em Massa', notas
                 });
-                if (negErr) throw negErr;
-                
+                if (insErr) throw insErr;
+
                 criados.push({ linha, nome: String(row['nome']).trim() });
             } catch (e: any) {
                 erros.push({ linha, nome: row['nome'], motivo: e.message });
