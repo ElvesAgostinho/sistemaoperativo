@@ -59,31 +59,28 @@
 }
 .hr-pillnav {
   display: flex;
-  gap: 2px;
-  padding: 2px;
-  background: var(--hr-canvas);
-  border: 1px solid var(--hr-border-soft);
-  border-radius: 2px;
+  gap: 4px;
+  border-bottom: 1px solid var(--hr-border);
   flex-wrap: wrap;
 }
 .hr-pillnav button {
   font-family: var(--hr-font-body);
-  font-weight: 500;
-  font-size: 12.5px;
-  padding: 8px 13px;
-  border-radius: 2px;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 10px 14px;
   border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
   background: transparent;
   color: var(--hr-ink-muted);
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.15s, color 0.15s;
+  transition: color 0.15s, border-color 0.15s;
 }
 .hr-pillnav button.active {
-  background: var(--hr-surface);
   color: var(--hr-accent);
+  border-bottom-color: var(--hr-accent);
   font-weight: 700;
-  border: 1px solid var(--hr-border);
 }
 .hr-pillnav button:hover:not(.active) {
   color: var(--hr-ink);
@@ -144,8 +141,10 @@
   background: var(--hr-canvas);
 }
 .hr-modern .odoo-form-sheet {
-  border-radius: 2px;
-  border: 1px solid var(--hr-border);
+  border: none;
+  background: transparent;
+  max-width: none;
+  width: 100%;
 }
 
 /* ---------- Modais ---------- */

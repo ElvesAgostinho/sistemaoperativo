@@ -4,32 +4,32 @@ import { CalendarClock, Check, ChevronLeft, Clock, Scissors, User, Loader2, Cale
 interface Servico { id: number; nome: string; duracao_minutos: number; preco: number | null; cor: string; }
 interface Profissional { id: number; nome: string; }
 
-const GOLD = '#C9992E';
-const DARK = '#14161C';
+const ACCENT = '#0854A0';
+const DARK = '#354A5E';
 
 const styles: Record<string, React.CSSProperties> = {
-  page: { minHeight: '100vh', background: '#F4F5F7', fontFamily: "'IBM Plex Sans','Segoe UI',system-ui,sans-serif", color: '#16181D' },
+  page: { minHeight: '100vh', background: '#F5F6F7', fontFamily: "'Roboto','Segoe UI',system-ui,sans-serif", color: '#1D2D3E' },
   header: { background: DARK, color: 'white', padding: '28px 20px 26px', textAlign: 'center' },
-  headerTitle: { fontFamily: "'Manrope','Segoe UI',system-ui,sans-serif", fontWeight: 800, fontSize: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' },
-  headerSub: { color: '#9AA1AC', fontSize: '13px', marginTop: '6px' },
+  headerTitle: { fontFamily: "'Roboto','Segoe UI',system-ui,sans-serif", fontWeight: 700, fontSize: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' },
+  headerSub: { color: '#8996A3', fontSize: '13px', marginTop: '6px' },
   wrap: { maxWidth: '520px', margin: '0 auto', padding: '22px 16px 60px' },
   stepsBar: { display: 'flex', gap: '6px', marginBottom: '20px' },
-  stepDot: (active: boolean, done: boolean) => ({ flex: 1, height: '4px', borderRadius: '4px', background: done || active ? GOLD : '#E5E7EB' }),
-  card: { background: 'white', border: '1px solid #E5E7EB', borderRadius: '16px', padding: '20px', boxShadow: '0 1px 2px rgba(20,22,28,0.04), 0 6px 20px rgba(20,22,28,0.06)' },
-  cardTitle: { fontFamily: "'Manrope',sans-serif", fontWeight: 800, fontSize: '17px', marginBottom: '4px' },
-  cardSub: { fontSize: '12.5px', color: '#6B7280', marginBottom: '16px' },
+  stepDot: (active: boolean, done: boolean) => ({ flex: 1, height: '4px', borderRadius: '2px', background: done || active ? ACCENT : '#D5D7DA' }),
+  card: { background: 'white', border: '1px solid #D5D7DA', borderRadius: '2px', padding: '20px' },
+  cardTitle: { fontFamily: "'Roboto',sans-serif", fontWeight: 700, fontSize: '17px', marginBottom: '4px' },
+  cardSub: { fontSize: '12.5px', color: '#5B738B', marginBottom: '16px' },
   option: (selected: boolean) => ({
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 15px', borderRadius: '11px',
-    border: `1.5px solid ${selected ? GOLD : '#E5E7EB'}`, background: selected ? '#FBF1DE' : '#FAFAFA', cursor: 'pointer', marginBottom: '9px'
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 15px', borderRadius: '2px',
+    border: `1.5px solid ${selected ? ACCENT : '#D5D7DA'}`, background: selected ? '#E4EDF7' : '#FAFAFA', cursor: 'pointer', marginBottom: '9px'
   }),
-  btnPrimary: { width: '100%', padding: '13px', borderRadius: '11px', border: 'none', background: GOLD, color: '#201705', fontWeight: 800, fontSize: '14.5px', cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" },
-  btnBack: { background: 'none', border: 'none', color: '#6B7280', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '13px', marginBottom: '14px', padding: 0, fontFamily: "'IBM Plex Sans',sans-serif" },
-  input: { width: '100%', padding: '12px 14px', borderRadius: '10px', border: '1px solid #E5E7EB', fontSize: '14px', marginBottom: '12px', fontFamily: "'IBM Plex Sans',sans-serif" },
+  btnPrimary: { width: '100%', padding: '13px', borderRadius: '2px', border: 'none', background: ACCENT, color: '#FFFFFF', fontWeight: 700, fontSize: '14.5px', cursor: 'pointer', fontFamily: "'Roboto',sans-serif" },
+  btnBack: { background: 'none', border: 'none', color: '#5B738B', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '13px', marginBottom: '14px', padding: 0, fontFamily: "'Roboto',sans-serif" },
+  input: { width: '100%', padding: '12px 14px', borderRadius: '2px', border: '1px solid #D5D7DA', fontSize: '14px', marginBottom: '12px', fontFamily: "'Roboto',sans-serif" },
   slotGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '9px', marginBottom: '18px' },
   slotBtn: (selected: boolean) => ({
-    padding: '11px 6px', borderRadius: '10px', border: `1.5px solid ${selected ? GOLD : '#E5E7EB'}`,
-    background: selected ? GOLD : '#FAFAFA', color: selected ? '#201705' : '#16181D', fontWeight: 700, fontSize: '13.5px',
-    fontFamily: "'IBM Plex Mono',monospace", cursor: 'pointer', textAlign: 'center'
+    padding: '11px 6px', borderRadius: '2px', border: `1.5px solid ${selected ? ACCENT : '#D5D7DA'}`,
+    background: selected ? ACCENT : '#FAFAFA', color: selected ? '#FFFFFF' : '#1D2D3E', fontWeight: 700, fontSize: '13.5px',
+    fontFamily: "'Roboto Mono',monospace", cursor: 'pointer', textAlign: 'center'
   }),
 };
 
@@ -99,22 +99,22 @@ export default function PortalAgendamento() {
     setEnviando(false);
   };
 
-  if (loading) return <div style={{ ...styles.page, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Loader2 className="animate-spin" color={GOLD} /></div>;
-  if (erro) return <div style={{ ...styles.page, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', textAlign: 'center', color: '#B23A3A' }}>{erro}</div>;
+  if (loading) return <div style={{ ...styles.page, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Loader2 className="animate-spin" color={ACCENT} /></div>;
+  if (erro) return <div style={{ ...styles.page, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', textAlign: 'center', color: '#BB0000' }}>{erro}</div>;
 
   if (concluido) {
     return (
       <div style={styles.page}>
         <div style={styles.header}>
-          <div style={styles.headerTitle}><CalendarClock size={22} color={GOLD} /> {empresaNome}</div>
+          <div style={styles.headerTitle}><CalendarClock size={22} color={ACCENT} /> {empresaNome}</div>
         </div>
         <div style={styles.wrap}>
           <div style={{ ...styles.card, textAlign: 'center', padding: '36px 22px' }}>
-            <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: '#E7F5EC', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <Check size={28} color="#1F7A45" />
+            <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: '#DCEEE2', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <Check size={28} color="#107E3E" />
             </div>
             <div style={{ ...styles.cardTitle, fontSize: '19px' }}>Marcação confirmada!</div>
-            <p style={{ color: '#6B7280', fontSize: '13.5px', lineHeight: 1.6, marginTop: '8px' }}>
+            <p style={{ color: '#5B738B', fontSize: '13.5px', lineHeight: 1.6, marginTop: '8px' }}>
               {nome}, a sua marcação de <strong>{servico?.nome}</strong> ficou registada para o dia{' '}
               <strong>{new Date(data + 'T12:00:00').toLocaleDateString('pt-PT')}</strong> às <strong>{hora}</strong>.
               {' '}Vai receber uma confirmação pelo WhatsApp no número indicado.
@@ -128,7 +128,7 @@ export default function PortalAgendamento() {
   return (
     <div style={styles.page}>
       <div style={styles.header}>
-        <div style={styles.headerTitle}><CalendarClock size={22} color={GOLD} /> {empresaNome}</div>
+        <div style={styles.headerTitle}><CalendarClock size={22} color={ACCENT} /> {empresaNome}</div>
         <div style={styles.headerSub}>Marque o seu horário em poucos passos</div>
       </div>
 
@@ -139,12 +139,12 @@ export default function PortalAgendamento() {
 
         {step === 1 && (
           <div style={styles.card}>
-            <div style={styles.cardTitle}><Scissors size={16} color={GOLD} style={{ display: 'inline', marginRight: '6px', verticalAlign: '-2px' }} />Escolha o serviço</div>
+            <div style={styles.cardTitle}><Scissors size={16} color={ACCENT} style={{ display: 'inline', marginRight: '6px', verticalAlign: '-2px' }} />Escolha o serviço</div>
             <div style={styles.cardSub}>O que gostaria de marcar?</div>
-            {servicos.length === 0 && <div style={{ color: '#9AA1AC', fontSize: '13px', padding: '10px 0' }}>Sem serviços disponíveis de momento.</div>}
+            {servicos.length === 0 && <div style={{ color: '#8996A3', fontSize: '13px', padding: '10px 0' }}>Sem serviços disponíveis de momento.</div>}
             {servicos.map(s => (
               <div key={s.id} style={styles.option(servico?.id === s.id)} onClick={() => { setServico(s); setStep(profissionais.length > 0 ? 2 : 3); }}>
-                <div><div style={{ fontWeight: 700, fontSize: '14px' }}>{s.nome}</div><div style={{ fontSize: '12px', color: '#6B7280' }}>{s.duracao_minutos} min{s.preco ? ` · ${Number(s.preco).toLocaleString('pt-AO')} Kz` : ''}</div></div>
+                <div><div style={{ fontWeight: 700, fontSize: '14px' }}>{s.nome}</div><div style={{ fontSize: '12px', color: '#5B738B' }}>{s.duracao_minutos} min{s.preco ? ` · ${Number(s.preco).toLocaleString('pt-AO')} Kz` : ''}</div></div>
               </div>
             ))}
           </div>
@@ -153,7 +153,7 @@ export default function PortalAgendamento() {
         {step === 2 && (
           <div style={styles.card}>
             <button style={styles.btnBack} onClick={() => setStep(1)}><ChevronLeft size={15} /> Voltar</button>
-            <div style={styles.cardTitle}><User size={16} color={GOLD} style={{ display: 'inline', marginRight: '6px', verticalAlign: '-2px' }} />Escolha o profissional</div>
+            <div style={styles.cardTitle}><User size={16} color={ACCENT} style={{ display: 'inline', marginRight: '6px', verticalAlign: '-2px' }} />Escolha o profissional</div>
             <div style={styles.cardSub}>Opcional — pode deixar em aberto.</div>
             <div style={styles.option(profissional === null)} onClick={() => { setProfissional(null); setStep(3); }}>
               <div style={{ fontWeight: 700, fontSize: '14px' }}>Qualquer profissional disponível</div>
@@ -169,7 +169,7 @@ export default function PortalAgendamento() {
         {step === 3 && (
           <div style={styles.card}>
             <button style={styles.btnBack} onClick={() => setStep(profissionais.length > 0 ? 2 : 1)}><ChevronLeft size={15} /> Voltar</button>
-            <div style={styles.cardTitle}><CalendarDays size={16} color={GOLD} style={{ display: 'inline', marginRight: '6px', verticalAlign: '-2px' }} />Escolha a data</div>
+            <div style={styles.cardTitle}><CalendarDays size={16} color={ACCENT} style={{ display: 'inline', marginRight: '6px', verticalAlign: '-2px' }} />Escolha a data</div>
             <div style={styles.cardSub}>Vamos mostrar só os horários realmente livres.</div>
             <input type="date" style={styles.input} value={data} min={new Date().toISOString().slice(0, 10)} onChange={e => setData(e.target.value)} />
             <button style={styles.btnPrimary} onClick={() => setStep(4)}>Ver horários disponíveis</button>
@@ -179,10 +179,10 @@ export default function PortalAgendamento() {
         {step === 4 && (
           <div style={styles.card}>
             <button style={styles.btnBack} onClick={() => setStep(3)}><ChevronLeft size={15} /> Voltar</button>
-            <div style={styles.cardTitle}><Clock size={16} color={GOLD} style={{ display: 'inline', marginRight: '6px', verticalAlign: '-2px' }} />Escolha o horário</div>
+            <div style={styles.cardTitle}><Clock size={16} color={ACCENT} style={{ display: 'inline', marginRight: '6px', verticalAlign: '-2px' }} />Escolha o horário</div>
             <div style={styles.cardSub}>{new Date(data + 'T12:00:00').toLocaleDateString('pt-PT', { weekday: 'long', day: '2-digit', month: 'long' })}</div>
-            {slotsLoading && <div style={{ color: '#9AA1AC', fontSize: '13px', padding: '10px 0' }}>A verificar disponibilidade...</div>}
-            {!slotsLoading && slots.length === 0 && <div style={{ color: '#9AA1AC', fontSize: '13px', padding: '10px 0' }}>Sem horários livres neste dia. Tente outra data.</div>}
+            {slotsLoading && <div style={{ color: '#8996A3', fontSize: '13px', padding: '10px 0' }}>A verificar disponibilidade...</div>}
+            {!slotsLoading && slots.length === 0 && <div style={{ color: '#8996A3', fontSize: '13px', padding: '10px 0' }}>Sem horários livres neste dia. Tente outra data.</div>}
             {!slotsLoading && slots.length > 0 && (
               <div style={styles.slotGrid}>
                 {slots.map(s => <div key={s} style={styles.slotBtn(hora === s)} onClick={() => setHora(s)}>{s}</div>)}
@@ -201,7 +201,7 @@ export default function PortalAgendamento() {
             </div>
             <input style={styles.input} placeholder="O seu nome" value={nome} onChange={e => setNome(e.target.value)} />
             <input style={styles.input} placeholder="Número de WhatsApp (ex: 9XX XXX XXX)" value={telefone} onChange={e => setTelefone(e.target.value)} />
-            {erroEnvio && <div style={{ color: '#B23A3A', fontSize: '12.5px', marginBottom: '10px' }}>{erroEnvio}</div>}
+            {erroEnvio && <div style={{ color: '#BB0000', fontSize: '12.5px', marginBottom: '10px' }}>{erroEnvio}</div>}
             <button style={{ ...styles.btnPrimary, opacity: nome.trim() && telefone.trim() && !enviando ? 1 : 0.5 }} disabled={!nome.trim() || !telefone.trim() || enviando} onClick={confirmar}>
               {enviando ? 'A confirmar...' : 'Confirmar marcação'}
             </button>

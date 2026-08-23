@@ -102,24 +102,24 @@ export default function KnowledgeBaseApp() {
   const filteredFiles = files.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#f8fafc', padding: '32px', overflowY: 'auto', boxSizing: 'border-box' }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#F5F6F7', padding: '32px', overflowY: 'auto', boxSizing: 'border-box' }}>
       
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
         <div>
-          <h1 style={{ fontSize: '28px', color: '#0f172a', margin: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <BookOpen size={32} color="#0078D4" /> Base de Conhecimento IA
+          <h1 style={{ fontSize: '28px', color: '#1D2D3E', margin: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <BookOpen size={32} color="#0854A0" /> Base de Conhecimento IA
           </h1>
-          <p style={{ color: '#475569', margin: 0, fontSize: '15px' }}>Documentos, Regras e Contexto para a Inteligência Artificial consultar.</p>
+          <p style={{ color: '#5B738B', margin: 0, fontSize: '15px' }}>Documentos, Regras e Contexto para a Inteligência Artificial consultar.</p>
         </div>
         
         <div style={{ position: 'relative' }}>
-          <Search size={18} color="#94a3b8" style={{ position: 'absolute', top: '10px', left: '12px' }} />
+          <Search size={18} color="#8996A3" style={{ position: 'absolute', top: '10px', left: '12px' }} />
           <input 
             type="text" 
             placeholder="Pesquisar documento..." 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ padding: '10px 10px 10px 36px', borderRadius: '8px', border: '1px solid #cbd5e1', width: '250px', outline: 'none' }}
+            style={{ padding: '10px 10px 10px 36px', borderRadius: '2px', border: '1px solid #D5D7DA', width: '250px', outline: 'none' }}
           />
         </div>
       </div>
@@ -127,33 +127,33 @@ export default function KnowledgeBaseApp() {
       <div style={{ display: 'flex', gap: '24px', flex: 1, minHeight: 0 }}>
         
         {/* Lista de Documentos */}
-        <div style={{ flex: 2, backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div style={{ padding: '16px 24px', borderBottom: '1px solid #e2e8f0', backgroundColor: '#f1f5f9', fontWeight: 'bold', color: '#334155' }}>
+        <div style={{ flex: 2, backgroundColor: 'white', borderRadius: '2px', border: '1px solid #D5D7DA', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ padding: '16px 24px', borderBottom: '1px solid #D5D7DA', backgroundColor: '#E7E9EB', fontWeight: 'bold', color: '#1D2D3E' }}>
             Ficheiros de Contexto ({filteredFiles.length})
           </div>
           <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
             {filteredFiles.length === 0 ? (
-              <div style={{ textAlign: 'center', color: '#94a3b8', padding: '40px 20px' }}>
+              <div style={{ textAlign: 'center', color: '#8996A3', padding: '40px 20px' }}>
                 Nenhum documento encontrado.
               </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
                 {filteredFiles.map(file => (
-                  <div key={file.name} style={{ border: '1px solid #cbd5e1', borderRadius: '8px', padding: '16px', display: 'flex', alignItems: 'flex-start', gap: '12px', backgroundColor: '#f8fafc' }}>
-                    <div style={{ padding: '10px', backgroundColor: '#e0f2fe', borderRadius: '8px', color: '#0284c7' }}>
+                  <div key={file.name} style={{ border: '1px solid #D5D7DA', borderRadius: '2px', padding: '16px', display: 'flex', alignItems: 'flex-start', gap: '12px', backgroundColor: '#F5F6F7' }}>
+                    <div style={{ padding: '10px', backgroundColor: '#E4EDF7', borderRadius: '2px', color: '#0854A0' }}>
                       <FileText size={24} />
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 'bold', fontSize: '14px', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '4px' }} title={file.name}>
+                      <div style={{ fontWeight: 'bold', fontSize: '14px', color: '#1D2D3E', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '4px' }} title={file.name}>
                         {file.name}
                       </div>
-                      <div style={{ fontSize: '12px', color: '#64748b' }}>
+                      <div style={{ fontSize: '12px', color: '#5B738B' }}>
                         {formatSize(file.size)} • {new Date(file.date).toLocaleDateString()}
                       </div>
                     </div>
                     <button 
                       onClick={() => handleDelete(file.name)}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: '#ef4444', opacity: 0.6 }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: '#BB0000', opacity: 0.6 }}
                       onMouseOver={(e) => e.currentTarget.style.opacity = '1'}
                       onMouseOut={(e) => e.currentTarget.style.opacity = '0.6'}
                       title="Apagar Ficheiro"
@@ -176,9 +176,9 @@ export default function KnowledgeBaseApp() {
             onDragOver={handleDrag}
             onDrop={handleDrop}
             style={{ 
-              backgroundColor: dragActive ? '#e0f2fe' : 'white',
-              border: `2px dashed ${dragActive ? '#0284c7' : '#cbd5e1'}`, 
-              borderRadius: '12px', 
+              backgroundColor: dragActive ? '#E4EDF7' : 'white',
+              border: `2px dashed ${dragActive ? '#0854A0' : '#D5D7DA'}`, 
+              borderRadius: '2px', 
               padding: '40px 24px', 
               display: 'flex', 
               flexDirection: 'column', 
@@ -197,17 +197,17 @@ export default function KnowledgeBaseApp() {
               accept=".txt,.md,.pdf"
               onChange={(e) => e.target.files && handleUpload(e.target.files[0])}
             />
-            <div style={{ backgroundColor: '#f1f5f9', padding: '16px', borderRadius: '50%', marginBottom: '16px' }}>
-              <Upload size={32} color={dragActive ? '#0284c7' : '#64748b'} />
+            <div style={{ backgroundColor: '#E7E9EB', padding: '16px', borderRadius: '50%', marginBottom: '16px' }}>
+              <Upload size={32} color={dragActive ? '#0854A0' : '#5B738B'} />
             </div>
-            <h3 style={{ margin: '0 0 8px 0', fontSize: '16px', color: '#334155' }}>Adicionar Conhecimento</h3>
-            <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>Arraste ficheiros .TXT, .MD ou .PDF ou clique para procurar.</p>
-            {isUploading && <p style={{ color: '#0284c7', fontSize: '13px', marginTop: '12px', fontWeight: 'bold' }}>A enviar...</p>}
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '16px', color: '#1D2D3E' }}>Adicionar Conhecimento</h3>
+            <p style={{ margin: 0, fontSize: '13px', color: '#5B738B' }}>Arraste ficheiros .TXT, .MD ou .PDF ou clique para procurar.</p>
+            {isUploading && <p style={{ color: '#0854A0', fontSize: '13px', marginTop: '12px', fontWeight: 'bold' }}>A enviar...</p>}
           </div>
 
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '20px' }}>
-            <h3 style={{ margin: '0 0 12px 0', fontSize: '15px', color: '#334155' }}>Dicas para a IA</h3>
-            <ul style={{ paddingLeft: '20px', margin: 0, fontSize: '13px', color: '#475569', lineHeight: '1.6' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '2px', border: '1px solid #D5D7DA', padding: '20px' }}>
+            <h3 style={{ margin: '0 0 12px 0', fontSize: '15px', color: '#1D2D3E' }}>Dicas para a IA</h3>
+            <ul style={{ paddingLeft: '20px', margin: 0, fontSize: '13px', color: '#5B738B', lineHeight: '1.6' }}>
               <li><strong>Ficheiros de Texto Puro (.txt)</strong> são mais rápidos de processar pela IA.</li>
               <li>A IA tem acesso a estes ficheiros através da ferramenta <code>pesquisar_base_conhecimento</code>.</li>
               <li>Pode criar um ficheiro "Regras_Empresa.txt" com políticas de devolução e FAQs.</li>

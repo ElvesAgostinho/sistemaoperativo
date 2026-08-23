@@ -1137,7 +1137,7 @@ export default function HrApp() {
 
         {/* ================= DEPARTAMENTOS ================= */}
         {activeTab === 'departamentos' && (
-          <div className="odoo-form-sheet" style={{ maxWidth: '1200px' }}>
+          <div className="odoo-form-sheet">
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', alignItems: 'center' }}>
               <h2 style={{ fontSize: '22px', color: 'var(--odoo-text-dark)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 Estrutura Organizacional
@@ -1187,7 +1187,7 @@ export default function HrApp() {
 
         {/* ================= PRESENÇAS ================= */}
         {activeTab === 'presencas' && (
-          <div className="odoo-form-sheet" style={{ maxWidth: '1200px' }}>
+          <div className="odoo-form-sheet">
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', alignItems: 'center' }}>
               <h2 style={{ fontSize: '22px', color: 'var(--odoo-text-dark)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 Gestão de Faltas e Justificativas
@@ -1284,7 +1284,7 @@ export default function HrApp() {
 
         {/* ================= RUBRICAS ================= */}
         {activeTab === 'rubricas' && (
-          <div className="odoo-form-sheet" style={{ maxWidth: '1200px' }}>
+          <div className="odoo-form-sheet">
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', alignItems: 'center' }}>
               <div>
                 <h2 style={{ fontSize: '22px', color: 'var(--odoo-text-dark)', margin: 0 }}>
@@ -1413,7 +1413,7 @@ export default function HrApp() {
 
         {/* ================= SALÁRIOS LOTE ================= */}
         {activeTab === 'salarios' && (
-          <div className="odoo-form-sheet" style={{ maxWidth: '1200px' }}>
+          <div className="odoo-form-sheet">
             <h2 style={{ fontSize: '22px', color: 'var(--odoo-text-dark)', marginTop: 0, marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               Motor de Processamento Salarial (Angola)
             </h2>
@@ -1982,7 +1982,7 @@ export default function HrApp() {
 
         {/* ================= ADIANTAMENTOS ================= */}
         {activeTab === 'adiantamentos' && (
-          <div className="odoo-form-sheet" style={{ maxWidth: '1100px' }}>
+          <div className="odoo-form-sheet">
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', alignItems: 'center' }}>
               <div>
                 <h2 style={{ fontSize: '22px', color: 'var(--odoo-text-dark)', margin: '0 0 4px 0' }}>Adiantamentos Salariais (Vales)</h2>
@@ -2047,7 +2047,7 @@ export default function HrApp() {
 
         {/* ================= DESEMPENHO ================= */}
         {activeTab === 'desempenho' && (
-          <div className="odoo-form-sheet" style={{ maxWidth: '1100px' }}>
+          <div className="odoo-form-sheet">
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', alignItems: 'center' }}>
               <div>
                 <h2 style={{ fontSize: '22px', color: 'var(--odoo-text-dark)', margin: '0 0 4px 0' }}>Avaliações de Desempenho</h2>
@@ -2098,7 +2098,7 @@ export default function HrApp() {
 
         {/* ================= RECRUTAMENTO E TRIAGEM (IA) — ATS ================= */}
         {activeTab === 'recrutamento' && (
-          <div className="odoo-form-sheet" style={{ maxWidth: '1400px' }}>
+          <div className="odoo-form-sheet">
 
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', alignItems: 'center' }}>
               <div>

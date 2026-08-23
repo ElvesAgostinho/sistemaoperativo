@@ -175,7 +175,7 @@ export default function AutomationApp() {
   };
 
   return (
-    <div style={{ display: 'flex', height: '100%', backgroundColor: '#f9fafb', position: 'relative', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', height: '100%', backgroundColor: '#F5F6F7', position: 'relative', overflow: 'hidden' }}>
 
       {/* Sidebar - Lista de Automações (colapsável, sobretudo útil em ecrãs estreitos/telemóvel) */}
       <div style={{
@@ -191,13 +191,13 @@ export default function AutomationApp() {
       }}>
         <div style={{ padding: '20px', borderBottom: '1px solid var(--odoo-border)', minWidth: '300px' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-            <h2 style={{ margin: 0, fontSize: '18px', color: '#1a1a1a', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Zap size={20} color="#0078D4" /> Autopilot
+            <h2 style={{ margin: 0, fontSize: '18px', color: '#1D2D3E', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Zap size={20} color="#0854A0" /> Autopilot
             </h2>
             <button
               onClick={() => setHelpOpen(true)}
               title="Manual — como construir um fluxo"
-              style={{ display: 'flex', alignItems: 'center', gap: '5px', background: '#f0f9ff', border: '1px solid #bae6fd', color: '#0369a1', borderRadius: '6px', padding: '5px 9px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}
+              style={{ display: 'flex', alignItems: 'center', gap: '5px', background: '#E4EDF7', border: '1px solid #bae6fd', color: '#0854A0', borderRadius: '2px', padding: '5px 9px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}
             >
               <HelpCircle size={13} /> Ajuda
             </button>
@@ -211,9 +211,9 @@ export default function AutomationApp() {
               key={auto.id}
               style={{
                 padding: '12px',
-                backgroundColor: selectedId === auto.id ? '#f0f9ff' : 'white',
-                border: selectedId === auto.id ? '1px solid #0078D4' : '1px solid var(--odoo-border)',
-                borderRadius: '6px',
+                backgroundColor: selectedId === auto.id ? '#E4EDF7' : 'white',
+                border: selectedId === auto.id ? '1px solid #0854A0' : '1px solid var(--odoo-border)',
+                borderRadius: '2px',
                 marginBottom: '8px',
                 cursor: 'pointer',
                 display: 'flex',
@@ -226,15 +226,15 @@ export default function AutomationApp() {
               <div
                 onClick={(e) => toggleAutomation(e, auto.id, auto.ativo)}
                 style={{
-                  backgroundColor: auto.ativo ? '#dcfce7' : '#f1f5f9',
+                  backgroundColor: auto.ativo ? '#DCEEE2' : '#E7E9EB',
                   padding: '8px',
                   borderRadius: '50%',
                   cursor: 'pointer',
-                  border: auto.ativo ? '1px solid #bbf7d0' : '1px solid #cbd5e1'
+                  border: auto.ativo ? '1px solid #DCEEE2' : '1px solid #D5D7DA'
                 }}
                 title={auto.ativo ? 'Desativar Automação' : 'Ativar Automação'}
               >
-                <Zap size={16} color={auto.ativo ? '#16a34a' : '#94a3b8'} />
+                <Zap size={16} color={auto.ativo ? '#107E3E' : '#8996A3'} />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 {editingId === auto.id ? (
@@ -247,17 +247,17 @@ export default function AutomationApp() {
                       onKeyDown={(e) => { if (e.key === 'Escape') cancelRenaming(); }}
                       disabled={isRenaming}
                       autoFocus
-                      style={{ flex: 1, minWidth: 0, fontSize: '13px', fontWeight: 'bold', padding: '4px 6px', borderRadius: '4px', border: '1px solid #0078D4' }}
+                      style={{ flex: 1, minWidth: 0, fontSize: '13px', fontWeight: 'bold', padding: '4px 6px', borderRadius: '2px', border: '1px solid #0854A0' }}
                     />
-                    <button type="submit" disabled={isRenaming} title="Guardar nome" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: '#16a34a' }}>
+                    <button type="submit" disabled={isRenaming} title="Guardar nome" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: '#107E3E' }}>
                       <Check size={16} />
                     </button>
-                    <button type="button" onClick={cancelRenaming} title="Cancelar" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: '#94a3b8' }}>
+                    <button type="button" onClick={cancelRenaming} title="Cancelar" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: '#8996A3' }}>
                       <X size={16} />
                     </button>
                   </form>
                 ) : (
-                  <div title={auto.nome} style={{ fontSize: '13px', fontWeight: 'bold', color: '#1a1a1a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} onDoubleClick={(e) => startRenaming(e, auto)}>
+                  <div title={auto.nome} style={{ fontSize: '13px', fontWeight: 'bold', color: '#1D2D3E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} onDoubleClick={(e) => startRenaming(e, auto)}>
                     {auto.nome}
                   </div>
                 )}
@@ -267,14 +267,14 @@ export default function AutomationApp() {
                 <>
                   <button
                     onClick={(e) => startRenaming(e, auto)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: '#64748b', opacity: 0.7 }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: '#5B738B', opacity: 0.7 }}
                     title="Renomear Automação"
                   >
                     <Pencil size={15} />
                   </button>
                   <button
                     onClick={(e) => deleteAutomation(e, auto.id)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: '#ef4444', opacity: 0.7 }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: '#BB0000', opacity: 0.7 }}
                     title="Eliminar Automação"
                   >
                     <Trash2 size={16} />
@@ -309,8 +309,8 @@ export default function AutomationApp() {
         style={{
           position: 'absolute', top: 16, left: sidebarOpen ? 316 : 16, zIndex: 20,
           width: '34px', height: '34px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'white', border: '1px solid var(--odoo-border)', borderRadius: '8px',
-          cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.08)', color: '#475569',
+          background: 'white', border: '1px solid var(--odoo-border)', borderRadius: '2px',
+          cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.08)', color: '#5B738B',
           transition: 'left 0.18s ease'
         }}
       >
@@ -322,11 +322,11 @@ export default function AutomationApp() {
         {catchAllAutomations.length > 0 && (
           <div style={{
             position: 'absolute', top: 12, left: sidebarOpen ? 56 : 62, right: 12, zIndex: 15,
-            background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: '8px',
+            background: '#FCEFDD', border: '1px solid #8A4B0B', borderRadius: '2px',
             padding: '10px 14px', display: 'flex', alignItems: 'flex-start', gap: '10px',
             boxShadow: '0 2px 8px rgba(0,0,0,0.06)', fontSize: '12.5px', color: '#92400e'
           }}>
-            <AlertTriangle size={16} color="#d97706" style={{ flexShrink: 0, marginTop: '1px' }} />
+            <AlertTriangle size={16} color="#8A4B0B" style={{ flexShrink: 0, marginTop: '1px' }} />
             <div>
               <strong>{catchAllAutomations.map(a => `"${a.nome}"`).join(', ')}</strong> responde a "qualquer mensagem" do
               WhatsApp e está ativa — isso intercepta as conversas antes do Assistente IA (Base de Conhecimento,
@@ -343,9 +343,9 @@ export default function AutomationApp() {
             onSave={handleSaveGraph}
           />
         ) : (
-          <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>
+          <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#8996A3' }}>
             <Zap size={64} style={{ marginBottom: '16px', opacity: 0.5 }} />
-            <h3 style={{ margin: 0, color: '#64748b' }}>Selecione um Fluxo</h3>
+            <h3 style={{ margin: 0, color: '#5B738B' }}>Selecione um Fluxo</h3>
             <p style={{ fontSize: '14px' }}>Ou crie uma nova automação para editar no canvas visual.</p>
           </div>
         )}

@@ -700,26 +700,26 @@ export default function WhatsAppChatApp() {
     }
 
     return (
-        <div style={{ display: 'flex', height: '100%', width: '100%', backgroundColor: '#f0f2f5' }}>
+        <div style={{ display: 'flex', height: '100%', width: '100%', backgroundColor: '#F5F6F7' }}>
 
-            <div style={{ width: '30%', minWidth: '300px', borderRight: '1px solid #d1d7db', display: 'flex', flexDirection: 'column', backgroundColor: 'white' }}>
-                <div style={{ padding: '10px 16px', backgroundColor: '#f0f2f5', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '59px', borderBottom: '1px solid #d1d7db' }}>
-                    <div style={{ fontWeight: 600, color: '#111b21', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <MessageSquare size={20} color="#00a884" /> WhatsApp
+            <div style={{ width: '30%', minWidth: '300px', borderRight: '1px solid #D5D7DA', display: 'flex', flexDirection: 'column', backgroundColor: 'white' }}>
+                <div style={{ padding: '10px 16px', backgroundColor: '#F5F6F7', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '59px', borderBottom: '1px solid #D5D7DA' }}>
+                    <div style={{ fontWeight: 600, color: '#1D2D3E', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <MessageSquare size={20} color="#0854A0" /> WhatsApp
                     </div>
-                    <div style={{ display: 'flex', gap: '16px', color: '#54656f' }}>
-                        <span title="Conversas"><MessageSquare size={20} style={{ cursor: 'pointer', color: currentView === 'chats' ? '#00a884' : '#54656f' }} onClick={() => setCurrentView('chats')} /></span>
-                        <span title="Grupos"><Users size={20} style={{ cursor: 'pointer', color: currentView === 'groups' ? '#00a884' : '#54656f' }} onClick={() => setCurrentView('groups')} /></span>
-                        <span title="Campanhas"><Megaphone size={20} style={{ cursor: 'pointer', color: currentView === 'campaigns' ? '#00a884' : '#54656f' }} onClick={() => setCurrentView('campaigns')} /></span>
-                        <span title="Configurações de Canais"><Settings size={20} style={{ cursor: 'pointer', color: currentView === 'settings' ? '#00a884' : '#54656f' }} onClick={() => setCurrentView('settings')} /></span>
+                    <div style={{ display: 'flex', gap: '16px', color: '#5B738B' }}>
+                        <span title="Conversas"><MessageSquare size={20} style={{ cursor: 'pointer', color: currentView === 'chats' ? '#0854A0' : '#5B738B' }} onClick={() => setCurrentView('chats')} /></span>
+                        <span title="Grupos"><Users size={20} style={{ cursor: 'pointer', color: currentView === 'groups' ? '#0854A0' : '#5B738B' }} onClick={() => setCurrentView('groups')} /></span>
+                        <span title="Campanhas"><Megaphone size={20} style={{ cursor: 'pointer', color: currentView === 'campaigns' ? '#0854A0' : '#5B738B' }} onClick={() => setCurrentView('campaigns')} /></span>
+                        <span title="Configurações de Canais"><Settings size={20} style={{ cursor: 'pointer', color: currentView === 'settings' ? '#0854A0' : '#5B738B' }} onClick={() => setCurrentView('settings')} /></span>
                     </div>
                 </div>
 
                 {currentView === 'chats' ? (
                     <>
-                        <div style={{ padding: '8px', backgroundColor: '#fff', borderBottom: '1px solid #f2f2f2' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', backgroundColor: '#f0f2f5', borderRadius: '8px', padding: '6px 12px', marginBottom: '8px' }}>
-                                <Search size={18} color="#54656f" />
+                        <div style={{ padding: '8px', backgroundColor: '#fff', borderBottom: '1px solid #F5F6F7' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', backgroundColor: '#F5F6F7', borderRadius: '2px', padding: '6px 12px', marginBottom: '8px' }}>
+                                <Search size={18} color="#5B738B" />
                                 <input 
                                     type="text" 
                                     placeholder="Pesquisar conversa" 
@@ -728,9 +728,9 @@ export default function WhatsAppChatApp() {
                             </div>
                             {currentUser && (currentUser.role === 'admin' || currentUser.role === 'supervisor' || currentUser.role === 'superadmin') && (
                                 <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
-                                    <button onClick={() => setFilter('all')} style={{ padding: '4px 8px', borderRadius: '12px', fontSize: '12px', border: 'none', cursor: 'pointer', backgroundColor: filter === 'all' ? '#00a884' : '#f0f2f5', color: filter === 'all' ? 'white' : '#54656f' }}>Todas</button>
-                                    <button onClick={() => setFilter('mine')} style={{ padding: '4px 8px', borderRadius: '12px', fontSize: '12px', border: 'none', cursor: 'pointer', backgroundColor: filter === 'mine' ? '#00a884' : '#f0f2f5', color: filter === 'mine' ? 'white' : '#54656f' }}>Minhas</button>
-                                    <button onClick={() => setFilter('unassigned')} style={{ padding: '4px 8px', borderRadius: '12px', fontSize: '12px', border: 'none', cursor: 'pointer', backgroundColor: filter === 'unassigned' ? '#00a884' : '#f0f2f5', color: filter === 'unassigned' ? 'white' : '#54656f' }}>Na Fila</button>
+                                    <button onClick={() => setFilter('all')} style={{ padding: '4px 8px', borderRadius: '2px', fontSize: '12px', border: 'none', cursor: 'pointer', backgroundColor: filter === 'all' ? '#0854A0' : '#F5F6F7', color: filter === 'all' ? 'white' : '#5B738B' }}>Todas</button>
+                                    <button onClick={() => setFilter('mine')} style={{ padding: '4px 8px', borderRadius: '2px', fontSize: '12px', border: 'none', cursor: 'pointer', backgroundColor: filter === 'mine' ? '#0854A0' : '#F5F6F7', color: filter === 'mine' ? 'white' : '#5B738B' }}>Minhas</button>
+                                    <button onClick={() => setFilter('unassigned')} style={{ padding: '4px 8px', borderRadius: '2px', fontSize: '12px', border: 'none', cursor: 'pointer', backgroundColor: filter === 'unassigned' ? '#0854A0' : '#F5F6F7', color: filter === 'unassigned' ? 'white' : '#5B738B' }}>Na Fila</button>
                                 </div>
                             )}
                         </div>
@@ -745,12 +745,12 @@ export default function WhatsAppChatApp() {
                                     key={conv.id} 
                                     onClick={() => setActiveConv(conv)}
                                     style={{ 
-                                        display: 'flex', padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid #f2f2f2',
-                                        backgroundColor: activeConv?.id === conv.id ? '#f0f2f5' : 'white',
+                                        display: 'flex', padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid #F5F6F7',
+                                        backgroundColor: activeConv?.id === conv.id ? '#F5F6F7' : 'white',
                                         transition: 'background-color 0.2s'
                                     }}
                                 >
-                                    <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: '#dfe5e7', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '16px', overflow: 'hidden' }}>
+                                    <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: '#D5D7DA', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '16px', overflow: 'hidden' }}>
                                         {conv.contact_picture && !brokenPictures.has(conv.id) ? (
                                             <img src={conv.contact_picture} alt={conv.contact_name} onError={() => markPictureBroken(conv.id)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                         ) : (
@@ -759,17 +759,17 @@ export default function WhatsAppChatApp() {
                                     </div>
                                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <span style={{ fontSize: '16px', color: '#111b21', fontWeight: 500 }}>{displayContactName(conv.contact_name, conv.phone_number)}</span>
-                                            <span style={{ fontSize: '12px', color: '#667781' }}>{new Date(conv.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                            <span style={{ fontSize: '16px', color: '#1D2D3E', fontWeight: 500 }}>{displayContactName(conv.contact_name, conv.phone_number)}</span>
+                                            <span style={{ fontSize: '12px', color: '#5B738B' }}>{new Date(conv.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
-                                            <span style={{ fontSize: '14px', color: '#667781', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>
+                                            <span style={{ fontSize: '14px', color: '#5B738B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>
                                                 {formatPhoneNumber(conv.phone_number)}
                                             </span>
-                                            {conv.status === 'bot' && <span title="O Bot está a responder"><Bot size={14} color="#00a884" /></span>}
+                                            {conv.status === 'bot' && <span title="O Bot está a responder"><Bot size={14} color="#0854A0" /></span>}
                                         </div>
                                         {conv.assigned_to && (
-                                            <div style={{ fontSize: '11px', color: '#00a884', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            <div style={{ fontSize: '11px', color: '#0854A0', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                 <UserPlus size={12} /> {agents.find(a => a.id === conv.assigned_to)?.nome || 'Agente Atribuído'}
                                             </div>
                                         )}
@@ -780,15 +780,15 @@ export default function WhatsAppChatApp() {
                     </>
                 ) : (
                     <div style={{ padding: '20px', flex: 1, overflowY: 'auto', backgroundColor: '#fff' }}>
-                        <h3 style={{ margin: '0 0 20px 0', color: '#111b21' }}>Gestão de Canais</h3>
+                        <h3 style={{ margin: '0 0 20px 0', color: '#1D2D3E' }}>Gestão de Canais</h3>
 
                         {hasChatLicense ? (
-                            <div style={{ border: `1px solid ${aiFallbackEnabled ? '#e2e8f0' : '#fecaca'}`, borderRadius: '8px', padding: '16px', marginBottom: '20px', backgroundColor: aiFallbackEnabled ? 'white' : '#fef2f2' }}>
+                            <div style={{ border: `1px solid ${aiFallbackEnabled ? '#D5D7DA' : '#F6DEDE'}`, borderRadius: '2px', padding: '16px', marginBottom: '20px', backgroundColor: aiFallbackEnabled ? 'white' : '#F6DEDE' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    <Bot size={22} color={aiFallbackEnabled ? '#00a884' : '#94a3b8'} />
+                                    <Bot size={22} color={aiFallbackEnabled ? '#0854A0' : '#8996A3'} />
                                     <div style={{ flex: 1 }}>
-                                        <h4 style={{ margin: 0, fontSize: '15px', color: '#111b21' }}>Assistente IA Automático</h4>
-                                        <p style={{ margin: '2px 0 0', fontSize: '12.5px', color: '#667781', lineHeight: 1.4 }}>
+                                        <h4 style={{ margin: 0, fontSize: '15px', color: '#1D2D3E' }}>Assistente IA Automático</h4>
+                                        <p style={{ margin: '2px 0 0', fontSize: '12.5px', color: '#5B738B', lineHeight: 1.4 }}>
                                             Responde sozinho no WhatsApp sempre que nenhuma automação do Autopilot apanha a mensagem
                                             (usa tokens da OpenAI a cada resposta). <strong>Desativar uma automação não desliga isto.</strong>
                                         </p>
@@ -796,8 +796,8 @@ export default function WhatsAppChatApp() {
                                     <div
                                         onClick={savingAiFallback ? undefined : toggleAiFallback}
                                         style={{
-                                            width: '40px', height: '20px', borderRadius: '20px', flexShrink: 0,
-                                            backgroundColor: aiFallbackEnabled ? '#00a884' : '#cbd5e1',
+                                            width: '40px', height: '20px', borderRadius: '2px', flexShrink: 0,
+                                            backgroundColor: aiFallbackEnabled ? '#0854A0' : '#D5D7DA',
                                             position: 'relative', cursor: savingAiFallback ? 'wait' : 'pointer', transition: 'background-color 0.3s'
                                         }}
                                         title={aiFallbackEnabled ? 'Desativar Assistente IA no WhatsApp' : 'Ativar Assistente IA no WhatsApp'}
@@ -809,101 +809,101 @@ export default function WhatsAppChatApp() {
                                     </div>
                                 </div>
                                 {!aiFallbackEnabled && (
-                                    <p style={{ margin: '10px 0 0', fontSize: '12px', color: '#991b1b', fontWeight: 600 }}>
+                                    <p style={{ margin: '10px 0 0', fontSize: '12px', color: '#BB0000', fontWeight: 600 }}>
                                         Desativado — as mensagens que não caírem numa automação ficam sem resposta automática.
                                     </p>
                                 )}
                             </div>
                         ) : (
-                            <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', marginBottom: '20px', backgroundColor: '#f8fafc' }}>
+                            <div style={{ border: '1px solid #D5D7DA', borderRadius: '2px', padding: '16px', marginBottom: '20px', backgroundColor: '#F5F6F7' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    <Bot size={22} color="#94a3b8" />
+                                    <Bot size={22} color="#8996A3" />
                                     <div style={{ flex: 1 }}>
-                                        <h4 style={{ margin: 0, fontSize: '15px', color: '#334155' }}>Assistente IA Automático</h4>
-                                        <p style={{ margin: '2px 0 0', fontSize: '12.5px', color: '#64748b', lineHeight: 1.4 }}>
+                                        <h4 style={{ margin: 0, fontSize: '15px', color: '#1D2D3E' }}>Assistente IA Automático</h4>
+                                        <p style={{ margin: '2px 0 0', fontSize: '12.5px', color: '#5B738B', lineHeight: 1.4 }}>
                                             Não incluído no seu plano atual. Contacte o suporte para ativar este módulo.
                                         </p>
                                     </div>
-                                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', backgroundColor: '#e2e8f0', padding: '4px 10px', borderRadius: '12px', flexShrink: 0 }}>Bloqueado</span>
+                                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#5B738B', backgroundColor: '#D5D7DA', padding: '4px 10px', borderRadius: '2px', flexShrink: 0 }}>Bloqueado</span>
                                 </div>
                             </div>
                         )}
 
-                        <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', marginBottom: '20px' }}>
+                        <div style={{ border: '1px solid #D5D7DA', borderRadius: '2px', padding: '16px', marginBottom: '20px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                                <QrCode size={24} color="#00a884" />
-                                <h4 style={{ margin: 0, fontSize: '16px', color: '#111b21' }}>Evolution API (QR Code / Pareamento)</h4>
+                                <QrCode size={24} color="#0854A0" />
+                                <h4 style={{ margin: 0, fontSize: '16px', color: '#1D2D3E' }}>Evolution API (QR Code / Pareamento)</h4>
                                 {evolutionStatus === 'connected' && (
-                                    <span style={{ marginLeft: 'auto', backgroundColor: '#dcfce7', color: '#16a34a', padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' }}>Ligado</span>
+                                    <span style={{ marginLeft: 'auto', backgroundColor: '#DCEEE2', color: '#107E3E', padding: '4px 12px', borderRadius: '2px', fontSize: '12px', fontWeight: 'bold' }}>Ligado</span>
                                 )}
                             </div>
-                            <p style={{ fontSize: '13px', color: '#667781', marginBottom: '16px' }}>
+                            <p style={{ fontSize: '13px', color: '#5B738B', marginBottom: '16px' }}>
                                 Ligue o seu número do WhatsApp diretamente capturando o QR Code.
                             </p>
                             
                             {evolutionStatus === 'connected' ? (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                    <div style={{ padding: '16px', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px' }}>
-                                        <h5 style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#166534' }}>WhatsApp Conectado com Sucesso</h5>
-                                        <p style={{ fontSize: '13px', color: '#14532d', marginBottom: '12px', lineHeight: '1.4' }}>
+                                    <div style={{ padding: '16px', backgroundColor: '#DCEEE2', border: '1px solid #DCEEE2', borderRadius: '2px' }}>
+                                        <h5 style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#107E3E' }}>WhatsApp Conectado com Sucesso</h5>
+                                        <p style={{ fontSize: '13px', color: '#107E3E', marginBottom: '12px', lineHeight: '1.4' }}>
                                             O seu telemóvel está sincronizado e as mensagens já chegam ao sistema. O interruptor
                                             "Assistente IA Automático" acima controla se a IA responde sozinha quando nenhuma automação apanha a mensagem.
                                         </p>
                                         <button 
                                             onClick={handleEvolutionDisconnect}
-                                            style={{ padding: '8px 16px', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}
+                                            style={{ padding: '8px 16px', backgroundColor: '#BB0000', color: 'white', border: 'none', borderRadius: '2px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}
                                         >
                                             Desconectar WhatsApp
                                         </button>
                                     </div>
 
-                                    <div style={{ padding: '16px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
-                                        <h5 style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#334155' }}>Sincronização Histórica</h5>
-                                        <p style={{ fontSize: '13px', color: '#475569', marginBottom: '12px', lineHeight: '1.4' }}>
+                                    <div style={{ padding: '16px', backgroundColor: '#F5F6F7', border: '1px solid #D5D7DA', borderRadius: '2px' }}>
+                                        <h5 style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#1D2D3E' }}>Sincronização Histórica</h5>
+                                        <p style={{ fontSize: '13px', color: '#5B738B', marginBottom: '12px', lineHeight: '1.4' }}>
                                             Importe manualmente as conversas mais recentes do seu telemóvel para visualizar o histórico de mensagens e as fotos de perfil dos contactos aqui no CRM.
                                         </p>
                                         <button 
                                             onClick={handleSyncChats}
                                             disabled={isSyncingChats}
-                                            style={{ padding: '8px 16px', backgroundColor: isSyncingChats ? '#94a3b8' : '#0f172a', color: 'white', border: 'none', borderRadius: '6px', cursor: isSyncingChats ? 'wait' : 'pointer', fontSize: '13px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px' }}
+                                            style={{ padding: '8px 16px', backgroundColor: isSyncingChats ? '#8996A3' : '#1D2D3E', color: 'white', border: 'none', borderRadius: '2px', cursor: isSyncingChats ? 'wait' : 'pointer', fontSize: '13px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px' }}
                                         >
                                             {isSyncingChats ? 'A Sincronizar...' : 'Sincronizar Conversas Antigas'}
                                         </button>
                                     </div>
                                 </div>
                             ) : (
-                                <button onClick={() => { setConnectMode('qr'); setShowQr(true); }} style={{ width: '100%', padding: '10px', backgroundColor: '#00a884', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 500, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+                                <button onClick={() => { setConnectMode('qr'); setShowQr(true); }} style={{ width: '100%', padding: '10px', backgroundColor: '#0854A0', color: 'white', border: 'none', borderRadius: '2px', cursor: 'pointer', fontWeight: 500, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
                                     <Plus size={16} /> Ligar WhatsApp
                                 </button>
                             )}
                         </div>
 
-                        <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '24px' }}>
+                        <div style={{ border: '1px solid #D5D7DA', borderRadius: '2px', padding: '24px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                                <Key size={24} color="#1877F2" />
-                                <h4 style={{ margin: 0, fontSize: '18px', color: '#111b21' }}>Meta Cloud API (Oficial)</h4>
+                                <Key size={24} color="#0854A0" />
+                                <h4 style={{ margin: 0, fontSize: '18px', color: '#1D2D3E' }}>Meta Cloud API (Oficial)</h4>
                                 
                                 {metaStatus === 'connected' && (
-                                    <span style={{ marginLeft: 'auto', backgroundColor: '#dcfce7', color: '#16a34a', padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' }}>Ligado</span>
+                                    <span style={{ marginLeft: 'auto', backgroundColor: '#DCEEE2', color: '#107E3E', padding: '4px 12px', borderRadius: '2px', fontSize: '12px', fontWeight: 'bold' }}>Ligado</span>
                                 )}
                                 {metaStatus === 'disconnected' && (
-                                    <span style={{ marginLeft: 'auto', backgroundColor: '#f1f5f9', color: '#64748b', padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' }}>Desligado</span>
+                                    <span style={{ marginLeft: 'auto', backgroundColor: '#E7E9EB', color: '#5B738B', padding: '4px 12px', borderRadius: '2px', fontSize: '12px', fontWeight: 'bold' }}>Desligado</span>
                                 )}
                             </div>
-                            <p style={{ fontSize: '14px', color: '#667781', marginBottom: '24px' }}>
+                            <p style={{ fontSize: '14px', color: '#5B738B', marginBottom: '24px' }}>
                                 {metaStatus === 'connected' 
-                                    ? <>A API do WhatsApp Business está ligada. Conectado ao negócio: <strong style={{color:'#111b21'}}>{metaBusinessInfo?.name} ({metaBusinessInfo?.phone})</strong></>
+                                    ? <>A API do WhatsApp Business está ligada. Conectado ao negócio: <strong style={{color:'#1D2D3E'}}>{metaBusinessInfo?.name} ({metaBusinessInfo?.phone})</strong></>
                                     : 'A API está desligada. Preencha os dados e guarde para conectar o canal oficial.'}
                             </p>
                             
                             {metaStatus === 'connected' && (
-                                <div style={{ marginBottom: '24px', padding: '16px', backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '8px' }}>
-                                    <h5 style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#0369a1' }}>Gestão de Templates</h5>
-                                    <p style={{ fontSize: '13px', color: '#0c4a6e', marginBottom: '12px' }}>Sincronize os templates pré-aprovados na sua conta Meta.</p>
+                                <div style={{ marginBottom: '24px', padding: '16px', backgroundColor: '#E4EDF7', border: '1px solid #E4EDF7', borderRadius: '2px' }}>
+                                    <h5 style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#0854A0' }}>Gestão de Templates</h5>
+                                    <p style={{ fontSize: '13px', color: '#0854A0', marginBottom: '12px' }}>Sincronize os templates pré-aprovados na sua conta Meta.</p>
                                     <button 
                                         onClick={handleSyncTemplates} 
                                         disabled={isSyncingTemplates}
-                                        style={{ padding: '8px 16px', backgroundColor: '#0284c7', color: 'white', border: 'none', borderRadius: '6px', cursor: isSyncingTemplates ? 'wait' : 'pointer', fontSize: '13px', fontWeight: 500 }}
+                                        style={{ padding: '8px 16px', backgroundColor: '#0854A0', color: 'white', border: 'none', borderRadius: '2px', cursor: isSyncingTemplates ? 'wait' : 'pointer', fontSize: '13px', fontWeight: 500 }}
                                     >
                                         {isSyncingTemplates ? 'A Sincronizar...' : `Sincronizar Templates (${templates.length} ativos)`}
                                     </button>
@@ -912,24 +912,24 @@ export default function WhatsAppChatApp() {
                             
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
                                 <div>
-                                    <label style={{ display: 'block', fontSize: '13px', color: '#475569', marginBottom: '6px', fontWeight: 500 }}>App ID</label>
-                                    <input type="text" value={metaConfig.appId} onChange={e => setMetaConfig({...metaConfig, appId: e.target.value})} placeholder="Ex: 1108136615719262" style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px', outline: 'none' }} />
+                                    <label style={{ display: 'block', fontSize: '13px', color: '#5B738B', marginBottom: '6px', fontWeight: 500 }}>App ID</label>
+                                    <input type="text" value={metaConfig.appId} onChange={e => setMetaConfig({...metaConfig, appId: e.target.value})} placeholder="Ex: 1108136615719262" style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: '1px solid #D5D7DA', borderRadius: '2px', fontSize: '14px', outline: 'none' }} />
                                 </div>
                                 <div>
-                                    <label style={{ display: 'block', fontSize: '13px', color: '#475569', marginBottom: '6px', fontWeight: 500 }}>Phone Number ID</label>
-                                    <input type="text" value={metaConfig.phoneNumberId} onChange={e => setMetaConfig({...metaConfig, phoneNumberId: e.target.value})} placeholder="Ex: 993787080042283" style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px', outline: 'none' }} />
+                                    <label style={{ display: 'block', fontSize: '13px', color: '#5B738B', marginBottom: '6px', fontWeight: 500 }}>Phone Number ID</label>
+                                    <input type="text" value={metaConfig.phoneNumberId} onChange={e => setMetaConfig({...metaConfig, phoneNumberId: e.target.value})} placeholder="Ex: 993787080042283" style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: '1px solid #D5D7DA', borderRadius: '2px', fontSize: '14px', outline: 'none' }} />
                                 </div>
                                 <div>
-                                    <label style={{ display: 'block', fontSize: '13px', color: '#475569', marginBottom: '6px', fontWeight: 500 }}>Access Token</label>
-                                    <input type="password" value={metaConfig.accessToken} onChange={e => setMetaConfig({...metaConfig, accessToken: e.target.value})} placeholder="••••••••••••••••" style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px', outline: 'none' }} />
+                                    <label style={{ display: 'block', fontSize: '13px', color: '#5B738B', marginBottom: '6px', fontWeight: 500 }}>Access Token</label>
+                                    <input type="password" value={metaConfig.accessToken} onChange={e => setMetaConfig({...metaConfig, accessToken: e.target.value})} placeholder="••••••••••••••••" style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: '1px solid #D5D7DA', borderRadius: '2px', fontSize: '14px', outline: 'none' }} />
                                 </div>
                                 <div>
-                                    <label style={{ display: 'block', fontSize: '13px', color: '#475569', marginBottom: '6px', fontWeight: 500 }}>Verify Token</label>
-                                    <input type="text" value={metaConfig.verifyToken} onChange={e => setMetaConfig({...metaConfig, verifyToken: e.target.value})} placeholder="Token para webhook (ex: meu_token_secreto)" style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px', outline: 'none' }} />
+                                    <label style={{ display: 'block', fontSize: '13px', color: '#5B738B', marginBottom: '6px', fontWeight: 500 }}>Verify Token</label>
+                                    <input type="text" value={metaConfig.verifyToken} onChange={e => setMetaConfig({...metaConfig, verifyToken: e.target.value})} placeholder="Token para webhook (ex: meu_token_secreto)" style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: '1px solid #D5D7DA', borderRadius: '2px', fontSize: '14px', outline: 'none' }} />
                                 </div>
                                 <div>
-                                    <label style={{ display: 'block', fontSize: '13px', color: '#475569', marginBottom: '6px', fontWeight: 500 }}>Webhook URL (Copie para a Meta)</label>
-                                    <input type="text" value={metaConfig.webhookUrl} readOnly style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px', outline: 'none', backgroundColor: '#f1f5f9', color: '#64748b' }} />
+                                    <label style={{ display: 'block', fontSize: '13px', color: '#5B738B', marginBottom: '6px', fontWeight: 500 }}>Webhook URL (Copie para a Meta)</label>
+                                    <input type="text" value={metaConfig.webhookUrl} readOnly style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: '1px solid #D5D7DA', borderRadius: '2px', fontSize: '14px', outline: 'none', backgroundColor: '#E7E9EB', color: '#5B738B' }} />
                                 </div>
                             </div>
 
@@ -937,13 +937,13 @@ export default function WhatsAppChatApp() {
                                 <button 
                                     onClick={handleSaveMeta}
                                     disabled={metaStatus === 'saving' || !metaConfig.accessToken || !metaConfig.verifyToken}
-                                    style={{ flex: 1, padding: '12px', backgroundColor: metaStatus === 'saving' ? '#94a3b8' : '#1877F2', color: 'white', border: 'none', borderRadius: '6px', cursor: (metaStatus === 'saving' || !metaConfig.accessToken || !metaConfig.verifyToken) ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '14px' }}
+                                    style={{ flex: 1, padding: '12px', backgroundColor: metaStatus === 'saving' ? '#8996A3' : '#0854A0', color: 'white', border: 'none', borderRadius: '2px', cursor: (metaStatus === 'saving' || !metaConfig.accessToken || !metaConfig.verifyToken) ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '14px' }}
                                 >
                                     {metaStatus === 'saving' ? 'A Guardar e Conectar...' : 'Testar e Guardar Configurações'}
                                 </button>
                                 <button
                                     onClick={handleResetMeta}
-                                    style={{ padding: '12px', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '14px' }}
+                                    style={{ padding: '12px', backgroundColor: '#BB0000', color: 'white', border: 'none', borderRadius: '2px', cursor: 'pointer', fontWeight: 600, fontSize: '14px' }}
                                     title="Repor Configurações"
                                 >
                                     Repor
@@ -955,12 +955,12 @@ export default function WhatsAppChatApp() {
                 )}
             </div>
 
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundImage: 'url(https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png)', backgroundRepeat: 'repeat', backgroundColor: '#efeae2' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundImage: 'url(https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png)', backgroundRepeat: 'repeat', backgroundColor: '#F5F6F7' }}>
                 {currentView === 'chats' && activeConv ? (
                     <>
-                        <div style={{ padding: '10px 16px', backgroundColor: '#f0f2f5', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '59px' }}>
+                        <div style={{ padding: '10px 16px', backgroundColor: '#F5F6F7', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '59px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                                <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#dfe5e7', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                                <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#D5D7DA', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                                     {activeConv.contact_picture && !brokenPictures.has(activeConv.id) ? (
                                         <img src={activeConv.contact_picture} alt={displayContactName(activeConv.contact_name, activeConv.phone_number)} onError={() => markPictureBroken(activeConv.id)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                     ) : (
@@ -968,8 +968,8 @@ export default function WhatsAppChatApp() {
                                     )}
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                    <div style={{ fontWeight: 500, color: '#111b21', fontSize: '16px' }}>{displayContactName(activeConv.contact_name, activeConv.phone_number)}</div>
-                                    <div style={{ fontSize: '13px', color: '#667781' }}>{formatPhoneNumber(activeConv.phone_number)} • {activeConv.wa_channels.name}</div>
+                                    <div style={{ fontWeight: 500, color: '#1D2D3E', fontSize: '16px' }}>{displayContactName(activeConv.contact_name, activeConv.phone_number)}</div>
+                                    <div style={{ fontSize: '13px', color: '#5B738B' }}>{formatPhoneNumber(activeConv.phone_number)} • {activeConv.wa_channels.name}</div>
                                 </div>
                             </div>
                             
@@ -979,14 +979,14 @@ export default function WhatsAppChatApp() {
                                     <>
                                         <button 
                                             onClick={() => setShowAssignModal(true)}
-                                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', backgroundColor: '#e2e8f0', color: '#475569', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', backgroundColor: '#D5D7DA', color: '#5B738B', border: 'none', borderRadius: '2px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}
                                             title="Atribuir Conversa"
                                         >
                                             <UserPlus size={16} /> Delegar
                                         </button>
                                         <button 
                                             onClick={handleViewAudit}
-                                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', backgroundColor: '#e2e8f0', color: '#475569', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', backgroundColor: '#D5D7DA', color: '#5B738B', border: 'none', borderRadius: '2px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}
                                             title="Ver Auditoria"
                                         >
                                             <ClipboardList size={16} /> Auditoria
@@ -994,14 +994,14 @@ export default function WhatsAppChatApp() {
                                     </>
                                 )}
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '8px' }}>
-                                    <span style={{ fontSize: '13px', color: '#54656f', fontWeight: 500 }}>
+                                    <span style={{ fontSize: '13px', color: '#5B738B', fontWeight: 500 }}>
                                         {isBotPaused ? 'Bot Pausado' : 'Bot Ativo'}
                                     </span>
                                     <div 
                                         onClick={toggleBotStatus}
                                         style={{ 
-                                            width: '40px', height: '20px', borderRadius: '20px', 
-                                            backgroundColor: isBotPaused ? '#cbd5e1' : '#00a884', 
+                                            width: '40px', height: '20px', borderRadius: '2px', 
+                                            backgroundColor: isBotPaused ? '#D5D7DA' : '#0854A0', 
                                             position: 'relative', cursor: 'pointer', transition: 'background-color 0.3s'
                                         }}
                                     >
@@ -1018,13 +1018,13 @@ export default function WhatsAppChatApp() {
                             {messages.map(msg => (
                                 <div key={msg.id} style={{ alignSelf: msg.direction === 'outbound' ? 'flex-end' : 'flex-start', maxWidth: '65%' }}>
                                     <div style={{ 
-                                        backgroundColor: msg.direction === 'outbound' ? '#d9fdd3' : 'white', 
+                                        backgroundColor: msg.direction === 'outbound' ? '#E4EDF7' : 'white', 
                                         padding: '6px 12px', 
-                                        borderRadius: '8px', 
+                                        borderRadius: '2px', 
                                         boxShadow: '0 1px 0.5px rgba(11,20,26,.13)',
                                         position: 'relative'
                                     }}>
-                                        <div style={{ fontSize: '14.2px', color: '#111b21', lineHeight: '19px', paddingRight: '40px', wordWrap: 'break-word', whiteSpace: 'pre-wrap' }}>
+                                        <div style={{ fontSize: '14.2px', color: '#1D2D3E', lineHeight: '19px', paddingRight: '40px', wordWrap: 'break-word', whiteSpace: 'pre-wrap' }}>
                                             {(() => {
                                                 const content = msg.content || '';
 
@@ -1040,14 +1040,14 @@ export default function WhatsAppChatApp() {
 
                                                     let mediaEl = null;
                                                     if (isImage) {
-                                                        mediaEl = <img src={url} alt="media" style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', marginTop: cleanText ? '8px' : '0', cursor: 'pointer' }} onClick={() => window.open(url, '_blank')} />;
+                                                        mediaEl = <img src={url} alt="media" style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '2px', marginTop: cleanText ? '8px' : '0', cursor: 'pointer' }} onClick={() => window.open(url, '_blank')} />;
                                                     } else if (isVideo) {
-                                                        mediaEl = <video src={url} controls style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', marginTop: cleanText ? '8px' : '0' }} />;
+                                                        mediaEl = <video src={url} controls style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '2px', marginTop: cleanText ? '8px' : '0' }} />;
                                                     } else if (isAudio) {
                                                         mediaEl = <audio src={url} controls style={{ maxWidth: '100%', marginTop: cleanText ? '8px' : '0' }} />;
                                                     } else {
                                                         const fname = url.split('/').pop()?.split('?')[0] || 'ficheiro';
-                                                        mediaEl = <a href={url} target="_blank" rel="noreferrer" download style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: cleanText ? '8px' : '0', color: '#027eb5', textDecoration: 'underline' }}>&#128196; {decodeURIComponent(fname)}</a>;
+                                                        mediaEl = <a href={url} target="_blank" rel="noreferrer" download style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: cleanText ? '8px' : '0', color: '#0854A0', textDecoration: 'underline' }}>&#0854A0; {decodeURIComponent(fname)}</a>;
                                                     }
                                                     return (<>{cleanText && <div>{cleanText}</div>}{mediaEl}</>);
                                                 }
@@ -1063,13 +1063,13 @@ export default function WhatsAppChatApp() {
                                                     
                                                     let mediaElement = null;
                                                     if (mimeType.startsWith('image/')) {
-                                                        mediaElement = <img src={dataUri} alt="media" title={downloadName} style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', marginTop: cleanText ? '8px' : '0' }} />;
+                                                        mediaElement = <img src={dataUri} alt="media" title={downloadName} style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '2px', marginTop: cleanText ? '8px' : '0' }} />;
                                                     } else if (mimeType.startsWith('video/')) {
-                                                        mediaElement = <video src={dataUri} controls style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', marginTop: cleanText ? '8px' : '0' }} />;
+                                                        mediaElement = <video src={dataUri} controls style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '2px', marginTop: cleanText ? '8px' : '0' }} />;
                                                     } else if (mimeType.startsWith('audio/')) {
                                                         mediaElement = <audio src={dataUri} controls style={{ maxWidth: '100%', marginTop: cleanText ? '8px' : '0' }} />;
                                                     } else {
-                                                        mediaElement = <a href={dataUri} download={downloadName} style={{ display: 'block', marginTop: cleanText ? '8px' : '0', color: '#027eb5', textDecoration: 'underline' }}>Descarregar {downloadName}</a>;
+                                                        mediaElement = <a href={dataUri} download={downloadName} style={{ display: 'block', marginTop: cleanText ? '8px' : '0', color: '#0854A0', textDecoration: 'underline' }}>Descarregar {downloadName}</a>;
                                                     }
                                                     return (<>{cleanText && <div>{cleanText}</div>}{mediaElement}</>);
                                                 }
@@ -1085,13 +1085,13 @@ export default function WhatsAppChatApp() {
                                                     '[Media]': 'Tipo de mensagem não suportado',
                                                 };
                                                 if (UNAVAILABLE_LABELS[content]) {
-                                                    return <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#8696a0', fontStyle: 'italic' }}><AlertCircle size={14} /> {UNAVAILABLE_LABELS[content]}</span>;
+                                                    return <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#8996A3', fontStyle: 'italic' }}><AlertCircle size={14} /> {UNAVAILABLE_LABELS[content]}</span>;
                                                 }
                                                 if (content.startsWith('[Documento]')) {
-                                                    return <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#8696a0', fontStyle: 'italic' }}><AlertCircle size={14} /> Documento indisponível</span>;
+                                                    return <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#8996A3', fontStyle: 'italic' }}><AlertCircle size={14} /> Documento indisponível</span>;
                                                 }
                                                 if (content === '[Localização]') {
-                                                    return <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#54656f' }}>📍 Localização partilhada</span>;
+                                                    return <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#5B738B' }}>📍 Localização partilhada</span>;
                                                 }
 
                                                 return content;
@@ -1099,20 +1099,20 @@ export default function WhatsAppChatApp() {
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
                                             {msg.direction === 'outbound' && msg.agent_id && (
-                                                <span style={{ fontSize: '10px', color: '#667781', marginRight: 'auto', fontStyle: 'italic' }}>
+                                                <span style={{ fontSize: '10px', color: '#5B738B', marginRight: 'auto', fontStyle: 'italic' }}>
                                                     {agents.find(a => a.id === msg.agent_id)?.nome || 'Agente'}
                                                 </span>
                                             )}
-                                            <span style={{ fontSize: '11px', color: '#667781', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            <span style={{ fontSize: '11px', color: '#5B738B', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                 {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 {msg.direction === 'outbound' && (
                                                     <>
-                                                        {msg.status === 'sending' && <Clock size={12} color="#8696a0" />}
-                                                        {msg.status === 'sent' && <Check size={14} color="#8696a0" />}
+                                                        {msg.status === 'sending' && <Clock size={12} color="#8996A3" />}
+                                                        {msg.status === 'sent' && <Check size={14} color="#8996A3" />}
                                                         {(msg.status === 'delivered' || msg.status === 'read' || !msg.status) && (
-                                                            <CheckCheck size={15} color={(msg.status === 'read' || msg.status === 'delivered') ? '#53bdeb' : '#8696a0'} />
+                                                            <CheckCheck size={15} color={(msg.status === 'read' || msg.status === 'delivered') ? '#0854A0' : '#8996A3'} />
                                                         )}
-                                                        {msg.status === 'failed' && <AlertCircle size={14} color="#f87171" />}
+                                                        {msg.status === 'failed' && <AlertCircle size={14} color="#BB0000" />}
                                                     </>
                                                 )}
                                             </span>
@@ -1122,7 +1122,7 @@ export default function WhatsAppChatApp() {
                             ))}
                         </div>
 
-                        <div style={{ padding: '12px 16px', backgroundColor: '#f0f2f5', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <div style={{ padding: '12px 16px', backgroundColor: '#F5F6F7', display: 'flex', alignItems: 'center', gap: '16px' }}>
                             {(() => {
                                 let is24hLocked = false;
                                 if (activeConv?.wa_channels?.provider === 'meta') {
@@ -1140,11 +1140,11 @@ export default function WhatsAppChatApp() {
                                             type="text" 
                                             placeholder="Janela de 24h fechada. O cliente deve responder primeiro." 
                                             disabled 
-                                            style={{ flex: 1, padding: '12px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '15px', backgroundColor: '#e2e8f0', color: '#94a3b8', cursor: 'not-allowed' }}
+                                            style={{ flex: 1, padding: '12px', border: '1px solid #D5D7DA', borderRadius: '2px', fontSize: '15px', backgroundColor: '#D5D7DA', color: '#8996A3', cursor: 'not-allowed' }}
                                         />
                                         <button 
                                             onClick={() => setShowTemplateModal(true)}
-                                            style={{ padding: '0 16px', backgroundColor: '#00a884', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 500, whiteSpace: 'nowrap' }}
+                                            style={{ padding: '0 16px', backgroundColor: '#0854A0', color: 'white', border: 'none', borderRadius: '2px', cursor: 'pointer', fontWeight: 500, whiteSpace: 'nowrap' }}
                                         >
                                             Usar Template
                                         </button>
@@ -1152,7 +1152,7 @@ export default function WhatsAppChatApp() {
                                 ) : (
                                     <>
                                         <div style={{ position: 'relative' }}>
-                                            <Smile size={24} color={showEmojiPicker ? '#00a884' : '#54656f'} style={{ cursor: 'pointer' }} onClick={() => setShowEmojiPicker(!showEmojiPicker)} />
+                                            <Smile size={24} color={showEmojiPicker ? '#0854A0' : '#5B738B'} style={{ cursor: 'pointer' }} onClick={() => setShowEmojiPicker(!showEmojiPicker)} />
                                             {showEmojiPicker && (
                                                 <div style={{ position: 'absolute', bottom: '40px', left: 0, zIndex: 100 }}>
                                                     <EmojiPicker 
@@ -1164,11 +1164,11 @@ export default function WhatsAppChatApp() {
                                             )}
                                         </div>
                                         <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleSendMedia} accept="image/*,video/*,audio/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
-                                        <Paperclip size={24} color="#54656f" style={{ cursor: 'pointer' }} onClick={() => fileInputRef.current?.click()} />
+                                        <Paperclip size={24} color="#5B738B" style={{ cursor: 'pointer' }} onClick={() => fileInputRef.current?.click()} />
                                         {activeConv?.wa_channels?.provider === 'meta' && (
                                             <button 
                                                 onClick={() => setShowTemplateModal(true)}
-                                                style={{ padding: '6px 12px', background: '#e2e8f0', color: '#475569', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}
+                                                style={{ padding: '6px 12px', background: '#D5D7DA', color: '#5B738B', border: 'none', borderRadius: '2px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}
                                                 title="Enviar Template"
                                             >
                                                 Template
@@ -1180,32 +1180,32 @@ export default function WhatsAppChatApp() {
                                             onChange={e => setInputText(e.target.value)}
                                             onKeyDown={e => e.key === 'Enter' && handleSend()}
                                             placeholder="Digite uma mensagem" 
-                                            style={{ flex: 1, border: 'none', borderRadius: '8px', padding: '10px 16px', fontSize: '15px', outline: 'none' }}
+                                            style={{ flex: 1, border: 'none', borderRadius: '2px', padding: '10px 16px', fontSize: '15px', outline: 'none' }}
                                         />
-                                        {inputText.trim() && <Send size={24} color="#00a884" style={{ cursor: 'pointer' }} onClick={handleSend} />}
+                                        {inputText.trim() && <Send size={24} color="#0854A0" style={{ cursor: 'pointer' }} onClick={handleSend} />}
                                     </>
                                 );
                             })()}
                         </div>
                     </>
                 ) : (
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#667781' }}>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#5B738B' }}>
                         {currentView === 'chats' ? (
                             <>
-                                <div style={{ backgroundColor: '#f0f2f5', padding: '24px', borderRadius: '50%', marginBottom: '24px' }}>
-                                    <MessageSquare size={64} color="#00a884" />
+                                <div style={{ backgroundColor: '#F5F6F7', padding: '24px', borderRadius: '50%', marginBottom: '24px' }}>
+                                    <MessageSquare size={64} color="#0854A0" />
                                 </div>
-                                <h2 style={{ fontWeight: 300, color: '#41525d', fontSize: '32px', marginBottom: '16px' }}>WhatsApp Web Omnichannel</h2>
+                                <h2 style={{ fontWeight: 300, color: '#5B738B', fontSize: '32px', marginBottom: '16px' }}>WhatsApp Web Omnichannel</h2>
                                 <p style={{ fontSize: '14px', maxWidth: '400px', textAlign: 'center', lineHeight: '20px' }}>
                                     Envie e receba mensagens das suas APIs Evolution ou Meta. O Bot AI trata das respostas automáticas configuradas nos Workflows.
                                 </p>
                             </>
                         ) : (
                             <>
-                                <div style={{ backgroundColor: '#f0f2f5', padding: '24px', borderRadius: '50%', marginBottom: '24px' }}>
-                                    <Settings size={64} color="#54656f" />
+                                <div style={{ backgroundColor: '#F5F6F7', padding: '24px', borderRadius: '50%', marginBottom: '24px' }}>
+                                    <Settings size={64} color="#5B738B" />
                                 </div>
-                                <h2 style={{ fontWeight: 300, color: '#41525d', fontSize: '32px', marginBottom: '16px' }}>Definições dos Canais</h2>
+                                <h2 style={{ fontWeight: 300, color: '#5B738B', fontSize: '32px', marginBottom: '16px' }}>Definições dos Canais</h2>
                                 <p style={{ fontSize: '14px', maxWidth: '400px', textAlign: 'center', lineHeight: '20px' }}>
                                     Configure no painel à esquerda as credenciais da Meta API ou use a Evolution API gerando um QR Code.
                                 </p>
@@ -1217,22 +1217,22 @@ export default function WhatsAppChatApp() {
             {/* Modal de Templates */}
             {showTemplateModal && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-                    <div style={{ backgroundColor: 'white', width: '500px', borderRadius: '12px', padding: '24px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ backgroundColor: 'white', width: '500px', borderRadius: '2px', padding: '24px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                             <h3 style={{ margin: 0 }}>Enviar Template Meta</h3>
                             <button onClick={() => setShowTemplateModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px' }}>&times;</button>
                         </div>
                         
                         {templates.length === 0 ? (
-                            <div style={{ textAlign: 'center', padding: '40px 20px', color: '#64748b' }}>
+                            <div style={{ textAlign: 'center', padding: '40px 20px', color: '#5B738B' }}>
                                 Nenhum template encontrado. Aceda às Definições para sincronizar os templates da sua conta Meta.
                             </div>
                         ) : (
                             <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                 {templates.map(tpl => (
-                                    <div key={tpl.id} style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px' }}>
-                                        <div style={{ fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>{tpl.name} <span style={{ fontSize: '11px', backgroundColor: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', color: '#64748b', marginLeft: '8px' }}>{tpl.language}</span></div>
-                                        <div style={{ fontSize: '13px', color: '#475569', marginBottom: '12px' }}>
+                                    <div key={tpl.id} style={{ border: '1px solid #D5D7DA', borderRadius: '2px', padding: '16px' }}>
+                                        <div style={{ fontWeight: 600, color: '#1D2D3E', marginBottom: '8px' }}>{tpl.name} <span style={{ fontSize: '11px', backgroundColor: '#E7E9EB', padding: '2px 6px', borderRadius: '2px', color: '#5B738B', marginLeft: '8px' }}>{tpl.language}</span></div>
+                                        <div style={{ fontSize: '13px', color: '#5B738B', marginBottom: '12px' }}>
                                             {tpl.components?.find((c:any) => c.type === 'BODY')?.text || 'Template sem corpo de texto'}
                                         </div>
                                         <button
@@ -1252,7 +1252,7 @@ export default function WhatsAppChatApp() {
                                                     alert('Erro de comunicação com o servidor.');
                                                 }
                                             }}
-                                            style={{ width: '100%', padding: '8px', backgroundColor: '#00a884', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+                                            style={{ width: '100%', padding: '8px', backgroundColor: '#0854A0', color: 'white', border: 'none', borderRadius: '2px', cursor: 'pointer' }}
                                         >
                                             Selecionar e Enviar
                                         </button>
@@ -1267,27 +1267,27 @@ export default function WhatsAppChatApp() {
             {/* Modal Atribuir Agente */}
             {showAssignModal && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-                    <div style={{ backgroundColor: 'white', width: '400px', borderRadius: '12px', padding: '24px' }}>
+                    <div style={{ backgroundColor: 'white', width: '400px', borderRadius: '2px', padding: '24px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                            <h3 style={{ margin: 0, fontSize: '18px', color: '#0f172a' }}>Atribuir Conversa</h3>
+                            <h3 style={{ margin: 0, fontSize: '18px', color: '#1D2D3E' }}>Atribuir Conversa</h3>
                             <button onClick={() => setShowAssignModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px' }}>&times;</button>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '300px', overflowY: 'auto' }}>
                             <button 
                                 onClick={() => handleAssign('')}
-                                style={{ padding: '12px', textAlign: 'left', backgroundColor: !activeConv?.assigned_to ? '#f1f5f9' : 'white', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer' }}
+                                style={{ padding: '12px', textAlign: 'left', backgroundColor: !activeConv?.assigned_to ? '#E7E9EB' : 'white', border: '1px solid #D5D7DA', borderRadius: '2px', cursor: 'pointer' }}
                             >
-                                <strong style={{ display: 'block', color: '#0f172a' }}>Sem Atribuição</strong>
-                                <span style={{ fontSize: '12px', color: '#64748b' }}>Devolver para a fila geral</span>
+                                <strong style={{ display: 'block', color: '#1D2D3E' }}>Sem Atribuição</strong>
+                                <span style={{ fontSize: '12px', color: '#5B738B' }}>Devolver para a fila geral</span>
                             </button>
                             {agents.map(agent => (
                                 <button 
                                     key={agent.id}
                                     onClick={() => handleAssign(agent.id)}
-                                    style={{ padding: '12px', textAlign: 'left', backgroundColor: activeConv?.assigned_to === agent.id ? '#f0fdf4' : 'white', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', borderColor: activeConv?.assigned_to === agent.id ? '#22c55e' : '#e2e8f0' }}
+                                    style={{ padding: '12px', textAlign: 'left', backgroundColor: activeConv?.assigned_to === agent.id ? '#DCEEE2' : 'white', border: '1px solid #D5D7DA', borderRadius: '2px', cursor: 'pointer', borderColor: activeConv?.assigned_to === agent.id ? '#107E3E' : '#D5D7DA' }}
                                 >
-                                    <strong style={{ display: 'block', color: '#0f172a' }}>{agent.nome}</strong>
-                                    <span style={{ fontSize: '12px', color: '#64748b' }}>{agent.role}</span>
+                                    <strong style={{ display: 'block', color: '#1D2D3E' }}>{agent.nome}</strong>
+                                    <span style={{ fontSize: '12px', color: '#5B738B' }}>{agent.role}</span>
                                 </button>
                             ))}
                         </div>
@@ -1298,19 +1298,19 @@ export default function WhatsAppChatApp() {
             {/* Modal Auditoria */}
             {showAuditModal && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-                    <div style={{ backgroundColor: 'white', width: '500px', borderRadius: '12px', padding: '24px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ backgroundColor: 'white', width: '500px', borderRadius: '2px', padding: '24px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                            <h3 style={{ margin: 0, fontSize: '18px', color: '#0f172a' }}>Auditoria da Conversa</h3>
+                            <h3 style={{ margin: 0, fontSize: '18px', color: '#1D2D3E' }}>Auditoria da Conversa</h3>
                             <button onClick={() => setShowAuditModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px' }}>&times;</button>
                         </div>
                         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                             {auditLogs.length === 0 ? (
-                                <div style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>Sem registos de auditoria para esta conversa.</div>
+                                <div style={{ color: '#5B738B', textAlign: 'center', padding: '20px' }}>Sem registos de auditoria para esta conversa.</div>
                             ) : (
                                 auditLogs.map(log => (
-                                    <div key={log.id} style={{ padding: '12px', backgroundColor: '#f8fafc', borderRadius: '8px', borderLeft: '4px solid #3b82f6' }}>
-                                        <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>{new Date(log.created_at).toLocaleString()}</div>
-                                        <div style={{ color: '#0f172a', fontSize: '14px' }}>
+                                    <div key={log.id} style={{ padding: '12px', backgroundColor: '#F5F6F7', borderRadius: '2px', borderLeft: '4px solid #0854A0' }}>
+                                        <div style={{ fontSize: '12px', color: '#5B738B', marginBottom: '4px' }}>{new Date(log.created_at).toLocaleString()}</div>
+                                        <div style={{ color: '#1D2D3E', fontSize: '14px' }}>
                                             <strong>{log.performed_by_name}</strong> {log.details}
                                         </div>
                                     </div>
@@ -1324,24 +1324,24 @@ export default function WhatsAppChatApp() {
             {/* Modal Seguro de Ligação — QR Code ou Código de Pareamento */}
             {showQr && evolutionStatus !== 'connected' && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, backdropFilter: 'blur(4px)' }}>
-                    <div style={{ backgroundColor: 'white', width: '400px', borderRadius: '16px', padding: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+                    <div style={{ backgroundColor: 'white', width: '400px', borderRadius: '2px', padding: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-                            <div style={{ backgroundColor: '#e2e8f0', padding: '8px', borderRadius: '50%' }}>
-                                <QrCode size={24} color="#0f172a" />
+                            <div style={{ backgroundColor: '#D5D7DA', padding: '8px', borderRadius: '50%' }}>
+                                <QrCode size={24} color="#1D2D3E" />
                             </div>
-                            <h3 style={{ margin: 0, fontSize: '20px', color: '#0f172a' }}>Ligar WhatsApp</h3>
+                            <h3 style={{ margin: 0, fontSize: '20px', color: '#1D2D3E' }}>Ligar WhatsApp</h3>
                         </div>
 
-                        <div style={{ display: 'flex', width: '100%', backgroundColor: '#f1f5f9', borderRadius: '10px', padding: '4px', marginBottom: '20px' }}>
+                        <div style={{ display: 'flex', width: '100%', backgroundColor: '#E7E9EB', borderRadius: '2px', padding: '4px', marginBottom: '20px' }}>
                             <button
                                 onClick={() => { setConnectMode('qr'); setPairingCode(null); setQrCodeData(null); handleGenerateQr(); }}
-                                style={{ flex: 1, padding: '9px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, backgroundColor: connectMode === 'qr' ? 'white' : 'transparent', color: connectMode === 'qr' ? '#0f172a' : '#64748b', boxShadow: connectMode === 'qr' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}
+                                style={{ flex: 1, padding: '9px', border: 'none', borderRadius: '2px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, backgroundColor: connectMode === 'qr' ? 'white' : 'transparent', color: connectMode === 'qr' ? '#1D2D3E' : '#5B738B', boxShadow: connectMode === 'qr' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}
                             >
                                 QR Code
                             </button>
                             <button
                                 onClick={() => { setConnectMode('pairing'); setPairingCode(null); setQrCodeData(null); setQrStatus(''); }}
-                                style={{ flex: 1, padding: '9px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, backgroundColor: connectMode === 'pairing' ? 'white' : 'transparent', color: connectMode === 'pairing' ? '#0f172a' : '#64748b', boxShadow: connectMode === 'pairing' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}
+                                style={{ flex: 1, padding: '9px', border: 'none', borderRadius: '2px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, backgroundColor: connectMode === 'pairing' ? 'white' : 'transparent', color: connectMode === 'pairing' ? '#1D2D3E' : '#5B738B', boxShadow: connectMode === 'pairing' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}
                             >
                                 Código de Pareamento
                             </button>
@@ -1349,29 +1349,29 @@ export default function WhatsAppChatApp() {
 
                         {connectMode === 'qr' ? (
                             <>
-                                <div style={{ width: '260px', height: '260px', backgroundColor: '#f8fafc', border: qrCodeData ? 'none' : '2px dashed #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', borderRadius: '12px', overflow: 'hidden', marginBottom: '20px', position: 'relative' }}>
+                                <div style={{ width: '260px', height: '260px', backgroundColor: '#F5F6F7', border: qrCodeData ? 'none' : '2px dashed #D5D7DA', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#5B738B', borderRadius: '2px', overflow: 'hidden', marginBottom: '20px', position: 'relative' }}>
                                     {qrCodeData ? (
                                         <img src={qrCodeData} alt="QR Code" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                                     ) : (
                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-                                            <div className="spinner" style={{ width: '24px', height: '24px', border: '3px solid #cbd5e1', borderTopColor: '#00a884', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                                            <div className="spinner" style={{ width: '24px', height: '24px', border: '3px solid #D5D7DA', borderTopColor: '#0854A0', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
                                             <span style={{ fontSize: '14px', fontWeight: 500 }}>A gerar QR Code...</span>
                                             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
                                         </div>
                                     )}
                                 </div>
 
-                                <div style={{ width: '100%', padding: '12px', backgroundColor: '#f1f5f9', borderRadius: '8px', marginBottom: '24px' }}>
-                                    <span style={{ fontSize: '14px', color: '#334155', fontWeight: 500, textAlign: 'center', display: 'block' }}>
+                                <div style={{ width: '100%', padding: '12px', backgroundColor: '#E7E9EB', borderRadius: '2px', marginBottom: '24px' }}>
+                                    <span style={{ fontSize: '14px', color: '#1D2D3E', fontWeight: 500, textAlign: 'center', display: 'block' }}>
                                         {qrStatus || 'Aguarde um momento...'}
                                     </span>
                                 </div>
 
                                 <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
-                                    <button onClick={() => setShowQr(false)} style={{ flex: 1, padding: '12px', border: '1px solid #e2e8f0', background: 'white', color: '#475569', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 500 }}>
+                                    <button onClick={() => setShowQr(false)} style={{ flex: 1, padding: '12px', border: '1px solid #D5D7DA', background: 'white', color: '#5B738B', borderRadius: '2px', cursor: 'pointer', fontSize: '14px', fontWeight: 500 }}>
                                         Cancelar
                                     </button>
-                                    <button onClick={() => handleGenerateQr()} style={{ flex: 1, padding: '12px', border: 'none', background: '#00a884', color: 'white', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                    <button onClick={() => handleGenerateQr()} style={{ flex: 1, padding: '12px', border: 'none', background: '#0854A0', color: 'white', borderRadius: '2px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.59-11.12l5.67 5.67"/></svg>
                                         Atualizar
                                     </button>
@@ -1381,39 +1381,39 @@ export default function WhatsAppChatApp() {
                             <>
                                 {!pairingCode ? (
                                     <>
-                                        <p style={{ fontSize: '13px', color: '#64748b', textAlign: 'center', margin: '0 0 16px' }}>
+                                        <p style={{ fontSize: '13px', color: '#5B738B', textAlign: 'center', margin: '0 0 16px' }}>
                                             Introduza o número do WhatsApp a ligar (com indicativo do país) para gerar um código de pareamento.
                                         </p>
                                         <input
                                             value={pairingPhone}
                                             onChange={e => setPairingPhone(e.target.value)}
                                             placeholder="Ex: 244923456789"
-                                            style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '15px', marginBottom: '20px', boxSizing: 'border-box', textAlign: 'center' }}
+                                            style={{ width: '100%', padding: '12px', borderRadius: '2px', border: '1px solid #D5D7DA', fontSize: '15px', marginBottom: '20px', boxSizing: 'border-box', textAlign: 'center' }}
                                         />
                                         <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
-                                            <button onClick={() => setShowQr(false)} style={{ flex: 1, padding: '12px', border: '1px solid #e2e8f0', background: 'white', color: '#475569', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 500 }}>
+                                            <button onClick={() => setShowQr(false)} style={{ flex: 1, padding: '12px', border: '1px solid #D5D7DA', background: 'white', color: '#5B738B', borderRadius: '2px', cursor: 'pointer', fontSize: '14px', fontWeight: 500 }}>
                                                 Cancelar
                                             </button>
-                                            <button onClick={() => handleGenerateQr(pairingPhone)} disabled={pairingPhone.replace(/\D/g, '').length < 9} style={{ flex: 1, padding: '12px', border: 'none', background: pairingPhone.replace(/\D/g, '').length < 9 ? '#cbd5e1' : '#00a884', color: 'white', borderRadius: '8px', cursor: pairingPhone.replace(/\D/g, '').length < 9 ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 600 }}>
+                                            <button onClick={() => handleGenerateQr(pairingPhone)} disabled={pairingPhone.replace(/\D/g, '').length < 9} style={{ flex: 1, padding: '12px', border: 'none', background: pairingPhone.replace(/\D/g, '').length < 9 ? '#D5D7DA' : '#0854A0', color: 'white', borderRadius: '2px', cursor: pairingPhone.replace(/\D/g, '').length < 9 ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 600 }}>
                                                 Gerar Código
                                             </button>
                                         </div>
                                     </>
                                 ) : (
                                     <>
-                                        <div style={{ width: '100%', padding: '24px 12px', backgroundColor: '#f0fdf9', border: '1.5px dashed #00a884', borderRadius: '12px', marginBottom: '20px', textAlign: 'center' }}>
-                                            <div style={{ fontSize: '30px', fontWeight: 700, letterSpacing: '4px', color: '#0f172a', fontFamily: 'monospace' }}>{pairingCode}</div>
+                                        <div style={{ width: '100%', padding: '24px 12px', backgroundColor: '#DCEEE2', border: '1.5px dashed #0854A0', borderRadius: '2px', marginBottom: '20px', textAlign: 'center' }}>
+                                            <div style={{ fontSize: '30px', fontWeight: 700, letterSpacing: '4px', color: '#1D2D3E', fontFamily: 'monospace' }}>{pairingCode}</div>
                                         </div>
-                                        <div style={{ width: '100%', padding: '14px', backgroundColor: '#f1f5f9', borderRadius: '8px', marginBottom: '24px' }}>
-                                            <p style={{ fontSize: '12.5px', color: '#334155', margin: 0, lineHeight: 1.6 }}>
+                                        <div style={{ width: '100%', padding: '14px', backgroundColor: '#E7E9EB', borderRadius: '2px', marginBottom: '24px' }}>
+                                            <p style={{ fontSize: '12.5px', color: '#1D2D3E', margin: 0, lineHeight: 1.6 }}>
                                                 No telemóvel: <strong>WhatsApp → Definições → Aparelhos conectados → Conectar um aparelho → Conectar com número de telefone</strong> — depois introduza este código.
                                             </p>
                                         </div>
                                         <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
-                                            <button onClick={() => setShowQr(false)} style={{ flex: 1, padding: '12px', border: '1px solid #e2e8f0', background: 'white', color: '#475569', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 500 }}>
+                                            <button onClick={() => setShowQr(false)} style={{ flex: 1, padding: '12px', border: '1px solid #D5D7DA', background: 'white', color: '#5B738B', borderRadius: '2px', cursor: 'pointer', fontSize: '14px', fontWeight: 500 }}>
                                                 Cancelar
                                             </button>
-                                            <button onClick={() => handleGenerateQr(pairingPhone)} style={{ flex: 1, padding: '12px', border: 'none', background: '#00a884', color: 'white', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600 }}>
+                                            <button onClick={() => handleGenerateQr(pairingPhone)} style={{ flex: 1, padding: '12px', border: 'none', background: '#0854A0', color: 'white', borderRadius: '2px', cursor: 'pointer', fontSize: '14px', fontWeight: 600 }}>
                                                 Gerar Novo Código
                                             </button>
                                         </div>
@@ -1427,15 +1427,15 @@ export default function WhatsAppChatApp() {
 
             {isSyncingChats && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                    <div style={{ backgroundColor: '#fff', padding: '30px', borderRadius: '12px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '320px' }}>
+                    <div style={{ backgroundColor: '#fff', padding: '30px', borderRadius: '2px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '320px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-                            <div style={{ width: '20px', height: '20px', border: '3px solid #f3f3f3', borderTop: '3px solid #10b981', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-                            <h3 style={{ margin: 0, color: '#0f172a', fontSize: '18px' }}>
+                            <div style={{ width: '20px', height: '20px', border: '3px solid #F5F6F7', borderTop: '3px solid #107E3E', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                            <h3 style={{ margin: 0, color: '#1D2D3E', fontSize: '18px' }}>
                                 A Sincronizar Contactos...
                             </h3>
                         </div>
-                        <div style={{ width: '256px', height: '140px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
-                            <span style={{ color: '#64748b', fontSize: '14px', textAlign: 'center', padding: '0 10px' }}>A puxar mensagens e fotos antigas. Isto pode demorar alguns segundos.</span>
+                        <div style={{ width: '256px', height: '140px', backgroundColor: '#F5F6F7', borderRadius: '2px', border: '1px dashed #D5D7DA', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                            <span style={{ color: '#5B738B', fontSize: '14px', textAlign: 'center', padding: '0 10px' }}>A puxar mensagens e fotos antigas. Isto pode demorar alguns segundos.</span>
                         </div>
                     </div>
                 </div>

@@ -117,13 +117,13 @@ export default function ChatApp() {
   const renderSupervisionCard = (uiData: any) => {
       if (uiData.component === 'EmployeeDraftCard') {
           return (
-              <div style={{ background: '#fff', border: '1px solid var(--odoo-border)', borderRadius: '8px', padding: '16px', marginTop: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#e67e22', marginBottom: '12px', fontWeight: 'bold' }}>
+              <div style={{ background: '#fff', border: '1px solid var(--odoo-border)', borderRadius: '2px', padding: '16px', marginTop: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#8A4B0B', marginBottom: '12px', fontWeight: 'bold' }}>
                       <ShieldAlert size={18} />
                       Ação Requer Aprovação
                   </div>
                   <p style={{ fontSize: '13px', marginBottom: '12px' }}>Por favor, verifique os dados antes de inserir no sistema:</p>
-                  <div style={{ background: '#f8f9fa', padding: '12px', borderRadius: '4px', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ background: '#F5F6F7', padding: '12px', borderRadius: '2px', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div><strong>Nome:</strong> {uiData.data.nome}</div>
                       <div><strong>Cargo:</strong> {uiData.data.cargo}</div>
                       <div><strong>Departamento:</strong> {uiData.data.departamento || '-'}</div>
@@ -133,7 +133,7 @@ export default function ChatApp() {
                   <div style={{ marginTop: '16px', display: 'flex', gap: '8px' }}>
                       <button 
                           onClick={() => handleExecuteAction('criar_funcionario_draft', uiData.data)}
-                          style={{ background: 'var(--odoo-teal)', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          style={{ background: 'var(--odoo-teal)', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <CheckCircle size={16} /> Confirmar e Guardar
                       </button>
                   </div>
@@ -141,13 +141,13 @@ export default function ChatApp() {
           );
       } else if (uiData.component === 'PaymentDraftCard') {
           return (
-              <div style={{ background: '#fff', border: '1px solid #10b981', borderRadius: '8px', padding: '16px', marginTop: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#10b981', marginBottom: '12px', fontWeight: 'bold' }}>
+              <div style={{ background: '#fff', border: '1px solid #107E3E', borderRadius: '2px', padding: '16px', marginTop: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#107E3E', marginBottom: '12px', fontWeight: 'bold' }}>
                       <DollarSign size={18} />
                       Registar Pagamento & Contabilidade
                   </div>
                   <p style={{ fontSize: '13px', marginBottom: '12px' }}>Por favor, confirme o recebimento do pagamento. Será gerado um <strong>recibo</strong> e um <strong>lançamento contabilístico duplo</strong> (Diário de Tesouraria).</p>
-                  <div style={{ background: '#f8f9fa', padding: '12px', borderRadius: '4px', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ background: '#F5F6F7', padding: '12px', borderRadius: '2px', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div><strong>Negócio ID:</strong> #{uiData.data.negocio_id}</div>
                       <div><strong>Valor a Registar:</strong> {new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA' }).format(uiData.data.valor)}</div>
                       <div><strong>Método:</strong> {uiData.data.metodo_pagamento || 'Transferência Bancária'}</div>
@@ -156,7 +156,7 @@ export default function ChatApp() {
                   <div style={{ marginTop: '16px', display: 'flex', gap: '8px' }}>
                       <button 
                           onClick={() => handleExecuteAction('registar_pagamento_crm', uiData.data)}
-                          style={{ background: '#10b981', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          style={{ background: '#107E3E', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <CheckCircle size={16} /> Confirmar Recebimento
                       </button>
                   </div>
@@ -164,8 +164,8 @@ export default function ChatApp() {
           );
       } else if (uiData.component === 'MegaContractCard') {
           return (
-              <div style={{ background: '#fff', border: '1px solid #8e44ad', borderRadius: '8px', padding: '16px', marginTop: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#8e44ad', marginBottom: '12px', fontWeight: 'bold' }}>
+              <div style={{ background: '#fff', border: '1px solid #5E4B8B', borderRadius: '2px', padding: '16px', marginTop: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5E4B8B', marginBottom: '12px', fontWeight: 'bold' }}>
                       <Zap size={18} />
                       Mega Fluxo de Agente Operacional
                   </div>
@@ -181,7 +181,7 @@ export default function ChatApp() {
                   <div style={{ marginTop: '16px', display: 'flex', gap: '8px' }}>
                       <button 
                           onClick={() => handleExecuteAction('mega_fluxo_contratacao', uiData.data)}
-                          style={{ background: '#8e44ad', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold' }}>
+                          style={{ background: '#5E4B8B', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold' }}>
                           <Zap size={16} /> Aprovar e Executar Mega Fluxo
                       </button>
                   </div>
@@ -189,19 +189,19 @@ export default function ChatApp() {
           );
       } else if (uiData.component === 'ExcelReportCard') {
           return (
-              <div style={{ background: '#fff', border: '1px solid #27ae60', borderRadius: '8px', padding: '16px', marginTop: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#27ae60', marginBottom: '12px', fontWeight: 'bold' }}>
+              <div style={{ background: '#fff', border: '1px solid #107E3E', borderRadius: '2px', padding: '16px', marginTop: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#107E3E', marginBottom: '12px', fontWeight: 'bold' }}>
                       <CheckCircle size={18} />
                       Gerar Relatório Excel
                   </div>
                   <p style={{ fontSize: '13px', marginBottom: '12px' }}>O Agente extraiu os dados solicitados. Deseja criar e abrir o ficheiro <strong>{uiData.data.nome_ficheiro}</strong> no Microsoft Excel?</p>
-                  <div style={{ background: '#f8f9fa', padding: '12px', borderRadius: '4px', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ background: '#F5F6F7', padding: '12px', borderRadius: '2px', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div><strong>Tipo de Relatório:</strong> {uiData.data.tipo_dados}</div>
                   </div>
                   <div style={{ marginTop: '16px', display: 'flex', gap: '8px' }}>
                       <button 
                           onClick={() => handleExecuteAction('gerar_relatorio_excel', uiData.data)}
-                          style={{ background: '#27ae60', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold' }}>
+                          style={{ background: '#107E3E', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold' }}>
                           <CheckCircle size={16} /> Gerar e Abrir Excel
                       </button>
                   </div>
@@ -209,19 +209,19 @@ export default function ChatApp() {
           );
       } else if (uiData.component === 'PowerBIReportCard') {
           return (
-              <div style={{ background: '#fff', border: '1px solid #f39c12', borderRadius: '8px', padding: '16px', marginTop: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#f39c12', marginBottom: '12px', fontWeight: 'bold' }}>
+              <div style={{ background: '#fff', border: '1px solid #8A4B0B', borderRadius: '2px', padding: '16px', marginTop: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#8A4B0B', marginBottom: '12px', fontWeight: 'bold' }}>
                       <CheckCircle size={18} />
                       Gerar Relatório Power BI
                   </div>
                   <p style={{ fontSize: '13px', marginBottom: '12px' }}>O Agente extraiu os dados solicitados. Deseja criar o Dataset e abrir o ficheiro <strong>{uiData.data.nome_ficheiro}</strong> no Power BI Desktop?</p>
-                  <div style={{ background: '#f8f9fa', padding: '12px', borderRadius: '4px', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ background: '#F5F6F7', padding: '12px', borderRadius: '2px', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div><strong>Modelo de Dados:</strong> {uiData.data.tipo_dados}</div>
                   </div>
                   <div style={{ marginTop: '16px', display: 'flex', gap: '8px' }}>
                       <button 
                           onClick={() => handleExecuteAction('gerar_relatorio_powerbi', uiData.data)}
-                          style={{ background: '#f39c12', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold' }}>
+                          style={{ background: '#8A4B0B', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold' }}>
                           <CheckCircle size={16} /> Gerar e Abrir Power BI
                       </button>
                   </div>
@@ -229,19 +229,19 @@ export default function ChatApp() {
           );
       } else if (uiData.component === 'WordReportCard') {
           return (
-              <div style={{ background: '#fff', border: '1px solid #2980b9', borderRadius: '8px', padding: '16px', marginTop: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#2980b9', marginBottom: '12px', fontWeight: 'bold' }}>
+              <div style={{ background: '#fff', border: '1px solid #0854A0', borderRadius: '2px', padding: '16px', marginTop: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0854A0', marginBottom: '12px', fontWeight: 'bold' }}>
                       <CheckCircle size={18} />
                       Gerar Relatório Word
                   </div>
                   <p style={{ fontSize: '13px', marginBottom: '12px' }}>Deseja criar e abrir o ficheiro <strong>{uiData.data.nome_ficheiro}</strong> no Microsoft Word?</p>
-                  <div style={{ background: '#f8f9fa', padding: '12px', borderRadius: '4px', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ background: '#F5F6F7', padding: '12px', borderRadius: '2px', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div><strong>Título:</strong> {uiData.data.titulo}</div>
                   </div>
                   <div style={{ marginTop: '16px', display: 'flex', gap: '8px' }}>
                       <button 
                           onClick={() => handleExecuteAction('gerar_relatorio_word', uiData.data)}
-                          style={{ background: '#2980b9', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold' }}>
+                          style={{ background: '#0854A0', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold' }}>
                           <CheckCircle size={16} /> Gerar e Abrir Word
                       </button>
                   </div>
@@ -249,20 +249,20 @@ export default function ChatApp() {
           );
       } else if (uiData.component === 'PowerPointCard') {
           return (
-              <div style={{ background: '#fff', border: '1px solid #d35400', borderRadius: '8px', padding: '16px', marginTop: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#d35400', marginBottom: '12px', fontWeight: 'bold' }}>
+              <div style={{ background: '#fff', border: '1px solid #8A4B0B', borderRadius: '2px', padding: '16px', marginTop: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#8A4B0B', marginBottom: '12px', fontWeight: 'bold' }}>
                       <CheckCircle size={18} />
                       Gerar Apresentação PowerPoint
                   </div>
                   <p style={{ fontSize: '13px', marginBottom: '12px' }}>Deseja criar e abrir o ficheiro <strong>{uiData.data.nome_ficheiro}</strong> no Microsoft PowerPoint?</p>
-                  <div style={{ background: '#f8f9fa', padding: '12px', borderRadius: '4px', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ background: '#F5F6F7', padding: '12px', borderRadius: '2px', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div><strong>Título:</strong> {uiData.data.titulo}</div>
                       <div><strong>Nº de Slides:</strong> {uiData.data.slides?.length || 0}</div>
                   </div>
                   <div style={{ marginTop: '16px', display: 'flex', gap: '8px' }}>
                       <button 
                           onClick={() => handleExecuteAction('gerar_relatorio_powerpoint', uiData.data)}
-                          style={{ background: '#d35400', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold' }}>
+                          style={{ background: '#8A4B0B', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold' }}>
                           <CheckCircle size={16} /> Gerar e Abrir PowerPoint
                       </button>
                   </div>
@@ -270,19 +270,19 @@ export default function ChatApp() {
           );
       } else if (uiData.component === 'ImageGenerationCard') {
           return (
-              <div style={{ background: '#fff', border: '1px solid #8e44ad', borderRadius: '8px', padding: '16px', marginTop: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#8e44ad', marginBottom: '12px', fontWeight: 'bold' }}>
+              <div style={{ background: '#fff', border: '1px solid #5E4B8B', borderRadius: '2px', padding: '16px', marginTop: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5E4B8B', marginBottom: '12px', fontWeight: 'bold' }}>
                       <CheckCircle size={18} />
                       Gerar Imagem (DALL-E)
                   </div>
                   <p style={{ fontSize: '13px', marginBottom: '12px' }}>Deseja utilizar os créditos OpenAI para gerar esta imagem?</p>
-                  <div style={{ background: '#f8f9fa', padding: '12px', borderRadius: '4px', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px', fontStyle: 'italic' }}>
+                  <div style={{ background: '#F5F6F7', padding: '12px', borderRadius: '2px', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px', fontStyle: 'italic' }}>
                       "{uiData.data.prompt}"
                   </div>
                   <div style={{ marginTop: '16px', display: 'flex', gap: '8px' }}>
                       <button 
                           onClick={() => handleExecuteAction('gerar_imagem', uiData.data)}
-                          style={{ background: '#8e44ad', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold' }}>
+                          style={{ background: '#5E4B8B', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold' }}>
                           <CheckCircle size={16} /> Gerar Imagem
                       </button>
                   </div>
@@ -290,19 +290,19 @@ export default function ChatApp() {
           );
       } else if (uiData.component === 'WhatsAppCard') {
           return (
-              <div style={{ background: '#fff', border: '1px solid #25D366', borderRadius: '8px', padding: '16px', marginTop: '12px' }}>
+              <div style={{ background: '#fff', border: '1px solid #25D366', borderRadius: '2px', padding: '16px', marginTop: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#25D366', marginBottom: '12px', fontWeight: 'bold' }}>
                       <CheckCircle size={18} />
                       Aprovar Envio de WhatsApp
                   </div>
                   <p style={{ fontSize: '13px', marginBottom: '12px' }}>Confirma o envio da mensagem abaixo para o número <strong>{uiData.data.telefone}</strong>?</p>
-                  <div style={{ background: '#e1f5fe', padding: '12px', borderRadius: '4px', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ background: '#E4EDF7', padding: '12px', borderRadius: '2px', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       {uiData.data.mensagem}
                   </div>
                   <div style={{ marginTop: '16px', display: 'flex', gap: '8px' }}>
                       <button 
                           onClick={() => handleExecuteAction('enviar_mensagem_whatsapp', uiData.data)}
-                          style={{ background: '#25D366', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold' }}>
+                          style={{ background: '#25D366', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold' }}>
                           <CheckCircle size={16} /> Enviar Mensagem
                       </button>
                   </div>
@@ -402,7 +402,7 @@ export default function ChatApp() {
   };
 
   return (
-    <div style={{ display: 'flex', height: '100%', background: '#f9fafb' }}>
+    <div style={{ display: 'flex', height: '100%', background: '#F5F6F7' }}>
       
       {/* Dashboard Lateral do Assistente */}
       <div style={{ width: '300px', borderRight: '1px solid var(--odoo-border)', background: '#fff', padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -413,11 +413,11 @@ export default function ChatApp() {
          <p style={{ fontSize: '13px', color: 'var(--odoo-text-muted)' }}>Métricas e alertas detetados no seu ERP.</p>
          
          <div style={{ display: 'flex', gap: '8px' }}>
-           <button onClick={handleNewConversation} className="odoo-btn" style={{ flex: 1, background: 'var(--odoo-teal)', color: '#fff', border: 'none', padding: '10px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>+ Nova Conversa</button>
+           <button onClick={handleNewConversation} className="odoo-btn" style={{ flex: 1, background: 'var(--odoo-teal)', color: '#fff', border: 'none', padding: '10px', borderRadius: '2px', cursor: 'pointer', fontWeight: 'bold' }}>+ Nova Conversa</button>
            <button 
              onClick={() => setVoiceEnabled(!voiceEnabled)} 
              className="odoo-btn" 
-             style={{ width: '40px', background: voiceEnabled ? '#10b981' : '#e2e8f0', color: voiceEnabled ? '#fff' : '#64748b', border: 'none', padding: '10px', borderRadius: '4px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
+             style={{ width: '40px', background: voiceEnabled ? '#107E3E' : '#D5D7DA', color: voiceEnabled ? '#fff' : '#5B738B', border: 'none', padding: '10px', borderRadius: '2px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
              title={voiceEnabled ? 'Desativar Voz da IA' : 'Ativar Voz da IA'}
            >
              {voiceEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
@@ -432,9 +432,9 @@ export default function ChatApp() {
                     onClick={() => handleLoadConversation(conv.id)}
                     style={{ 
                         padding: '10px', 
-                        background: conversaId === conv.id ? '#f1f3f5' : '#fff', 
+                        background: conversaId === conv.id ? '#E7E9EB' : '#fff', 
                         border: '1px solid var(--odoo-border)', 
-                        borderRadius: '4px', 
+                        borderRadius: '2px', 
                         fontSize: '13px', 
                         color: 'var(--odoo-text-dark)',
                         cursor: 'pointer',
@@ -460,10 +460,10 @@ export default function ChatApp() {
                 <div style={{ 
                   maxWidth: '80%', 
                   padding: msg.role === 'system' ? '0' : '12px 16px', 
-                  borderRadius: '8px',
+                  borderRadius: '2px',
                   fontSize: '14px',
                   lineHeight: '1.5',
-                  background: msg.role === 'user' ? 'var(--odoo-teal)' : (msg.role === 'system' ? 'transparent' : '#f1f3f5'),
+                  background: msg.role === 'user' ? 'var(--odoo-teal)' : (msg.role === 'system' ? 'transparent' : '#E7E9EB'),
                   color: msg.role === 'user' ? '#fff' : 'var(--odoo-text-dark)',
                   boxShadow: msg.role === 'user' ? '0 2px 4px rgba(1, 126, 132, 0.2)' : 'none',
                 }}>
@@ -473,7 +473,7 @@ export default function ChatApp() {
                            if (line.trim().startsWith('![')) {
                               const match = line.match(/\((.*?)\)/);
                               if (match && match[1]) {
-                                 return <img key={i} src={match[1]} alt="Imagem Gerada" style={{ maxWidth: '100%', borderRadius: '8px', marginTop: '8px', border: '1px solid #e0e0e0' }} />;
+                                 return <img key={i} src={match[1]} alt="Imagem Gerada" style={{ maxWidth: '100%', borderRadius: '2px', marginTop: '8px', border: '1px solid #e0e0e0' }} />;
                               }
                            }
                            // Bold styling naive replacement
@@ -526,7 +526,7 @@ export default function ChatApp() {
                 style={{ 
                   flex: 1, 
                   border: '1px solid var(--odoo-border)', 
-                  background: '#f8f9fa', 
+                  background: '#F5F6F7', 
                   padding: '12px 16px', 
                   borderRadius: '24px',
                   fontSize: '14px',
@@ -541,8 +541,8 @@ export default function ChatApp() {
                   type="button" 
                   onClick={toggleListen}
                   style={{ 
-                    background: isListening ? '#ef4444' : '#f8f9fa', 
-                    border: '1px solid ' + (isListening ? '#ef4444' : 'var(--odoo-border)'), 
+                    background: isListening ? '#BB0000' : '#F5F6F7', 
+                    border: '1px solid ' + (isListening ? '#BB0000' : 'var(--odoo-border)'), 
                     cursor: 'pointer', 
                     color: isListening ? '#fff' : 'var(--odoo-text-muted)',
                     width: '44px',
@@ -559,7 +559,7 @@ export default function ChatApp() {
                   {isListening ? <MicOff size={20} /> : <Mic size={20} />}
                 </button>
               <button type="submit" disabled={!inputMessage.trim() || loading} style={{ 
-                background: inputMessage.trim() && !loading ? 'var(--odoo-teal)' : '#e9ecef', 
+                background: inputMessage.trim() && !loading ? 'var(--odoo-teal)' : '#D5D7DA', 
                 border: 'none', 
                 cursor: inputMessage.trim() && !loading ? 'pointer' : 'default', 
                 color: inputMessage.trim() && !loading ? '#fff' : '#adb5bd',

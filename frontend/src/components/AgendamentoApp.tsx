@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Calendar, LayoutGrid, Scissors, Users, Clock, Link as LinkIcon, Plus, Trash2, Check, X,
-  RotateCcw, Settings as SettingsIcon, Copy, CalendarClock, CheckCircle2
+  RotateCcw, Copy, CalendarClock, CheckCircle2
 } from 'lucide-react';
 import './AgendamentoApp.css';
 
@@ -30,42 +30,24 @@ export default function AgendamentoApp() {
   return (
     <div className="ag-shell">
       <div className="ag-header">
-        <div className="ag-header-title"><CalendarClock size={20} color="#C9992E" /> Agendamento</div>
-        <div className="ag-header-actions">
-          <div className="ag-header-icon-btn" onClick={() => setView('horarios')} title="Configurações"><SettingsIcon size={16} /></div>
+        <div className="ag-header-title"><CalendarClock size={19} /> Agendamento</div>
+        <div className="ag-pillnav">
+          <button className={view === 'dashboard' ? 'active' : ''} onClick={() => setView('dashboard')}><LayoutGrid size={14} /> Dashboard</button>
+          <button className={view === 'marcacoes' ? 'active' : ''} onClick={() => setView('marcacoes')}><Calendar size={14} /> Marcações</button>
+          <button className={view === 'servicos' ? 'active' : ''} onClick={() => setView('servicos')}><Scissors size={14} /> Serviços</button>
+          <button className={view === 'profissionais' ? 'active' : ''} onClick={() => setView('profissionais')}><Users size={14} /> Profissionais</button>
+          <button className={view === 'horarios' ? 'active' : ''} onClick={() => setView('horarios')}><Clock size={14} /> Horário</button>
+          <button className={view === 'link' ? 'active' : ''} onClick={() => setView('link')}><LinkIcon size={14} /> Link de Marcação</button>
         </div>
       </div>
 
-      <div className="ag-body">
-        <div className="ag-sidebar">
-          <div className="ag-sidebar-group">
-            <button className={`ag-sidebar-link${view === 'dashboard' ? ' active' : ''}`} onClick={() => setView('dashboard')}><LayoutGrid size={16} /> Dashboard</button>
-            <button className={`ag-sidebar-link${view === 'marcacoes' ? ' active' : ''}`} onClick={() => setView('marcacoes')}><Calendar size={16} /> Marcações</button>
-          </div>
-          <div>
-            <div className="ag-sidebar-group-label">Gestão</div>
-            <div className="ag-sidebar-group">
-              <button className={`ag-sidebar-link${view === 'servicos' ? ' active' : ''}`} onClick={() => setView('servicos')}><Scissors size={16} /> Serviços</button>
-              <button className={`ag-sidebar-link${view === 'profissionais' ? ' active' : ''}`} onClick={() => setView('profissionais')}><Users size={16} /> Profissionais</button>
-            </div>
-          </div>
-          <div>
-            <div className="ag-sidebar-group-label">Configurações</div>
-            <div className="ag-sidebar-group">
-              <button className={`ag-sidebar-link${view === 'horarios' ? ' active' : ''}`} onClick={() => setView('horarios')}><Clock size={16} /> Horário</button>
-              <button className={`ag-sidebar-link${view === 'link' ? ' active' : ''}`} onClick={() => setView('link')}><LinkIcon size={16} /> Link de Marcação</button>
-            </div>
-          </div>
-        </div>
-
-        <div className="ag-content">
-          {view === 'dashboard' && <DashboardView onIrParaMarcacoes={() => setView('marcacoes')} />}
-          {view === 'marcacoes' && <MarcacoesView />}
-          {view === 'servicos' && <ServicosView />}
-          {view === 'profissionais' && <ProfissionaisView />}
-          {view === 'horarios' && <HorariosView />}
-          {view === 'link' && <LinkView empresaId={empresaId} />}
-        </div>
+      <div className="ag-content">
+        {view === 'dashboard' && <DashboardView onIrParaMarcacoes={() => setView('marcacoes')} />}
+        {view === 'marcacoes' && <MarcacoesView />}
+        {view === 'servicos' && <ServicosView />}
+        {view === 'profissionais' && <ProfissionaisView />}
+        {view === 'horarios' && <HorariosView />}
+        {view === 'link' && <LinkView empresaId={empresaId} />}
       </div>
     </div>
   );
@@ -123,7 +105,7 @@ function DashboardView({ onIrParaMarcacoes }: { onIrParaMarcacoes: () => void })
 
       <div className="ag-panel" style={{ marginBottom: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <div className="ag-panel-title" style={{ marginBottom: 0 }}><Calendar size={16} color="#C9992E" /> Próximas Marcações</div>
+          <div className="ag-panel-title" style={{ marginBottom: 0 }}><Calendar size={16} color="#0854A0" /> Próximas Marcações</div>
           <button className="ag-btn ag-btn-sm" onClick={onIrParaMarcacoes}>Ver todas</button>
         </div>
         {proximas.length === 0 ? (
@@ -212,7 +194,7 @@ function MarcacoesView() {
                     )}
                     {a.estado !== 'Cancelado' && (
                       <>
-                        <button onClick={() => setRemarcarAlvo(a)} title="Remarcar" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ag-gold-hover)' }}><RotateCcw size={15} /></button>
+                        <button onClick={() => setRemarcarAlvo(a)} title="Remarcar" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ag-accent)' }}><RotateCcw size={15} /></button>
                         <button onClick={() => cancelar(a.id)} title="Cancelar" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ag-warn-fg)' }}><X size={16} /></button>
                       </>
                     )}
@@ -561,7 +543,7 @@ function LinkView({ empresaId }: { empresaId: string | null }) {
     <>
       <div className="ag-content-head"><div><h2>Link de Marcação</h2><p>Um extra opcional — a marcação automática já funciona sem link, diretamente pelo WhatsApp.</p></div></div>
 
-      <div className="ag-panel" style={{ background: 'var(--ag-gold-soft)', borderColor: 'var(--ag-gold)' }}>
+      <div className="ag-panel" style={{ background: 'var(--ag-accent-soft)', borderColor: 'var(--ag-accent)' }}>
         <div className="ag-panel-title" style={{ marginBottom: '8px' }}>Como a marcação automática funciona hoje</div>
         <p style={{ fontSize: '13px', color: 'var(--ag-ink)', lineHeight: 1.7, margin: 0 }}>
           Quando um cliente escreve para o seu número de WhatsApp a pedir para marcar, o Assistente IA conduz a

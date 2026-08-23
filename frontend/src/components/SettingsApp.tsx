@@ -271,13 +271,13 @@ export default function SettingsApp() {
     };
 
     return (
-        <div style={{ height: '100%', display: 'flex', backgroundColor: '#f8fafc', overflow: 'hidden' }}>
+        <div style={{ height: '100%', display: 'flex', backgroundColor: '#F5F6F7', overflow: 'hidden' }}>
 
             {/* Sidebar */}
-            <div style={{ width: '220px', backgroundColor: 'white', borderRight: '1px solid #e2e8f0', padding: '24px 0' }}>
-                <div style={{ padding: '0 16px 16px', borderBottom: '1px solid #e2e8f0', marginBottom: '8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700', color: '#0f172a', fontSize: '16px' }}>
-                        <Settings size={20} color="#1e40af" /> Definições
+            <div style={{ width: '220px', backgroundColor: 'white', borderRight: '1px solid #D5D7DA', padding: '24px 0' }}>
+                <div style={{ padding: '0 16px 16px', borderBottom: '1px solid #D5D7DA', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700', color: '#1D2D3E', fontSize: '16px' }}>
+                        <Settings size={20} color="#0854A0" /> Definições
                     </div>
                 </div>
                 {[
@@ -291,10 +291,10 @@ export default function SettingsApp() {
                         key={item.id}
                         onClick={() => setActiveTab(item.id as any)}
                         style={{
-                            width: '100%', padding: '10px 16px', border: 'none', background: activeTab === item.id ? '#eff6ff' : 'none',
+                            width: '100%', padding: '10px 16px', border: 'none', background: activeTab === item.id ? '#E4EDF7' : 'none',
                             textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px',
-                            color: activeTab === item.id ? '#1d4ed8' : '#475569', fontWeight: activeTab === item.id ? '600' : '400',
-                            fontSize: '14px', borderLeft: activeTab === item.id ? '3px solid #1d4ed8' : '3px solid transparent',
+                            color: activeTab === item.id ? '#0854A0' : '#5B738B', fontWeight: activeTab === item.id ? '600' : '400',
+                            fontSize: '14px', borderLeft: activeTab === item.id ? '3px solid #0854A0' : '3px solid transparent',
                         }}
                     >
                         {item.icon} {item.label}
@@ -307,91 +307,91 @@ export default function SettingsApp() {
 
                 {activeTab === 'email' && (
                     <div style={{ maxWidth: '680px' }}>
-                        <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#0f172a', margin: '0 0 8px 0' }}>Configurações de Email</h1>
-                        <p style={{ color: '#64748b', fontSize: '14px', margin: '0 0 32px 0' }}>
+                        <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1D2D3E', margin: '0 0 8px 0' }}>Configurações de Email</h1>
+                        <p style={{ color: '#5B738B', fontSize: '14px', margin: '0 0 32px 0' }}>
                             Configure o servidor SMTP para envio de emails. Cada cliente tem as suas próprias credenciais guardadas de forma segura na base de dados.
                         </p>
 
                         {/* Card Principal */}
-                        <div style={{ backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden', marginBottom: '24px' }}>
-                            <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', background: 'linear-gradient(135deg, #eff6ff, #f8fafc)' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontWeight: '700', color: '#1e293b', fontSize: '16px' }}>
-                                    <Mail size={20} color="#1e40af" /> Servidor SMTP
+                        <div style={{ backgroundColor: 'white', borderRadius: '2px', border: '1px solid #D5D7DA', overflow: 'hidden', marginBottom: '24px' }}>
+                            <div style={{ padding: '20px 24px', borderBottom: '1px solid #E7E9EB', background: 'linear-gradient(135deg, #E4EDF7, #F5F6F7)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontWeight: '700', color: '#1D2D3E', fontSize: '16px' }}>
+                                    <Mail size={20} color="#0854A0" /> Servidor SMTP
                                 </div>
-                                <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>Para Gmail: use smtp.gmail.com com porta 587 e uma App Password (não a password normal).</p>
+                                <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#5B738B' }}>Para Gmail: use smtp.gmail.com com porta 587 e uma App Password (não a password normal).</p>
                             </div>
 
                             <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                                     <div>
-                                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Nome do Remetente</label>
+                                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#1D2D3E', marginBottom: '6px' }}>Nome do Remetente</label>
                                         <input
                                             value={smtp.smtp_nome}
                                             onChange={e => setSmtp(p => ({ ...p, smtp_nome: e.target.value }))}
                                             placeholder="ex: Empresa ABC"
-                                            style={{ width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
+                                            style={{ width: '100%', padding: '10px 12px', border: '1px solid #D5D7DA', borderRadius: '2px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
                                         />
                                     </div>
                                     <div>
-                                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Email (Utilizador SMTP)</label>
+                                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#1D2D3E', marginBottom: '6px' }}>Email (Utilizador SMTP)</label>
                                         <input
                                             type="email"
                                             value={smtp.smtp_user}
                                             onChange={e => setSmtp(p => ({ ...p, smtp_user: e.target.value }))}
                                             placeholder="geral@minhaempresa.com"
-                                            style={{ width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
+                                            style={{ width: '100%', padding: '10px 12px', border: '1px solid #D5D7DA', borderRadius: '2px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
                                         />
                                     </div>
                                 </div>
 
                                 <div>
-                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Password / App Password</label>
+                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#1D2D3E', marginBottom: '6px' }}>Password / App Password</label>
                                     <div style={{ position: 'relative' }}>
                                         <input
                                             type={showPass ? 'text' : 'password'}
                                             value={smtp.smtp_pass}
                                             onChange={e => setSmtp(p => ({ ...p, smtp_pass: e.target.value }))}
                                             placeholder="Para Gmail: crie uma App Password nas definições Google"
-                                            style={{ width: '100%', padding: '10px 44px 10px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
+                                            style={{ width: '100%', padding: '10px 44px 10px 12px', border: '1px solid #D5D7DA', borderRadius: '2px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
                                         />
                                         <button
                                             onClick={() => setShowPass(!showPass)}
-                                            style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', fontSize: '12px' }}
+                                            style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#5B738B', fontSize: '12px' }}
                                         >
                                             {showPass ? 'Ocultar' : 'Mostrar'}
                                         </button>
                                     </div>
-                                    <p style={{ margin: '6px 0 0', fontSize: '12px', color: '#94a3b8' }}>
+                                    <p style={{ margin: '6px 0 0', fontSize: '12px', color: '#8996A3' }}>
                                         💡 No Gmail, vai a <strong>Conta Google → Segurança → Verificação em 2 passos → Palavras-passe de apps</strong>
                                     </p>
                                 </div>
 
                                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '16px' }}>
                                     <div>
-                                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Servidor SMTP (Host)</label>
+                                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#1D2D3E', marginBottom: '6px' }}>Servidor SMTP (Host)</label>
                                         <input
                                             value={smtp.smtp_host}
                                             onChange={e => setSmtp(p => ({ ...p, smtp_host: e.target.value }))}
                                             placeholder="smtp.gmail.com"
-                                            style={{ width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
+                                            style={{ width: '100%', padding: '10px 12px', border: '1px solid #D5D7DA', borderRadius: '2px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
                                         />
                                     </div>
                                     <div>
-                                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Porta</label>
+                                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#1D2D3E', marginBottom: '6px' }}>Porta</label>
                                         <input
                                             value={smtp.smtp_port}
                                             onChange={e => setSmtp(p => ({ ...p, smtp_port: e.target.value }))}
                                             placeholder="587"
-                                            style={{ width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
+                                            style={{ width: '100%', padding: '10px 12px', border: '1px solid #D5D7DA', borderRadius: '2px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
                                         />
                                     </div>
                                     <div>
-                                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>SSL/TLS</label>
+                                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#1D2D3E', marginBottom: '6px' }}>SSL/TLS</label>
                                         <select
                                             value={smtp.smtp_secure}
                                             onChange={e => setSmtp(p => ({ ...p, smtp_secure: e.target.value }))}
-                                            style={{ width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
+                                            style={{ width: '100%', padding: '10px 12px', border: '1px solid #D5D7DA', borderRadius: '2px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
                                         >
                                             <option value="false">STARTTLS (587)</option>
                                             <option value="true">SSL (465)</option>
@@ -400,8 +400,8 @@ export default function SettingsApp() {
                                 </div>
 
                                 {/* Presets */}
-                                <div style={{ padding: '12px 16px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                                    <div style={{ fontSize: '12px', fontWeight: '700', color: '#475569', marginBottom: '10px' }}>Pré-definições Rápidas:</div>
+                                <div style={{ padding: '12px 16px', backgroundColor: '#F5F6F7', borderRadius: '2px', border: '1px solid #D5D7DA' }}>
+                                    <div style={{ fontSize: '12px', fontWeight: '700', color: '#5B738B', marginBottom: '10px' }}>Pré-definições Rápidas:</div>
                                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                                         {[
                                             { label: 'Gmail', host: 'smtp.gmail.com', port: '587', secure: 'false' },
@@ -412,7 +412,7 @@ export default function SettingsApp() {
                                             <button
                                                 key={preset.label}
                                                 onClick={() => setSmtp(p => ({ ...p, smtp_host: preset.host, smtp_port: preset.port, smtp_secure: preset.secure }))}
-                                                style={{ padding: '6px 14px', border: '1px solid #cbd5e1', borderRadius: '6px', background: 'white', cursor: 'pointer', fontSize: '13px', color: '#334155', fontWeight: '500' }}
+                                                style={{ padding: '6px 14px', border: '1px solid #D5D7DA', borderRadius: '2px', background: 'white', cursor: 'pointer', fontSize: '13px', color: '#1D2D3E', fontWeight: '500' }}
                                             >
                                                 {preset.label}
                                             </button>
@@ -424,12 +424,12 @@ export default function SettingsApp() {
 
                         {/* Status de Teste */}
                         {testStatus === 'ok' && (
-                            <div style={{ padding: '14px 18px', backgroundColor: '#f0fdf4', border: '1px solid #86efac', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px', color: '#16a34a', marginBottom: '16px' }}>
+                            <div style={{ padding: '14px 18px', backgroundColor: '#DCEEE2', border: '1px solid #86efac', borderRadius: '2px', display: 'flex', alignItems: 'center', gap: '10px', color: '#107E3E', marginBottom: '16px' }}>
                                 <CheckCircle size={18} /> {testMsg}
                             </div>
                         )}
                         {testStatus === 'error' && (
-                            <div style={{ padding: '14px 18px', backgroundColor: '#fff1f2', border: '1px solid #fda4af', borderRadius: '10px', display: 'flex', alignItems: 'flex-start', gap: '10px', color: '#be123c', marginBottom: '16px', fontSize: '14px' }}>
+                            <div style={{ padding: '14px 18px', backgroundColor: '#F6DEDE', border: '1px solid #fda4af', borderRadius: '2px', display: 'flex', alignItems: 'flex-start', gap: '10px', color: '#BB0000', marginBottom: '16px', fontSize: '14px' }}>
                                 <AlertCircle size={18} style={{ marginTop: '1px', flexShrink: 0 }} /> 
                                 <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>{testMsg}</pre>
                             </div>
@@ -440,7 +440,7 @@ export default function SettingsApp() {
                             <button
                                 onClick={handleTest}
                                 disabled={testStatus === 'testing'}
-                                style={{ padding: '10px 20px', border: '1px solid #e2e8f0', background: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '14px', color: '#334155', display: 'flex', alignItems: 'center', gap: '8px' }}
+                                style={{ padding: '10px 20px', border: '1px solid #D5D7DA', background: 'white', borderRadius: '2px', cursor: 'pointer', fontWeight: '600', fontSize: '14px', color: '#1D2D3E', display: 'flex', alignItems: 'center', gap: '8px' }}
                             >
                                 {testStatus === 'testing' ? <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Wifi size={16} />}
                                 Testar Ligação
@@ -449,7 +449,7 @@ export default function SettingsApp() {
                             <button
                                 onClick={handleSave}
                                 disabled={saving}
-                                style={{ padding: '10px 24px', background: saving ? '#93c5fd' : 'linear-gradient(135deg, #1e40af, #3b82f6)', color: 'white', border: 'none', borderRadius: '8px', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: '700', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                                style={{ padding: '10px 24px', background: saving ? '#93c5fd' : 'linear-gradient(135deg, #0854A0, #0854A0)', color: 'white', border: 'none', borderRadius: '2px', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: '700', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}
                             >
                                 {saving ? <Loader size={16} /> : (saved ? <CheckCircle size={16} /> : <Save size={16} />)}
                                 {saved ? 'Guardado!' : (saving ? 'A guardar...' : 'Guardar Configurações')}
@@ -460,62 +460,62 @@ export default function SettingsApp() {
 
                 {activeTab === 'empresa' && (
                     <div style={{ maxWidth: '680px' }}>
-                        <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#0f172a', margin: '0 0 8px 0' }}>Dados da Empresa</h1>
-                        <p style={{ color: '#64748b', fontSize: '14px', margin: '0 0 32px 0' }}>
+                        <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1D2D3E', margin: '0 0 8px 0' }}>Dados da Empresa</h1>
+                        <p style={{ color: '#5B738B', fontSize: '14px', margin: '0 0 32px 0' }}>
                             Estes dados serão apresentados nos documentos oficiais: Recibos de Vencimento, Declarações e Proformas Comerciais.
                         </p>
 
-                        <div style={{ backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '24px' }}>
+                        <div style={{ backgroundColor: 'white', borderRadius: '2px', border: '1px solid #D5D7DA', padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '24px' }}>
                             <div>
-                                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Nome da Empresa / Razão Social</label>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#1D2D3E', marginBottom: '6px' }}>Nome da Empresa / Razão Social</label>
                                 <input
                                     value={empresaConfig.COMPANY_NAME}
                                     onChange={e => setEmpresaConfig(p => ({ ...p, COMPANY_NAME: e.target.value }))}
                                     placeholder="Nome da sua Empresa, Lda."
-                                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
+                                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #D5D7DA', borderRadius: '2px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
                                 />
                             </div>
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                                 <div>
-                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>NIF</label>
+                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#1D2D3E', marginBottom: '6px' }}>NIF</label>
                                     <input
                                         value={empresaConfig.COMPANY_NIF}
                                         onChange={e => setEmpresaConfig(p => ({ ...p, COMPANY_NIF: e.target.value }))}
                                         placeholder="Ex: 5000000000"
-                                        style={{ width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
+                                        style={{ width: '100%', padding: '10px 12px', border: '1px solid #D5D7DA', borderRadius: '2px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
                                     />
                                 </div>
                                 <div>
-                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Telefone / Contacto</label>
+                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#1D2D3E', marginBottom: '6px' }}>Telefone / Contacto</label>
                                     <input
                                         value={empresaConfig.COMPANY_PHONE}
                                         onChange={e => setEmpresaConfig(p => ({ ...p, COMPANY_PHONE: e.target.value }))}
                                         placeholder="Ex: +244 922 000 000"
-                                        style={{ width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
+                                        style={{ width: '100%', padding: '10px 12px', border: '1px solid #D5D7DA', borderRadius: '2px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
                                     />
                                 </div>
                             </div>
 
                             <div>
-                                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Email Institucional</label>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#1D2D3E', marginBottom: '6px' }}>Email Institucional</label>
                                 <input
                                     type="email"
                                     value={empresaConfig.COMPANY_EMAIL}
                                     onChange={e => setEmpresaConfig(p => ({ ...p, COMPANY_EMAIL: e.target.value }))}
                                     placeholder="geral@empresa.com"
-                                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
+                                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #D5D7DA', borderRadius: '2px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
                                 />
                             </div>
 
                             <div>
-                                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Endereço Completo</label>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#1D2D3E', marginBottom: '6px' }}>Endereço Completo</label>
                                 <textarea
                                     value={empresaConfig.COMPANY_ADDRESS}
                                     onChange={e => setEmpresaConfig(p => ({ ...p, COMPANY_ADDRESS: e.target.value }))}
                                     placeholder="Ex: Av. Principal, Luanda, Angola"
                                     rows={3}
-                                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', outline: 'none', boxSizing: 'border-box', resize: 'vertical' }}
+                                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #D5D7DA', borderRadius: '2px', fontSize: '14px', outline: 'none', boxSizing: 'border-box', resize: 'vertical' }}
                                 />
                             </div>
                         </div>
@@ -529,61 +529,61 @@ export default function SettingsApp() {
                             {savingEmpresa ? <Loader className="spin" size={16} /> : <Save size={16} />}
                             {savingEmpresa ? 'A Guardar...' : 'Guardar Dados da Empresa'}
                         </button>
-                        {savedEmpresa && <span style={{ marginLeft: '12px', color: '#16a34a', fontSize: '13px' }}><CheckCircle size={14} style={{ verticalAlign: '-2px', marginRight: '4px' }} />Guardado!</span>}
+                        {savedEmpresa && <span style={{ marginLeft: '12px', color: '#107E3E', fontSize: '13px' }}><CheckCircle size={14} style={{ verticalAlign: '-2px', marginRight: '4px' }} />Guardado!</span>}
                     </div>
                 )}
 
                 {activeTab === 'equipa' && (currentUser?.role === 'admin' || currentUser?.role === 'superadmin') && (
                     <div style={{ maxWidth: '900px' }}>
                         <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <h2 style={{ fontSize: '18px', margin: 0, color: '#1e293b' }}>Gestão de Acessos</h2>
+                            <h2 style={{ fontSize: '18px', margin: 0, color: '#1D2D3E' }}>Gestão de Acessos</h2>
                             {currentUser?.codigo_convite && (
-                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f8fafc', padding: '8px 16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                                  <span style={{ fontSize: '13px', color: '#64748b' }}>Convite da Empresa:</span>
-                                  <strong style={{ color: '#0f172a', letterSpacing: '1px' }}>{currentUser.codigo_convite}</strong>
+                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#F5F6F7', padding: '8px 16px', borderRadius: '2px', border: '1px solid #D5D7DA' }}>
+                                  <span style={{ fontSize: '13px', color: '#5B738B' }}>Convite da Empresa:</span>
+                                  <strong style={{ color: '#1D2D3E', letterSpacing: '1px' }}>{currentUser.codigo_convite}</strong>
                                   <button 
                                     onClick={() => {
                                        navigator.clipboard.writeText(`${window.location.origin}/?code=${currentUser.codigo_convite}`);
                                        alert('Link de convite copiado!');
                                     }}
-                                    style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', cursor: 'pointer', marginLeft: '8px' }}>
+                                    style={{ background: '#0854A0', color: 'white', border: 'none', padding: '4px 8px', borderRadius: '2px', fontSize: '12px', cursor: 'pointer', marginLeft: '8px' }}>
                                     Copiar Link
                                   </button>
                                </div>
                             )}
                         </div>
 
-                        <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#0f172a', margin: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Shield size={24} color="#1e40af" /> Gestão de Equipa e Permissões
+                        <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1D2D3E', margin: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Shield size={24} color="#0854A0" /> Gestão de Equipa e Permissões
                         </h1>
-                        <p style={{ color: '#64748b', fontSize: '14px', margin: '0 0 32px 0' }}>
+                        <p style={{ color: '#5B738B', fontSize: '14px', margin: '0 0 32px 0' }}>
                             Aprove novos registos, defina perfis de acesso (RBAC) e bloqueie utilizadores inativos.
                         </p>
 
-                        <div style={{ backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                        <div style={{ backgroundColor: 'white', borderRadius: '2px', border: '1px solid #D5D7DA', overflow: 'hidden' }}>
                             {loadingUsers ? (
-                                <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}><Loader size={24} style={{ animation: 'spin 1s linear infinite' }} /> Carregando...</div>
+                                <div style={{ padding: '40px', textAlign: 'center', color: '#5B738B' }}><Loader size={24} style={{ animation: 'spin 1s linear infinite' }} /> Carregando...</div>
                             ) : (
                                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', textAlign: 'left' }}>
-                                    <thead style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                                    <thead style={{ backgroundColor: '#F5F6F7', borderBottom: '1px solid #D5D7DA' }}>
                                         <tr>
-                                            <th style={{ padding: '12px 24px', color: '#475569', fontWeight: 600 }}>Utilizador</th>
-                                            <th style={{ padding: '12px 24px', color: '#475569', fontWeight: 600 }}>Perfil (Role)</th>
-                                            <th style={{ padding: '12px 24px', color: '#475569', fontWeight: 600 }}>Acesso</th>
-                                            <th style={{ padding: '12px 24px', color: '#475569', fontWeight: 600 }}>Último Acesso</th>
+                                            <th style={{ padding: '12px 24px', color: '#5B738B', fontWeight: 600 }}>Utilizador</th>
+                                            <th style={{ padding: '12px 24px', color: '#5B738B', fontWeight: 600 }}>Perfil (Role)</th>
+                                            <th style={{ padding: '12px 24px', color: '#5B738B', fontWeight: 600 }}>Acesso</th>
+                                            <th style={{ padding: '12px 24px', color: '#5B738B', fontWeight: 600 }}>Último Acesso</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {users.map(u => (
-                                            <tr key={u.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                            <tr key={u.id} style={{ borderBottom: '1px solid #E7E9EB' }}>
                                                 <td style={{ padding: '16px 24px' }}>
-                                                    <div style={{ fontWeight: 600, color: '#0f172a' }}>{u.nome}</div>
+                                                    <div style={{ fontWeight: 600, color: '#1D2D3E' }}>{u.nome}</div>
                                                 </td>
                                                 <td style={{ padding: '16px 24px' }}>
                                                     <select 
                                                         value={u.role} 
                                                         onChange={(e) => handleChangeRole(u.id, e.target.value)}
-                                                        style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', backgroundColor: u.role === 'pending' ? '#fef2f2' : '#f8fafc', color: u.role === 'pending' ? '#ef4444' : '#0f172a', fontWeight: u.role === 'pending' ? 600 : 400, outline: 'none' }}
+                                                        style={{ padding: '6px 12px', borderRadius: '2px', border: '1px solid #D5D7DA', backgroundColor: u.role === 'pending' ? '#fef2f2' : '#F5F6F7', color: u.role === 'pending' ? '#BB0000' : '#1D2D3E', fontWeight: u.role === 'pending' ? 600 : 400, outline: 'none' }}
                                                     >
                                                         <option value="pending">Pendente (Bloqueado)</option>
                                                         <option value="agente">Agente (Operacional)</option>
@@ -595,19 +595,19 @@ export default function SettingsApp() {
                                                 <td style={{ padding: '16px 24px' }}>
                                                     <button 
                                                         onClick={() => handleChangeStatus(u.id, !u.ativo)}
-                                                        style={{ padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer', backgroundColor: u.ativo ? '#dcfce7' : '#fee2e2', color: u.ativo ? '#16a34a' : '#ef4444' }}
+                                                        style={{ padding: '4px 12px', borderRadius: '2px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer', backgroundColor: u.ativo ? '#DCEEE2' : '#F6DEDE', color: u.ativo ? '#107E3E' : '#BB0000' }}
                                                     >
                                                         {u.ativo ? 'Ativo' : 'Desativado'}
                                                     </button>
                                                 </td>
-                                                <td style={{ padding: '16px 24px', color: '#64748b', fontSize: '13px' }}>
+                                                <td style={{ padding: '16px 24px', color: '#5B738B', fontSize: '13px' }}>
                                                     {u.ultimo_acesso ? new Date(u.ultimo_acesso).toLocaleString() : 'Nunca'}
                                                 </td>
                                             </tr>
                                         ))}
                                         {users.length === 0 && (
                                             <tr>
-                                                <td colSpan={4} style={{ padding: '24px', textAlign: 'center', color: '#64748b' }}>Nenhum utilizador encontrado.</td>
+                                                <td colSpan={4} style={{ padding: '24px', textAlign: 'center', color: '#5B738B' }}>Nenhum utilizador encontrado.</td>
                                             </tr>
                                         )}
                                     </tbody>
@@ -619,12 +619,12 @@ export default function SettingsApp() {
 
                 {activeTab === 'documentos' && (
                     <div style={{ maxWidth: '680px' }}>
-                        <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#0f172a', margin: '0 0 8px 0' }}>Personalização de Documentos</h1>
-                        <p style={{ color: '#64748b', fontSize: '14px', margin: '0 0 32px 0' }}>Faça upload do logótipo da sua empresa para que apareça automaticamente nos PDFs (Recibos de Vencimento, Declarações e Proformas).</p>
+                        <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1D2D3E', margin: '0 0 8px 0' }}>Personalização de Documentos</h1>
+                        <p style={{ color: '#5B738B', fontSize: '14px', margin: '0 0 32px 0' }}>Faça upload do logótipo da sua empresa para que apareça automaticamente nos PDFs (Recibos de Vencimento, Declarações e Proformas).</p>
 
-                        <div style={{ backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '24px' }}>
+                        <div style={{ backgroundColor: 'white', borderRadius: '2px', border: '1px solid #D5D7DA', padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '24px' }}>
                             <div>
-                                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Logótipo da Empresa (PNG ou JPG)</label>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#1D2D3E', marginBottom: '6px' }}>Logótipo da Empresa (PNG ou JPG)</label>
                                 <input 
                                     type="file" 
                                     accept="image/png, image/jpeg" 
@@ -636,22 +636,22 @@ export default function SettingsApp() {
                                             reader.readAsDataURL(file);
                                         }
                                     }}
-                                    style={{ width: '100%', padding: '10px 12px', border: '1px dashed #cbd5e1', borderRadius: '8px', fontSize: '14px' }}
+                                    style={{ width: '100%', padding: '10px 12px', border: '1px dashed #D5D7DA', borderRadius: '2px', fontSize: '14px' }}
                                 />
                                 {logoBase64 && (
-                                    <div style={{ marginTop: '16px', padding: '12px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'inline-block' }}>
+                                    <div style={{ marginTop: '16px', padding: '12px', backgroundColor: '#F5F6F7', borderRadius: '2px', border: '1px solid #D5D7DA', display: 'inline-block' }}>
                                         <img src={logoBase64} alt="Preview Logo" style={{ maxHeight: '80px', maxWidth: '200px', objectFit: 'contain' }} />
-                                        <button onClick={() => setLogoBase64('')} style={{ display: 'block', marginTop: '8px', fontSize: '12px', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>Remover Logótipo</button>
+                                        <button onClick={() => setLogoBase64('')} style={{ display: 'block', marginTop: '8px', fontSize: '12px', color: '#BB0000', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>Remover Logótipo</button>
                                     </div>
                                 )}
                             </div>
 
                             <div>
-                                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Posição do Logótipo nos PDFs</label>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#1D2D3E', marginBottom: '6px' }}>Posição do Logótipo nos PDFs</label>
                                 <select 
                                     value={logoPosition}
                                     onChange={e => setLogoPosition(e.target.value)}
-                                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', outline: 'none' }}
+                                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #D5D7DA', borderRadius: '2px', fontSize: '14px', outline: 'none' }}
                                 >
                                     <option value="top-left">Canto Superior Esquerdo</option>
                                     <option value="top-right">Canto Superior Direito</option>
@@ -665,14 +665,14 @@ export default function SettingsApp() {
                         <button
                             onClick={handleSaveEmpresa}
                             disabled={savingEmpresa}
-                            style={{ width: 'fit-content', padding: '10px 24px', backgroundColor: '#1d4ed8', color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: savingEmpresa ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '32px' }}
+                            style={{ width: 'fit-content', padding: '10px 24px', backgroundColor: '#0854A0', color: 'white', border: 'none', borderRadius: '2px', fontSize: '14px', fontWeight: '600', cursor: savingEmpresa ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '32px' }}
                         >
                             {savingEmpresa ? <Loader size={16} className="animate-spin" /> : <Save size={16} />}
                             {savingEmpresa ? 'A Guardar...' : 'Guardar Logótipo'}
                         </button>
-                        {savedEmpresa && <span style={{ marginLeft: '12px', color: '#16a34a', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}><CheckCircle size={14} /> Guardado!</span>}
+                        {savedEmpresa && <span style={{ marginLeft: '12px', color: '#107E3E', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}><CheckCircle size={14} /> Guardado!</span>}
 
-                        <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '24px' }}>
+                        <div style={{ borderTop: '1px solid #D5D7DA', paddingTop: '24px' }}>
                             <ConfiguracaoProforma />
                         </div>
                     </div>
@@ -680,28 +680,28 @@ export default function SettingsApp() {
 
                 {activeTab === 'seguranca' && (
                     <div style={{ maxWidth: '680px' }}>
-                        <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#0f172a', margin: '0 0 8px 0' }}>Segurança</h1>
-                        <p style={{ color: '#64748b', fontSize: '14px', margin: '0 0 32px 0' }}>Altere a password de acesso à sua conta.</p>
+                        <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1D2D3E', margin: '0 0 8px 0' }}>Segurança</h1>
+                        <p style={{ color: '#5B738B', fontSize: '14px', margin: '0 0 32px 0' }}>Altere a password de acesso à sua conta.</p>
                         
-                        <div style={{ backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        <div style={{ backgroundColor: 'white', borderRadius: '2px', border: '1px solid #D5D7DA', padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
                             <div>
-                                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Nova Password</label>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#1D2D3E', marginBottom: '6px' }}>Nova Password</label>
                                 <input 
                                     type="password" 
                                     value={newPassword}
                                     onChange={e => setNewPassword(e.target.value)}
                                     placeholder="No mínimo 6 caracteres"
-                                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', outline: 'none' }}
+                                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #D5D7DA', borderRadius: '2px', fontSize: '14px', outline: 'none' }}
                                 />
                             </div>
                             <div>
-                                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Confirmar Password</label>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#1D2D3E', marginBottom: '6px' }}>Confirmar Password</label>
                                 <input 
                                     type="password" 
                                     value={confirmPassword}
                                     onChange={e => setConfirmPassword(e.target.value)}
                                     placeholder="Repita a password"
-                                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', outline: 'none' }}
+                                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #D5D7DA', borderRadius: '2px', fontSize: '14px', outline: 'none' }}
                                 />
                             </div>
 
@@ -733,7 +733,7 @@ export default function SettingsApp() {
                                     }
                                 }}
                                 disabled={passwordSaving}
-                                style={{ width: 'fit-content', padding: '10px 24px', backgroundColor: '#dc2626', color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: passwordSaving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                                style={{ width: 'fit-content', padding: '10px 24px', backgroundColor: '#dc2626', color: 'white', border: 'none', borderRadius: '2px', fontSize: '14px', fontWeight: '600', cursor: passwordSaving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
                             >
                                 {passwordSaving ? <Loader size={16} className="animate-spin" /> : <Shield size={16} />}
                                 {passwordSaving ? 'A Atualizar...' : 'Atualizar Password'}

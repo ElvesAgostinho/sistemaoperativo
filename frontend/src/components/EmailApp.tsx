@@ -136,10 +136,10 @@ export default function EmailApp() {
     const unreadCount = emails.filter(e => e.direcao === 'inbox' && !e.lido).length;
 
     return (
-        <div style={{ height: '100%', display: 'flex', backgroundColor: '#f8fafc', overflow: 'hidden' }}>
+        <div style={{ height: '100%', display: 'flex', backgroundColor: '#F5F6F7', overflow: 'hidden' }}>
             {/* Sidebar */}
-            <div style={{ width: '250px', backgroundColor: 'white', borderRight: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column' }}>
-                <div style={{ padding: '20px 16px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '10px', background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)' }}>
+            <div style={{ width: '250px', backgroundColor: 'white', borderRight: '1px solid #D5D7DA', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ padding: '20px 16px', borderBottom: '1px solid #D5D7DA', display: 'flex', alignItems: 'center', gap: '10px', background: 'linear-gradient(135deg, #0854A0 0%, #0854A0 100%)' }}>
                     <Mail size={22} color="white" />
                     <span style={{ fontWeight: '700', fontSize: '16px', color: 'white' }}>Email</span>
                 </div>
@@ -147,7 +147,7 @@ export default function EmailApp() {
                 <div style={{ padding: '16px 12px' }}>
                     <button 
                         onClick={() => { setView('compose'); setStatus('idle'); }}
-                        style={{ width: '100%', padding: '10px', borderRadius: '8px', backgroundColor: '#3b82f6', color: 'white', border: 'none', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer' }}
+                        style={{ width: '100%', padding: '10px', borderRadius: '2px', backgroundColor: '#0854A0', color: 'white', border: 'none', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer' }}
                     >
                         <Send size={16} /> Compor
                     </button>
@@ -156,14 +156,14 @@ export default function EmailApp() {
                 <div style={{ flex: 1, padding: '0 12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     <div 
                         onClick={() => setView('inbox')}
-                        style={{ padding: '10px 12px', borderRadius: '6px', backgroundColor: view === 'inbox' ? '#eff6ff' : 'transparent', color: view === 'inbox' ? '#1d4ed8' : '#475569', fontWeight: view === 'inbox' ? '600' : '500', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
+                        style={{ padding: '10px 12px', borderRadius: '2px', backgroundColor: view === 'inbox' ? '#E4EDF7' : 'transparent', color: view === 'inbox' ? '#0854A0' : '#5B738B', fontWeight: view === 'inbox' ? '600' : '500', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
                     >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Inbox size={16} /> Caixa de Entrada</div>
-                        {unreadCount > 0 && <span style={{ background: '#3b82f6', color: 'white', fontSize: '11px', padding: '2px 6px', borderRadius: '10px' }}>{unreadCount}</span>}
+                        {unreadCount > 0 && <span style={{ background: '#0854A0', color: 'white', fontSize: '11px', padding: '2px 6px', borderRadius: '2px' }}>{unreadCount}</span>}
                     </div>
                     <div 
                         onClick={() => setView('sent')}
-                        style={{ padding: '10px 12px', borderRadius: '6px', backgroundColor: view === 'sent' ? '#eff6ff' : 'transparent', color: view === 'sent' ? '#1d4ed8' : '#475569', fontWeight: view === 'sent' ? '600' : '500', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                        style={{ padding: '10px 12px', borderRadius: '2px', backgroundColor: view === 'sent' ? '#E4EDF7' : 'transparent', color: view === 'sent' ? '#0854A0' : '#5B738B', fontWeight: view === 'sent' ? '600' : '500', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
                     >
                         <Send size={16} /> Enviados
                     </div>
@@ -174,34 +174,34 @@ export default function EmailApp() {
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 {(view === 'inbox' || view === 'sent') && (
                     <>
-                        <div style={{ padding: '16px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'white' }}>
-                            <h2 style={{ margin: 0, fontSize: '18px', color: '#0f172a' }}>{view === 'inbox' ? 'Caixa de Entrada' : 'Enviados'}</h2>
-                            <button onClick={handleSync} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#64748b' }}>
+                        <div style={{ padding: '16px 24px', borderBottom: '1px solid #D5D7DA', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'white' }}>
+                            <h2 style={{ margin: 0, fontSize: '18px', color: '#1D2D3E' }}>{view === 'inbox' ? 'Caixa de Entrada' : 'Enviados'}</h2>
+                            <button onClick={handleSync} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#5B738B' }}>
                                 <RefreshCw size={18} className={loadingEmails ? 'spin' : ''} />
                             </button>
                         </div>
                         <div style={{ flex: 1, overflow: 'auto', padding: '16px 24px' }}>
                             {loadingEmails && filteredEmails.length === 0 ? (
-                                <div style={{ textAlign: 'center', color: '#64748b', padding: '40px' }}><Loader size={24} className="spin" /></div>
+                                <div style={{ textAlign: 'center', color: '#5B738B', padding: '40px' }}><Loader size={24} className="spin" /></div>
                             ) : filteredEmails.length === 0 ? (
-                                <div style={{ textAlign: 'center', color: '#64748b', padding: '40px' }}>Nenhum email encontrado.</div>
+                                <div style={{ textAlign: 'center', color: '#5B738B', padding: '40px' }}>Nenhum email encontrado.</div>
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                     {filteredEmails.map(e => (
                                         <div 
                                             key={e.id}
                                             onClick={() => { setActiveEmail(e); setView('read'); markAsRead(e); }}
-                                            style={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', borderLeft: !e.lido && view === 'inbox' ? '3px solid #3b82f6' : '1px solid #e2e8f0', opacity: e.lido ? 0.7 : 1 }}
+                                            style={{ backgroundColor: 'white', border: '1px solid #D5D7DA', borderRadius: '2px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', borderLeft: !e.lido && view === 'inbox' ? '3px solid #0854A0' : '1px solid #D5D7DA', opacity: e.lido ? 0.7 : 1 }}
                                         >
-                                            <div style={{ color: e.lido ? '#94a3b8' : '#3b82f6' }}>
+                                            <div style={{ color: e.lido ? '#8996A3' : '#0854A0' }}>
                                                 {e.lido ? <MailOpen size={18} /> : <MailIcon size={18} />}
                                             </div>
                                             <div style={{ flex: 1, minWidth: 0 }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                                    <span style={{ fontWeight: e.lido ? '500' : '700', color: '#1e293b', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{view === 'inbox' ? e.de : e.para}</span>
-                                                    <span style={{ fontSize: '12px', color: '#64748b', flexShrink: 0 }}>{new Date(e.data_envio).toLocaleString('pt-PT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                                                    <span style={{ fontWeight: e.lido ? '500' : '700', color: '#1D2D3E', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{view === 'inbox' ? e.de : e.para}</span>
+                                                    <span style={{ fontSize: '12px', color: '#5B738B', flexShrink: 0 }}>{new Date(e.data_envio).toLocaleString('pt-PT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
                                                 </div>
-                                                <div style={{ fontWeight: e.lido ? '400' : '600', color: '#334155', fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.assunto}</div>
+                                                <div style={{ fontWeight: e.lido ? '400' : '600', color: '#1D2D3E', fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.assunto}</div>
                                             </div>
                                         </div>
                                     ))}
@@ -213,23 +213,23 @@ export default function EmailApp() {
 
                 {view === 'read' && activeEmail && (
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: 'white' }}>
-                        <div style={{ padding: '16px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <button onClick={() => setView(activeEmail.direcao)} style={{ background: 'transparent', border: '1px solid #e2e8f0', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', color: '#475569', fontSize: '13px' }}>Voltar</button>
-                            <button onClick={() => deleteEmail(activeEmail.id)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444' }}><Trash2 size={18} /></button>
+                        <div style={{ padding: '16px 24px', borderBottom: '1px solid #D5D7DA', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <button onClick={() => setView(activeEmail.direcao)} style={{ background: 'transparent', border: '1px solid #D5D7DA', padding: '6px 12px', borderRadius: '2px', cursor: 'pointer', color: '#5B738B', fontSize: '13px' }}>Voltar</button>
+                            <button onClick={() => deleteEmail(activeEmail.id)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#BB0000' }}><Trash2 size={18} /></button>
                         </div>
-                        <div style={{ padding: '24px', borderBottom: '1px solid #e2e8f0' }}>
-                            <h2 style={{ margin: '0 0 16px 0', fontSize: '20px', color: '#0f172a' }}>{activeEmail.assunto}</h2>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#475569' }}>
+                        <div style={{ padding: '24px', borderBottom: '1px solid #D5D7DA' }}>
+                            <h2 style={{ margin: '0 0 16px 0', fontSize: '20px', color: '#1D2D3E' }}>{activeEmail.assunto}</h2>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#5B738B' }}>
                                 <div><strong>De:</strong> {activeEmail.de}</div>
                                 <div>{new Date(activeEmail.data_envio).toLocaleString('pt-PT')}</div>
                             </div>
-                            <div style={{ fontSize: '13px', color: '#475569', marginTop: '4px' }}><strong>Para:</strong> {activeEmail.para}</div>
+                            <div style={{ fontSize: '13px', color: '#5B738B', marginTop: '4px' }}><strong>Para:</strong> {activeEmail.para}</div>
                         </div>
                         <div style={{ flex: 1, padding: '24px', overflow: 'auto' }}>
                             {activeEmail.corpo_html ? (
                                 <div dangerouslySetInnerHTML={{ __html: activeEmail.corpo_html }} />
                             ) : (
-                                <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '14px', color: '#334155' }}>{activeEmail.corpo_texto}</pre>
+                                <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '14px', color: '#1D2D3E' }}>{activeEmail.corpo_texto}</pre>
                             )}
                         </div>
                     </div>
@@ -237,24 +237,24 @@ export default function EmailApp() {
 
                 {view === 'compose' && (
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '32px' }}>
-                        <div style={{ backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', flex: 1 }}>
-                            <div style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <h2 style={{ margin: 0, fontSize: '18px', color: '#0f172a', fontWeight: '700' }}>Nova Mensagem</h2>
-                                <button onClick={handleSend} disabled={status === 'sending'} style={{ padding: '8px 20px', background: status === 'sending' ? '#93c5fd' : '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: status === 'sending' ? 'not-allowed' : 'pointer', fontWeight: '600', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ backgroundColor: 'white', borderRadius: '2px', border: '1px solid #D5D7DA', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                            <div style={{ padding: '16px 24px', borderBottom: '1px solid #E7E9EB', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <h2 style={{ margin: 0, fontSize: '18px', color: '#1D2D3E', fontWeight: '700' }}>Nova Mensagem</h2>
+                                <button onClick={handleSend} disabled={status === 'sending'} style={{ padding: '8px 20px', background: status === 'sending' ? '#93c5fd' : '#0854A0', color: 'white', border: 'none', borderRadius: '2px', cursor: status === 'sending' ? 'not-allowed' : 'pointer', fontWeight: '600', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     {status === 'sending' ? <Loader size={16} className="spin" /> : <Send size={16} />} Enviar
                                 </button>
                             </div>
                             
-                            {status === 'success' && <div style={{ margin: '12px 24px', padding: '12px', backgroundColor: '#f0fdf4', color: '#16a34a', borderRadius: '8px', fontSize: '14px' }}>Email enviado com sucesso!</div>}
-                            {status === 'error' && <div style={{ margin: '12px 24px', padding: '12px', backgroundColor: '#fff1f2', color: '#be123c', borderRadius: '8px', fontSize: '14px', display: 'flex', gap: '8px' }}><AlertCircle size={18}/> {errorMsg}</div>}
+                            {status === 'success' && <div style={{ margin: '12px 24px', padding: '12px', backgroundColor: '#DCEEE2', color: '#107E3E', borderRadius: '2px', fontSize: '14px' }}>Email enviado com sucesso!</div>}
+                            {status === 'error' && <div style={{ margin: '12px 24px', padding: '12px', backgroundColor: '#F6DEDE', color: '#BB0000', borderRadius: '2px', fontSize: '14px', display: 'flex', gap: '8px' }}><AlertCircle size={18}/> {errorMsg}</div>}
 
                             <div style={{ padding: '0 24px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid #f1f5f9', padding: '14px 0' }}>
-                                    <div style={{ width: '80px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '8px' }}><User size={16} /><span style={{fontSize:'14px', fontWeight:'600'}}>Para</span></div>
+                                <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid #E7E9EB', padding: '14px 0' }}>
+                                    <div style={{ width: '80px', color: '#8996A3', display: 'flex', alignItems: 'center', gap: '8px' }}><User size={16} /><span style={{fontSize:'14px', fontWeight:'600'}}>Para</span></div>
                                     <input type="email" value={para} onChange={e => setPara(e.target.value)} placeholder="email@exemplo.com" style={{ flex: 1, border: 'none', outline: 'none', fontSize: '15px' }} />
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid #f1f5f9', padding: '14px 0' }}>
-                                    <div style={{ width: '80px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '8px' }}><Type size={16} /><span style={{fontSize:'14px', fontWeight:'600'}}>Assunto</span></div>
+                                <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid #E7E9EB', padding: '14px 0' }}>
+                                    <div style={{ width: '80px', color: '#8996A3', display: 'flex', alignItems: 'center', gap: '8px' }}><Type size={16} /><span style={{fontSize:'14px', fontWeight:'600'}}>Assunto</span></div>
                                     <input type="text" value={assunto} onChange={e => setAssunto(e.target.value)} placeholder="Assunto do email" style={{ flex: 1, border: 'none', outline: 'none', fontSize: '15px' }} />
                                 </div>
                                 <div style={{ flex: 1, padding: '16px 0', display: 'flex' }}>

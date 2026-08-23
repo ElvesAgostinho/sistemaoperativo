@@ -54,29 +54,26 @@
 .crm-header h1 { font-size: 19px; font-weight: 700; letter-spacing: 0; }
 .crm-pillnav {
   display: flex;
-  gap: 2px;
-  padding: 2px;
-  background: var(--crm-canvas);
-  border: 1px solid var(--crm-border-soft);
-  border-radius: 2px;
+  gap: 4px;
+  border-bottom: 1px solid var(--crm-border);
 }
 .crm-pillnav button {
   font-family: var(--crm-font-body);
-  font-weight: 500;
-  font-size: 12.5px;
-  padding: 8px 16px;
-  border-radius: 2px;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 10px 14px;
   border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
   background: transparent;
   color: var(--crm-ink-muted);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: color 0.15s, border-color 0.15s;
 }
 .crm-pillnav button.active {
-  background: var(--crm-surface);
   color: var(--crm-accent);
+  border-bottom-color: var(--crm-accent);
   font-weight: 700;
-  border: 1px solid var(--crm-border);
 }
 .crm-pillnav button:hover:not(.active) { color: var(--crm-ink); }
 
