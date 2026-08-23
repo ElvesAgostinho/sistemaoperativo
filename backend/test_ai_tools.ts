@@ -3,8 +3,8 @@ import { executeAITool } from './src/services/AIToolsService';
 async function testTools() {
     const results = [];
     
-    console.log('Testing consultar_db...');
-    const res1 = await executeAITool('consultar_db', { query: 'SELECT * FROM Clientes LIMIT 1' });
+    console.log('Testing consultar_dados_empresa...');
+    const res1 = await executeAITool('consultar_dados_empresa', { tabela: 'clientes', limite: 1 });
     console.log(res1);
     
     console.log('Testing criar_pasta...');

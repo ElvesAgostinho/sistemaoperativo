@@ -34,24 +34,32 @@ async function uploadMediaToStorage(base64Data: string, fileName: string, mimeTy
 }
 
 // HELPER: Download de mídia da Evolution API
-async function downloadMediaFromEvolution(instanceName: string, msg: any): Promise<{ base64: string, mimeType: string } | null> {
+// Áudios (PTT) em particular falham com frequência à primeira tentativa: a
+// Evolution/Baileys às vezes ainda não tem a mídia pronta a decifrar no
+// instante em que o webhook dispara. Tentamos algumas vezes com um pequeno
+// intervalo antes de desistir e cair para "[Áudio] indisponível".
+async function downloadMediaFromEvolution(instanceName: string, msg: any, tentativas = 3): Promise<{ base64: string, mimeType: string } | null> {
     const evolutionUrl = process.env.EVOLUTION_API_URL || 'https://evolution.topconsultores.pt';
     const apikey = process.env.AUTHENTICATION_API_KEY || '';
-    try {
-        const res = await fetch(`${evolutionUrl}/chat/getBase64FromMediaMessage/${instanceName}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'apikey': apikey },
-            body: JSON.stringify({ message: msg, convertToMp4: false })
-        });
-        if (!res.ok) return null;
-        const data = await res.json();
-        if (data.base64) {
-            return { base64: data.base64, mimeType: data.mimetype || 'application/octet-stream' };
-        }
-        return null;
-    } catch {
-        return null;
+
+    for (let tentativa = 1; tentativa <= tentativas; tentativa++) {
+        try {
+            const res = await fetch(`${evolutionUrl}/chat/getBase64FromMediaMessage/${instanceName}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'apikey': apikey },
+                body: JSON.stringify({ message: msg, convertToMp4: false })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.base64) {
+                    return { base64: data.base64, mimeType: data.mimetype || 'application/octet-stream' };
+                }
+            }
+        } catch { /* tenta de novo abaixo */ }
+
+        if (tentativa < tentativas) await new Promise(r => setTimeout(r, 1500 * tentativa));
     }
+    return null;
 }
 
 // ==============================================================

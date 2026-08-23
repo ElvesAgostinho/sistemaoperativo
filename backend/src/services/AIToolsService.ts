@@ -105,21 +105,45 @@ export const agendamentoTools = [
     }
 ];
 
+// Tabelas que o Assistente IA interno pode consultar diretamente (só leitura),
+// com a coluna usada para ordenar os resultados mais recentes/relevantes
+// primeiro. Isolamento multi-tenant é sempre aplicado no código (nunca
+// confiar no modelo para filtrar por empresa), independentemente de RLS.
+const TABELAS_CONSULTAVEIS: Record<string, { ordenarPor: string; ascendente?: boolean; descricao: string }> = {
+    colaboradores: { ordenarPor: 'criado_em', descricao: 'Funcionários (RH): nome, cargo, salário, departamento, estado.' },
+    departamentos: { ordenarPor: 'nome', ascendente: true, descricao: 'Departamentos da empresa.' },
+    ausencias: { ordenarPor: 'data_inicio', descricao: 'Férias/faltas dos colaboradores.' },
+    recibos_vencimento: { ordenarPor: 'criado_em', descricao: 'Recibos de vencimento processados.' },
+    clientes: { ordenarPor: 'criado_em', descricao: 'Contactos/clientes do CRM.' },
+    negocios: { ordenarPor: 'criado_em', descricao: 'Oportunidades/negócios do pipeline de vendas (CRM).' },
+    proformas: { ordenarPor: 'criado_em', descricao: 'Propostas/faturas proforma emitidas.' },
+    reunioes: { ordenarPor: 'data_hora', descricao: 'Reuniões agendadas, com ata e resumo quando já realizadas.' },
+    eventos_calendario: { ordenarPor: 'data_evento', descricao: 'Eventos genéricos do calendário (lembretes, feriados, etc).' },
+    afiliados: { ordenarPor: 'criado_em', descricao: 'Parceiros/afiliados e as suas comissões.' },
+    planos_contas: { ordenarPor: 'conta', ascendente: true, descricao: 'Plano de contas da contabilidade.' },
+    diarios: { ordenarPor: 'codigo', ascendente: true, descricao: 'Diários contabilísticos.' },
+    lancamentos: { ordenarPor: 'data_lancamento', descricao: 'Lançamentos contabilísticos.' },
+    alertas_assistente: { ordenarPor: 'criado_em', descricao: 'Histórico de ações já executadas pelo Assistente IA.' },
+};
+
 export const aiTools = [
     {
         type: "function" as const,
         function: {
-            name: "consultar_db",
-            description: "Executa uma query (SQL-like concept). Atualmente indisponível via AI diretamente. Deve usar módulos estruturados, ou avisar o user que não pode correr SQL arbitrário no Supabase via ChatGPT.",
+            name: "consultar_dados_empresa",
+            description: `Consulta dados REAIS da empresa num dos módulos do sistema (só leitura). Usa SEMPRE esta ferramenta em vez de inventar números ou factos quando o utilizador perguntar sobre dados concretos (quantos funcionários há, negócios em curso, próximas reuniões, saldo de contas, etc). Tabelas disponíveis:\n${Object.entries(TABELAS_CONSULTAVEIS).map(([t, c]) => `- ${t}: ${c.descricao}`).join('\n')}`,
             parameters: {
                 type: "object",
                 properties: {
-                    query: {
-                        type: "string",
-                        description: "A query SQL a executar."
-                    }
+                    tabela: { type: "string", enum: Object.keys(TABELAS_CONSULTAVEIS), description: "A tabela a consultar." },
+                    filtros: {
+                        type: "object",
+                        description: "Opcional. Filtros simples de igualdade a aplicar, ex: {\"estado\": \"Ativo\"} ou {\"fase\": \"Fechado Ganho\"}. Use os nomes de coluna exatos.",
+                        additionalProperties: { type: "string" }
+                    },
+                    limite: { type: "integer", description: "Número máximo de linhas a devolver (padrão 20, máximo 100)." }
                 },
-                required: ["query"]
+                required: ["tabela"]
             }
         }
     },
@@ -491,8 +515,31 @@ export interface WhatsAppToolContext {
 }
 
 export async function executeAITool(name: string, args: any, empresaId?: number, whatsappContext?: WhatsAppToolContext) {
-    if (name === 'consultar_db') {
-        return JSON.stringify({ error: "consultar_db não está ativo para query livre. O agente não deve executar SQL direto." });
+    if (name === 'consultar_dados_empresa') {
+        try {
+            if (!empresaId) return JSON.stringify({ status: 'error', error: 'empresaId não fornecido.' });
+            const tabela = String(args.tabela || '');
+            const config = TABELAS_CONSULTAVEIS[tabela];
+            if (!config) {
+                return JSON.stringify({ status: 'error', error: `Tabela "${tabela}" não é consultável. Tabelas disponíveis: ${Object.keys(TABELAS_CONSULTAVEIS).join(', ')}.` });
+            }
+            const limite = Math.min(Math.max(parseInt(args.limite) || 20, 1), 100);
+
+            let query = supabase.from(tabela).select('*').eq('empresa_id', empresaId);
+            if (args.filtros && typeof args.filtros === 'object') {
+                for (const [chave, valor] of Object.entries(args.filtros)) {
+                    if (chave === 'empresa_id') continue; // nunca deixar o modelo trocar de empresa
+                    query = query.eq(chave, valor as any);
+                }
+            }
+
+            const { data, error } = await query.order(config.ordenarPor, { ascending: !!config.ascendente }).limit(limite);
+            if (error) throw error;
+
+            return JSON.stringify({ status: 'success', tabela, total: data?.length || 0, dados: data });
+        } catch (error: any) {
+            return JSON.stringify({ status: 'error', error: error.message });
+        }
     } else if (name === 'criar_funcionario_draft') {
         return JSON.stringify({
             status: "draft_created",
