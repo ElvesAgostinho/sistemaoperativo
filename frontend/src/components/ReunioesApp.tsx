@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Video, Calendar, Clock, Link as LinkIcon, UserPlus, Play, CheckCircle, FileText, ListTodo, TrendingUp, AlertTriangle, Lightbulb, Trash2, Download } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Video, Calendar, Clock, Link as LinkIcon, UserPlus, Play, CheckCircle, FileText, ListTodo, TrendingUp, AlertTriangle, Lightbulb, Trash2, Download, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import MeetingRoom from './reunioes/MeetingRoom';
 import './ReunioesApp.css';
 
@@ -47,6 +47,12 @@ export default function ReunioesApp({ initialMeetingId, userName }: { initialMee
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
+    // Filtro e paginação da lista de reuniões
+    const [busca, setBusca] = useState('');
+    const [filtroEstado, setFiltroEstado] = useState('Todas');
+    const [pagina, setPagina] = useState(1);
+    const PAGINA_TAMANHO = 8;
+
     // Form
     const [titulo, setTitulo] = useState('');
     const [dataHora, setDataHora] = useState('');
@@ -68,6 +74,21 @@ export default function ReunioesApp({ initialMeetingId, userName }: { initialMee
             joinMeeting(initialMeetingId);
         }
     }, [initialMeetingId]);
+
+    useEffect(() => { setPagina(1); }, [busca, filtroEstado]);
+
+    const reunioesFiltradas = useMemo(() => {
+        const termo = busca.trim().toLowerCase();
+        return reunioes.filter(r => {
+            const bateEstado = filtroEstado === 'Todas' || r.estado === filtroEstado;
+            const bateBusca = !termo || r.titulo.toLowerCase().includes(termo);
+            return bateEstado && bateBusca;
+        });
+    }, [reunioes, busca, filtroEstado]);
+
+    const totalPaginas = Math.max(1, Math.ceil(reunioesFiltradas.length / PAGINA_TAMANHO));
+    const paginaAtual = Math.min(pagina, totalPaginas);
+    const reunioesPagina = reunioesFiltradas.slice((paginaAtual - 1) * PAGINA_TAMANHO, paginaAtual * PAGINA_TAMANHO);
 
     const fetchReunioes = async () => {
         try {
@@ -457,14 +478,40 @@ export default function ReunioesApp({ initialMeetingId, userName }: { initialMee
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    {reunioes.length > 0 && (
+                        <div className="reun-list-toolbar">
+                            <div className="reun-search-input">
+                                <Search size={15} color="var(--reun-ink-faint)" />
+                                <input
+                                    type="text"
+                                    value={busca}
+                                    onChange={e => setBusca(e.target.value)}
+                                    placeholder="Procurar por título..."
+                                />
+                            </div>
+                            <select className="reun-filter-select" value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}>
+                                <option value="Todas">Todos os estados</option>
+                                <option value="Agendada">Agendada</option>
+                                <option value="Em Curso">Em Curso</option>
+                                <option value="Concluida">Concluída</option>
+                            </select>
+                        </div>
+                    )}
+
                     {reunioes.length === 0 ? (
                         <div className="reun-empty-state">
                             <div className="reun-empty-state-icon"><Calendar size={24} /></div>
                             <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--reun-ink)', marginBottom: '6px' }}>Sem reuniões agendadas</h3>
                             <p style={{ margin: 0, fontSize: '13px' }}>Crie a sua primeira reunião no formulário ao lado.</p>
                         </div>
+                    ) : reunioesFiltradas.length === 0 ? (
+                        <div className="reun-empty-state">
+                            <div className="reun-empty-state-icon"><Search size={24} /></div>
+                            <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--reun-ink)', marginBottom: '6px' }}>Nenhuma reunião encontrada</h3>
+                            <p style={{ margin: 0, fontSize: '13px' }}>Ajuste a pesquisa ou o filtro de estado.</p>
+                        </div>
                     ) : (
-                        reunioes.map(r => (
+                        reunioesPagina.map(r => (
                             <div key={r.id} className="reun-meeting-card">
                                 <div>
                                     <div className="reun-meeting-title">
@@ -512,6 +559,23 @@ export default function ReunioesApp({ initialMeetingId, userName }: { initialMee
                                 </div>
                             </div>
                         ))
+                    )}
+
+                    {reunioesFiltradas.length > PAGINA_TAMANHO && (
+                        <div className="reun-pagination">
+                            <span className="reun-pagination-info">
+                                {(paginaAtual - 1) * PAGINA_TAMANHO + 1}–{Math.min(paginaAtual * PAGINA_TAMANHO, reunioesFiltradas.length)} de {reunioesFiltradas.length}
+                            </span>
+                            <div className="reun-pagination-controls">
+                                <button className="reun-btn reun-btn-sm" disabled={paginaAtual <= 1} onClick={() => setPagina(p => p - 1)}>
+                                    <ChevronLeft size={14} /> Anterior
+                                </button>
+                                <span className="reun-pagination-page">Página {paginaAtual} de {totalPaginas}</span>
+                                <button className="reun-btn reun-btn-sm" disabled={paginaAtual >= totalPaginas} onClick={() => setPagina(p => p + 1)}>
+                                    Seguinte <ChevronRight size={14} />
+                                </button>
+                            </div>
+                        </div>
                     )}
                 </div>
             </div>
