@@ -255,9 +255,15 @@ export class AutomationEngine {
      * termina ali (mesma semântica de "sem aresta de saída" do nó de condição).
      */
     private static evaluateMenu(data: any, context: any): { id: string } | undefined {
-        const mensagem = this.parseString(data?.variable || '{{mensagem}}', context).toLowerCase();
+        const mensagem = this.parseString(data?.variable || '{{mensagem}}', context).trim().toLowerCase();
         const options: any[] = Array.isArray(data?.options) ? data.options : [];
-        return options.find(opt => opt.matchValue && mensagem.includes(String(opt.matchValue).toLowerCase()));
+        // Correspondência exata primeiro — essencial para menus numerados: sem isto,
+        // responder "1" também "batia" na opção "10"/"11" (o "1" está contido lá
+        // dentro), e o fluxo saltava para o ramo errado. Só cai para "contém" como
+        // fallback, para continuar a aceitar respostas em texto livre por palavra-chave.
+        const exact = options.find(opt => opt.matchValue && mensagem === String(opt.matchValue).trim().toLowerCase());
+        if (exact) return exact;
+        return options.find(opt => opt.matchValue && mensagem.includes(String(opt.matchValue).trim().toLowerCase()));
     }
 
     private static async executeAction(node: FlowNode, context: any, empresa_id: number | null, allNodes: FlowNode[], allEdges: FlowEdge[]) {

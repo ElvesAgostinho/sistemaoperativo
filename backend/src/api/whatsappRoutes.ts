@@ -52,13 +52,20 @@ async function downloadMediaFromEvolution(instanceName: string, msg: any, tentat
             if (res.ok) {
                 const data = await res.json();
                 if (data.base64) {
-                    return { base64: data.base64, mimeType: data.mimetype || 'application/octet-stream' };
+                    return { base64: data.base64, mimeType: data.mimetype || data.mimeType || 'application/octet-stream' };
                 }
+                console.warn(`[downloadMediaFromEvolution] Tentativa ${tentativa}/${tentativas} — resposta OK mas sem base64:`, JSON.stringify(data).slice(0, 300));
+            } else {
+                const errText = await res.text().catch(() => '');
+                console.warn(`[downloadMediaFromEvolution] Tentativa ${tentativa}/${tentativas} — HTTP ${res.status}: ${errText.slice(0, 300)}`);
             }
-        } catch { /* tenta de novo abaixo */ }
+        } catch (e: any) {
+            console.warn(`[downloadMediaFromEvolution] Tentativa ${tentativa}/${tentativas} — erro de rede: ${e.message}`);
+        }
 
         if (tentativa < tentativas) await new Promise(r => setTimeout(r, 1500 * tentativa));
     }
+    console.error(`[downloadMediaFromEvolution] Desistiu após ${tentativas} tentativas para a instância "${instanceName}".`);
     return null;
 }
 
@@ -71,6 +78,18 @@ async function downloadMediaFromEvolution(instanceName: string, msg: any, tentat
  * Evolution envia os eventos em POST para esta rota
  */
 router.post('/webhook/evolution', async (req: Request, res: Response) => {
+    // Este endpoint tem de ficar público (a Evolution não manda nenhum token de
+    // autenticação Bearer nosso), mas sem validação qualquer pessoa que
+    // descobrisse o instanceName de uma empresa conseguia injetar mensagens
+    // falsas nela. O token vem na query string porque é assim que registamos o
+    // URL do webhook junto da Evolution (ver handleSyncChats / ligação de
+    // instância) — é a própria AUTHENTICATION_API_KEY, já um segredo partilhado
+    // só entre este backend e a nossa instância Evolution.
+    const expectedWebhookToken = process.env.AUTHENTICATION_API_KEY;
+    if (expectedWebhookToken && req.query.token !== expectedWebhookToken) {
+        console.warn('[Webhook Evolution] Pedido rejeitado — token em falta ou inválido.');
+        return res.status(401).send('Unauthorized');
+    }
     try {
         const body = req.body;
         console.log('[Webhook Evolution] Recebido payload:', JSON.stringify(body, null, 2));
@@ -172,7 +191,9 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                         if (b64) {
                             mediaUrl = await uploadMediaToStorage(b64, fname, mime);
                         } else if (instanceName) {
-                            const dl = await downloadMediaFromEvolution(instanceName, msg.key);
+                            // Tem de ser a mensagem completa (com `.key` lá dentro), não só o
+                            // `.key` sozinho — a Evolution espera `{ message: { key: {...} } }`.
+                            const dl = await downloadMediaFromEvolution(instanceName, msg);
                             if (dl) mediaUrl = await uploadMediaToStorage(dl.base64, fname, dl.mimeType);
                         }
                         content = mediaUrl ? [caption, `[MEDIA_URL:${mediaUrl}]`].filter(Boolean).join('\n') : (caption || '[Imagem]');
@@ -749,12 +770,16 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
 
         // Definir Webhook na Evolution para receber novas mensagens
         try {
+            // O token na query string confirma, do lado do nosso backend, que o
+            // pedido vem mesmo da nossa instância Evolution — ver validação em
+            // router.post('/webhook/evolution', ...).
+            const webhookUrl = `${publicUrl}/api/whatsapp/webhook/evolution?token=${encodeURIComponent(apiKey)}`;
             await fetchWithTimeout(`${apiUrl}/webhook/set/${instanceName}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
                 body: JSON.stringify({
                     webhook: {
-                        url: `${publicUrl}/api/whatsapp/webhook/evolution`,
+                        url: webhookUrl,
                         enabled: true,
                         byEvents: false,
                         base64: true,
@@ -1020,9 +1045,10 @@ router.post('/evolution/instance', requireAuth, async (req: AuthRequest, res: Re
         // Ensure Webhook is set
         const publicUrl = process.env.BACKEND_PUBLIC_URL || `https://${req.headers.host}`;
         try {
+            const webhookUrl = `${publicUrl}/api/whatsapp/webhook/evolution?token=${encodeURIComponent(apiKey)}`;
             await fetch(`${apiUrl}/webhook/set/${instanceName}`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
-                body: JSON.stringify({ webhook: { url: `${publicUrl}/api/whatsapp/webhook/evolution`, enabled: true, byEvents: false, base64: true, events: ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "SEND_MESSAGE"] } })
+                body: JSON.stringify({ webhook: { url: webhookUrl, enabled: true, byEvents: false, base64: true, events: ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "SEND_MESSAGE"] } })
             });
         } catch(e) {}
 
