@@ -293,15 +293,56 @@ export default function NodeConfigPanel({ node, automations, currentAutomationId
             </>
           )}
 
-          {d.actionType === 'DELAY' && (
-            <>
-              <label style={labelStyle}>Minutos de espera</label>
-              <input style={fieldStyle} type="number" min={1} max={15} value={config.minutos || 1} onChange={e => updateConfig({ minutos: e.target.value })} />
-              <div style={{ marginTop: '10px', fontSize: '11px', color: '#666' }}>
-                Máximo de 15 minutos — a espera acontece em memória enquanto a mensagem está a ser processada, sem fila persistente. Para esperas mais longas (horas/dias), use um nó "Notificar Equipa" ou "Transferir para Humano" em vez de bloquear o fluxo.
-              </div>
-            </>
-          )}
+          {d.actionType === 'DELAY' && (() => {
+            // Compatibilidade com fluxos antigos gravados só com `minutos`.
+            const segundosAtuais = config.segundos !== undefined ? parseInt(config.segundos, 10) : (parseInt(config.minutos || '1', 10) * 60);
+            const presets = [
+              { label: '5 seg', valor: 5 },
+              { label: '15 seg', valor: 15 },
+              { label: '30 seg', valor: 30 },
+              { label: '1 min', valor: 60 },
+              { label: '2 min', valor: 120 },
+              { label: '5 min', valor: 300 },
+              { label: '15 min', valor: 900 },
+            ];
+            return (
+              <>
+                <label style={labelStyle}>Tempo de espera</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                  {presets.map(p => (
+                    <button
+                      key={p.valor}
+                      type="button"
+                      onClick={() => updateConfig({ segundos: p.valor, minutos: undefined })}
+                      style={{
+                        padding: '5px 10px', borderRadius: '999px', fontSize: '12px', cursor: 'pointer',
+                        border: segundosAtuais === p.valor ? '1px solid #0854A0' : '1px solid #cbd5e1',
+                        background: segundosAtuais === p.valor ? '#E4EDF7' : '#fff',
+                        color: segundosAtuais === p.valor ? '#0854A0' : '#475569',
+                        fontWeight: segundosAtuais === p.valor ? 700 : 500,
+                      }}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input
+                    style={{ ...fieldStyle, width: '100px' }}
+                    type="number"
+                    min={1}
+                    max={900}
+                    value={segundosAtuais}
+                    onChange={e => updateConfig({ segundos: e.target.value, minutos: undefined })}
+                  />
+                  <span style={{ fontSize: '12px', color: '#666' }}>segundos (personalizado)</span>
+                </div>
+                <div style={{ marginTop: '10px', fontSize: '11px', color: '#666' }}>
+                  Máximo de 15 minutos (900 segundos) — a espera acontece em memória enquanto a mensagem está a ser processada, sem fila persistente. Varia o tempo entre respostas para não parecer sempre o mesmo robô a esperar 1 minuto. Para esperas mais longas (horas/dias), use um nó "Notificar Equipa" ou "Transferir para Humano" em vez de bloquear o fluxo.
+                </div>
+              </>
+            );
+          })()}
 
           {d.actionType === 'JUMP_TO_WORKFLOW' && (
             <>

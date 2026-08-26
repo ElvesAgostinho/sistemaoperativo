@@ -293,10 +293,10 @@ export const HELP_ITEMS: HelpItem[] = [
     titulo: 'Aguardar',
     categoria: 'Avançado',
     cor: '#64748b',
-    oQueFaz: 'Pausa o fluxo por alguns minutos antes de continuar. Limitado a 15 minutos (é uma espera técnica, não um agendamento de longo prazo).',
-    quandoUsar: 'Pequenos intervalos entre mensagens, para não parecer um robô a disparar tudo de uma vez.',
-    campos: [{ label: 'Minutos', explicacao: 'De 1 a 15.' }],
-    exemplo: { cenario: 'Esperar 2 minutos entre a saudação e o menu de opções.', passos: ['Nó "Aguardar" → 2 minutos, entre a mensagem de boas-vindas e o Menu'] }
+    oQueFaz: 'Pausa o fluxo por alguns segundos ou minutos antes de continuar. Limitado a 15 minutos (é uma espera técnica, não um agendamento de longo prazo).',
+    quandoUsar: 'Pequenos intervalos entre mensagens, para não parecer um robô a disparar tudo de uma vez — varia o tempo consoante a resposta (uma confirmação rápida não precisa da mesma espera que uma explicação longa).',
+    campos: [{ label: 'Tempo de espera', explicacao: 'De 1 segundo a 15 minutos (900 segundos), com atalhos rápidos para os valores mais comuns.' }],
+    exemplo: { cenario: 'Esperar 15 segundos entre a saudação e o menu de opções.', passos: ['Nó "Aguardar" → 15 segundos, entre a mensagem de boas-vindas e o Menu'] }
   },
   {
     id: 'jump',

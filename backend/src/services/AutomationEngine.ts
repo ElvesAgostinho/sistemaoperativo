@@ -641,14 +641,18 @@ export class AutomationEngine {
                 // resto do fluxo. Por isso capamos num valor curto e seguro; delays
                 // longos (horas/dias) precisariam de um agendador próprio, fora do
                 // motor de execução síncrono do webhook.
-                const MAX_DELAY_MINUTES = 15;
-                const requestedMinutes = parseInt(config.minutos || config.minutes || '1', 10);
-                const delayMinutes = Math.min(Math.max(requestedMinutes || 1, 0), MAX_DELAY_MINUTES);
-                if (requestedMinutes > MAX_DELAY_MINUTES) {
-                    console.warn(`[AUTOPILOT] DELAY pedia ${requestedMinutes} min — limitado a ${MAX_DELAY_MINUTES} min (sem fila persistente para esperas longas).`);
+                const MAX_DELAY_SECONDS = 15 * 60;
+                // `segundos` é o campo atual (granularidade fina); `minutos`/`minutes`
+                // ficam como fallback para fluxos gravados antes desta alteração.
+                const requestedSeconds = config.segundos !== undefined
+                    ? parseInt(config.segundos, 10)
+                    : parseInt(config.minutos || config.minutes || '1', 10) * 60;
+                const delaySeconds = Math.min(Math.max(requestedSeconds || 1, 0), MAX_DELAY_SECONDS);
+                if (requestedSeconds > MAX_DELAY_SECONDS) {
+                    console.warn(`[AUTOPILOT] DELAY pedia ${requestedSeconds}s — limitado a ${MAX_DELAY_SECONDS}s (sem fila persistente para esperas longas).`);
                 }
-                console.log(`[AUTOPILOT] A aguardar ${delayMinutes} minuto(s)...`);
-                await new Promise(resolve => setTimeout(resolve, delayMinutes * 60000));
+                console.log(`[AUTOPILOT] A aguardar ${delaySeconds} segundo(s)...`);
+                await new Promise(resolve => setTimeout(resolve, delaySeconds * 1000));
                 break;
             }
 

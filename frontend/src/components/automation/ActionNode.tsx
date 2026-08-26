@@ -33,7 +33,12 @@ function summarize(d: ActionNodeData): string {
     case 'SEND_EMAIL': return c.assunto || c.para || '(sem assunto)';
     case 'SEND_IMAGE': case 'SEND_VIDEO': case 'SEND_AUDIO': case 'SEND_DOCUMENT':
       return c.legenda || c.ficheiro || '(sem ficheiro)';
-    case 'DELAY': return `${c.minutos || 1} minuto(s)`;
+    case 'DELAY': {
+      const segundos = c.segundos !== undefined ? parseInt(c.segundos, 10) : (parseInt(c.minutos || '1', 10) * 60);
+      if (segundos < 60) return `${segundos} segundo(s)`;
+      if (segundos % 60 === 0) return `${segundos / 60} minuto(s)`;
+      return `${Math.floor(segundos / 60)}min ${segundos % 60}s`;
+    }
     case 'JUMP_TO_WORKFLOW': return c.target_workflow_nome || '(escolher fluxo)';
     case 'ADD_TAG': case 'REMOVE_TAG': return c.tag || '(sem tag)';
     case 'SET_CUSTOM_FIELD': return c.campo ? `${c.campo} = ${c.valor || ''}` : '(sem campo)';
