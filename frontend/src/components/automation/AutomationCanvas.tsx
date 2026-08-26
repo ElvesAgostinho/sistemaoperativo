@@ -35,6 +35,28 @@ const defaultEdgeOptions = {
   style: { stroke: '#94a3b8', strokeWidth: 2 }
 };
 
+// Persiste o zoom/posição do canvas por automação — tal como o n8n, ao voltar
+// a uma automação o utilizador encontra-a exatamente como a deixou, em vez de
+// o React Flow reenquadrar (fitView) e mudar o tamanho dos nós a cada entrada.
+const VIEWPORT_STORAGE_PREFIX = 'businessos_automation_viewport_';
+
+function loadSavedViewport(automationId: string): { x: number; y: number; zoom: number } | null {
+  try {
+    const raw = localStorage.getItem(VIEWPORT_STORAGE_PREFIX + automationId);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveViewport(automationId: string, viewport: { x: number; y: number; zoom: number }) {
+  try {
+    localStorage.setItem(VIEWPORT_STORAGE_PREFIX + automationId, JSON.stringify(viewport));
+  } catch {
+    // localStorage indisponível (modo privado, quota esgotada) — sem persistência, sem crash
+  }
+}
+
 interface AutomationCanvasProps {
   automation: Automation;
   automations: Automation[];
@@ -47,7 +69,7 @@ function CanvasInner({ automation, automations, onSave }: AutomationCanvasProps)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const { screenToFlowPosition, fitView, zoomTo } = useReactFlow();
+  const { screenToFlowPosition, fitView, zoomTo, setViewport } = useReactFlow();
   const { zoom } = useViewport();
   const zoomPercent = Math.round(zoom * 100);
 
@@ -55,7 +77,23 @@ function CanvasInner({ automation, automations, onSave }: AutomationCanvasProps)
     setNodes((automation.nodes || []).map(withDeletableFlag) as unknown as Node[]);
     setEdges(automation.edges as unknown as Edge[]);
     setSelectedNodeId(null);
-  }, [automation.id, setNodes, setEdges]);
+
+    // Restaura o zoom/posição onde o utilizador ficou nesta automação; só
+    // reenquadra automaticamente (fitView) na primeira vez que é aberta.
+    const saved = loadSavedViewport(automation.id);
+    const timer = setTimeout(() => {
+      if (saved) {
+        setViewport(saved, { duration: 0 });
+      } else {
+        fitView({ padding: 0.2, duration: 0 });
+      }
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [automation.id, setNodes, setEdges, setViewport, fitView]);
+
+  const handleMoveEnd = useCallback((_event: unknown, viewport: { x: number; y: number; zoom: number }) => {
+    saveViewport(automation.id, viewport);
+  }, [automation.id]);
 
   const onConnect = useCallback((connection: Connection) => {
     setEdges(eds => {
@@ -179,12 +217,12 @@ function CanvasInner({ automation, automations, onSave }: AutomationCanvasProps)
           onConnect={onConnect}
           onNodeClick={onNodeClick}
           onPaneClick={onPaneClick}
+          onMoveEnd={handleMoveEnd}
           nodeTypes={nodeTypes}
           defaultEdgeOptions={defaultEdgeOptions}
           deleteKeyCode={['Backspace', 'Delete']}
           minZoom={0.1}
           maxZoom={2}
-          fitView
         >
           <Background gap={18} color="#e2e8f0" />
           <Controls showZoom showFitView showInteractive>

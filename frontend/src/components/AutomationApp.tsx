@@ -318,10 +318,13 @@ export default function AutomationApp() {
       </button>
 
       {/* Main Area - Canvas Visual */}
-      <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
+      <div style={{ flex: 1, minWidth: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
         {catchAllAutomations.length > 0 && (
+          // Banner em fluxo normal (não flutuante) — mantido fora do canvas para
+          // nunca se sobrepor aos controlos de zoom/paleta que o AutomationCanvas
+          // já posiciona de forma absoluta no seu próprio espaço.
           <div style={{
-            position: 'absolute', top: 12, left: sidebarOpen ? 56 : 62, right: 12, zIndex: 15,
+            margin: '12px 12px 0', flexShrink: 0,
             background: '#FCEFDD', border: '1px solid #8A4B0B', borderRadius: '2px',
             padding: '10px 14px', display: 'flex', alignItems: 'flex-start', gap: '10px',
             boxShadow: '0 2px 8px rgba(0,0,0,0.06)', fontSize: '12.5px', color: '#92400e'
@@ -335,6 +338,7 @@ export default function AutomationApp() {
             </div>
           </div>
         )}
+        <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
         {selectedAuto ? (
           <AutomationCanvas
             key={selectedAuto.id}
@@ -349,6 +353,7 @@ export default function AutomationApp() {
             <p style={{ fontSize: '14px' }}>Ou crie uma nova automação para editar no canvas visual.</p>
           </div>
         )}
+        </div>
       </div>
 
       {helpOpen && <HelpGuide onClose={() => setHelpOpen(false)} />}
