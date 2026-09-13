@@ -229,10 +229,14 @@ function NovaMarcacaoModal({ onClose, onCreated }: { onClose: () => void; onCrea
     (async () => {
       const r1 = await authFetch(`${API}/api/agendamento/servicos`);
       const d1 = await r1.json();
-      if (d1.success) { setServicos(d1.servicos); if (d1.servicos[0]) setServicoId(String(d1.servicos[0].id)); }
+      if (d1.success) {
+        const servicos = d1.servicos || [];
+        setServicos(servicos);
+        if (servicos[0]) setServicoId(String(servicos[0].id));
+      }
       const r2 = await authFetch(`${API}/api/agendamento/profissionais`);
       const d2 = await r2.json();
-      if (d2.success) setProfissionais(d2.profissionais);
+      if (d2.success) setProfissionais(d2.profissionais || []);
     })();
   }, []);
 

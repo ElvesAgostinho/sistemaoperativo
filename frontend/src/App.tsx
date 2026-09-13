@@ -24,6 +24,7 @@ import TermosServico from './pages/public/TermosServico';
 import PoliticaPrivacidade from './pages/public/PoliticaPrivacidade';
 import PoliticaCookies from './pages/public/PoliticaCookies';
 import CookieBanner from './components/CookieBanner';
+import ErrorBoundary from './components/ErrorBoundary';
 import { Users, Briefcase, PieChart, Bot, Zap, LogOut, MessageSquare, BookOpen, Mail, Settings, Clock, Globe, Video, Share2, Calculator, Shield, CalendarClock } from 'lucide-react';
 import { LogoMark } from './components/BrandLogo';
 
@@ -472,36 +473,38 @@ function App() {
           )}
 
           {activeModule !== 'home' && (
-            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', backgroundColor: '#ffffff' }}>
-              {activeModule === 'hr' && <HrApp />}
-              {activeModule === 'crm' && <CrmApp />}
-              {activeModule === 'auto' && <AutomationApp />}
-              {activeModule === 'wa' && <WhatsAppChatApp />}
-              {activeModule === 'kb' && <KnowledgeBaseApp />}
-              {activeModule === 'email' && <EmailApp />}
-              {activeModule === 'settings' && <SettingsApp />}
-              {activeModule === 'superadmin' && user?.role === 'superadmin' && <SuperAdminApp />}
-              {activeModule === 'superadmin' && user?.role !== 'superadmin' && (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '16px' }}>
-                  <Shield size={48} color="#BB0000" />
-                  <h2 style={{ color: '#1D2D3E', margin: 0 }}>Acesso Restrito</h2>
-                  <p style={{ color: '#5B738B' }}>Esta área é exclusiva para SuperAdmins.</p>
-                </div>
-              )}
-              {activeModule === 'reunioes' && <ReunioesApp initialMeetingId={meetingIdFromUrl} userName={user?.nome} />}
-              {activeModule === 'data' && <DataApp />}
-              {activeModule === 'afiliados' && <AfiliadosApp />}
-              {activeModule === 'contabilidade' && <FinanceiroApp />}
-              {activeModule === 'agendamento' && <AgendamentoApp />}
+            <ErrorBoundary key={activeModule} compact>
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', backgroundColor: '#ffffff' }}>
+                {activeModule === 'hr' && <HrApp />}
+                {activeModule === 'crm' && <CrmApp />}
+                {activeModule === 'auto' && <AutomationApp />}
+                {activeModule === 'wa' && <WhatsAppChatApp />}
+                {activeModule === 'kb' && <KnowledgeBaseApp />}
+                {activeModule === 'email' && <EmailApp />}
+                {activeModule === 'settings' && <SettingsApp />}
+                {activeModule === 'superadmin' && user?.role === 'superadmin' && <SuperAdminApp />}
+                {activeModule === 'superadmin' && user?.role !== 'superadmin' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '16px' }}>
+                    <Shield size={48} color="#BB0000" />
+                    <h2 style={{ color: '#1D2D3E', margin: 0 }}>Acesso Restrito</h2>
+                    <p style={{ color: '#5B738B' }}>Esta área é exclusiva para SuperAdmins.</p>
+                  </div>
+                )}
+                {activeModule === 'reunioes' && <ReunioesApp initialMeetingId={meetingIdFromUrl} userName={user?.nome} />}
+                {activeModule === 'data' && <DataApp />}
+                {activeModule === 'afiliados' && <AfiliadosApp />}
+                {activeModule === 'contabilidade' && <FinanceiroApp />}
+                {activeModule === 'agendamento' && <AgendamentoApp />}
 
-              {activeModule === 'chat' && (
-                 <div className="odoo-content-area" style={{ padding: 0 }}>
-                    <div style={{ width: '100%', height: '100%', maxWidth: '800px', margin: '0 auto', borderLeft: '1px solid var(--odoo-border)', borderRight: '1px solid var(--odoo-border)' }}>
-                      <ChatApp />
-                    </div>
-                 </div>
-              )}
-            </div>
+                {activeModule === 'chat' && (
+                   <div className="odoo-content-area" style={{ padding: 0 }}>
+                      <div style={{ width: '100%', height: '100%', maxWidth: '800px', margin: '0 auto', borderLeft: '1px solid var(--odoo-border)', borderRight: '1px solid var(--odoo-border)' }}>
+                        <ChatApp />
+                      </div>
+                   </div>
+                )}
+              </div>
+            </ErrorBoundary>
           )}
         </div>
       </div>

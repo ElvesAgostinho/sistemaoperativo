@@ -36,7 +36,7 @@ export default function DataApp() {
 
       const insightsRes = await authFetch(import.meta.env.VITE_API_URL + '/api/data/insights');
       const insightsData = await insightsRes.json();
-      if (insightsData.success) setInsights(insightsData.insights);
+      if (insightsData.success) setInsights(insightsData.insights || []);
 
       setLastUpdated(new Date());
     } catch (err) {

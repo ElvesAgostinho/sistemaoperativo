@@ -3,6 +3,11 @@ import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface Props {
     children: ReactNode;
+    // Usado quando esta boundary protege só uma área da página (ex: um módulo
+    // dentro da shell principal) em vez do ecrã inteiro — evita ocupar 100vh
+    // dentro de um layout que já tem a sua própria barra lateral/topo, e o
+    // texto refere-se a "este módulo" em vez de "esta página".
+    compact?: boolean;
 }
 
 interface State {
@@ -37,12 +42,15 @@ export default class ErrorBoundary extends Component<Props, State> {
 
     render() {
         if (this.state.hasError) {
+            const { compact } = this.props;
             return (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', backgroundColor: '#f8fafc', fontFamily: 'Inter, sans-serif', padding: '24px', textAlign: 'center' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: compact ? '100%' : '100vh', height: compact ? '100%' : undefined, width: '100%', backgroundColor: '#f8fafc', fontFamily: 'Inter, sans-serif', padding: '24px', textAlign: 'center', boxSizing: 'border-box' }}>
                     <AlertTriangle size={48} color="#ef4444" style={{ marginBottom: '16px' }} />
-                    <h2 style={{ color: '#0f172a', marginBottom: '8px' }}>Ocorreu um problema inesperado</h2>
+                    <h2 style={{ color: '#0f172a', marginBottom: '8px' }}>{compact ? 'Este módulo encontrou um problema' : 'Ocorreu um problema inesperado'}</h2>
                     <p style={{ color: '#475569', maxWidth: '420px', lineHeight: 1.5, marginBottom: '24px' }}>
-                        Algo correu mal ao carregar esta página. Tente recarregar. Se o problema persistir, contacte o suporte.
+                        {compact
+                            ? 'Algo correu mal ao carregar este módulo. Pode tentar outro módulo no menu à esquerda, ou recarregar a página.'
+                            : 'Algo correu mal ao carregar esta página. Tente recarregar. Se o problema persistir, contacte o suporte.'}
                     </p>
                     <button
                         onClick={this.handleReload}

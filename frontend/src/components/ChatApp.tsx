@@ -368,7 +368,7 @@ export default function ChatApp() {
           const res = await fetch(import.meta.env.VITE_API_URL + '/api/ai/conversas', { headers: authHeaders() });
           const data = await res.json();
           if (data.success) {
-              setConversations(data.conversas);
+              setConversations(data.conversas || []);
           }
       } catch (err) {
           console.error('Erro ao buscar histórico:', err);

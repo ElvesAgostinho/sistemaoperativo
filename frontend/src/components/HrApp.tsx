@@ -92,7 +92,7 @@ export default function HrApp() {
       });
       const data = await res.json();
       if (data.success) {
-        setDepartamentos(data.departamentos);
+        setDepartamentos(data.departamentos || []);
       }
     } catch (err) {
       console.error(err);
@@ -215,7 +215,7 @@ export default function HrApp() {
       });
       const data = await res.json();
       if (data.success) {
-        setEmployees(data.employees);
+        setEmployees(data.employees || []);
       }
     } catch (err) {
       console.error(err);
@@ -1564,7 +1564,7 @@ export default function HrApp() {
                     </tr>
                   </thead>
                   <tbody>
-                    {payrollResults.recibos.map((recibo: any) => (
+                    {(payrollResults.recibos || []).map((recibo: any) => (
                       <tr key={recibo.id} style={{ borderBottom: '1px solid var(--odoo-border)', backgroundColor: payrollResults.processamento.estado === 'Rascunho' ? '#fffbfa' : 'white' }}>
                         <td style={{ padding: '12px', fontWeight: 500 }}>{recibo.nome}</td>
                         <td style={{ padding: '12px', textAlign: 'right' }}>{new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA' }).format(recibo.salario_base)}</td>

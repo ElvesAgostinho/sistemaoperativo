@@ -21,7 +21,7 @@ export default function KnowledgeBaseApp() {
       });
       const data = await res.json();
       if (data.success) {
-        setFiles(data.files);
+        setFiles(data.files || []);
       }
     } catch (err) {
       console.error('Erro ao buscar base de conhecimento', err);

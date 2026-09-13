@@ -223,7 +223,7 @@ export default function SettingsApp() {
             });
             const data = await res.json();
             if (data.success) {
-                setUsers(data.users);
+                setUsers(data.users || []);
             }
         } catch (err) {
             console.error('Erro ao carregar equipa', err);

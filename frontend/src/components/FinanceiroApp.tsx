@@ -485,19 +485,20 @@ function AvancadoTab() {
     try {
       const resC = await authFetch(`${API}/api/accounting/contas`);
       const dataC = await resC.json();
-      if (dataC.success) setContas(dataC.contas);
+      if (dataC.success) setContas(dataC.contas || []);
 
       const resD = await authFetch(`${API}/api/accounting/diarios`);
       const dataD = await resD.json();
-      if (dataD.success) setDiarios(dataD.diarios);
+      if (dataD.success) setDiarios(dataD.diarios || []);
 
       const resE = await authFetch(`${API}/api/accounting/exercicios`);
       const dataE = await resE.json();
       if (dataE.success) {
-        setExercicios(dataE.exercicios);
-        if (dataE.exercicios.length > 0) {
-          carregarLancamentos(dataE.exercicios[0].id);
-          carregarBalancete(dataE.exercicios[0].id);
+        const exercicios = dataE.exercicios || [];
+        setExercicios(exercicios);
+        if (exercicios.length > 0) {
+          carregarLancamentos(exercicios[0].id);
+          carregarBalancete(exercicios[0].id);
         }
       }
     } catch (e) { console.error(e); }

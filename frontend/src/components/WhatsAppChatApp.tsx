@@ -985,7 +985,7 @@ export default function WhatsAppChatApp() {
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                                     <div style={{ fontWeight: 500, color: '#1D2D3E', fontSize: '16px' }}>{displayContactName(activeConv.contact_name, activeConv.phone_number)}</div>
-                                    <div style={{ fontSize: '13px', color: '#5B738B' }}>{formatPhoneNumber(activeConv.phone_number)} • {activeConv.wa_channels.name}</div>
+                                    <div style={{ fontSize: '13px', color: '#5B738B' }}>{formatPhoneNumber(activeConv.phone_number)}{activeConv.wa_channels?.name ? ` • ${activeConv.wa_channels.name}` : ''}</div>
                                 </div>
                             </div>
                             

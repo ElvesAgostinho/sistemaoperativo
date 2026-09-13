@@ -111,7 +111,7 @@ const SuperAdminApp = () => {
       });
       const data = await res.json();
       if (data.success) {
-        setEmpresaModulos(data.modulos);
+        setEmpresaModulos(data.modulos || []);
       }
     } catch(e) {
       console.error("Erro ao carregar módulos", e);

@@ -64,11 +64,11 @@ export default function CrmApp() {
     try {
       const resC = await authFetch(import.meta.env.VITE_API_URL + '/api/crm/clientes');
       const dataC = await resC.json();
-      if (dataC.success) setClientes(dataC.clientes);
+      if (dataC.success) setClientes(dataC.clientes || []);
 
       const resN = await authFetch(import.meta.env.VITE_API_URL + '/api/crm/negocios');
       const dataN = await resN.json();
-      if (dataN.success) setNegocios(dataN.negocios);
+      if (dataN.success) setNegocios(dataN.negocios || []);
     } catch (err) {
       console.error(err);
     } finally {

@@ -95,7 +95,7 @@ export default function ReunioesApp({ initialMeetingId, userName }: { initialMee
             const res = await fetchWithAuth(import.meta.env.VITE_API_URL + '/api/reunioes');
             const data = await res.json();
             if (data.success) {
-                setReunioes(data.reunioes);
+                setReunioes(data.reunioes || []);
             }
         } catch (e) {
             console.error(e);
