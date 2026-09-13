@@ -1040,7 +1040,13 @@ router.post('/evolution/instance', requireAuth, async (req: AuthRequest, res: Re
 
         clearTimeout(timeoutId);
         finalQrBase64 = finalQrBase64 || connectData.base64 || connectData.qrcode?.base64;
-        finalPairingCode = extrairPairingCode(connectData);
+        // Só interpreta como código de pareamento se foi mesmo isso que o
+        // utilizador pediu (número fornecido) — a Evolution API por vezes
+        // devolve um campo `code`/`pairingCode` residual mesmo em respostas
+        // de QR Code, e sem esta verificação o backend respondia com a
+        // mensagem de pareamento em vez do QR, deixando o modal preso no
+        // spinner "A gerar QR Code..." para sempre.
+        finalPairingCode = pairingNumber ? extrairPairingCode(connectData) : undefined;
 
         // Ensure Webhook is set
         const publicUrl = process.env.BACKEND_PUBLIC_URL || `https://${req.headers.host}`;
