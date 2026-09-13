@@ -186,7 +186,11 @@ router.put('/candidaturas/:id/etapa', async (req: Request, res: Response) => {
             // Canal adicional (bónus) se já existir uma conversa de WhatsApp com este candidato.
             if (c.telefone) {
                 try {
-                    const { data: conv } = await supabase.from('wa_conversations').select('id').eq('phone_number', c.telefone).single();
+                    // Tem de ser uma conversa desta empresa — sem o filtro por
+                    // empresa_id, um número de telefone que coincidisse com uma
+                    // conversa de OUTRA empresa recebia esta mensagem de feedback
+                    // de recrutamento por engano.
+                    const { data: conv } = await supabase.from('wa_conversations').select('id').eq('phone_number', c.telefone).eq('empresa_id', empresa_id).single();
                     if (conv) {
                         await supabase.from('wa_messages').insert({ conversation_id: conv.id, direction: 'outbound', content: feedbackGerado, status: 'sending' });
                         await supabase.from('wa_conversations').update({ last_message_at: new Date().toISOString() }).eq('id', conv.id);

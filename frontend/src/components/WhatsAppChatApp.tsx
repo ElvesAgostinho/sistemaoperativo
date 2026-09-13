@@ -463,9 +463,16 @@ export default function WhatsAppChatApp() {
         // Polling moderado para conversas (fallback)
         const pollInterval = setInterval(() => fetchConversations(), 8000);
 
-        // Realtime subscription em wa_conversations
+        // Realtime subscription em wa_conversations — o nome do canal tem de ser
+        // único por montagem: o cliente Realtime do Supabase devolve o MESMO
+        // canal já existente se pedires outra vez o mesmo nome, e o "leave" do
+        // canal anterior (no cleanup, ao sair do módulo) é assíncrono — ao
+        // voltar a entrar rapidamente, o canal antigo podia ainda estar a
+        // meio de sair, e chamar `.on()` nele outra vez rebentava com uma
+        // exceção dentro do efeito (apanhada pela ErrorBoundary do módulo).
+        const convChannelTopic = `wa_conversations_realtime_${Date.now()}_${Math.random().toString(36).slice(2)}`;
         const convChannel = supabaseRealtime
-            .channel('wa_conversations_realtime')
+            .channel(convChannelTopic)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'wa_conversations' }, () => {
                 fetchConversations();
             })
@@ -521,9 +528,12 @@ export default function WhatsAppChatApp() {
         fetchMessages();
         fetchBotStatus();
 
-        // Realtime subscription em wa_messages para esta conversa
+        // Realtime subscription em wa_messages para esta conversa — nome do
+        // canal único por montagem (ver nota equivalente na subscrição de
+        // wa_conversations acima) para não reutilizar um canal ainda a sair
+        // ao trocar de conversa rapidamente.
         const msgChannel = supabaseRealtime
-            .channel(`wa_messages_${activeConv.id}`)
+            .channel(`wa_messages_${activeConv.id}_${Date.now()}_${Math.random().toString(36).slice(2)}`)
             .on('postgres_changes', {
                 event: 'INSERT',
                 schema: 'public',

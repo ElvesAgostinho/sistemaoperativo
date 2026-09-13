@@ -867,8 +867,10 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
                 if (contactName && contactName !== phoneNumber) updatePayload.contact_name = contactName;
                 await getSupabase(req).from('wa_conversations').update(updatePayload).eq('id', conv.id);
 
-                // Garantir que o cliente existe no CRM
-                const { data: checkCliente } = await getSupabase(req).from('clientes').select('id').eq('telefone', phoneNumber).maybeSingle();
+                // Garantir que o cliente existe no CRM — tem de ser desta empresa
+                // especificamente; duas empresas diferentes podem ter contactos com
+                // o mesmo número, sem isto ficavam a partilhar o mesmo registo.
+                const { data: checkCliente } = await getSupabase(req).from('clientes').select('id').eq('telefone', phoneNumber).eq('empresa_id', empresaId).maybeSingle();
                 if (!checkCliente) {
                     await getSupabase(req).from('clientes').insert({
                         nome: contactName || phoneNumber,
@@ -889,8 +891,9 @@ router.post('/evolution/sync-chats', requireAuth, async (req: AuthRequest, res: 
                 
                 if (newConv) convId = newConv.id;
 
-                // Garantir que o cliente existe no CRM
-                const { data: checkCliente } = await getSupabase(req).from('clientes').select('id').eq('telefone', phoneNumber).maybeSingle();
+                // Garantir que o cliente existe no CRM — tem de ser desta empresa
+                // especificamente (ver nota acima).
+                const { data: checkCliente } = await getSupabase(req).from('clientes').select('id').eq('telefone', phoneNumber).eq('empresa_id', empresaId).maybeSingle();
                 if (!checkCliente) {
                     await getSupabase(req).from('clientes').insert({
                         nome: contactName || phoneNumber,
@@ -1222,7 +1225,9 @@ router.post('/send', requireAuth, async (req: AuthRequest, res: Response) => {
 
     try {
         if (req.body.pause_bot) {
-            await getSupabase(req).from('clientes').update({ bot_paused: true }).eq('telefone', conv.phone_number);
+            // Filtra também por empresa_id — sem isto, uma empresa diferente com um
+            // cliente no mesmo número de telefone tinha o bot pausado sem pedir.
+            await getSupabase(req).from('clientes').update({ bot_paused: true }).eq('telefone', conv.phone_number).eq('empresa_id', req.user!.empresa_id);
         }
     } catch(err) {
         console.error("Erro ao pausar bot localmente", err);
@@ -1291,7 +1296,8 @@ router.post('/send-media', requireAuth, async (req: AuthRequest, res: Response) 
     await getSupabase(req).from('wa_conversations').update({ last_message_at: new Date().toISOString() }).eq('id', conversation_id);
 
     try {
-        await getSupabase(req).from('clientes').update({ bot_paused: true }).eq('telefone', conv.phone_number);
+        // Filtra também por empresa_id — ver nota equivalente em /send.
+        await getSupabase(req).from('clientes').update({ bot_paused: true }).eq('telefone', conv.phone_number).eq('empresa_id', req.user!.empresa_id);
     } catch(err) {
         console.error("Erro ao pausar bot localmente", err);
     }

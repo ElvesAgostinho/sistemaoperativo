@@ -185,10 +185,20 @@ function CanvasInner({ automation, automations, onSave }: AutomationCanvasProps)
 
   const canvasContextValue = useMemo(() => ({ deleteNode: handleDeleteNode, duplicateNode: handleDuplicateNode }), [handleDeleteNode, handleDuplicateNode]);
 
+  // Guarda o timer do auto-layout para poder cancelá-lo se o utilizador sair
+  // do módulo antes dos 50ms — sem isto, o setTimeout disparava na mesma
+  // depois de desmontado, a chamar fitView contra um store já órfão.
+  const autoLayoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (autoLayoutTimerRef.current) clearTimeout(autoLayoutTimerRef.current);
+    };
+  }, []);
+
   const handleAutoLayout = useCallback(() => {
     setNodes(nds => autoLayoutNodes(nds, edges));
     // Dá um instante para o estado aplicar antes de reenquadrar a vista
-    setTimeout(() => fitView({ padding: 0.2, duration: 300 }), 50);
+    autoLayoutTimerRef.current = setTimeout(() => fitView({ padding: 0.2, duration: 300 }), 50);
   }, [edges, setNodes, fitView]);
 
   const selectedNode = useMemo(
