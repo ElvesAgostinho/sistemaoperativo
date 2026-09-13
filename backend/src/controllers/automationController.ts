@@ -112,8 +112,20 @@ export const updateAutomation = async (req: Request, res: Response) => {
         }
 
         const supabase = getSupabase(req);
-        const { error } = await supabase.from('automations').update(updatePayload).eq('id', Number(id));
+        const empresa_id = (req as any).user?.empresa_id;
+        const { data, error } = await supabase.from('automations')
+            .update(updatePayload)
+            .eq('id', Number(id))
+            .eq('empresa_id', empresa_id)
+            .select('id');
         if (error) throw error;
+        // Sem isto, um UPDATE que a proteção de isolamento entre empresas
+        // bloqueia silenciosamente (0 linhas afetadas) respondia sempre
+        // "guardado com sucesso" — o cliente via o alerta de sucesso mas as
+        // alterações nunca chegavam a ficar gravadas.
+        if (!data || data.length === 0) {
+            return res.status(404).json({ success: false, error: 'Automação não encontrada ou sem permissão para editar.' });
+        }
         return res.json({ success: true, message: 'Automação guardada com sucesso.' });
     } catch (err: any) {
         return res.status(500).json({ error: err.message });

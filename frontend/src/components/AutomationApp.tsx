@@ -163,14 +163,23 @@ export default function AutomationApp() {
   const handleSaveGraph = async (nodes: AutomationNode[], edges: AutomationEdge[]) => {
     if (!selectedAuto) return;
     try {
-      await fetch(`${import.meta.env.VITE_API_URL}/api/automation/${selectedAuto.id}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/automation/${selectedAuto.id}`, {
         method: 'PUT',
         headers: authHeaders(),
         body: JSON.stringify({ nodes, edges })
       });
+      const data = await res.json();
+      // Sem verificar isto, um erro do servidor (ex: a gravação foi
+      // silenciosamente bloqueada) ficava sempre a parecer bem-sucedido —
+      // atualizávamos o estado local como se tivesse guardado, e a pessoa só
+      // descobria que nada tinha ficado gravado ao voltar a abrir a automação.
+      if (!res.ok || !data.success) {
+        alert('Erro ao guardar as alterações: ' + (data.error || 'erro desconhecido no servidor.'));
+        return;
+      }
       setAutomations(prev => prev.map(a => a.id === selectedAuto.id ? { ...a, nodes, edges } : a));
     } catch (err) {
-      alert('Erro ao guardar as alterações.');
+      alert('Erro de rede ao guardar as alterações.');
     }
   };
 
