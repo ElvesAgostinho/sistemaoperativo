@@ -88,25 +88,38 @@ export default function AutomationApp() {
     e.stopPropagation();
     if (!window.confirm('Tem a certeza que deseja eliminar esta automação de forma permanente?')) return;
     try {
-      await fetch(`${import.meta.env.VITE_API_URL}/api/automation/${id}`, { method: 'DELETE', headers: authHeaders() });
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/automation/${id}`, { method: 'DELETE', headers: authHeaders() });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        alert('Erro ao eliminar automação: ' + (data.error || 'erro desconhecido no servidor.'));
+        return;
+      }
       if (selectedId === id) setSelectedId(null);
       fetchAutomations();
     } catch (err) {
-      alert('Erro ao eliminar automação.');
+      alert('Erro de rede ao eliminar automação.');
     }
   };
 
   const toggleAutomation = async (e: React.MouseEvent, id: number, currentAtivo: boolean) => {
     e.stopPropagation();
     try {
-      await fetch(`${import.meta.env.VITE_API_URL}/api/automation/${id}/toggle`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/automation/${id}/toggle`, {
         method: 'PUT',
         headers: authHeaders(),
         body: JSON.stringify({ ativo: !currentAtivo })
       });
+      const data = await res.json();
+      // Sem verificar isto, um erro do servidor ficava sempre a parecer
+      // bem-sucedido — o ícone mudava de cor mas a automação nunca chegava
+      // a ficar ativa/inativa de facto na base de dados.
+      if (!res.ok || !data.success) {
+        alert('Erro ao alternar automação: ' + (data.error || 'erro desconhecido no servidor.'));
+        return;
+      }
       setAutomations(prev => prev.map(a => a.id === id ? { ...a, ativo: !currentAtivo } : a));
     } catch (err) {
-      alert('Erro ao alternar automação.');
+      alert('Erro de rede ao alternar automação.');
     }
   };
 

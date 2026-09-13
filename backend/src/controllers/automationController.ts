@@ -62,8 +62,12 @@ export const deleteAutomation = async (req: Request, res: Response) => {
     try {
         const id = Number(req.params.id);
         const supabase = getSupabase(req);
-        const { error } = await supabase.from('automations').delete().eq('id', Number(id));
+        const empresa_id = (req as any).user?.empresa_id;
+        const { data, error } = await supabase.from('automations').delete().eq('id', Number(id)).eq('empresa_id', empresa_id).select('id');
         if (error) throw error;
+        if (!data || data.length === 0) {
+            return res.status(404).json({ success: false, error: 'Automação não encontrada ou sem permissão para eliminar.' });
+        }
         return res.json({ success: true, message: 'Automação apagada com sucesso.' });
     } catch (error: any) {
         console.error('Erro ao apagar automação:', error);
@@ -76,8 +80,16 @@ export const toggleAutomation = async (req: Request, res: Response) => {
         const id = Number(req.params.id);
         const { ativo } = req.body;
         const supabase = getSupabase(req);
-        const { error } = await supabase.from('automations').update({ ativo }).eq('id', Number(id));
+        const empresa_id = (req as any).user?.empresa_id;
+        // Sem o filtro por empresa_id e sem confirmar a linha afetada, um
+        // UPDATE bloqueado silenciosamente pelo isolamento entre empresas
+        // respondia sempre "sucesso" — a pessoa ativava a automação, o ícone
+        // ficava verde, mas o estado nunca mudava mesmo na base de dados.
+        const { data, error } = await supabase.from('automations').update({ ativo }).eq('id', Number(id)).eq('empresa_id', empresa_id).select('id');
         if (error) throw error;
+        if (!data || data.length === 0) {
+            return res.status(404).json({ success: false, error: 'Automação não encontrada ou sem permissão para editar.' });
+        }
         return res.json({ success: true, message: 'Estado da automação atualizado.' });
     } catch (err: any) {
         return res.status(500).json({ error: err.message });
