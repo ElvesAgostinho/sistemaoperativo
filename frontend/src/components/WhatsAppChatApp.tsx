@@ -350,6 +350,22 @@ export default function WhatsAppChatApp() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [showQr, connectMode]);
 
+    // O QR Code do WhatsApp expira ao fim de ~20-25s (comportamento normal do
+    // protocolo) — sem isto, ficávamos apenas a verificar se já tinha ligado,
+    // para sempre, a mostrar sempre o mesmo código já expirado ("loop
+    // infinito" do ponto de vista de quem tenta ligar). Gera um QR novo a
+    // cada 25s enquanto o modal estiver aberto e ainda não estiver ligado.
+    useEffect(() => {
+        let refreshInterval: any;
+        if (showQr && connectMode === 'qr' && evolutionStatus !== 'connected') {
+            refreshInterval = setInterval(() => {
+                handleGenerateQr();
+            }, 25000);
+        }
+        return () => clearInterval(refreshInterval);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [showQr, connectMode, evolutionStatus]);
+
     // Interruptor geral do Assistente IA no WhatsApp — desativar uma automação
     // do Autopilot NÃO desliga isto; sem nenhuma automação a apanhar a
     // mensagem, é este fallback que responde a tudo. Isto dá controlo real.
@@ -1381,6 +1397,11 @@ export default function WhatsAppChatApp() {
                                     <span style={{ fontSize: '14px', color: '#1D2D3E', fontWeight: 500, textAlign: 'center', display: 'block' }}>
                                         {qrStatus || 'Aguarde um momento...'}
                                     </span>
+                                    {qrCodeData && (
+                                        <span style={{ fontSize: '11.5px', color: '#5B738B', textAlign: 'center', display: 'block', marginTop: '4px' }}>
+                                            O código renova-se automaticamente a cada 25 segundos.
+                                        </span>
+                                    )}
                                 </div>
 
                                 <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
