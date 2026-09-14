@@ -4,7 +4,8 @@ import { getSupabase } from '../lib/supabaseClient';
 export const getPlanosContas = async (req: Request, res: Response) => {
     try {
         const supabase = getSupabase(req);
-        const { data: contas, error } = await supabase.from('planos_contas').select('*').order('conta', { ascending: true });
+        const empresa_id = (req as any).user?.empresa_id;
+        const { data: contas, error } = await supabase.from('planos_contas').select('*').eq('empresa_id', empresa_id).order('conta', { ascending: true });
         if (error) throw error;
         res.json({ success: true, contas });
     } catch (err: any) {
@@ -33,7 +34,8 @@ export const createPlanoConta = async (req: Request, res: Response) => {
 export const getDiarios = async (req: Request, res: Response) => {
     try {
         const supabase = getSupabase(req);
-        const { data: diarios, error } = await supabase.from('diarios').select('*').order('codigo', { ascending: true });
+        const empresa_id = (req as any).user?.empresa_id;
+        const { data: diarios, error } = await supabase.from('diarios').select('*').eq('empresa_id', empresa_id).order('codigo', { ascending: true });
         if (error) throw error;
         res.json({ success: true, diarios });
     } catch (err: any) {
@@ -61,7 +63,8 @@ export const createDiario = async (req: Request, res: Response) => {
 export const getExercicios = async (req: Request, res: Response) => {
     try {
         const supabase = getSupabase(req);
-        const { data: exercicios, error } = await supabase.from('exercicios').select('*').order('ano', { ascending: false });
+        const empresa_id = (req as any).user?.empresa_id;
+        const { data: exercicios, error } = await supabase.from('exercicios').select('*').eq('empresa_id', empresa_id).order('ano', { ascending: false });
         if (error) throw error;
         res.json({ success: true, exercicios });
     } catch (err: any) {
@@ -90,7 +93,8 @@ export const getLancamentos = async (req: Request, res: Response) => {
     try {
         const { exercicio_id, diario_id } = req.query;
         const supabase = getSupabase(req);
-        
+        const empresa_id = (req as any).user?.empresa_id;
+
         let query = supabase.from('lancamentos').select(`
             *,
             diarios (codigo),
@@ -99,8 +103,8 @@ export const getLancamentos = async (req: Request, res: Response) => {
                 id, debito, credito, conta_id,
                 planos_contas (conta, descricao)
             )
-        `).order('data_lancamento', { ascending: false });
-        
+        `).eq('empresa_id', empresa_id).order('data_lancamento', { ascending: false });
+
         if (exercicio_id) {
             query = query.eq('exercicio_id', exercicio_id);
         }
@@ -162,6 +166,20 @@ export const createLancamento = async (req: Request, res: Response) => {
         const supabase = getSupabase(req);
         const empresa_id = (req as any).user?.empresa_id;
 
+        // Confirma que o diário, o exercício e todas as contas referenciadas
+        // pertencem mesmo a esta empresa — sem isto, um lançamento podia
+        // ficar ligado (e poluir a listagem/balancete) de um diário/exercício/
+        // conta de OUTRA empresa, só por adivinhar o id.
+        const contaIds = [...new Set(linhas.map((l: any) => l.conta_id).filter(Boolean))];
+        const [{ data: diarioOk }, { data: exercicioOk }, { data: contasOk }] = await Promise.all([
+            supabase.from('diarios').select('id').eq('id', diario_id).eq('empresa_id', empresa_id).maybeSingle(),
+            supabase.from('exercicios').select('id').eq('id', exercicio_id).eq('empresa_id', empresa_id).maybeSingle(),
+            contaIds.length > 0 ? supabase.from('planos_contas').select('id').eq('empresa_id', empresa_id).in('id', contaIds) : Promise.resolve({ data: [] as any[] })
+        ]);
+        if (!diarioOk) return res.status(400).json({ success: false, error: 'Diário não encontrado.' });
+        if (!exercicioOk) return res.status(400).json({ success: false, error: 'Exercício não encontrado.' });
+        if ((contasOk || []).length !== contaIds.length) return res.status(400).json({ success: false, error: 'Uma ou mais contas não foram encontradas.' });
+
         // Sem transações fortes no supabase-js, fazemos insert do parent e depois dos filhos
         const { data: lancInfo, error: lancError } = await supabase.from('lancamentos').insert({
             empresa_id,
@@ -203,13 +221,14 @@ export const getBalancete = async (req: Request, res: Response) => {
         }
 
         const supabase = getSupabase(req);
+        const empresa_id = (req as any).user?.empresa_id;
         // Supabase REST API does not easily support complex GROUP BY out of the box without RPC.
         // As a fallback for this demo MVP, we fetch the lines for the exercise and sum in memory.
         const { data: linhas, error } = await supabase.from('linhas_lancamento').select(`
             debito, credito,
             planos_contas (id, conta, descricao),
             lancamentos!inner (exercicio_id)
-        `).eq('lancamentos.exercicio_id', exercicio_id);
+        `).eq('lancamentos.exercicio_id', exercicio_id).eq('empresa_id', empresa_id);
 
         if (error) throw error;
 

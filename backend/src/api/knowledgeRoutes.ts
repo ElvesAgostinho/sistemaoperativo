@@ -34,7 +34,10 @@ const storage = multer.diskStorage({
         // multipart/form-data — nomes com acentos (ex: "Currículo") chegam corrompidos
         // ("CurrÃculo") se não forem reconvertidos para utf8 aqui.
         const nomeCorrigido = Buffer.from(file.originalname, 'latin1').toString('utf8');
-        cb(null, nomeCorrigido);
+        // path.basename() descarta qualquer componente de diretório (ex:
+        // "../../outra_empresa/ficheiro.pdf") — sem isto, o multer gravava o
+        // ficheiro fora da pasta desta empresa, na pasta de OUTRA.
+        cb(null, path.basename(nomeCorrigido));
     }
 });
 const upload = multer({ storage });
@@ -77,11 +80,18 @@ router.post('/upload', requireAuth, upload.single('file'), async (req, res) => {
 router.delete('/:filename', requireAuth, async (req, res) => {
     try {
         const tenantDir = getTenantDir(req);
-        const filePath = path.join(tenantDir, req.params.filename);
+        // path.basename() + confirmar que o caminho final continua dentro da
+        // pasta desta empresa — sem isto, um nome como "../../outra_empresa/
+        // ficheiro.pdf" no URL apagava um ficheiro de OUTRA empresa.
+        const filenameSeguro = path.basename(req.params.filename);
+        const filePath = path.join(tenantDir, filenameSeguro);
+        if (path.dirname(filePath) !== tenantDir) {
+            return res.status(400).json({ error: 'Nome de ficheiro inválido.' });
+        }
 
         const empresaId = (req as any).user?.empresa_id;
         const supabase = getSupabase(req);
-        await KnowledgeBaseService.deleteFileChunks(empresaId, req.params.filename, supabase).catch(err => {
+        await KnowledgeBaseService.deleteFileChunks(empresaId, filenameSeguro, supabase).catch(err => {
             console.error('[knowledgeRoutes] Erro ao apagar chunks indexados:', err);
         });
 

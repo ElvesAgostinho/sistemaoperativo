@@ -122,7 +122,7 @@ router.delete('/:id', requireAuth, async (req: AuthRequest, res: Response) => {
         const { data: campanha } = await getSupabase(req).from('campanhas').select('estado').eq('id', req.params.id).eq('empresa_id', req.user!.empresa_id).single();
         if (!campanha) return res.status(404).json({ error: 'Campanha não encontrada.' });
         if (['Em_Execucao'].includes(campanha.estado)) return res.status(400).json({ error: 'Pause a campanha antes de a eliminar.' });
-        const { error } = await getSupabase(req).from('campanhas').delete().eq('id', req.params.id);
+        const { error } = await getSupabase(req).from('campanhas').delete().eq('id', req.params.id).eq('empresa_id', req.user!.empresa_id);
         if (error) throw error;
         res.json({ success: true });
     } catch (err: any) {

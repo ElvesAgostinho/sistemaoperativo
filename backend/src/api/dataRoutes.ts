@@ -81,6 +81,25 @@ const getCustomOpenAIKey = async (req: Request): Promise<string | null> => {
     return null;
 };
 
+// A análise de ficheiros por IA usa o modelo gpt-4o (mais caro que o
+// gpt-4o-mini usado no resto do sistema) e paga da chave partilhada quando a
+// empresa não tem chave própria — só deve poder ser usada por quem tem
+// mesmo o módulo de Relatórios ("data") contratado, não só por estar
+// autenticado.
+const empresaTemDataLicenciado = async (req: Request): Promise<boolean> => {
+    const empresa_id = (req as any).user?.empresa_id;
+    if (!empresa_id) return true;
+    try {
+        const supabase = getSupabase(req);
+        const { data: row } = await supabase.from('configuracoes').select('valor').eq('empresa_id', empresa_id).eq('chave', 'modulos_empresa').maybeSingle();
+        if (!row?.valor) return true;
+        const modulos = JSON.parse(row.valor);
+        return !Array.isArray(modulos) || modulos.includes('data');
+    } catch {
+        return true;
+    }
+};
+
 // GET /api/data/stats - Fetch overall stats for dashboard
 router.get('/stats', requireAuth, async (req: Request, res: Response) => {
     try {
@@ -138,6 +157,10 @@ router.get('/insights', requireAuth, async (req: Request, res: Response) => {
 router.post('/upload', requireAuth, upload.single('file'), async (req: Request, res: Response) => {
     if (!req.file) {
         return res.status(400).json({ error: 'Nenhum ficheiro fornecido.' });
+    }
+
+    if (!(await empresaTemDataLicenciado(req))) {
+        return res.status(403).json({ success: false, error: 'O módulo Relatórios não está incluído no seu plano. Contacte o administrador do sistema.' });
     }
 
     try {

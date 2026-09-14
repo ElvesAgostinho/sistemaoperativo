@@ -120,7 +120,7 @@ export class CampaignService {
         const { error } = await client.from('campanhas').update({
             estado: imediata ? 'Em_Execucao' : 'Agendada',
             iniciada_em: imediata ? new Date().toISOString() : campanha.iniciada_em,
-        }).eq('id', campanhaId);
+        }).eq('id', campanhaId).eq('empresa_id', empresaId);
         if (error) throw error;
     }
 

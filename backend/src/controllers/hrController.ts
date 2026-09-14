@@ -186,7 +186,8 @@ import { getSupabase } from '../lib/supabaseClient';
 export const getRubricas = async (req: Request, res: Response) => {
     try {
         const supabase = getSupabase(req);
-        const { data: rubricas, error } = await supabase.from('rubricas').select('*').order('codigo', { ascending: true });
+        const empresa_id = (req as any).user?.empresa_id;
+        const { data: rubricas, error } = await supabase.from('rubricas').select('*').eq('empresa_id', empresa_id).order('codigo', { ascending: true });
         if (error) throw error;
         res.json({ success: true, rubricas });
     } catch(err: any) { res.status(500).json({ success: false, error: err.message }); }

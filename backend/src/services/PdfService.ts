@@ -1,8 +1,16 @@
 import PDFDocument from 'pdfkit';
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import { SalarioResult } from './PayrollService';
 import { supabase } from '../lib/supabaseClient';
+
+// A pasta /tmp que serve estes documentos agora exige sessão válida (ver
+// index.ts), mas isso sozinho não impede outro utilizador autenticado de
+// OUTRA empresa de adivinhar o nome do ficheiro (ex: nome do funcionário +
+// mês, para um recibo de salário) — por isso cada nome inclui também este
+// componente aleatório e imprevisível.
+const tokenAleatorio = () => crypto.randomBytes(8).toString('hex');
 
 export class PdfService {
     
@@ -60,7 +68,7 @@ export class PdfService {
         return new Promise((resolve, reject) => {
             try {
                 const doc = new PDFDocument({ margin: 50 });
-                const fileName = `Recibo_${nomeFuncionario.replace(/\s+/g, '_')}_${mesAno.replace('/', '_')}.pdf`;
+                const fileName = `Recibo_${nomeFuncionario.replace(/\s+/g, '_')}_${mesAno.replace('/', '_')}_${tokenAleatorio()}.pdf`;
                 const filePath = path.join(__dirname, '..', '..', 'tmp', fileName);
                 
                 const dir = path.dirname(filePath);
@@ -163,7 +171,7 @@ export class PdfService {
         return new Promise((resolve, reject) => {
             try {
                 const doc = new PDFDocument({ margin: 50 });
-                const fileName = `Relatorio_Negocio_${Date.now()}.pdf`;
+                const fileName = `Relatorio_Negocio_${Date.now()}_${tokenAleatorio()}.pdf`;
                 const filePath = path.join(__dirname, '..', '..', 'tmp', fileName);
 
                 const dir = path.dirname(filePath);
@@ -285,7 +293,7 @@ export class PdfService {
         return new Promise((resolve, reject) => {
             try {
                 const doc = new PDFDocument({ margin: 50 });
-                const fileName = `Declaracao_${colaborador.nome.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
+                const fileName = `Declaracao_${colaborador.nome.replace(/\s+/g, '_')}_${tokenAleatorio()}.pdf`;
                 const filePath = path.join(__dirname, '..', '..', 'tmp', fileName);
 
                 const dir = path.dirname(filePath);
@@ -358,7 +366,7 @@ Esta declaração é emitida a pedido do(a) interessado(a) para os fins que se m
         return new Promise((resolve, reject) => {
             try {
                 const doc = new PDFDocument({ margin: 50 });
-                const fileName = `Proforma_${negocio.id}_${Date.now()}.pdf`;
+                const fileName = `Proforma_${negocio.id}_${tokenAleatorio()}.pdf`;
                 const filePath = path.join(__dirname, '..', '..', 'tmp', fileName);
 
                 const dir = path.dirname(filePath);
@@ -478,7 +486,7 @@ Esta declaração é emitida a pedido do(a) interessado(a) para os fins que se m
         return new Promise((resolve, reject) => {
             try {
                 const doc = new PDFDocument({ margin: 50 });
-                const fileName = `Ata_${reuniao.id}_${Date.now()}.pdf`;
+                const fileName = `Ata_${reuniao.id}_${tokenAleatorio()}.pdf`;
                 const filePath = path.join(__dirname, '..', '..', 'tmp', fileName);
 
                 const dir = path.dirname(filePath);

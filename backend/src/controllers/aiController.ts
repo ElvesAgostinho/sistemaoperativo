@@ -2,17 +2,39 @@ import { Request, Response } from 'express';
 import { EnterpriseAssistantService } from '../services/EnterpriseAssistantService';
 import { supabase } from '../lib/supabaseClient';
 
+// A chave da OpenAI é partilhada por todas as empresas, mas o custo de a usar
+// é nosso — só deve poder ser gasta por empresas que têm mesmo o módulo do
+// Assistente IA ("chat") contratado. Sem isto, qualquer utilizador
+// autenticado, de qualquer empresa (mesmo uma a que o SuperAdmin tenha
+// explicitamente retirado este módulo), conseguia chamar estes endpoints
+// diretamente e consumir o orçamento de IA na mesma — o SuperAdmin só
+// escondia o botão na interface, não bloqueava o acesso real.
+async function empresaTemChatLicenciado(empresaId?: number): Promise<boolean> {
+    if (!empresaId) return true; // sem empresa associada (ex: conta antiga) — não bloquear por omissão
+    try {
+        const { data: row } = await supabase.from('configuracoes')
+            .select('valor').eq('empresa_id', empresaId).eq('chave', 'modulos_empresa').maybeSingle();
+        if (!row?.valor) return true; // sem restrição configurada — mesma política por omissão do resto do sistema
+        const modulos = JSON.parse(row.valor);
+        return !Array.isArray(modulos) || modulos.includes('chat');
+    } catch {
+        return true;
+    }
+}
+
 export const chat = async (req: Request, res: Response) => {
   try {
     const { prompt, conversaId } = req.body;
-    // req.user might be populated by requireAuth, but right now aiRoutes are unprotected or hitting direct.
-    // If unprotected, we fallback to a default admin role for the MVP.
     const userRole = (req as any).user?.role || 'admin';
     const userId = (req as any).user?.id || 'sys_admin';
     const empresaId = (req as any).user?.empresa_id;
 
     if (!prompt) {
       return res.status(400).json({ error: 'Prompt is required' });
+    }
+
+    if (!(await empresaTemChatLicenciado(empresaId))) {
+      return res.status(403).json({ success: false, error: 'O módulo Assistente IA não está incluído no seu plano. Contacte o administrador do sistema.' });
     }
 
     const result = await EnterpriseAssistantService.chat(userId, userRole, prompt, conversaId, empresaId);
@@ -38,6 +60,10 @@ export const executeAction = async (req: Request, res: Response) => {
   try {
     const { action_type, payload, conversaId } = req.body;
     const empresaId = (req as any).user?.empresa_id || null;
+
+    if (!(await empresaTemChatLicenciado(empresaId))) {
+      return res.status(403).json({ success: false, error: 'O módulo Assistente IA não está incluído no seu plano. Contacte o administrador do sistema.' });
+    }
 
     if (action_type === 'criar_funcionario_draft') {
        const { data: info, error } = await supabase.from('colaboradores').insert({
