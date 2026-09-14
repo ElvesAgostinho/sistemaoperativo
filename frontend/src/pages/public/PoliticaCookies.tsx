@@ -23,10 +23,11 @@ export default function PoliticaCookies() {
             <h2 style={secaoTitulo}>2. Porque não pedimos consentimento de cookies</h2>
             <p style={paragrafo}>
                 Como não utilizamos cookies de rastreamento, marketing ou de terceiros — apenas armazenamento
-                estritamente necessário ao funcionamento da sua sessão — não é apresentado um banner de consentimento
-                de cookies. Se isto mudar no futuro (por exemplo, com a introdução de análise de utilização), esta
-                página será atualizada e passaremos a pedir o seu consentimento antes de ativar esse tipo de
-                armazenamento.
+                estritamente necessário ao funcionamento da sua sessão — não lhe pedimos para escolher entre aceitar
+                ou recusar. Ainda assim, mostramos um aviso informativo na primeira visita a explicar isto mesmo; ao
+                clicar em "Entendi" apenas confirma que leu o aviso, não está a autorizar nenhum rastreamento que não
+                exista. Se isto mudar no futuro (por exemplo, com a introdução de análise de utilização), esta página
+                será atualizada e passaremos a pedir o seu consentimento antes de ativar esse tipo de armazenamento.
             </p>
 
             <h2 style={secaoTitulo}>3. Como remover estes dados</h2>

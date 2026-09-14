@@ -10,6 +10,8 @@ import { RecrutamentoService } from '../services/RecrutamentoService';
 const router = Router();
 const uploadCv = multer({ dest: 'tmp/', limits: { fileSize: 10 * 1024 * 1024 } });
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 async function getLogoEmpresa(empresa_id: string): Promise<string | null> {
     const { data } = await supabase.from('configuracoes').select('valor').eq('empresa_id', empresa_id).eq('chave', 'COMPANY_LOGO_BASE64').maybeSingle();
     return data?.valor || null;
@@ -50,6 +52,9 @@ router.post('/reuniao/:id/gravacao', ...receberGravacao);
 router.get('/vagas/:empresa_id', async (req: Request, res: Response) => {
     try {
         const { empresa_id } = req.params;
+        if (!UUID_REGEX.test(empresa_id)) {
+            return res.status(400).json({ success: false, error: 'Empresa inválida.' });
+        }
         const { data, error } = await supabase
             .from('vagas')
             .select('*')
@@ -66,7 +71,8 @@ router.get('/vagas/:empresa_id', async (req: Request, res: Response) => {
 
         res.json({ success: true, vagas: data, empresaNome: empresa?.nome, logoBase64 });
     } catch (err: any) {
-        res.status(500).json({ error: err.message });
+        console.error('Erro ao listar vagas públicas:', err.message);
+        res.status(500).json({ success: false, error: 'Não foi possível carregar as vagas.' });
     }
 });
 
@@ -74,17 +80,24 @@ router.get('/vagas/:empresa_id', async (req: Request, res: Response) => {
 router.get('/vaga/:vaga_id', async (req: Request, res: Response) => {
     try {
         const { vaga_id } = req.params;
+        if (!UUID_REGEX.test(vaga_id)) {
+            return res.status(404).json({ success: false, error: 'Vaga não encontrada.' });
+        }
         const { data, error } = await supabase
             .from('vagas')
             .select('*, empresas(nome)')
             .eq('id', vaga_id)
-            .single();
+            .maybeSingle();
 
         if (error) throw error;
+        if (!data) {
+            return res.status(404).json({ success: false, error: 'Vaga não encontrada.' });
+        }
         const logoBase64 = data?.empresa_id ? await getLogoEmpresa(data.empresa_id) : null;
         res.json({ success: true, vaga: data, logoBase64 });
     } catch (err: any) {
-        res.status(500).json({ error: err.message });
+        console.error('Erro ao obter vaga pública:', err.message);
+        res.status(500).json({ success: false, error: 'Não foi possível carregar a vaga.' });
     }
 });
 
