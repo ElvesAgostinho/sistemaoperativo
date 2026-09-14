@@ -388,8 +388,11 @@ function ServicosView() {
   };
   const apagar = async (id: number) => {
     if (!window.confirm('Desativar este serviço?')) return;
-    await authFetch(`${API}/api/agendamento/servicos/${id}`, { method: 'DELETE' });
-    fetchServicos();
+    try {
+      const res = await authFetch(`${API}/api/agendamento/servicos/${id}`, { method: 'DELETE' });
+      if (!res.ok) { alert('Erro ao desativar o serviço.'); return; }
+      fetchServicos();
+    } catch (err) { alert('Erro de rede ao desativar o serviço.'); }
   };
 
   return (
@@ -453,13 +456,19 @@ function ProfissionaisView() {
   const criar = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nome.trim()) return;
-    await authFetch(`${API}/api/agendamento/profissionais`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome }) });
-    setNome(''); fetchLista();
+    try {
+      const res = await authFetch(`${API}/api/agendamento/profissionais`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome }) });
+      if (!res.ok) { alert('Erro ao criar profissional.'); return; }
+      setNome(''); fetchLista();
+    } catch (err) { alert('Erro de rede ao criar profissional.'); }
   };
   const apagar = async (id: number) => {
     if (!window.confirm('Desativar este profissional?')) return;
-    await authFetch(`${API}/api/agendamento/profissionais/${id}`, { method: 'DELETE' });
-    fetchLista();
+    try {
+      const res = await authFetch(`${API}/api/agendamento/profissionais/${id}`, { method: 'DELETE' });
+      if (!res.ok) { alert('Erro ao desativar o profissional.'); return; }
+      fetchLista();
+    } catch (err) { alert('Erro de rede ao desativar o profissional.'); }
   };
 
   return (

@@ -73,14 +73,15 @@ export default function HrApp() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('os_auth_token');
-      await fetch(import.meta.env.VITE_API_URL + '/api/hr/rubricas', {
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/hr/rubricas', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(novaRubrica)
       });
+      if (!res.ok) { alert('Erro ao salvar rubrica.'); return; }
       setShowNovaRubricaModal(false);
       fetchRubricas();
-    } catch(err) { alert('Erro ao salvar rubrica'); }
+    } catch(err) { alert('Erro de rede ao salvar rubrica.'); }
   };
 
   const fetchDepartamentos = async () => {
@@ -320,13 +321,15 @@ export default function HrApp() {
     if (!window.confirm("ATENÇÃO: Ao apagar o colaborador, apagará os seus recibos, ausências e contratos associados. Continuar?")) return;
     try {
       const token = localStorage.getItem('os_auth_token');
-      await fetch(`${import.meta.env.VITE_API_URL}/api/hr/employees/${id}`, { 
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/hr/employees/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
       });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { alert('Erro ao apagar colaborador: ' + (data.error || 'erro desconhecido no servidor.')); return; }
       fetchEmployees();
     } catch (err) {
-      alert("Erro ao apagar colaborador.");
+      alert("Erro de rede ao apagar colaborador.");
     }
   };
 
@@ -334,13 +337,15 @@ export default function HrApp() {
     if (!window.confirm("Deseja eliminar este departamento? Os colaboradores passarão a ficar sem departamento associado.")) return;
     try {
       const token = localStorage.getItem('os_auth_token');
-      await fetch(`${import.meta.env.VITE_API_URL}/api/hr/departamentos/${id}`, { 
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/hr/departamentos/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
       });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { alert('Erro ao apagar departamento: ' + (data.error || 'erro desconhecido no servidor.')); return; }
       fetchDepartamentos();
     } catch (err) {
-      alert("Erro ao apagar departamento.");
+      alert("Erro de rede ao apagar departamento.");
     }
   };
 
@@ -1239,8 +1244,11 @@ export default function HrApp() {
                         <div style={{ display: 'flex', gap: '4px' }}>
                           <button className="odoo-btn" style={{ padding: '2px 8px', fontSize: '11px', backgroundColor: '#fff3cd', color: '#856404', border: '1px solid #ffeeba' }}
                             onClick={async () => {
-                              await authFetch(`${import.meta.env.VITE_API_URL}/api/hr/ausencias/${aus.id}/estado`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({estado: 'Pendente RH'})});
-                              carregarAusencias();
+                              try {
+                                const res = await authFetch(`${import.meta.env.VITE_API_URL}/api/hr/ausencias/${aus.id}/estado`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({estado: 'Pendente RH'})});
+                                if (!res.ok) { alert('Erro ao aprovar a ausência.'); return; }
+                                carregarAusencias();
+                              } catch (err) { alert('Erro de rede ao aprovar a ausência.'); }
                             }}
                           >Chefia: Aprovar</button>
                         </div>
@@ -1250,15 +1258,21 @@ export default function HrApp() {
                         <div style={{ display: 'flex', gap: '4px' }}>
                           <button className="odoo-btn" style={{ padding: '2px 8px', fontSize: '11px', backgroundColor: '#d4edda', color: '#155724', border: '1px solid #c3e6cb' }}
                             onClick={async () => {
-                              await authFetch(`${import.meta.env.VITE_API_URL}/api/hr/ausencias/${aus.id}/estado`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({estado: 'Justificada'})});
-                              carregarAusencias();
+                              try {
+                                const res = await authFetch(`${import.meta.env.VITE_API_URL}/api/hr/ausencias/${aus.id}/estado`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({estado: 'Justificada'})});
+                                if (!res.ok) { alert('Erro ao validar o atestado.'); return; }
+                                carregarAusencias();
+                              } catch (err) { alert('Erro de rede ao validar o atestado.'); }
                             }}
                           >RH: Validar Atestado</button>
-                          
+
                           <button className="odoo-btn" style={{ padding: '2px 8px', fontSize: '11px', backgroundColor: '#f8d7da', color: '#721c24', border: '1px solid #f5c6cb' }}
                             onClick={async () => {
-                              await authFetch(`${import.meta.env.VITE_API_URL}/api/hr/ausencias/${aus.id}/estado`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({estado: 'Rejeitada'})});
-                              carregarAusencias();
+                              try {
+                                const res = await authFetch(`${import.meta.env.VITE_API_URL}/api/hr/ausencias/${aus.id}/estado`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({estado: 'Rejeitada'})});
+                                if (!res.ok) { alert('Erro ao rejeitar a ausência.'); return; }
+                                carregarAusencias();
+                              } catch (err) { alert('Erro de rede ao rejeitar a ausência.'); }
                             }}
                           >Rejeitar (Injustificada)</button>
                         </div>
@@ -1535,10 +1549,19 @@ export default function HrApp() {
                           style={{ backgroundColor: 'var(--odoo-teal)', color: 'white' }}
                           onClick={async () => {
                             if(confirm("Tem a certeza que quer fechar este mês? Os dados não poderão ser alterados após o fecho!")) {
-                              await authFetch(`${import.meta.env.VITE_API_URL}/api/hr/processamento/${payrollResults.processamento.id}/fechar`, { method: 'POST' });
-                              // Reload
-                              const resGet = await authFetch(`${import.meta.env.VITE_API_URL}/api/hr/processamento/${payrollResults.processamento.mes}/${payrollResults.processamento.ano}`);
-                              setPayrollResults(await resGet.json());
+                              try {
+                                const res = await authFetch(`${import.meta.env.VITE_API_URL}/api/hr/processamento/${payrollResults.processamento.id}/fechar`, { method: 'POST' });
+                                const data = await res.json().catch(() => ({}));
+                                if (!res.ok || data.success === false) {
+                                  alert('Erro ao fechar o mês: ' + (data.error || 'erro desconhecido no servidor.'));
+                                  return;
+                                }
+                                // Reload
+                                const resGet = await authFetch(`${import.meta.env.VITE_API_URL}/api/hr/processamento/${payrollResults.processamento.mes}/${payrollResults.processamento.ano}`);
+                                setPayrollResults(await resGet.json());
+                              } catch (err) {
+                                alert('Erro de rede ao fechar o mês.');
+                              }
                             }
                           }}
                         >

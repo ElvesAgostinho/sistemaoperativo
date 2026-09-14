@@ -97,18 +97,31 @@ export default function ChatApp() {
             body: JSON.stringify({ action_type: actionType, payload, conversaId })
         });
         const data = await response.json();
-        
+
+        // Sem verificar isto, uma ação que falhasse no servidor (criar
+        // funcionário, registar pagamento, enviar mensagem, etc.) aparecia
+        // sempre como "Ação executada com sucesso." — a pessoa confiava que
+        // algo real e importante tinha acontecido quando podia não ter.
+        if (!response.ok || !data.success) {
+            setMessages(prev => {
+                const newMessages = prev.filter(m => typeof m.content === 'string');
+                return [...newMessages, { role: 'ai', content: data.response || 'Erro ao executar a ação.' }];
+            });
+            setAlerts(prev => [{ tipo: 'error', mensagem: 'Erro ao executar ação: ' + (data.error || 'erro desconhecido no servidor.') }, ...prev]);
+            return;
+        }
+
         // Remove o card antigo e adiciona a confirmação
         setMessages(prev => {
             const newMessages = prev.filter(m => typeof m.content === 'string'); // quick hack to remove the ReactNode (Card)
             return [...newMessages, { role: 'ai', content: data.response }];
         });
-        
-        // Update alerts if needed (simulated fetch)
+
         setAlerts(prev => [{tipo: 'success', mensagem: 'Ação executada com sucesso.'}, ...prev]);
-        
+
     } catch (error) {
         console.error(error);
+        setAlerts(prev => [{ tipo: 'error', mensagem: 'Erro de rede ao executar a ação.' }, ...prev]);
     } finally {
         setLoading(false);
     }

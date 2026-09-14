@@ -98,9 +98,10 @@ export default function AfiliadosApp() {
     if (!window.confirm('Apagar este material?')) return;
     try {
       const res = await authFetch(`${import.meta.env.VITE_API_URL}/api/afiliados/materiais/${id}`, { method: 'DELETE' });
-      if (res.ok) fetchData();
+      if (!res.ok) { alert('Erro ao apagar o material.'); return; }
+      fetchData();
     } catch (error) {
-      console.error(error);
+      alert('Erro de rede ao apagar o material.');
     }
   };
 
@@ -108,9 +109,10 @@ export default function AfiliadosApp() {
     if (!window.confirm('Tem a certeza que deseja aprovar esta comissão?')) return;
     try {
       const res = await authFetch(`${import.meta.env.VITE_API_URL}/api/afiliados/comissoes/${id}/aprovar`, { method: 'POST' });
-      if (res.ok) fetchData();
+      if (!res.ok) { alert('Erro ao aprovar a comissão.'); return; }
+      fetchData();
     } catch (error) {
-      console.error(error);
+      alert('Erro de rede ao aprovar a comissão.');
     }
   };
 
@@ -118,9 +120,10 @@ export default function AfiliadosApp() {
     if (!window.confirm('Confirma que já efetuou a transferência bancária para o afiliado?')) return;
     try {
       const res = await authFetch(`${import.meta.env.VITE_API_URL}/api/afiliados/comissoes/${id}/pagar`, { method: 'POST' });
-      if (res.ok) fetchData();
+      if (!res.ok) { alert('Erro ao marcar a comissão como paga.'); return; }
+      fetchData();
     } catch (error) {
-      console.error(error);
+      alert('Erro de rede ao marcar a comissão como paga.');
     }
   };
 

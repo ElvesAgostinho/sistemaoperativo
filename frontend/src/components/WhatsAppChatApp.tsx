@@ -201,9 +201,11 @@ export default function WhatsAppChatApp() {
             const data = await res.json();
             if (data.success) {
                 fetchTemplates();
+            } else {
+                alert('Erro ao sincronizar templates: ' + (data.error || 'erro desconhecido no servidor.'));
             }
         } catch (err) {
-            console.error('Failed to sync templates', err);
+            alert('Erro de rede ao sincronizar templates.');
         } finally {
             setIsSyncingTemplates(false);
         }
@@ -411,6 +413,14 @@ export default function WhatsAppChatApp() {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
+            // Sem verificar isto, uma falha no logout (ex: Evolution API em
+            // baixo) ficava sempre a mostrar "desconectado com sucesso" — o
+            // WhatsApp continuava ligado do lado do servidor enquanto o ecrã
+            // dizia o contrário.
+            if (!res.ok || data.success === false) {
+                alert('Erro ao desconectar o WhatsApp: ' + (data.error || 'erro desconhecido no servidor.'));
+                return;
+            }
             setEvolutionStatus('disconnected');
             setShowQr(false);
             // FIX #4 — Limpar estado local após desconectar
@@ -420,7 +430,7 @@ export default function WhatsAppChatApp() {
                 setMessages([]);
             }
             alert('WhatsApp desconectado com sucesso. As conversas foram arquivadas por segurança.');
-        } catch(err) { console.error(err); }
+        } catch(err) { alert('Erro de rede ao desconectar o WhatsApp.'); }
     };
 
     const handleSyncChats = async () => {
@@ -488,15 +498,20 @@ export default function WhatsAppChatApp() {
         if (!activeConv) return;
         try {
             const token = localStorage.getItem('os_auth_token');
-            await fetch(`${import.meta.env.VITE_API_URL}/api/whatsapp/conversations/${activeConv.id}/assign`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/whatsapp/conversations/${activeConv.id}/assign`, {
                 method: 'PUT',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ agent_id: agentId })
             });
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                alert('Erro ao atribuir a conversa: ' + (data.error || 'erro desconhecido no servidor.'));
+                return;
+            }
             setShowAssignModal(false);
-            fetchConversations(); 
+            fetchConversations();
             setActiveConv({...activeConv, assigned_to: agentId});
-        } catch(err) { console.error(err); }
+        } catch(err) { alert('Erro de rede ao atribuir a conversa.'); }
     };
 
     const handleViewAudit = async () => {

@@ -152,33 +152,41 @@ export default function CrmApp() {
   const deleteCliente = async (id: number) => {
     if (!window.confirm("Atenção: Ao apagar o cliente, apagará também todos os negócios e leads associados. Deseja continuar?")) return;
     try {
-      await authFetch(`${import.meta.env.VITE_API_URL}/api/crm/clientes/${id}`, { method: 'DELETE' });
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/api/crm/clientes/${id}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { alert('Erro ao apagar cliente: ' + (data.error || 'erro desconhecido no servidor.')); return; }
       fetchDados();
     } catch (err) {
-      alert("Erro ao apagar cliente.");
+      alert("Erro de rede ao apagar cliente.");
     }
   };
 
   const deleteNegocio = async (id: number) => {
     if (!window.confirm("Tem a certeza que deseja apagar este negócio? Esta ação é irreversível.")) return;
     try {
-      await authFetch(`${import.meta.env.VITE_API_URL}/api/crm/negocios/${id}`, { method: 'DELETE' });
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/api/crm/negocios/${id}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { alert('Erro ao apagar negócio: ' + (data.error || 'erro desconhecido no servidor.')); return; }
       fetchDados();
     } catch (err) {
-      alert("Erro ao apagar negócio.");
+      alert("Erro de rede ao apagar negócio.");
     }
   };
 
   const moveFase = async (negocio_id: number, nova_fase: string) => {
     try {
-      await authFetch(`${import.meta.env.VITE_API_URL}/api/crm/negocios/${negocio_id}/fase`, {
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/api/crm/negocios/${negocio_id}/fase`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fase: nova_fase })
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert('Erro ao mover o negócio: ' + (data.error || 'erro desconhecido no servidor.'));
+      }
       fetchDados();
     } catch (err) {
-      console.error(err);
+      alert('Erro de rede ao mover o negócio.');
     }
   };
 

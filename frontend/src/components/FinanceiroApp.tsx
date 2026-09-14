@@ -556,9 +556,12 @@ function AvPlanosDeContas({ contas, refresh }: { contas: any[]; refresh: () => v
   const handleSubmit = async (e: any) => {
     e.preventDefault();
     const data = { conta: e.target.conta.value, descricao: e.target.descricao.value, tipo: e.target.tipo.value, natureza: e.target.natureza.value };
-    await authFetch(`${API}/api/accounting/contas`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-    setOpen(false);
-    refresh();
+    try {
+      const res = await authFetch(`${API}/api/accounting/contas`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+      if (!res.ok) { alert('Erro ao criar conta.'); return; }
+      setOpen(false);
+      refresh();
+    } catch (err) { alert('Erro de rede ao criar conta.'); }
   };
 
   return (
@@ -603,13 +606,19 @@ function AvPlanosDeContas({ contas, refresh }: { contas: any[]; refresh: () => v
 function AvDiariosExercicios({ diarios, exercicios, refresh }: { diarios: any[]; exercicios: any[]; refresh: () => void }) {
   const handleExercicio = async (e: any) => {
     e.preventDefault();
-    await authFetch(`${API}/api/accounting/exercicios`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ano: e.target.ano.value }) });
-    refresh();
+    try {
+      const res = await authFetch(`${API}/api/accounting/exercicios`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ano: e.target.ano.value }) });
+      if (!res.ok) { alert('Erro ao abrir exercício.'); return; }
+      refresh();
+    } catch (err) { alert('Erro de rede ao abrir exercício.'); }
   };
   const handleDiario = async (e: any) => {
     e.preventDefault();
-    await authFetch(`${API}/api/accounting/diarios`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ codigo: e.target.codigo.value, descricao: e.target.descricao.value }) });
-    refresh();
+    try {
+      const res = await authFetch(`${API}/api/accounting/diarios`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ codigo: e.target.codigo.value, descricao: e.target.descricao.value }) });
+      if (!res.ok) { alert('Erro ao criar diário.'); return; }
+      refresh();
+    } catch (err) { alert('Erro de rede ao criar diário.'); }
   };
 
   return (

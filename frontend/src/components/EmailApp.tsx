@@ -70,12 +70,13 @@ export default function EmailApp() {
         if (!email.lido && email.direcao === 'inbox') {
             try {
                 const token = localStorage.getItem('os_auth_token') || '';
-                await fetch(import.meta.env.VITE_API_URL + `/api/email/${email.id}/read`, { 
+                const res = await fetch(import.meta.env.VITE_API_URL + `/api/email/${email.id}/read`, {
                     method: 'PUT',
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
+                if (!res.ok) { console.error('Falha ao marcar email como lido:', res.status); return; }
                 setEmails(emails.map(e => e.id === email.id ? { ...e, lido: true } : e));
-            } catch (e) {}
+            } catch (e) { console.error('Erro de rede ao marcar email como lido:', e); }
         }
     };
 
@@ -83,16 +84,20 @@ export default function EmailApp() {
         if (window.confirm('Tem a certeza que deseja apagar este email?')) {
             try {
                 const token = localStorage.getItem('os_auth_token') || '';
-                await fetch(import.meta.env.VITE_API_URL + `/api/email/${id}`, { 
+                const res = await fetch(import.meta.env.VITE_API_URL + `/api/email/${id}`, {
                     method: 'DELETE',
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
+                if (!res.ok) {
+                    alert('Erro ao apagar o email. Tente novamente.');
+                    return;
+                }
                 setEmails(emails.filter(e => e.id !== id));
                 if (activeEmail?.id === id) {
                     setView('inbox');
                     setActiveEmail(null);
                 }
-            } catch (e) {}
+            } catch (e) { alert('Erro de rede ao apagar o email.'); }
         }
     };
 
