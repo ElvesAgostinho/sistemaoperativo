@@ -7,7 +7,8 @@ import { PdfService } from '../services/PdfService';
 export const listarReunioes = async (req: Request, res: Response) => {
     try {
         const supabase = getSupabase(req);
-        const { data: reunioes, error } = await supabase.from('reunioes').select('*').order('data_hora', { ascending: false });
+        const empresa_id = (req as any).user?.empresa_id;
+        const { data: reunioes, error } = await supabase.from('reunioes').select('*').eq('empresa_id', empresa_id).order('data_hora', { ascending: false });
         if (error) throw error;
         res.json({ success: true, reunioes });
     } catch (error: any) {
@@ -19,7 +20,8 @@ export const detalhesReuniao = async (req: Request, res: Response) => {
     try {
         const id = req.params.id;
         const supabase = getSupabase(req);
-        const { data: reuniao, error: rErr } = await supabase.from('reunioes').select('*').eq('id', id).single();
+        const empresa_id = (req as any).user?.empresa_id;
+        const { data: reuniao, error: rErr } = await supabase.from('reunioes').select('*').eq('id', id).eq('empresa_id', empresa_id).single();
         if (rErr || !reuniao) return res.status(404).json({ error: 'Reunião não encontrada' });
 
         const { data: tarefas, error: tErr } = await supabase.from('reunioes_tarefas').select('*').eq('reuniao_id', id);
@@ -81,6 +83,14 @@ export const processarTranscricao = async (req: Request, res: Response) => {
     try {
         const id = req.params.id;
         const supabase = getSupabase(req);
+        const empresa_id = (req as any).user?.empresa_id;
+
+        // Confirma que esta reunião pertence mesmo à empresa de quem está a
+        // pedir — sem isto, qualquer utilizador autenticado conseguia processar
+        // e receber de volta a transcrição/resumo confidencial de uma reunião
+        // de OUTRA empresa só por adivinhar o id.
+        const { data: reuniaoDona } = await supabase.from('reunioes').select('id').eq('id', id).eq('empresa_id', empresa_id).maybeSingle();
+        if (!reuniaoDona) return res.status(404).json({ success: false, error: 'Reunião não encontrada' });
 
         // Fonte principal: gravações de áudio reais (uma por participante, o
         // próprio microfone gravado no navegador), transcritas com Whisper — ver
@@ -105,7 +115,7 @@ export const processarTranscricao = async (req: Request, res: Response) => {
             transcricao = transcricaoFragmentos || 'Reunião sem transcrição disponível (nenhum áudio foi captado).';
         }
 
-        await supabase.from('reunioes').update({ transcricao_raw: transcricao, estado: 'Concluida' }).eq('id', id);
+        await supabase.from('reunioes').update({ transcricao_raw: transcricao, estado: 'Concluida' }).eq('id', id).eq('empresa_id', empresa_id);
 
         const resultado = await ReuniaoService.gerarResumoIA(transcricao, id, supabase);
 
@@ -139,10 +149,10 @@ export const gerarAtaPdf = async (req: Request, res: Response) => {
         const supabase = getSupabase(req);
         const empresa_id = (req as any).user?.empresa_id;
 
-        const { data: reuniao, error: rErr } = await supabase.from('reunioes').select('*').eq('id', id).single();
+        const { data: reuniao, error: rErr } = await supabase.from('reunioes').select('*').eq('id', id).eq('empresa_id', empresa_id).single();
         if (rErr || !reuniao) return res.status(404).json({ error: 'Reunião não encontrada' });
 
-        const { data: tarefas } = await supabase.from('reunioes_tarefas').select('descricao, responsavel, prazo').eq('reuniao_id', id);
+        const { data: tarefas } = await supabase.from('reunioes_tarefas').select('descricao, responsavel, prazo').eq('reuniao_id', id).eq('empresa_id', empresa_id);
 
         const parseJsonArray = (v: any): string[] => {
             if (Array.isArray(v)) return v;
@@ -181,6 +191,12 @@ export const adicionarTarefa = async (req: Request, res: Response) => {
 
         const supabase = getSupabase(req);
         const empresa_id = (req as any).user?.empresa_id;
+
+        // Confirma que a reunião é mesmo desta empresa antes de lhe associar
+        // uma tarefa nova.
+        const { data: reuniaoDona } = await supabase.from('reunioes').select('id').eq('id', id).eq('empresa_id', empresa_id).maybeSingle();
+        if (!reuniaoDona) return res.status(404).json({ success: false, error: 'Reunião não encontrada' });
+
         const { data: novaTarefa, error } = await supabase.from('reunioes_tarefas').insert({
             empresa_id, reuniao_id: id, descricao, responsavel, prazo
         }).select('*').single();

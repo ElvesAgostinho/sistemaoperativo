@@ -83,6 +83,13 @@ export class AutomationEngine {
         try {
             const { data: channelData } = await supabase.from('wa_channels').select('empresa_id').eq('id', message.channel_id).single();
             const empresaId = channelData?.empresa_id;
+            if (!empresaId) {
+                // Falha fechada: sem saber a que empresa este canal pertence,
+                // continuar processaria a mensagem contra automações e clientes
+                // de TODAS as empresas em vez de nenhuma.
+                console.error(`[AUTOPILOT] Canal ${message.channel_id} sem empresa_id associado — mensagem ignorada.`);
+                return;
+            }
 
             const conversationId = await this.getOrCreateConversation(message);
             await this.saveMessage(conversationId, message);
@@ -96,9 +103,7 @@ export class AutomationEngine {
                 return;
             }
 
-            let autoQuery = supabase.from('automations').select('*').eq('ativo', true);
-            if (empresaId) autoQuery = autoQuery.eq('empresa_id', empresaId);
-            const { data: automations } = await autoQuery;
+            const { data: automations } = await supabase.from('automations').select('*').eq('ativo', true).eq('empresa_id', empresaId);
 
             let handled = false;
             for (const automation of (automations || [])) {
@@ -685,9 +690,11 @@ export class AutomationEngine {
             }
         }
 
-        let checkClienteQuery = supabase.from('clientes').select('id, tags, custom_fields').eq('telefone', message.phone_number);
-        if (empresaId) checkClienteQuery = checkClienteQuery.eq('empresa_id', empresaId);
-        const { data: checkCliente } = await checkClienteQuery.maybeSingle();
+        // Falha fechada: sem empresaId não há como procurar/criar um cliente em
+        // segurança — procurar só pelo telefone globalmente arriscava encontrar
+        // (e alterar) o cliente errado de outra empresa.
+        if (!empresaId) return { tags: [], customFields: {} };
+        const { data: checkCliente } = await supabase.from('clientes').select('id, tags, custom_fields').eq('telefone', message.phone_number).eq('empresa_id', empresaId).maybeSingle();
         let clienteId = checkCliente?.id;
         let tags: string[] = checkCliente?.tags || [];
         let customFields: Record<string, any> = checkCliente?.custom_fields || {};

@@ -6,7 +6,8 @@ export class FinanceiroService {
 
     public static async listarTransacoes(req: Request, filtros: { tipo?: string; categoria?: string; estado?: string; mes?: number; ano?: number }) {
         const supabase = getSupabase(req);
-        let query = supabase.from('financeiro_transacoes').select('*').order('data', { ascending: false }).order('id', { ascending: false });
+        const empresa_id = (req as any).user?.empresa_id;
+        let query = supabase.from('financeiro_transacoes').select('*').eq('empresa_id', empresa_id).order('data', { ascending: false }).order('id', { ascending: false });
 
         if (filtros.tipo) query = query.eq('tipo', filtros.tipo);
         if (filtros.categoria) query = query.eq('categoria', filtros.categoria);
@@ -60,22 +61,27 @@ export class FinanceiroService {
 
     public static async marcarPago(req: Request, id: number) {
         const supabase = getSupabase(req);
-        const { error } = await supabase.from('financeiro_transacoes')
+        const empresa_id = (req as any).user?.empresa_id;
+        const { data, error } = await supabase.from('financeiro_transacoes')
             .update({ estado: 'Pago', data: new Date().toISOString().split('T')[0] })
-            .eq('id', id);
+            .eq('id', id).eq('empresa_id', empresa_id).select('id');
         if (error) throw error;
+        if (!data || data.length === 0) throw new Error('Transação não encontrada ou sem permissão para alterar.');
     }
 
     public static async apagarTransacao(req: Request, id: number) {
         const supabase = getSupabase(req);
-        const { error } = await supabase.from('financeiro_transacoes').delete().eq('id', id);
+        const empresa_id = (req as any).user?.empresa_id;
+        const { data, error } = await supabase.from('financeiro_transacoes').delete().eq('id', id).eq('empresa_id', empresa_id).select('id');
         if (error) throw error;
+        if (!data || data.length === 0) throw new Error('Transação não encontrada ou sem permissão para eliminar.');
     }
 
     public static async getResumo(req: Request) {
         const supabase = getSupabase(req);
+        const empresa_id = (req as any).user?.empresa_id;
         const { data: transacoes, error } = await supabase.from('financeiro_transacoes')
-            .select('tipo, valor, data').eq('estado', 'Pago');
+            .select('tipo, valor, data').eq('estado', 'Pago').eq('empresa_id', empresa_id);
         if (error) throw error;
 
         const hoje = new Date();
@@ -111,7 +117,7 @@ export class FinanceiroService {
         }
 
         const { count: pendentesCount } = await supabase.from('financeiro_transacoes')
-            .select('*', { count: 'exact', head: true }).eq('estado', 'Pendente');
+            .select('*', { count: 'exact', head: true }).eq('estado', 'Pendente').eq('empresa_id', empresa_id);
 
         return { saldo, entradasMes, saidasMes, fluxo, pendentesCount: pendentesCount || 0 };
     }

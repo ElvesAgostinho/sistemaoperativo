@@ -76,7 +76,7 @@ router.delete('/marcacoes/:id', async (req: Request, res: Response) => {
 // ---------- Serviços ----------
 router.get('/servicos', async (req: Request, res: Response) => {
     try {
-        const { data, error } = await getSupabase(req).from('agendamento_servicos').select('*').order('nome');
+        const { data, error } = await getSupabase(req).from('agendamento_servicos').select('*').eq('empresa_id', (req as any).user?.empresa_id).order('nome');
         if (error) throw error;
         res.json({ success: true, servicos: data });
     } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
@@ -96,8 +96,9 @@ router.post('/servicos', async (req: Request, res: Response) => {
 
 router.delete('/servicos/:id', async (req: Request, res: Response) => {
     try {
-        const { error } = await getSupabase(req).from('agendamento_servicos').update({ ativo: false }).eq('id', req.params.id);
+        const { data, error } = await getSupabase(req).from('agendamento_servicos').update({ ativo: false }).eq('id', req.params.id).eq('empresa_id', (req as any).user?.empresa_id).select('id');
         if (error) throw error;
+        if (!data || data.length === 0) return res.status(404).json({ success: false, error: 'Serviço não encontrado ou sem permissão para eliminar.' });
         res.json({ success: true });
     } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
@@ -105,7 +106,7 @@ router.delete('/servicos/:id', async (req: Request, res: Response) => {
 // ---------- Profissionais ----------
 router.get('/profissionais', async (req: Request, res: Response) => {
     try {
-        const { data, error } = await getSupabase(req).from('agendamento_profissionais').select('*').order('nome');
+        const { data, error } = await getSupabase(req).from('agendamento_profissionais').select('*').eq('empresa_id', (req as any).user?.empresa_id).order('nome');
         if (error) throw error;
         res.json({ success: true, profissionais: data });
     } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
@@ -123,8 +124,9 @@ router.post('/profissionais', async (req: Request, res: Response) => {
 
 router.delete('/profissionais/:id', async (req: Request, res: Response) => {
     try {
-        const { error } = await getSupabase(req).from('agendamento_profissionais').update({ ativo: false }).eq('id', req.params.id);
+        const { data, error } = await getSupabase(req).from('agendamento_profissionais').update({ ativo: false }).eq('id', req.params.id).eq('empresa_id', (req as any).user?.empresa_id).select('id');
         if (error) throw error;
+        if (!data || data.length === 0) return res.status(404).json({ success: false, error: 'Profissional não encontrado ou sem permissão para eliminar.' });
         res.json({ success: true });
     } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
@@ -132,7 +134,7 @@ router.delete('/profissionais/:id', async (req: Request, res: Response) => {
 // ---------- Horário de funcionamento ----------
 router.get('/horarios', async (req: Request, res: Response) => {
     try {
-        const { data, error } = await getSupabase(req).from('agendamento_horarios').select('*').order('dia_semana');
+        const { data, error } = await getSupabase(req).from('agendamento_horarios').select('*').eq('empresa_id', (req as any).user?.empresa_id).order('dia_semana');
         if (error) throw error;
         res.json({ success: true, horarios: data });
     } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }

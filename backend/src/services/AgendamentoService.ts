@@ -144,13 +144,14 @@ export class AgendamentoService {
 
     public static async cancelarAgendamento(req: Request, id: number) {
         const client = getSupabase(req);
-        const { data: ag } = await client.from('agendamentos').select('*, agendamento_servicos(nome)').eq('id', id).single();
+        const empresaId = (req as any).user?.empresa_id;
+        const { data: ag } = await client.from('agendamentos').select('*, agendamento_servicos(nome)').eq('id', id).eq('empresa_id', empresaId).single();
         if (!ag) throw new Error('Marcação não encontrada.');
 
-        const { error } = await client.from('agendamentos').update({ estado: 'Cancelado' }).eq('id', id);
+        const { error } = await client.from('agendamentos').update({ estado: 'Cancelado' }).eq('id', id).eq('empresa_id', empresaId);
         if (error) throw error;
 
-        await AgendamentoService.notificarCliente((req as any).user?.empresa_id, ag.cliente_telefone,
+        await AgendamentoService.notificarCliente(empresaId, ag.cliente_telefone,
             `Olá ${ag.cliente_nome}, a sua marcação de *${(ag as any).agendamento_servicos?.nome}* no dia ${AgendamentoService.formatarData(ag.data)} às ${ag.hora_inicio.slice(0, 5)} foi cancelada. Contacte-nos para remarcar quando quiser.`,
             client
         );
@@ -159,7 +160,7 @@ export class AgendamentoService {
     public static async remarcarAgendamento(req: Request, id: number, novaData: string, novaHora: string) {
         const client = getSupabase(req);
         const empresaId = (req as any).user?.empresa_id;
-        const { data: ag } = await client.from('agendamentos').select('*, agendamento_servicos(nome, duracao_minutos)').eq('id', id).single();
+        const { data: ag } = await client.from('agendamentos').select('*, agendamento_servicos(nome, duracao_minutos)').eq('id', id).eq('empresa_id', empresaId).single();
         if (!ag) throw new Error('Marcação não encontrada.');
 
         const duracao = (ag as any).agendamento_servicos?.duracao_minutos || 30;
@@ -167,7 +168,7 @@ export class AgendamentoService {
 
         const { error } = await client.from('agendamentos').update({
             data: novaData, hora_inicio: novaHora, hora_fim: novaHoraFim, estado: 'Agendado'
-        }).eq('id', id);
+        }).eq('id', id).eq('empresa_id', empresaId);
         if (error) throw error;
 
         await AgendamentoService.notificarCliente(empresaId, ag.cliente_telefone,
@@ -243,20 +244,26 @@ export class AgendamentoService {
 
     public static async atualizarEstado(req: Request, id: number, estado: string) {
         const client = getSupabase(req);
-        const { error } = await client.from('agendamentos').update({ estado }).eq('id', id);
+        const empresaId = (req as any).user?.empresa_id;
+        const { data, error } = await client.from('agendamentos').update({ estado }).eq('id', id).eq('empresa_id', empresaId).select('id');
         if (error) throw error;
+        if (!data || data.length === 0) throw new Error('Marcação não encontrada ou sem permissão para alterar.');
     }
 
     public static async eliminarAgendamento(req: Request, id: number) {
         const client = getSupabase(req);
-        const { error } = await client.from('agendamentos').delete().eq('id', id);
+        const empresaId = (req as any).user?.empresa_id;
+        const { data, error } = await client.from('agendamentos').delete().eq('id', id).eq('empresa_id', empresaId).select('id');
         if (error) throw error;
+        if (!data || data.length === 0) throw new Error('Marcação não encontrada ou sem permissão para eliminar.');
     }
 
     public static async listarAgendamentos(req: Request, filtros: { data_inicio?: string; data_fim?: string; estado?: string }) {
         const client = getSupabase(req);
+        const empresaId = (req as any).user?.empresa_id;
         let query = client.from('agendamentos')
             .select('*, agendamento_servicos(nome, duracao_minutos, cor), agendamento_profissionais(nome)')
+            .eq('empresa_id', empresaId)
             .order('data', { ascending: true }).order('hora_inicio', { ascending: true });
 
         if (filtros.data_inicio) query = query.gte('data', filtros.data_inicio);
@@ -275,13 +282,14 @@ export class AgendamentoService {
 
     public static async getResumo(req: Request) {
         const client = getSupabase(req);
+        const empresaId = (req as any).user?.empresa_id;
         const hoje = new Date().toISOString().slice(0, 10);
         const em7dias = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
 
-        const { data: hojeRows } = await client.from('agendamentos').select('estado').eq('data', hoje).neq('estado', 'Cancelado');
+        const { data: hojeRows } = await client.from('agendamentos').select('estado').eq('data', hoje).neq('estado', 'Cancelado').eq('empresa_id', empresaId);
         const { count: totalProximos } = await client.from('agendamentos').select('*', { count: 'exact', head: true })
-            .gte('data', hoje).lte('data', em7dias).neq('estado', 'Cancelado');
-        const { data: servicos } = await client.from('agendamento_servicos').select('id').eq('ativo', true);
+            .gte('data', hoje).lte('data', em7dias).neq('estado', 'Cancelado').eq('empresa_id', empresaId);
+        const { data: servicos } = await client.from('agendamento_servicos').select('id').eq('ativo', true).eq('empresa_id', empresaId);
 
         return {
             marcacoesHoje: (hojeRows || []).length,

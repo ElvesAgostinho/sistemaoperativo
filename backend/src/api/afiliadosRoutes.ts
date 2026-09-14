@@ -112,7 +112,7 @@ router.get('/materiais', requireAuth, async (req: Request, res: Response) => {
     try {
         const supabase = getSupabase(req);
         const { data: materiais, error } = await supabase.from('materiais_marketing')
-            .select('*').order('criado_em', { ascending: false });
+            .select('*').eq('empresa_id', (req as any).user?.empresa_id).order('criado_em', { ascending: false });
         if (error) throw error;
         res.json({ materiais });
     } catch (err: any) {

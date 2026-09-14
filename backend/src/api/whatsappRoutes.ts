@@ -1398,7 +1398,7 @@ router.post('/grupos', requireAuth, async (req: AuthRequest, res: Response) => {
 
 router.get('/grupos', requireAuth, async (req: AuthRequest, res: Response) => {
     try {
-        const { data: grupos, error } = await getSupabase(req).from('wa_grupos').select('*').order('criado_em', { ascending: false });
+        const { data: grupos, error } = await getSupabase(req).from('wa_grupos').select('*').eq('empresa_id', req.user!.empresa_id).order('criado_em', { ascending: false });
         if (error) throw error;
 
         const comStats = await Promise.all((grupos || []).map(async (g: any) => {
@@ -1427,7 +1427,7 @@ router.put('/grupos/:id', requireAuth, async (req: AuthRequest, res: Response) =
         if (respostas_max_hora !== undefined) updates.respostas_max_hora = respostas_max_hora;
         if (nome !== undefined) updates.nome = nome;
 
-        const { data, error } = await getSupabase(req).from('wa_grupos').update(updates).eq('id', req.params.id).select('*').single();
+        const { data, error } = await getSupabase(req).from('wa_grupos').update(updates).eq('id', req.params.id).eq('empresa_id', req.user!.empresa_id).select('*').single();
         if (error) throw error;
         res.json({ success: true, grupo: data });
     } catch (err: any) {
@@ -1437,8 +1437,9 @@ router.put('/grupos/:id', requireAuth, async (req: AuthRequest, res: Response) =
 
 router.delete('/grupos/:id', requireAuth, async (req: AuthRequest, res: Response) => {
     try {
-        const { error } = await getSupabase(req).from('wa_grupos').delete().eq('id', req.params.id);
+        const { data, error } = await getSupabase(req).from('wa_grupos').delete().eq('id', req.params.id).eq('empresa_id', req.user!.empresa_id).select('id');
         if (error) throw error;
+        if (!data || data.length === 0) return res.status(404).json({ success: false, error: 'Grupo não encontrado ou sem permissão para eliminar.' });
         res.json({ success: true });
     } catch (err: any) {
         res.status(500).json({ error: err.message });
@@ -1447,6 +1448,13 @@ router.delete('/grupos/:id', requireAuth, async (req: AuthRequest, res: Response
 
 router.get('/grupos/:id/mensagens', requireAuth, async (req: AuthRequest, res: Response) => {
     try {
+        // Confirma que o grupo é mesmo desta empresa antes de devolver as
+        // mensagens — sem isto, qualquer utilizador autenticado lia as
+        // mensagens de um grupo de WhatsApp de OUTRA empresa só por adivinhar
+        // o id.
+        const { data: grupo } = await getSupabase(req).from('wa_grupos').select('id').eq('id', req.params.id).eq('empresa_id', req.user!.empresa_id).maybeSingle();
+        if (!grupo) return res.status(404).json({ error: 'Grupo não encontrado.' });
+
         const limit = Math.min(Number(req.query.limit) || 100, 300);
         const { data, error } = await getSupabase(req).from('wa_grupo_mensagens').select('*')
             .eq('grupo_id', req.params.id).order('criado_em', { ascending: false }).limit(limit);
@@ -1459,6 +1467,10 @@ router.get('/grupos/:id/mensagens', requireAuth, async (req: AuthRequest, res: R
 
 router.get('/grupos/:id/resumos', requireAuth, async (req: AuthRequest, res: Response) => {
     try {
+        // Ver nota equivalente em /grupos/:id/mensagens.
+        const { data: grupo } = await getSupabase(req).from('wa_grupos').select('id').eq('id', req.params.id).eq('empresa_id', req.user!.empresa_id).maybeSingle();
+        if (!grupo) return res.status(404).json({ error: 'Grupo não encontrado.' });
+
         const { data, error } = await getSupabase(req).from('wa_grupo_resumos').select('*')
             .eq('grupo_id', req.params.id).order('criado_em', { ascending: false }).limit(30);
         if (error) throw error;
@@ -1472,7 +1484,11 @@ router.post('/grupos/:id/resumir', requireAuth, async (req: AuthRequest, res: Re
     const empresaId = req.user?.empresa_id;
     if (!empresaId) return res.status(400).json({ error: 'Empresa não encontrada' });
     try {
-        const { data: grupo } = await getSupabase(req).from('wa_grupos').select('id, empresa_id').eq('id', req.params.id).maybeSingle();
+        // Tem de pertencer mesmo a esta empresa — antes o código lia o grupo
+        // só pelo id e confiava cegamente no empresa_id devolvido, permitindo
+        // gerar (e devolver na resposta) o resumo confidencial de um grupo de
+        // OUTRA empresa.
+        const { data: grupo } = await getSupabase(req).from('wa_grupos').select('id, empresa_id').eq('id', req.params.id).eq('empresa_id', empresaId).maybeSingle();
         if (!grupo) return res.status(404).json({ error: 'Grupo não encontrado.' });
 
         const horas = Number(req.body?.horas) || 24;

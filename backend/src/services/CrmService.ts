@@ -7,7 +7,8 @@ export class CrmService {
     // --- CLIENTES ---
     public static async getClientes(req: Request) {
         const supabase = getSupabase(req);
-        const { data, error } = await supabase.from('clientes').select('*').order('criado_em', { ascending: false });
+        const empresa_id = (req as any).user?.empresa_id;
+        const { data, error } = await supabase.from('clientes').select('*').eq('empresa_id', empresa_id).order('criado_em', { ascending: false });
         if (error) throw error;
         return data;
     }
@@ -34,16 +35,19 @@ export class CrmService {
 
     public static async deleteCliente(req: Request, id: number) {
         const supabase = getSupabase(req);
-        // Cascade delete child negocios explicitly
-        await supabase.from('negocios').delete().eq('cliente_id', id);
-        const { error } = await supabase.from('clientes').delete().eq('id', id);
+        const empresa_id = (req as any).user?.empresa_id;
+        // Cascade delete child negocios explicitly — scoped à mesma empresa.
+        await supabase.from('negocios').delete().eq('cliente_id', id).eq('empresa_id', empresa_id);
+        const { data, error } = await supabase.from('clientes').delete().eq('id', id).eq('empresa_id', empresa_id).select('id');
         if (error) throw error;
+        if (!data || data.length === 0) throw new Error('Cliente não encontrado ou sem permissão para eliminar.');
     }
 
     // --- NEGÓCIOS (LEADS) ---
     public static async getNegocios(req: Request) {
         const supabase = getSupabase(req);
-        const { data, error } = await supabase.from('negocios').select('*, clientes(nome, empresa)').order('criado_em', { ascending: false });
+        const empresa_id = (req as any).user?.empresa_id;
+        const { data, error } = await supabase.from('negocios').select('*, clientes(nome, empresa)').eq('empresa_id', empresa_id).order('criado_em', { ascending: false });
         if (error) throw error;
         return data.map((n: any) => ({
             ...n,
@@ -69,15 +73,19 @@ export class CrmService {
 
     public static async updateFaseNegocio(req: Request, negocio_id: number, nova_fase: string) {
         const supabase = getSupabase(req);
-        const { error } = await supabase.from('negocios').update({ fase: nova_fase }).eq('id', negocio_id);
+        const empresa_id = (req as any).user?.empresa_id;
+        const { data, error } = await supabase.from('negocios').update({ fase: nova_fase }).eq('id', negocio_id).eq('empresa_id', empresa_id).select('id');
         if (error) throw error;
+        if (!data || data.length === 0) throw new Error('Negócio não encontrado ou sem permissão para alterar.');
     }
 
     public static async deleteNegocio(req: Request, id: number) {
         const supabase = getSupabase(req);
-        await supabase.from('proformas').delete().eq('negocio_id', id);
-        const { error } = await supabase.from('negocios').delete().eq('id', id);
+        const empresa_id = (req as any).user?.empresa_id;
+        await supabase.from('proformas').delete().eq('negocio_id', id).eq('empresa_id', empresa_id);
+        const { data, error } = await supabase.from('negocios').delete().eq('id', id).eq('empresa_id', empresa_id).select('id');
         if (error) throw error;
+        if (!data || data.length === 0) throw new Error('Negócio não encontrado ou sem permissão para eliminar.');
     }
 
     // --- PROFORMAS ---
@@ -85,12 +93,12 @@ export class CrmService {
         const supabase = getSupabase(req);
         const empresa_id = (req as any).user?.empresa_id;
 
-        const { data: negocio, error } = await supabase.from('negocios').select('*, clientes(nome, empresa, telefone, email)').eq('id', negocio_id).single();
+        const { data: negocio, error } = await supabase.from('negocios').select('*, clientes(nome, empresa, telefone, email)').eq('id', negocio_id).eq('empresa_id', empresa_id).single();
         if (error || !negocio) throw new Error('Negócio não encontrado');
 
         const { filePath, totalGeral } = await PdfService.gerarProformaPdf(negocio, itens, empresa_id);
 
-        await supabase.from('negocios').update({ valor_estimado: totalGeral }).eq('id', negocio_id);
+        await supabase.from('negocios').update({ valor_estimado: totalGeral }).eq('id', negocio_id).eq('empresa_id', empresa_id);
         await supabase.from('proformas').insert({
             empresa_id,
             negocio_id,
@@ -106,11 +114,12 @@ export class CrmService {
         const empresa_id = (req as any).user?.empresa_id;
 
         const { data: negocio, error: negErr } = await supabase.from('negocios')
-            .select('titulo, clientes(nome)').eq('id', negocio_id).single();
+            .select('titulo, clientes(nome)').eq('id', negocio_id).eq('empresa_id', empresa_id).single();
         if (negErr) throw negErr;
 
-        const { error: faseErr } = await supabase.from('negocios').update({ fase: 'Ganho' }).eq('id', negocio_id);
+        const { data: faseData, error: faseErr } = await supabase.from('negocios').update({ fase: 'Ganho' }).eq('id', negocio_id).eq('empresa_id', empresa_id).select('id');
         if (faseErr) throw faseErr;
+        if (!faseData || faseData.length === 0) throw new Error('Negócio não encontrado ou sem permissão para registar pagamento.');
 
         const clienteNome = (negocio as any)?.clientes?.nome || 'Cliente';
         const { data: transacao, error: transErr } = await supabase.from('financeiro_transacoes').insert({

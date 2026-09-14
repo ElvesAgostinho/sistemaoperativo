@@ -10,7 +10,8 @@ export class EmployeeService {
 
     public static async getAllEmployees(req: Request) {
         const supabase = getSupabase(req);
-        const { data, error } = await supabase.from('colaboradores').select('*, departamentos(nome), contratos(tipo_contrato, data_fim, estado)');
+        const empresa_id = (req as any).user?.empresa_id;
+        const { data, error } = await supabase.from('colaboradores').select('*, departamentos(nome), contratos(tipo_contrato, data_fim, estado)').eq('empresa_id', empresa_id);
         if (error) throw error;
         
         return data.map((c: any) => ({
@@ -75,7 +76,8 @@ export class EmployeeService {
 
     public static async updateEmployee(req: Request, id: number, dados: any) {
         const supabase = getSupabase(req);
-        const { error } = await supabase.from('colaboradores').update({
+        const empresa_id = (req as any).user?.empresa_id;
+        const { data, error } = await supabase.from('colaboradores').update({
             nome: dados.nome, bi: dados.bi, nif: dados.nif, cargo: dados.cargo, 
             salario_base: dados.salario_base, iban: dados.iban,
             banco: dados.banco, email: dados.email, telefone: dados.telefone, niss: dados.niss, 
@@ -85,19 +87,22 @@ export class EmployeeService {
             sub_transporte_contrato: dados.sub_transporte_contrato || 0,
             estado_civil: dados.estado_civil, genero: dados.genero, nacionalidade: dados.nacionalidade, 
             endereco: dados.endereco, contato_emergencia: dados.contato_emergencia
-        }).eq('id', id);
+        }).eq('id', id).eq('empresa_id', empresa_id).select('id');
 
         if (error) throw error;
+        if (!data || data.length === 0) throw new Error('Colaborador não encontrado ou sem permissão para editar.');
     }
 
     public static async deleteEmployee(req: Request, id: number) {
         const supabase = getSupabase(req);
-        await supabase.from('documentos_colaboradores').delete().eq('colaborador_id', id);
-        await supabase.from('recibos_vencimento').delete().eq('colaborador_id', id);
-        await supabase.from('ausencias').delete().eq('colaborador_id', id);
-        await supabase.from('contratos').delete().eq('colaborador_id', id);
-        const { error } = await supabase.from('colaboradores').delete().eq('id', id);
+        const empresa_id = (req as any).user?.empresa_id;
+        await supabase.from('documentos_colaboradores').delete().eq('colaborador_id', id).eq('empresa_id', empresa_id);
+        await supabase.from('recibos_vencimento').delete().eq('colaborador_id', id).eq('empresa_id', empresa_id);
+        await supabase.from('ausencias').delete().eq('colaborador_id', id).eq('empresa_id', empresa_id);
+        await supabase.from('contratos').delete().eq('colaborador_id', id).eq('empresa_id', empresa_id);
+        const { data, error } = await supabase.from('colaboradores').delete().eq('id', id).eq('empresa_id', empresa_id).select('id');
         if (error) throw error;
+        if (!data || data.length === 0) throw new Error('Colaborador não encontrado ou sem permissão para eliminar.');
     }
 
     public static async listarDocumentos(req: Request, colaboradorId: number) {
@@ -123,7 +128,8 @@ export class EmployeeService {
 
     public static async listarDepartamentos(req: Request) {
         const supabase = getSupabase(req);
-        const { data, error } = await supabase.from('departamentos').select('*, colaboradores(nome)');
+        const empresa_id = (req as any).user?.empresa_id;
+        const { data, error } = await supabase.from('departamentos').select('*, colaboradores(nome)').eq('empresa_id', empresa_id);
         if (error) throw error;
         return data.map((d: any) => ({ ...d, nome_gestor: d.colaboradores?.nome }));
     }
@@ -144,9 +150,11 @@ export class EmployeeService {
 
     public static async deleteDepartamento(req: Request, id: number) {
         const supabase = getSupabase(req);
-        await supabase.from('colaboradores').update({ departamento_id: null }).eq('departamento_id', id);
-        const { error } = await supabase.from('departamentos').delete().eq('id', id);
+        const empresa_id = (req as any).user?.empresa_id;
+        await supabase.from('colaboradores').update({ departamento_id: null }).eq('departamento_id', id).eq('empresa_id', empresa_id);
+        const { data, error } = await supabase.from('departamentos').delete().eq('id', id).eq('empresa_id', empresa_id).select('id');
         if (error) throw error;
+        if (!data || data.length === 0) throw new Error('Departamento não encontrado ou sem permissão para eliminar.');
     }
 
     public static async registrarAusencia(req: Request, colaborador_id: number, tipo: string, data_inicio: string, data_fim: string, justificada: boolean, comprovativo_path: string | null = null, estado_inicial: string = 'Pendente Chefia') {
@@ -167,7 +175,8 @@ export class EmployeeService {
 
     public static async listarAusencias(req: Request, colaboradorId?: number) {
         const supabase = getSupabase(req);
-        let query = supabase.from('ausencias').select('*, colaboradores(nome, cargo)').order('criado_em', { ascending: false });
+        const empresa_id = (req as any).user?.empresa_id;
+        let query = supabase.from('ausencias').select('*, colaboradores(nome, cargo)').eq('empresa_id', empresa_id).order('criado_em', { ascending: false });
         if (colaboradorId) {
             query = query.eq('colaborador_id', colaboradorId);
         }
@@ -178,11 +187,13 @@ export class EmployeeService {
 
     public static async atualizarEstadoAusencia(req: Request, id: number, estado: string) {
         const supabase = getSupabase(req);
-        const { error } = await supabase.from('ausencias').update({
+        const empresa_id = (req as any).user?.empresa_id;
+        const { data, error } = await supabase.from('ausencias').update({
             estado_aprovacao: estado,
             justificada: estado === 'Justificada'
-        }).eq('id', id);
+        }).eq('id', id).eq('empresa_id', empresa_id).select('id');
         if (error) throw error;
+        if (!data || data.length === 0) throw new Error('Ausência não encontrada ou sem permissão para alterar.');
     }
 
     // --- Processamento Salarial ---
@@ -292,13 +303,16 @@ export class EmployeeService {
 
     public static async fecharProcessamento(req: Request, processamentoId: number) {
         const supabase = getSupabase(req);
-        const { error } = await supabase.from('processamentos_mensais').update({ estado: 'Fechado' }).eq('id', processamentoId);
+        const empresa_id = (req as any).user?.empresa_id;
+        const { data, error } = await supabase.from('processamentos_mensais').update({ estado: 'Fechado' }).eq('id', processamentoId).eq('empresa_id', empresa_id).select('id');
         if (error) throw error;
+        if (!data || data.length === 0) throw new Error('Processamento não encontrado ou sem permissão para fechar.');
     }
 
     public static async atualizarReciboManual(req: Request, id: number, dados: any) {
         const supabase = getSupabase(req);
-        const { data: existente, error: getErr } = await supabase.from('recibos_vencimento').select('salario_base').eq('id', id).single();
+        const empresa_id = (req as any).user?.empresa_id;
+        const { data: existente, error: getErr } = await supabase.from('recibos_vencimento').select('salario_base').eq('id', id).eq('empresa_id', empresa_id).single();
         if (getErr) throw getErr;
 
         const salarioBase = Number(existente.salario_base) || 0;
@@ -314,7 +328,7 @@ export class EmployeeService {
         const totalDescontos = descontoFaltas + inssTrabalhador + irt + outrosDescontos;
         const total_liquido = salarioBruto - totalDescontos;
 
-        const { error } = await supabase.from('recibos_vencimento').update({
+        const { data, error } = await supabase.from('recibos_vencimento').update({
             faltas_dias: dados.faltas_dias,
             desconto_faltas: descontoFaltas,
             subsidio_alimentacao: subAlimentacao,
@@ -324,8 +338,9 @@ export class EmployeeService {
             irt,
             inss_trabalhador: inssTrabalhador,
             total_liquido
-        }).eq('id', id);
+        }).eq('id', id).eq('empresa_id', empresa_id).select('id');
         if (error) throw error;
+        if (!data || data.length === 0) throw new Error('Recibo não encontrado ou sem permissão para editar.');
     }
 
     public static async gerarReciboPdf(req: Request, reciboId: number): Promise<string> {
@@ -334,7 +349,7 @@ export class EmployeeService {
 
         const { data: recibo, error } = await supabase.from('recibos_vencimento')
             .select('*, colaboradores(nome, nif), processamentos_mensais(mes, ano)')
-            .eq('id', reciboId).single();
+            .eq('id', reciboId).eq('empresa_id', empresa_id).single();
         if (error || !recibo) throw new Error('Recibo não encontrado.');
 
         const mesAno = `${String(recibo.processamentos_mensais?.mes || '').padStart(2, '0')}/${recibo.processamentos_mensais?.ano || ''}`;
@@ -365,7 +380,7 @@ export class EmployeeService {
 
         const { data: colaborador, error } = await supabase.from('colaboradores')
             .select('nome, bi, nif, cargo, salario_base, contratos(data_inicio)')
-            .eq('id', colaborador_id).single();
+            .eq('id', colaborador_id).eq('empresa_id', empresa_id).single();
         if (error || !colaborador) throw new Error('Colaborador não encontrado.');
 
         return PdfService.gerarDeclaracaoServico({
@@ -381,8 +396,9 @@ export class EmployeeService {
     // --- Adiantamentos (Vales) ---
     public static async listarAdiantamentos(req: Request) {
         const supabase = getSupabase(req);
+        const empresa_id = (req as any).user?.empresa_id;
         const { data, error } = await supabase.from('adiantamentos')
-            .select('*, colaboradores(nome)').order('criado_em', { ascending: false });
+            .select('*, colaboradores(nome)').eq('empresa_id', empresa_id).order('criado_em', { ascending: false });
         if (error) throw error;
         return (data || []).map((a: any) => ({ ...a, nome: a.colaboradores?.nome }));
     }
@@ -409,8 +425,10 @@ export class EmployeeService {
     // --- Avaliações de Desempenho ---
     public static async listarAvaliacoes(req: Request) {
         const supabase = getSupabase(req);
+        const empresa_id = (req as any).user?.empresa_id;
         const { data, error } = await supabase.from('avaliacoes_desempenho')
             .select('*, avaliado:colaboradores!avaliacoes_desempenho_colaborador_id_fkey(nome), avaliador:colaboradores!avaliacoes_desempenho_avaliador_id_fkey(nome)')
+            .eq('empresa_id', empresa_id)
             .order('data_avaliacao', { ascending: false });
         if (error) throw error;
         return (data || []).map((a: any) => ({

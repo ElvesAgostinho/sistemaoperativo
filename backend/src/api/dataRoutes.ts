@@ -71,7 +71,10 @@ const getCustomOpenAIKey = async (req: Request): Promise<string | null> => {
     const empresa_id = (req as any).user?.empresa_id;
 
     if (empresa_id) {
-        const { data } = await supabase.from('configuracoes').select('valor').eq('chave', 'openai_api_key').single();
+        // Sem o filtro por empresa_id, a primeira empresa a configurar uma
+        // chave própria fazia com que TODAS as outras empresas passassem a
+        // usar (e a pagar, do lado dela) essa mesma chave.
+        const { data } = await supabase.from('configuracoes').select('valor').eq('chave', 'openai_api_key').eq('empresa_id', empresa_id).single();
         if (data && data.valor) return data.valor;
     }
 
