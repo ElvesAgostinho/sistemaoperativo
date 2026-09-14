@@ -67,9 +67,11 @@ export default function KnowledgeBaseApp() {
       });
       if (res.ok) {
         fetchFiles();
+      } else {
+        alert('Erro ao apagar o documento.');
       }
     } catch(err) {
-      alert("Erro ao apagar");
+      alert("Erro de rede ao apagar o documento.");
     }
   };
 

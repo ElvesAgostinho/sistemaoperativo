@@ -247,7 +247,7 @@ export default function SettingsApp() {
                 body: JSON.stringify({ role: newRole })
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error);
+            if (!res.ok || data.success === false) throw new Error(data.error);
             fetchUsers(); // Refresh
         } catch (err: any) {
             alert(err.message || 'Erro ao atualizar a função do utilizador.');
@@ -263,7 +263,7 @@ export default function SettingsApp() {
                 body: JSON.stringify({ ativo })
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error);
+            if (!res.ok || data.success === false) throw new Error(data.error);
             fetchUsers(); // Refresh
         } catch (err: any) {
             alert(err.message || 'Erro ao atualizar o estado do utilizador.');

@@ -46,9 +46,11 @@ export default function NodeConfigPanel({ node, automations, currentAutomationId
       const data = await res.json();
       if (data.success) {
         updateConfig({ ficheiro: data.filePath });
+      } else {
+        alert('Erro no upload do ficheiro: ' + (data.error || 'erro desconhecido no servidor.'));
       }
     } catch (err) {
-      alert('Erro no upload do ficheiro');
+      alert('Erro de rede no upload do ficheiro.');
     } finally {
       setIsUploading(false);
     }

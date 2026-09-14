@@ -91,8 +91,8 @@ const SuperAdminApp = () => {
         body: JSON.stringify({ status })
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      
+      if (!res.ok || data.success === false) throw new Error(data.error);
+
       setEmpresas(prev => prev.map(emp => emp.id === id ? { ...emp, status: status as any } : emp));
     } catch (err: any) {
       alert(err.message || 'Erro inesperado ao atualizar status.');
@@ -140,7 +140,7 @@ const SuperAdminApp = () => {
         body: JSON.stringify({ modulos: empresaModulos })
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      if (!res.ok || data.success === false) throw new Error(data.error);
 
       const resLimite = await fetch(`${import.meta.env.VITE_API_URL}/api/superadmin/empresas/${editingEmpresa.id}/limite`, {
         method: 'PUT',
@@ -151,7 +151,7 @@ const SuperAdminApp = () => {
         body: JSON.stringify({ limite_usuarios: limiteParaEnviar })
       });
       const dataLimite = await resLimite.json();
-      if (!resLimite.ok) throw new Error(dataLimite.error);
+      if (!resLimite.ok || dataLimite.success === false) throw new Error(dataLimite.error);
 
       setEmpresas(prev => prev.map(emp => emp.id === editingEmpresa.id ? { ...emp, limite_usuarios: limiteParaEnviar } : emp));
       setShowModal(false);

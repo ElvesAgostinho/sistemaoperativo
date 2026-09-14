@@ -201,9 +201,11 @@ export default function HrApp() {
       const data = await res.json();
       if (data.success) {
         if (showVacationModal) fetchEmployeeVacations(showVacationModal);
+      } else {
+        alert('Erro ao atualizar a ausência: ' + (data.error || 'erro desconhecido no servidor.'));
       }
     } catch (err) {
-      console.error(err);
+      alert('Erro de rede ao atualizar a ausência.');
     }
   };
 

@@ -215,9 +215,11 @@ export default function ReunioesApp({ initialMeetingId, userName }: { initialMee
                 setNovaTarefaDescricao('');
                 setNovaTarefaResp('');
                 setNovaTarefaPrazo('');
+            } else {
+                alert('Erro ao adicionar tarefa: ' + (data.error || 'erro desconhecido no servidor.'));
             }
         } catch (error) {
-            console.error(error);
+            alert('Erro de rede ao adicionar tarefa.');
         } finally {
             setLoading(false);
         }

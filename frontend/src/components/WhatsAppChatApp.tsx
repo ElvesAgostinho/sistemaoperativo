@@ -651,9 +651,11 @@ export default function WhatsAppChatApp() {
             const data = await res.json();
             if (data.success) {
                 setIsBotPaused(data.paused);
+            } else {
+                alert('Erro ao mudar o estado do bot: ' + (data.error || 'erro desconhecido no servidor.'));
             }
         } catch (err) {
-            console.error('Failed to toggle bot status:', err);
+            alert('Erro de rede ao mudar o estado do bot.');
         }
     }
 
