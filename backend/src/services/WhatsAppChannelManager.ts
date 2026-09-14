@@ -215,8 +215,36 @@ export class WhatsAppChannelManager {
                 else if (mimetype.startsWith('video/')) mediatype = 'video';
                 else if (mimetype.startsWith('audio/')) mediatype = 'audio';
 
+                // Áudio usa o endpoint dedicado /sendWhatsAppAudio, não o genérico
+                // /sendMedia — só assim o WhatsApp mostra a bolha nativa de nota de
+                // voz (onda sonora, botão redondo). Pelo /sendMedia, o mesmo áudio
+                // chega ao destinatário como um anexo de ficheiro qualquer, sem
+                // nenhum "ar" de WhatsApp. `encoding: true` deixa a Evolution
+                // recodificar o ficheiro para o formato opus/ogg que o WhatsApp
+                // exige, independentemente do formato original enviado.
+                if (mediatype === 'audio') {
+                    const audioEndpoint = `${evolutionUrl}/message/sendWhatsAppAudio/${instanceName}`;
+                    const audioPayload = {
+                        number: formattedPhone,
+                        audio: base64Str,
+                        encoding: true,
+                        delay: 1200
+                    };
+                    const audioResponse = await fetch(audioEndpoint, {
+                        method: 'POST',
+                        headers: { 'apikey': apiK, 'Content-Type': 'application/json' },
+                        body: JSON.stringify(audioPayload)
+                    });
+                    const audioData = await audioResponse.json().catch(() => ({}));
+                    if (!audioResponse.ok) {
+                        console.error('[Evolution API Audio Error]', JSON.stringify(audioData));
+                        return false;
+                    }
+                    return true;
+                }
+
                 const endpoint = `${evolutionUrl}/message/sendMedia/${instanceName}`;
-                
+
                 // Evolution API v2 payload (formato correcto verificado)
                 const payload = {
                     number: formattedPhone,
@@ -224,7 +252,7 @@ export class WhatsAppChannelManager {
                     mediaMessage: {
                         mediatype,
                         mimetype,
-                        caption: (mediatype !== 'audio' && caption) ? caption : '',
+                        caption: caption || '',
                         fileName,
                         media: base64Str   // base64 puro SEM o prefixo data:...
                     }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { MessageSquare, Phone, MoreVertical, Search, Paperclip, Smile, Send, Bot, Settings, QrCode, Key, Plus, UserPlus, ClipboardList, Filter, Check, CheckCheck, Clock, AlertCircle, Users, Megaphone } from 'lucide-react';
+import { MessageSquare, Phone, MoreVertical, Search, Paperclip, Smile, Send, Bot, Settings, QrCode, Key, Plus, UserPlus, ClipboardList, Filter, Check, CheckCheck, Clock, AlertCircle, Users, Megaphone, Play, Pause } from 'lucide-react';
 import EmojiPicker from 'emoji-picker-react';
 import { createClient } from '@supabase/supabase-js';
 import WhatsAppGruposApp from './WhatsAppGruposApp';
@@ -100,6 +100,66 @@ interface Agent {
     id: string;
     nome: string;
     role: string;
+}
+
+// Nota de voz com "ar" de WhatsApp (botão redondo + barra de progresso),
+// em vez do leitor genérico do navegador (<audio controls>) — o pedido foi
+// explicitamente que o áudio enviado pelos nós do Autopilot (e qualquer
+// áudio na conversa) tivesse o mesmo aspecto do WhatsApp real, natural.
+function VoiceNotePlayer({ src, outbound }: { src: string; outbound: boolean }) {
+    const audioRef = useRef<HTMLAudioElement>(null);
+    const [playing, setPlaying] = useState(false);
+    const [duration, setDuration] = useState(0);
+    const [currentTime, setCurrentTime] = useState(0);
+
+    const toggle = () => {
+        const el = audioRef.current;
+        if (!el) return;
+        if (playing) { el.pause(); } else { el.play().catch(() => {}); }
+    };
+
+    const formatTime = (s: number) => {
+        if (!isFinite(s) || s < 0) return '0:00';
+        const m = Math.floor(s / 60);
+        const sec = Math.floor(s % 60).toString().padStart(2, '0');
+        return `${m}:${sec}`;
+    };
+
+    const progress = duration > 0 ? Math.min(1, currentTime / duration) : 0;
+    const accent = outbound ? '#0854A0' : '#25D366';
+
+    return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '4px', minWidth: '220px' }}>
+            <audio
+                ref={audioRef}
+                src={src}
+                onPlay={() => setPlaying(true)}
+                onPause={() => setPlaying(false)}
+                onEnded={() => setPlaying(false)}
+                onLoadedMetadata={e => setDuration(e.currentTarget.duration)}
+                onTimeUpdate={e => setCurrentTime(e.currentTarget.currentTime)}
+                style={{ display: 'none' }}
+            />
+            <button
+                onClick={toggle}
+                style={{
+                    width: '34px', height: '34px', borderRadius: '50%', border: 'none', flexShrink: 0,
+                    backgroundColor: accent, color: 'white', display: 'flex', alignItems: 'center',
+                    justifyContent: 'center', cursor: 'pointer'
+                }}
+                aria-label={playing ? 'Pausar' : 'Reproduzir'}
+            >
+                {playing ? <Pause size={16} fill="white" /> : <Play size={16} fill="white" style={{ marginLeft: '2px' }} />}
+            </button>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div style={{ position: 'relative', height: '3px', borderRadius: '2px', backgroundColor: 'rgba(11,20,26,0.15)' }}>
+                    <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${progress * 100}%`, borderRadius: '2px', backgroundColor: accent }} />
+                    <div style={{ position: 'absolute', top: '-3.5px', left: `calc(${progress * 100}% - 4px)`, width: '9px', height: '9px', borderRadius: '50%', backgroundColor: accent }} />
+                </div>
+                <span style={{ fontSize: '11px', color: '#5B738B' }}>{formatTime(playing || currentTime > 0 ? currentTime : duration)}</span>
+            </div>
+        </div>
+    );
 }
 
 export default function WhatsAppChatApp() {
@@ -1103,7 +1163,7 @@ export default function WhatsAppChatApp() {
                                                     } else if (isVideo) {
                                                         mediaEl = <video src={url} controls style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '2px', marginTop: cleanText ? '8px' : '0' }} />;
                                                     } else if (isAudio) {
-                                                        mediaEl = <audio src={url} controls style={{ maxWidth: '100%', marginTop: cleanText ? '8px' : '0' }} />;
+                                                        mediaEl = <VoiceNotePlayer src={url} outbound={msg.direction === 'outbound'} />;
                                                     } else {
                                                         const fname = url.split('/').pop()?.split('?')[0] || 'ficheiro';
                                                         mediaEl = <a href={url} target="_blank" rel="noreferrer" download style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: cleanText ? '8px' : '0', color: '#0854A0', textDecoration: 'underline' }}>&#128196; {decodeURIComponent(fname)}</a>;
@@ -1126,7 +1186,7 @@ export default function WhatsAppChatApp() {
                                                     } else if (mimeType.startsWith('video/')) {
                                                         mediaElement = <video src={dataUri} controls style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '2px', marginTop: cleanText ? '8px' : '0' }} />;
                                                     } else if (mimeType.startsWith('audio/')) {
-                                                        mediaElement = <audio src={dataUri} controls style={{ maxWidth: '100%', marginTop: cleanText ? '8px' : '0' }} />;
+                                                        mediaElement = <VoiceNotePlayer src={dataUri} outbound={msg.direction === 'outbound'} />;
                                                     } else {
                                                         mediaElement = <a href={dataUri} download={downloadName} style={{ display: 'block', marginTop: cleanText ? '8px' : '0', color: '#0854A0', textDecoration: 'underline' }}>Descarregar {downloadName}</a>;
                                                     }

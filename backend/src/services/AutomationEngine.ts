@@ -119,6 +119,7 @@ export class AutomationEngine {
                     channel_id: message.channel_id,
                     client_id: crmInfo.clienteId,
                     tags: (crmInfo.tags || []).join(','),
+                    conversation_id: conversationId,
                     ...crmInfo.customFields
                 };
 
@@ -580,8 +581,21 @@ export class AutomationEngine {
                         }
 
                         if (finalChannel) {
-                            await WhatsAppChannelManager.sendMessage(supabase, finalChannel, waPhone, waMessage);
+                            const sentId = await WhatsAppChannelManager.sendMessage(supabase, finalChannel, waPhone, waMessage);
                             console.log(`[AUTOPILOT] WhatsApp enviado para ${waPhone}`);
+                            // Sem isto, a mensagem chega mesmo ao telemóvel do cliente (a API
+                            // externa foi chamada com sucesso) mas nunca aparece na conversa
+                            // dentro do CRM — ninguém na equipa vê o que o Autopilot respondeu.
+                            if (context['conversation_id']) {
+                                await this.saveMessage(context['conversation_id'], {
+                                    id: typeof sentId === 'string' ? sentId : undefined,
+                                    channel_id: finalChannel,
+                                    phone_number: waPhone,
+                                    contact_name: 'Autopilot',
+                                    content: waMessage,
+                                    direction: 'outbound'
+                                });
+                            }
                         }
                     } catch (e) {
                         console.error('[AUTOPILOT] Erro ao enviar WhatsApp:', e);
@@ -617,8 +631,13 @@ export class AutomationEngine {
                     // não há streaming real possível neste ponto, mas isto evita travar o
                     // resto do backend enquanto o ficheiro é lido/codificado).
                     const buffer = await fs.promises.readFile(filePath);
-                    const base64Data = `data:${this.mimeTypeForFile(filePath)};base64,${buffer.toString('base64')}`;
                     const fileName = path.basename(filePath);
+                    const mimeType = this.mimeTypeForFile(filePath);
+                    const base64Raw = buffer.toString('base64');
+                    // Formato enviado à Evolution/Meta: SEM ";name=" (o parser delas só
+                    // aceita "data:mime;base64,..."). O nome do ficheiro para o CRM vai
+                    // à parte, só na cópia guardada em wa_messages.
+                    const base64Data = `data:${mimeType};base64,${base64Raw}`;
 
                     const { WhatsAppChannelManager } = require('./WhatsAppChannelManager');
                     let finalChannel = mediaChannelId;
@@ -633,6 +652,19 @@ export class AutomationEngine {
                         const sent = await WhatsAppChannelManager.sendMediaMessage(supabase, finalChannel, mediaPhone, base64Data, fileName, mediaCaption);
                         if (sent) {
                             console.log(`[AUTOPILOT] ${node.data.actionType} enviado para ${mediaPhone}: ${fileName}`);
+                            // Mesma lacuna do REPLY_MESSAGE: sem isto, o ficheiro chega ao
+                            // telemóvel do cliente mas nunca aparece na conversa no CRM.
+                            if (context['conversation_id']) {
+                                const base64ForCrm = `data:${mimeType};name=${encodeURIComponent(fileName)};base64,${base64Raw}`;
+                                const crmContent = `${mediaCaption ? mediaCaption + ' ' : ''}[MEDIA_BASE64:${base64ForCrm}]`;
+                                await this.saveMessage(context['conversation_id'], {
+                                    channel_id: finalChannel,
+                                    phone_number: mediaPhone,
+                                    contact_name: 'Autopilot',
+                                    content: crmContent,
+                                    direction: 'outbound'
+                                });
+                            }
                         } else {
                             console.error(`[AUTOPILOT] ${node.data.actionType} falhou ao enviar para ${mediaPhone}`);
                         }
