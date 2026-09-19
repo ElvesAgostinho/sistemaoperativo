@@ -300,24 +300,6 @@ export class AutomationEngine {
                 break;
             }
 
-            case 'CREATE_LEAD': {
-                const leadTitle = this.parseString(config.titulo, context);
-                const leadClientId = context['client_id'];
-
-                if (leadClientId) {
-                    const leadId = await CrmService.createNegocio(null, {
-                        empresa_id,
-                        cliente_id: leadClientId,
-                        titulo: leadTitle || 'Nova Lead',
-                        valor_estimado: 0
-                    });
-                    context['lead_id'] = leadId;
-                } else {
-                    console.error('CREATE_LEAD falhou: Nenhum client_id no contexto.');
-                }
-                break;
-            }
-
             case 'LOG_MESSAGE': {
                 const msg = this.parseString(config.mensagem, context);
                 console.log(`[AUTOPILOT LOG]: ${msg}`);

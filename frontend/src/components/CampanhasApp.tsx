@@ -1,8 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
     Megaphone, Plus, X, ChevronLeft, ChevronRight, Check, Play, Pause, Ban, Trash2,
-    Users, MessageSquare, Send, CheckCheck, Eye, AlertTriangle, Settings, MessagesSquare
+    Users, MessageSquare, Send, CheckCheck, Eye, AlertTriangle, Settings, MessagesSquare,
+    BadgeCheck, QrCode
 } from 'lucide-react';
+
+type TipoApi = 'oficial' | 'nao_oficial';
+
+const TIPO_INFO: Record<TipoApi, { label: string; curto: string; color: string; bg: string }> = {
+    oficial: { label: 'API Oficial (Meta)', curto: 'Oficial', color: '#107E3E', bg: '#DCEEE2' },
+    nao_oficial: { label: 'API Não Oficial (QR Code)', curto: 'Não oficial', color: '#0854A0', bg: '#E4EDF7' },
+};
 
 const API = import.meta.env.VITE_API_URL;
 const authFetch = (url: string, options: any = {}) => {
@@ -37,6 +45,7 @@ export default function CampanhasApp({ onNavigate }: { onNavigate: (v: 'chats' |
     const [loading, setLoading] = useState(true);
     const [showWizard, setShowWizard] = useState(false);
     const [ativa, setAtiva] = useState<any>(null);
+    const [aba, setAba] = useState<TipoApi>('oficial');
 
     const fetchCampanhas = useCallback(async () => {
         const res = await authFetch(`${API}/api/campanhas`);
@@ -65,6 +74,9 @@ export default function CampanhasApp({ onNavigate }: { onNavigate: (v: 'chats' |
         if (data.success) fetchCampanhas(); else alert(data.error);
     };
 
+    // Campanhas criadas antes de existir a API não oficial não têm tipo_api gravado.
+    const campanhasFiltradas = campanhas.filter(c => (c.tipo_api || 'oficial') === aba);
+
     return (
         <div style={{ display: 'flex', height: '100%', width: '100%', backgroundColor: '#F5F6F7' }}>
             <div style={{ width: '30%', minWidth: '320px', borderRight: '1px solid #D5D7DA', display: 'flex', flexDirection: 'column', backgroundColor: 'white' }}>
@@ -80,21 +92,39 @@ export default function CampanhasApp({ onNavigate }: { onNavigate: (v: 'chats' |
                     </div>
                 </div>
 
+                <div style={{ display: 'flex', borderBottom: '1px solid #D5D7DA' }}>
+                    {(Object.keys(TIPO_INFO) as TipoApi[]).map(t => (
+                        <button key={t} onClick={() => { setAba(t); setAtiva(null); setShowWizard(false); }}
+                            style={{
+                                flex: 1, padding: '10px 8px', border: 'none', cursor: 'pointer', fontSize: '12.5px', fontWeight: 700,
+                                background: aba === t ? 'white' : '#F5F6F7',
+                                color: aba === t ? '#0854A0' : '#5B738B',
+                                borderBottom: aba === t ? '2px solid #0854A0' : '2px solid transparent',
+                            }}>
+                            {TIPO_INFO[t].curto}
+                        </button>
+                    ))}
+                </div>
+
                 <div style={{ padding: '10px', borderBottom: '1px solid #f2f2f2' }}>
                     <button onClick={() => { setAtiva(null); setShowWizard(true); }} style={{ width: '100%', padding: '9px', borderRadius: '2px', border: 'none', background: '#0854A0', color: 'white', fontWeight: 600, fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                         <Plus size={15} /> Nova Campanha
                     </button>
                     <p style={{ fontSize: '11.5px', color: '#5B738B', margin: '8px 2px 0', lineHeight: 1.5 }}>
-                        Envio em massa com templates oficiais aprovados pela Meta — respeita as regras de envio fora da janela de 24h.
+                        {aba === 'oficial'
+                            ? 'Envio em massa com templates oficiais aprovados pela Meta — respeita as regras de envio fora da janela de 24h.'
+                            : 'Texto livre pelo número ligado por QR Code, sem modelos nem aprovações. Envio lento e com pausas para reduzir o risco de bloqueio.'}
                     </p>
                 </div>
 
                 <div style={{ flex: 1, overflowY: 'auto' }}>
                     {loading && <div style={{ padding: '20px', color: '#5B738B', fontSize: '13px' }}>A carregar...</div>}
-                    {!loading && campanhas.length === 0 && (
-                        <div style={{ padding: '20px', color: '#5B738B', fontSize: '13px', textAlign: 'center' }}>Nenhuma campanha ainda.</div>
+                    {!loading && campanhasFiltradas.length === 0 && (
+                        <div style={{ padding: '20px', color: '#5B738B', fontSize: '13px', textAlign: 'center' }}>
+                            Nenhuma campanha {aba === 'oficial' ? 'oficial' : 'não oficial'} ainda.
+                        </div>
                     )}
-                    {campanhas.map(c => {
+                    {campanhasFiltradas.map(c => {
                         const info = ESTADO_INFO[c.estado] || ESTADO_INFO.Rascunho;
                         return (
                             <div key={c.id} onClick={() => { setShowWizard(false); setAtiva(c); }}
@@ -114,7 +144,7 @@ export default function CampanhasApp({ onNavigate }: { onNavigate: (v: 'chats' |
 
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                 {showWizard ? (
-                    <NovaCampanhaWizard onClose={() => setShowWizard(false)} onCreated={() => { setShowWizard(false); fetchCampanhas(); }} />
+                    <NovaCampanhaWizard tipoInicial={aba} onClose={() => setShowWizard(false)} onCreated={() => { setShowWizard(false); fetchCampanhas(); }} />
                 ) : ativa ? (
                     <CampanhaDetail campanha={ativa} onAcao={acao} onEliminar={eliminar} onVoltar={() => setAtiva(null)} onRefresh={fetchCampanhas} />
                 ) : (
@@ -122,10 +152,13 @@ export default function CampanhasApp({ onNavigate }: { onNavigate: (v: 'chats' |
                         <div style={{ backgroundColor: '#F5F6F7', padding: '24px', borderRadius: '50%', marginBottom: '24px' }}>
                             <Megaphone size={64} color="#0854A0" />
                         </div>
-                        <h2 style={{ fontWeight: 300, color: '#41525d', fontSize: '28px', marginBottom: '16px' }}>Campanhas de WhatsApp</h2>
+                        <h2 style={{ fontWeight: 300, color: '#41525d', fontSize: '28px', marginBottom: '16px' }}>
+                            Campanhas {aba === 'oficial' ? 'pela API Oficial' : 'pela API Não Oficial'}
+                        </h2>
                         <p style={{ fontSize: '14px', maxWidth: '440px', textAlign: 'center', lineHeight: '20px' }}>
-                            Envie mensagens em massa com templates oficiais aprovados pela Meta, com variáveis
-                            personalizadas por contacto, agendamento e acompanhamento de entrega em tempo real.
+                            {aba === 'oficial'
+                                ? 'Envie mensagens em massa com templates aprovados pela Meta, com variáveis personalizadas por contacto, agendamento e acompanhamento de entrega em tempo real.'
+                                : 'Envie texto livre pelo número ligado por QR Code, com variáveis personalizadas por contacto. Sem modelos a aprovar — mas com envio propositadamente lento e espaçado, porque é uma conta normal do WhatsApp.'}
                         </p>
                     </div>
                 )}
@@ -166,7 +199,10 @@ function CampanhaDetail({ campanha, onAcao, onEliminar, onVoltar, onRefresh }: {
                     <button onClick={onVoltar} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#54656f' }}><ChevronLeft size={20} /></button>
                     <div>
                         <div style={{ fontWeight: 600, color: '#1D2D3E', fontSize: '15px' }}>{detalhe.nome}</div>
-                        <div style={{ fontSize: '12px', color: '#5B738B' }}>{detalhe.template_name} · <span style={{ color: info.color, fontWeight: 700 }}>{info.label}</span></div>
+                        <div style={{ fontSize: '12px', color: '#5B738B' }}>
+                            {detalhe.tipo_api === 'nao_oficial' ? TIPO_INFO.nao_oficial.curto : (detalhe.template_name || TIPO_INFO.oficial.curto)}
+                            {' · '}<span style={{ color: info.color, fontWeight: 700 }}>{info.label}</span>
+                        </div>
                     </div>
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
@@ -246,13 +282,18 @@ function EstadoDestBadge({ estado }: { estado: string }) {
 // ============================================================
 // ASSISTENTE DE NOVA CAMPANHA (wizard em 6 passos)
 // ============================================================
-function NovaCampanhaWizard({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function NovaCampanhaWizard({ onClose, onCreated, tipoInicial }: { onClose: () => void; onCreated: () => void; tipoInicial: TipoApi }) {
     const [passo, setPasso] = useState(1);
+    const [tipoApi, setTipoApi] = useState<TipoApi>(tipoInicial);
     const [nome, setNome] = useState('');
     const [descricao, setDescricao] = useState('');
 
+    const [canais, setCanais] = useState<any[]>([]);
     const [templates, setTemplates] = useState<any[]>([]);
     const [templateSel, setTemplateSel] = useState<any>(null);
+
+    const [mensagemTexto, setMensagemTexto] = useState('');
+    const [previewMensagem, setPreviewMensagem] = useState<{ preview: string; contacto: string | null } | null>(null);
 
     const [publicoTipo, setPublicoTipo] = useState<'todos' | 'tags'>('todos');
     const [tagsDisponiveis, setTagsDisponiveis] = useState<string[]>([]);
@@ -263,13 +304,16 @@ function NovaCampanhaWizard({ onClose, onCreated }: { onClose: () => void; onCre
 
     const [enviarAgora, setEnviarAgora] = useState(true);
     const [dataAgendada, setDataAgendada] = useState('');
-    const [velocidade, setVelocidade] = useState(20);
+    const [velocidade, setVelocidade] = useState(tipoInicial === 'nao_oficial' ? 8 : 20);
 
     const [criando, setCriando] = useState(false);
     const [erro, setErro] = useState('');
 
     useEffect(() => {
         (async () => {
+            const r0 = await authFetch(`${API}/api/campanhas/canais`);
+            const d0 = await r0.json();
+            if (d0.success) setCanais(d0.canais || []);
             const r1 = await authFetch(`${API}/api/whatsapp/templates`);
             const d1 = await r1.json();
             if (d1.success) setTemplates((d1.templates || []).filter((t: any) => t.status === 'APPROVED'));
@@ -289,13 +333,39 @@ function NovaCampanhaWizard({ onClose, onCreated }: { onClose: () => void; onCre
         })();
     }, [publicoTipo, tagsSel]);
 
+    // Pré-visualização da mensagem não oficial já resolvida com um contacto real.
+    useEffect(() => {
+        if (tipoApi !== 'nao_oficial' || !mensagemTexto.trim()) { setPreviewMensagem(null); return; }
+        const timer = setTimeout(async () => {
+            const res = await authFetch(`${API}/api/campanhas/mensagem/preview`, {
+                method: 'POST', body: JSON.stringify({ mensagem: mensagemTexto, publico_tipo: publicoTipo, publico_tags: tagsSel })
+            });
+            const data = await res.json();
+            if (data.success) setPreviewMensagem({ preview: data.preview, contacto: data.contacto });
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [mensagemTexto, tipoApi, publicoTipo, tagsSel]);
+
+    const canalEvolution = canais.find(c => c.provider === 'evolution');
+    const temMeta = canais.some(c => c.provider === 'meta');
     const numVariaveis = templateSel ? extrairVariaveis(templateSel.components) : 0;
 
+    const PASSOS = tipoApi === 'nao_oficial'
+        ? ['Tipo', 'Mensagem', 'Público', 'Agendamento', 'Confirmação']
+        : ['Tipo', 'Modelo', 'Público', 'Variáveis', 'Agendamento', 'Confirmação'];
+    const passoAtual = PASSOS[passo - 1];
+
+    const inserirVariavel = (v: string) => setMensagemTexto(t => `${t}{{${v}}}`);
+
     const podeAvancar = () => {
-        if (passo === 1) return nome.trim().length > 0;
-        if (passo === 2) return !!templateSel;
-        if (passo === 3) return (previewPublico?.total || 0) > 0;
-        if (passo === 5) return enviarAgora || !!dataAgendada;
+        if (passoAtual === 'Tipo') {
+            if (nome.trim().length === 0) return false;
+            return tipoApi === 'nao_oficial' ? !!canalEvolution : temMeta;
+        }
+        if (passoAtual === 'Modelo') return !!templateSel;
+        if (passoAtual === 'Mensagem') return mensagemTexto.trim().length > 0;
+        if (passoAtual === 'Público') return (previewPublico?.total || 0) > 0;
+        if (passoAtual === 'Agendamento') return enviarAgora || !!dataAgendada;
         return true;
     };
 
@@ -306,12 +376,18 @@ function NovaCampanhaWizard({ onClose, onCreated }: { onClose: () => void; onCre
             const res = await authFetch(`${API}/api/campanhas`, {
                 method: 'POST',
                 body: JSON.stringify({
-                    channel_id: templateSel.channel_id,
+                    channel_id: tipoApi === 'nao_oficial' ? canalEvolution?.id : templateSel.channel_id,
+                    tipo_api: tipoApi,
                     nome, descricao,
-                    template_name: templateSel.name, template_language: templateSel.language,
-                    template_preview: textoPreview(templateSel.components),
+                    ...(tipoApi === 'nao_oficial' ? {
+                        mensagem_texto: mensagemTexto,
+                    } : {
+                        template_name: templateSel.name,
+                        template_language: templateSel.language,
+                        template_preview: textoPreview(templateSel.components),
+                        variaveis,
+                    }),
                     publico_tipo: publicoTipo, publico_tags: tagsSel,
-                    variaveis,
                     agendada_para: enviarAgora ? null : new Date(dataAgendada).toISOString(),
                     iniciar_imediatamente: enviarAgora,
                     velocidade_por_minuto: velocidade,
@@ -325,8 +401,6 @@ function NovaCampanhaWizard({ onClose, onCreated }: { onClose: () => void; onCre
             setCriando(false);
         }
     };
-
-    const PASSOS = ['Nome', 'Modelo', 'Público', 'Variáveis', 'Agendamento', 'Confirmação'];
 
     return (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: '#f7f8fa' }}>
@@ -346,15 +420,89 @@ function NovaCampanhaWizard({ onClose, onCreated }: { onClose: () => void; onCre
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '28px', display: 'flex', justifyContent: 'center' }}>
                 <div style={{ width: '100%', maxWidth: '620px' }}>
-                    {passo === 1 && (
+                    {passoAtual === 'Tipo' && (
                         <div>
-                            <h3 style={hStyle}>Nome da campanha</h3>
+                            <h3 style={hStyle}>Por onde vai enviar?</h3>
+                            <div style={{ display: 'grid', gap: '10px', marginBottom: '20px' }}>
+                                <div onClick={() => { setTipoApi('oficial'); setVelocidade(20); setPasso(1); }}
+                                    style={tipoCardStyle(tipoApi === 'oficial', !temMeta)}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <BadgeCheck size={16} color="#107E3E" />
+                                        <strong style={{ fontSize: '13.5px' }}>API Oficial (Meta)</strong>
+                                        {!temMeta && <span style={{ fontSize: '11px', color: '#BB0000' }}>sem canal ligado</span>}
+                                    </div>
+                                    <p style={{ fontSize: '12.5px', color: '#5B738B', margin: '6px 0 0', lineHeight: 1.5 }}>
+                                        Usa modelos aprovados pela Meta. Pode escrever a qualquer contacto, mesmo fora da
+                                        janela de 24h, sem risco de bloqueio do número.
+                                    </p>
+                                </div>
+                                <div onClick={() => { setTipoApi('nao_oficial'); setVelocidade(8); setPasso(1); }}
+                                    style={tipoCardStyle(tipoApi === 'nao_oficial', !canalEvolution)}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <QrCode size={16} color="#0854A0" />
+                                        <strong style={{ fontSize: '13.5px' }}>API Não Oficial (QR Code)</strong>
+                                        {!canalEvolution && <span style={{ fontSize: '11px', color: '#BB0000' }}>sem número ligado</span>}
+                                    </div>
+                                    <p style={{ fontSize: '12.5px', color: '#5B738B', margin: '6px 0 0', lineHeight: 1.5 }}>
+                                        Escreve a mensagem livremente, sem modelos nem aprovações. Usa o número ligado
+                                        por QR Code — é uma conta normal do WhatsApp, por isso o envio é mais lento e
+                                        com pausas, para reduzir o risco de bloqueio.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {tipoApi === 'nao_oficial' && (
+                                <div style={avisoStyle}>
+                                    <AlertTriangle size={16} color="#92400e" style={{ flexShrink: 0, marginTop: '1px' }} />
+                                    <div style={{ fontSize: '12.5px', color: '#92400e', lineHeight: 1.55 }}>
+                                        <strong>O número pode ser bloqueado pelo WhatsApp.</strong> Envio em massa por uma
+                                        conta normal viola os termos da Meta. Envie só para contactos que já falaram
+                                        consigo, evite textos idênticos para listas grandes, e comece por poucos contactos
+                                        para testar antes de arriscar a lista toda.
+                                    </div>
+                                </div>
+                            )}
+
+                            <h3 style={{ ...hStyle, marginTop: '24px' }}>Nome da campanha</h3>
                             <input value={nome} onChange={e => setNome(e.target.value)} placeholder="Ex: Promoção de Fim de Ano" style={inputStyle} />
                             <textarea value={descricao} onChange={e => setDescricao(e.target.value)} placeholder="Descrição (opcional)" rows={3} style={{ ...inputStyle, marginTop: '12px', resize: 'vertical' }} />
                         </div>
                     )}
 
-                    {passo === 2 && (
+                    {passoAtual === 'Mensagem' && (
+                        <div>
+                            <h3 style={hStyle}>Mensagem a enviar</h3>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' }}>
+                                <span style={{ fontSize: '12px', color: '#5B738B', alignSelf: 'center', marginRight: '4px' }}>Inserir:</span>
+                                {['nome', 'empresa', 'telefone'].map(v => (
+                                    <button key={v} onClick={() => inserirVariavel(v)}
+                                        style={{ padding: '5px 10px', borderRadius: '2px', border: '1px solid #D5D7DA', background: 'white', fontSize: '12px', fontWeight: 600, color: '#0854A0', cursor: 'pointer' }}>
+                                        {'{{'}{v}{'}}'}
+                                    </button>
+                                ))}
+                            </div>
+                            <textarea value={mensagemTexto} onChange={e => setMensagemTexto(e.target.value)} rows={7}
+                                placeholder={'Ex: Olá {{nome}}, temos uma promoção especial esta semana...'}
+                                style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }} />
+                            <p style={{ fontSize: '12px', color: '#8996A3', margin: '8px 2px 0' }}>
+                                As variáveis são substituídas por contacto. Se o contacto não tiver o campo preenchido,
+                                fica vazio — evite frases que fiquem estranhas sem ele.
+                            </p>
+
+                            {previewMensagem && (
+                                <div style={{ marginTop: '18px' }}>
+                                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#1D2D3E' }}>
+                                        Pré-visualização{previewMensagem.contacto ? ` — como chega a ${previewMensagem.contacto}` : ''}
+                                    </label>
+                                    <div style={{ marginTop: '8px', background: '#E4EDF7', border: '1px solid #D5D7DA', borderRadius: '2px', padding: '12px 14px', fontSize: '13.5px', color: '#1D2D3E', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
+                                        {previewMensagem.preview || <span style={{ color: '#8996A3' }}>(vazio)</span>}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {passoAtual === 'Modelo' && (
                         <div>
                             <h3 style={hStyle}>Escolha o modelo aprovado pela Meta</h3>
                             {templates.length === 0 && <p style={{ color: '#8996A3', fontSize: '13px' }}>Nenhum modelo aprovado encontrado. Sincronize os modelos em WhatsApp → Configurações de Canais.</p>}
@@ -371,7 +519,7 @@ function NovaCampanhaWizard({ onClose, onCreated }: { onClose: () => void; onCre
                         </div>
                     )}
 
-                    {passo === 3 && (
+                    {passoAtual === 'Público' && (
                         <div>
                             <h3 style={hStyle}>Público-alvo</h3>
                             <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
@@ -396,7 +544,7 @@ function NovaCampanhaWizard({ onClose, onCreated }: { onClose: () => void; onCre
                         </div>
                     )}
 
-                    {passo === 4 && (
+                    {passoAtual === 'Variáveis' && (
                         <div>
                             <h3 style={hStyle}>Variáveis do modelo</h3>
                             {numVariaveis === 0 && <p style={{ color: '#8996A3', fontSize: '13px' }}>Este modelo não tem variáveis — a mensagem é enviada igual para todos.</p>}
@@ -423,7 +571,7 @@ function NovaCampanhaWizard({ onClose, onCreated }: { onClose: () => void; onCre
                         </div>
                     )}
 
-                    {passo === 5 && (
+                    {passoAtual === 'Agendamento' && (
                         <div>
                             <h3 style={hStyle}>Agendamento</h3>
                             <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
@@ -435,22 +583,49 @@ function NovaCampanhaWizard({ onClose, onCreated }: { onClose: () => void; onCre
                             )}
                             <div style={{ marginTop: '16px' }}>
                                 <label style={{ fontSize: '12px', fontWeight: 700, color: '#1D2D3E' }}>Velocidade de envio (mensagens por minuto)</label>
-                                <input type="number" min={1} max={200} value={velocidade} onChange={e => setVelocidade(Number(e.target.value))} style={{ ...inputStyle, marginTop: '8px', width: '140px' }} />
+                                <input type="number" min={1} max={tipoApi === 'nao_oficial' ? 12 : 200} value={velocidade}
+                                    onChange={e => setVelocidade(Number(e.target.value))} style={{ ...inputStyle, marginTop: '8px', width: '140px' }} />
+                                {tipoApi === 'nao_oficial' && (
+                                    <p style={{ fontSize: '12px', color: '#8996A3', margin: '8px 2px 0', lineHeight: 1.5 }}>
+                                        Máximo de 12 por minuto nesta API, com pausas irregulares de alguns segundos entre
+                                        cada mensagem. É propositado: ritmo constante e acelerado é o que faz o WhatsApp
+                                        bloquear o número.
+                                    </p>
+                                )}
                             </div>
                         </div>
                     )}
 
-                    {passo === 6 && (
+                    {passoAtual === 'Confirmação' && (
                         <div>
                             <h3 style={hStyle}>Confirmação</h3>
                             <div style={{ background: 'white', border: '1px solid #D5D7DA', borderRadius: '2px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13.5px' }}>
                                 <div><strong>Campanha:</strong> {nome}</div>
-                                <div><strong>Modelo:</strong> {templateSel?.name} ({templateSel?.language})</div>
+                                <div><strong>Envio por:</strong> {TIPO_INFO[tipoApi].label}</div>
+                                {tipoApi === 'oficial' ? (
+                                    <>
+                                        <div><strong>Modelo:</strong> {templateSel?.name} ({templateSel?.language})</div>
+                                        <div><strong>Variáveis:</strong> {numVariaveis === 0 ? 'nenhuma' : `${numVariaveis} preenchida(s)`}</div>
+                                    </>
+                                ) : (
+                                    <div>
+                                        <strong>Mensagem:</strong>
+                                        <div style={{ marginTop: '6px', background: '#F5F6F7', border: '1px solid #E7E9EB', borderRadius: '2px', padding: '10px 12px', whiteSpace: 'pre-wrap', fontSize: '13px' }}>{mensagemTexto}</div>
+                                    </div>
+                                )}
                                 <div><strong>Público:</strong> {previewPublico?.total || 0} contacto(s)</div>
-                                <div><strong>Variáveis:</strong> {numVariaveis === 0 ? 'nenhuma' : `${numVariaveis} preenchida(s)`}</div>
                                 <div><strong>Envio:</strong> {enviarAgora ? 'Imediato' : `Agendado para ${dataAgendada ? new Date(dataAgendada).toLocaleString('pt-PT') : '—'}`}</div>
                                 <div><strong>Velocidade:</strong> {velocidade} msg/min</div>
                             </div>
+                            {tipoApi === 'nao_oficial' && (
+                                <div style={{ ...avisoStyle, marginTop: '14px' }}>
+                                    <AlertTriangle size={16} color="#92400e" style={{ flexShrink: 0, marginTop: '1px' }} />
+                                    <div style={{ fontSize: '12.5px', color: '#92400e', lineHeight: 1.55 }}>
+                                        Vai enviar para <strong>{previewPublico?.total || 0} contacto(s)</strong> a partir do
+                                        seu número pessoal. O risco de bloqueio é real e é da sua responsabilidade.
+                                    </div>
+                                </div>
+                            )}
                             {erro && <p style={{ color: '#BB0000', fontSize: '13px', marginTop: '12px' }}>{erro}</p>}
                         </div>
                     )}
@@ -461,7 +636,7 @@ function NovaCampanhaWizard({ onClose, onCreated }: { onClose: () => void; onCre
                 <button onClick={() => passo === 1 ? onClose() : setPasso(p => p - 1)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', borderRadius: '2px', border: '1px solid #D5D7DA', background: 'white', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
                     <ChevronLeft size={15} /> {passo === 1 ? 'Cancelar' : 'Voltar'}
                 </button>
-                {passo < 6 ? (
+                {passo < PASSOS.length ? (
                     <button onClick={() => setPasso(p => p + 1)} disabled={!podeAvancar()} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', borderRadius: '2px', border: 'none', background: podeAvancar() ? '#0854A0' : '#D5D7DA', color: 'white', cursor: podeAvancar() ? 'pointer' : 'not-allowed', fontSize: '13px', fontWeight: 600 }}>
                         Continuar <ChevronRight size={15} />
                     </button>
@@ -481,3 +656,13 @@ const pillStyle = (ativo: boolean): React.CSSProperties => ({
     padding: '8px 14px', borderRadius: '2px', border: `1.5px solid ${ativo ? '#0854A0' : '#D5D7DA'}`,
     background: ativo ? '#0854A0' : 'white', color: ativo ? 'white' : '#1D2D3E', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer'
 });
+const tipoCardStyle = (ativo: boolean, indisponivel: boolean): React.CSSProperties => ({
+    padding: '14px', borderRadius: '2px', cursor: 'pointer',
+    border: `1.5px solid ${ativo ? '#0854A0' : '#D5D7DA'}`,
+    background: ativo ? '#E4EDF7' : 'white',
+    opacity: indisponivel ? 0.6 : 1,
+});
+const avisoStyle: React.CSSProperties = {
+    display: 'flex', gap: '10px', padding: '12px 14px', borderRadius: '2px',
+    background: '#fef3c7', border: '1px solid #fcd34d',
+};

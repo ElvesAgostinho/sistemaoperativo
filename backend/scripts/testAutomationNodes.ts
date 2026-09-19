@@ -263,23 +263,18 @@ async function testGraphNodes() {
         assert(sentWhatsApp.length === 0, 'não devia ter enviado nada');
     });
 
-    await test('CREATE_CLIENT + CREATE_LEAD encadeados (usa client_id do contexto)', async () => {
+    await test('CREATE_CLIENT propaga o client_id para os nós seguintes', async () => {
         activeResponses['clientes:select'] = { data: null, error: null }; // não existe ainda -> cria
         activeResponses['clientes:insert'] = { data: { id: 'cli-999' }, error: null };
-        activeResponses['negocios:insert'] = { data: { id: 'neg-999' }, error: null };
 
         const nodes = [
             { id: 't', type: 'trigger', data: {} },
-            { id: 'a1', type: 'action', data: { actionType: 'CREATE_CLIENT', config: { nome: '{{nome_whatsapp}}', telefone: '{{telefone}}' } } },
-            { id: 'a2', type: 'action', data: { actionType: 'CREATE_LEAD', config: { titulo: 'Lead de {{nome_whatsapp}}' } } }
+            { id: 'a1', type: 'action', data: { actionType: 'CREATE_CLIENT', config: { nome: '{{nome_whatsapp}}', telefone: '{{telefone}}' } } }
         ];
-        const edges = [{ id: 'e1', source: 't', target: 'a1' }, { id: 'e2', source: 'a1', target: 'a2' }];
+        const edges = [{ id: 'e1', source: 't', target: 'a1' }];
         const ctx = await runGraph(nodes, edges, 'a1', { nome_whatsapp: 'João', telefone: '244911111111' });
 
         assert(ctx.client_id === 'cli-999', `client_id não propagado, veio ${ctx.client_id}`);
-        assert(ctx.lead_id === 'neg-999', `lead_id não propagado, veio ${ctx.lead_id}`);
-        const insertLead = callLog.find(c => c.table === 'negocios' && c.op === 'insert');
-        assert(insertLead && insertLead.payload.cliente_id === 'cli-999', 'negocio não referenciou o cliente certo');
     });
 
     await test('ADD_TAG / REMOVE_TAG lê e junta tags corretamente', async () => {

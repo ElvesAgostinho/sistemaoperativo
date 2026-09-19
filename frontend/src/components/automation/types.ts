@@ -1,7 +1,7 @@
 export type AutomationNodeKind = 'trigger' | 'condition' | 'action' | 'menu' | 'end';
 
 export type ActionType =
-  | 'CREATE_CLIENT' | 'CREATE_LEAD' | 'SEND_EMAIL' | 'REPLY_MESSAGE'
+  | 'CREATE_CLIENT' | 'SEND_EMAIL' | 'REPLY_MESSAGE'
   | 'SEND_IMAGE' | 'SEND_VIDEO' | 'SEND_AUDIO' | 'SEND_DOCUMENT'
   | 'DELAY' | 'JUMP_TO_WORKFLOW' | 'LOG_MESSAGE'
   | 'ADD_TAG' | 'REMOVE_TAG' | 'SET_CUSTOM_FIELD' | 'EXTERNAL_REQUEST' | 'NOTIFY_TEAM' | 'HANDOFF_HUMAN' | 'AI_REPLY';
@@ -60,7 +60,6 @@ export interface Automation {
 
 export const ACTION_LABELS: Record<ActionType, string> = {
   CREATE_CLIENT: 'Criar Cliente no CRM',
-  CREATE_LEAD: 'Criar Negócio (Lead)',
   SEND_EMAIL: 'Enviar Email',
   REPLY_MESSAGE: 'Responder no WhatsApp',
   SEND_IMAGE: 'Enviar Imagem',

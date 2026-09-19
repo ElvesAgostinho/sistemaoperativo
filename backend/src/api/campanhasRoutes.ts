@@ -5,6 +5,37 @@ import { CampaignService } from '../services/CampaignService';
 
 const router = Router();
 
+// Canais de WhatsApp ligados — o assistente usa isto para saber se a empresa
+// tem API oficial (Meta), não oficial (Evolution/QR Code), ou ambas.
+router.get('/canais', requireAuth, async (req: AuthRequest, res: Response) => {
+    try {
+        const { data, error } = await getSupabase(req).from('wa_channels')
+            .select('id, provider').eq('empresa_id', req.user!.empresa_id);
+        if (error) throw error;
+        res.json({ success: true, canais: data || [] });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Pré-visualização da mensagem não oficial já com as variáveis resolvidas
+// pelo primeiro contacto do público — evita descobrir só depois do envio que
+// uma variável estava mal escrita e saiu vazia para toda a gente.
+router.post('/mensagem/preview', requireAuth, async (req: AuthRequest, res: Response) => {
+    try {
+        const { mensagem, publico_tipo, publico_tags } = req.body;
+        const contactos = await CampaignService.resolverPublico(req.user!.empresa_id!, publico_tipo || 'todos', publico_tags, undefined, getSupabase(req));
+        if (contactos.length === 0) return res.json({ success: true, preview: mensagem, contacto: null });
+        res.json({
+            success: true,
+            preview: CampaignService.resolverMensagemTexto(mensagem || '', contactos[0]),
+            contacto: contactos[0].nome || contactos[0].telefone
+        });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Tags distintas já usadas nos contactos da empresa — para o seletor de público-alvo.
 router.get('/tags-disponiveis', requireAuth, async (req: AuthRequest, res: Response) => {
     try {

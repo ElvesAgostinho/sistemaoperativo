@@ -212,12 +212,6 @@ export default function NodeConfigPanel({ node, automations, currentAutomationId
             </>
           )}
 
-          {d.actionType === 'CREATE_LEAD' && (
-            <>
-              <label style={labelStyle}>Título da Lead</label>
-              <input style={fieldStyle} type="text" value={config.titulo || ''} onChange={e => updateConfig({ titulo: e.target.value })} placeholder="{{mensagem}}" />
-            </>
-          )}
 
           {d.actionType === 'REPLY_MESSAGE' && (
             <>

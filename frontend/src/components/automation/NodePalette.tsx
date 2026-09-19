@@ -65,7 +65,6 @@ const PALETTE_GROUPS: PaletteGroup[] = [
     title: 'CRM',
     items: [
       actionItem('Criar Cliente', <Database size={14} />, 'CREATE_CLIENT'),
-      actionItem('Criar Lead', <Database size={14} />, 'CREATE_LEAD'),
       actionItem('Adicionar Tag', <Tag size={14} />, 'ADD_TAG', '#16a34a'),
       actionItem('Remover Tag', <TagX size={14} />, 'REMOVE_TAG', '#dc2626'),
       actionItem('Campo Personalizado', <ListPlus size={14} />, 'SET_CUSTOM_FIELD', '#0891b2')

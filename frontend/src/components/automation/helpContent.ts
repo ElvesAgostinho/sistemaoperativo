@@ -214,16 +214,6 @@ export const HELP_ITEMS: HelpItem[] = [
     exemplo: { cenario: 'Registar automaticamente todo cliente novo que escreve.', passos: ['Nome: {{nome_whatsapp}}', 'Telefone: {{telefone}}'] }
   },
   {
-    id: 'create_lead',
-    titulo: 'Criar Negócio (Lead)',
-    categoria: 'CRM',
-    cor: '#3b82f6',
-    oQueFaz: 'Cria uma oportunidade de negócio no funil de vendas (Kanban do CRM), associada ao cliente já criado neste fluxo.',
-    quandoUsar: 'Depois de "Criar Cliente" — quando a conversa indica interesse real de compra.',
-    campos: [{ label: 'Título', explicacao: 'Nome da oportunidade no Kanban. Ex: "Interesse em {{mensagem}}".' }],
-    exemplo: { cenario: 'Cliente pergunta sobre um produto específico.', passos: ['Depois de "Criar Cliente", ligar a "Criar Negócio (Lead)"', 'Título: "Pedido via WhatsApp: {{mensagem}}"'] }
-  },
-  {
     id: 'tags',
     titulo: 'Adicionar / Remover Tag',
     categoria: 'CRM',

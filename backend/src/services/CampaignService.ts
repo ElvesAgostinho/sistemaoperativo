@@ -59,6 +59,28 @@ export class CampaignService {
     }
 
     // ============================================================
+    // API NÃO OFICIAL (Evolution/QR Code): não há templates aprovados —
+    // escreve-se texto livre e as variáveis são resolvidas pelo nome
+    // ({{nome}}, {{empresa}}, {{telefone}} ou qualquer campo personalizado),
+    // em vez das posições numeradas {{1}}/{{2}} que a Meta obriga.
+    // ============================================================
+    public static resolverMensagemTexto(mensagem: string, contacto: Contacto): string {
+        return (mensagem || '').replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, chave: string) => {
+            const campo = String(chave).toLowerCase();
+            if (campo === 'nome') return contacto.nome || '';
+            if (campo === 'telefone') return contacto.telefone || '';
+            if (campo === 'empresa') return contacto.empresa || '';
+            const valor = contacto.custom_fields?.[chave];
+            return valor === undefined || valor === null ? '' : String(valor);
+        });
+    }
+
+    // Ritmo máximo seguro na API não oficial. O número é uma conta pessoal do
+    // WhatsApp, não um canal empresarial — disparar em rajada é a forma mais
+    // rápida de o ver banido. Mesmo que o utilizador peça mais, cortamos aqui.
+    private static readonly MAX_VELOCIDADE_NAO_OFICIAL = 12;
+
+    // ============================================================
     // Cria a campanha em Rascunho e já resolve + grava a lista de
     // destinatários (cada um com as variáveis já preenchidas), para o envio
     // em si (processarFila) não ter de recalcular nada.
@@ -67,30 +89,58 @@ export class CampaignService {
         empresaId: string,
         channelId: string,
         dados: {
-            nome: string; descricao?: string; template_name: string; template_language: string; template_preview?: string;
+            nome: string; descricao?: string; tipo_api?: 'oficial' | 'nao_oficial';
+            template_name?: string; template_language?: string; template_preview?: string; mensagem_texto?: string;
             publico_tipo: 'todos' | 'tags' | 'manual'; publico_tags?: string[]; manual_ids?: number[];
             variaveis?: Record<string, VariavelConfig>; agendada_para?: string; velocidade_por_minuto?: number;
         },
         criadoPor: string,
         client: any = supabase
     ) {
+        const tipoApi = dados.tipo_api === 'nao_oficial' ? 'nao_oficial' : 'oficial';
+
+        if (tipoApi === 'nao_oficial') {
+            if (!dados.mensagem_texto?.trim()) throw new Error('Escreva a mensagem a enviar.');
+        } else if (!dados.template_name || !dados.template_language) {
+            throw new Error('Escolha um modelo aprovado pela Meta.');
+        }
+
+        // O canal tem de ser mesmo do tipo escolhido — sem esta verificação, uma
+        // campanha "não oficial" apontada a um canal Meta (ou o contrário) só
+        // falharia contacto a contacto, já depois de criada.
+        const { data: canal } = await client.from('wa_channels').select('provider').eq('id', channelId).eq('empresa_id', empresaId).maybeSingle();
+        if (!canal) throw new Error('Canal de WhatsApp não encontrado.');
+        const providerEsperado = tipoApi === 'nao_oficial' ? 'evolution' : 'meta';
+        if (canal.provider !== providerEsperado) {
+            throw new Error(tipoApi === 'nao_oficial'
+                ? 'Este canal é da API oficial (Meta). Ligue um número por QR Code para campanhas não oficiais.'
+                : 'Este canal não é da API oficial da Meta.');
+        }
+
         const contactos = await CampaignService.resolverPublico(empresaId, dados.publico_tipo, dados.publico_tags, dados.manual_ids, client);
         if (contactos.length === 0) throw new Error('Nenhum contacto encontrado para este público-alvo.');
+
+        const velocidadePedida = dados.velocidade_por_minuto || (tipoApi === 'nao_oficial' ? 8 : 20);
+        const velocidade = tipoApi === 'nao_oficial'
+            ? Math.min(velocidadePedida, CampaignService.MAX_VELOCIDADE_NAO_OFICIAL)
+            : velocidadePedida;
 
         const { data: campanha, error } = await client.from('campanhas').insert({
             empresa_id: empresaId,
             channel_id: channelId,
             nome: dados.nome,
             descricao: dados.descricao || null,
-            template_name: dados.template_name,
-            template_language: dados.template_language,
-            template_preview: dados.template_preview || null,
+            tipo_api: tipoApi,
+            template_name: tipoApi === 'oficial' ? dados.template_name : null,
+            template_language: tipoApi === 'oficial' ? dados.template_language : null,
+            template_preview: tipoApi === 'oficial' ? (dados.template_preview || null) : null,
+            mensagem_texto: tipoApi === 'nao_oficial' ? dados.mensagem_texto!.trim() : null,
             publico_tipo: dados.publico_tipo,
             publico_tags: dados.publico_tags || null,
-            variaveis: dados.variaveis || {},
+            variaveis: tipoApi === 'oficial' ? (dados.variaveis || {}) : {},
             estado: dados.agendada_para ? 'Agendada' : 'Rascunho',
             agendada_para: dados.agendada_para || null,
-            velocidade_por_minuto: dados.velocidade_por_minuto || 20,
+            velocidade_por_minuto: velocidade,
             criado_por: criadoPor,
         }).select('id').single();
         if (error) throw error;
@@ -101,7 +151,11 @@ export class CampaignService {
             cliente_id: c.id,
             nome: c.nome,
             telefone: c.telefone,
-            variaveis_resolvidas: CampaignService.resolverVariaveis(dados.variaveis || {}, c),
+            // Tal como nas campanhas oficiais, a mensagem fica já resolvida por
+            // contacto no momento da criação — o envio não recalcula nada.
+            variaveis_resolvidas: tipoApi === 'nao_oficial'
+                ? { texto: CampaignService.resolverMensagemTexto(dados.mensagem_texto!, c) }
+                : CampaignService.resolverVariaveis(dados.variaveis || {}, c),
             estado: 'Pendente',
         }));
 
@@ -154,7 +208,15 @@ export class CampaignService {
     // pequeno de destinatários por campanha a cada chamada, respeitando a
     // velocidade configurada, em vez de disparar tudo de uma vez.
     // ============================================================
+    // As campanhas não oficiais espaçam cada envio por vários segundos, por isso
+    // um ciclo pode demorar mais do que o intervalo do poller (20s). Sem este
+    // travão, dois ciclos sobrepostos podiam apanhar os mesmos destinatários
+    // ainda "Pendente" e enviar a mesma mensagem duas vezes ao mesmo contacto.
+    private static aCorrer = false;
+
     public static async processarFila() {
+        if (CampaignService.aCorrer) return;
+        CampaignService.aCorrer = true;
         try {
             const agora = new Date().toISOString();
 
@@ -170,6 +232,8 @@ export class CampaignService {
             }
         } catch (e) {
             console.error('[CampaignService] Erro no processamento da fila:', e);
+        } finally {
+            CampaignService.aCorrer = false;
         }
     }
 
@@ -192,8 +256,16 @@ export class CampaignService {
                 return;
             }
 
-            for (const dest of pendentes) {
-                await CampaignService.enviarParaDestinatario(campanha, dest);
+            const naoOficial = campanha.tipo_api === 'nao_oficial';
+            for (let i = 0; i < pendentes.length; i++) {
+                await CampaignService.enviarParaDestinatario(campanha, pendentes[i]);
+                // Intervalo irregular entre envios na API não oficial: um número
+                // pessoal a disparar mensagens em intervalos certinhos é o padrão
+                // que o WhatsApp deteta e bane. Só entre mensagens, não depois da
+                // última — para não segurar o ciclo à toa.
+                if (naoOficial && i < pendentes.length - 1) {
+                    await new Promise(r => setTimeout(r, 3000 + Math.floor(Math.random() * 5000)));
+                }
             }
         } catch (e) {
             console.error(`[CampaignService] Erro a processar lote da campanha ${campanha.id}:`, e);
@@ -203,11 +275,17 @@ export class CampaignService {
     private static async enviarParaDestinatario(campanha: any, dest: any) {
         try {
             const variaveis = dest.variaveis_resolvidas || {};
-            const bodyParams = Object.keys(variaveis).sort((a, b) => Number(a) - Number(b)).map(k => variaveis[k]);
 
-            const resultado = await WhatsAppChannelManager.sendTemplateMessage(
-                supabase, campanha.channel_id, dest.telefone, campanha.template_name, campanha.template_language, bodyParams
-            );
+            let resultado: string | boolean;
+            if (campanha.tipo_api === 'nao_oficial') {
+                const texto = variaveis.texto || campanha.mensagem_texto || '';
+                resultado = await WhatsAppChannelManager.sendMessage(supabase, campanha.channel_id, dest.telefone, texto);
+            } else {
+                const bodyParams = Object.keys(variaveis).sort((a, b) => Number(a) - Number(b)).map(k => variaveis[k]);
+                resultado = await WhatsAppChannelManager.sendTemplateMessage(
+                    supabase, campanha.channel_id, dest.telefone, campanha.template_name, campanha.template_language, bodyParams
+                );
+            }
             const sucesso = resultado === true || (typeof resultado === 'string' && !resultado.startsWith('ERROR:'));
             const messageId = typeof resultado === 'string' && sucesso ? resultado : null;
 
@@ -220,7 +298,10 @@ export class CampaignService {
             }).eq('id', dest.id);
 
             if (sucesso) {
-                await CampaignService.registarNaCaixaDeEntrada(campanha, dest, messageId);
+                const textoEnviado = campanha.tipo_api === 'nao_oficial'
+                    ? (variaveis.texto || campanha.mensagem_texto || '')
+                    : campanha.template_name;
+                await CampaignService.registarNaCaixaDeEntrada(campanha, dest, messageId, textoEnviado);
             }
         } catch (e: any) {
             await supabase.from('campanha_destinatarios').update({
@@ -231,7 +312,7 @@ export class CampaignService {
 
     // Espelha o envio na caixa de entrada normal (wa_conversations/wa_messages)
     // para o histórico de campanha aparecer também na conversa do cliente.
-    private static async registarNaCaixaDeEntrada(campanha: any, dest: any, messageId: string | null) {
+    private static async registarNaCaixaDeEntrada(campanha: any, dest: any, messageId: string | null, textoEnviado: string) {
         try {
             const { data: conv } = await supabase.from('wa_conversations').select('id')
                 .eq('channel_id', campanha.channel_id).eq('phone_number', dest.telefone).maybeSingle();
@@ -251,7 +332,7 @@ export class CampaignService {
 
             await supabase.from('wa_messages').insert({
                 conversation_id: conversationId, empresa_id: campanha.empresa_id,
-                direction: 'outbound', content: `[CAMPANHA] ${campanha.nome}: ${campanha.template_name}`,
+                direction: 'outbound', content: `[CAMPANHA] ${campanha.nome}: ${textoEnviado}`,
                 status: 'delivered', message_id: messageId,
             });
         } catch (e) {
