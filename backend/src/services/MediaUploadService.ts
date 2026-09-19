@@ -41,4 +41,39 @@ export class MediaUploadService {
 
         return { url: data.publicUrl, tipo: MediaUploadService.tipoDeMedia(mimeType), nome: nomeOriginal };
     }
+
+    /**
+     * Apaga um ficheiro a partir do link público, mas SÓ se ele estiver dentro
+     * da pasta da própria empresa. Sem esta verificação, bastava passar o link
+     * de outra empresa para lhe apagar os ficheiros.
+     *
+     * Devolve false (sem rebentar) quando o link não é reconhecido ou não
+     * pertence a esta empresa — apagar multimédia é sempre limpeza, nunca deve
+     * fazer falhar a operação principal que a despoletou.
+     */
+    public static async apagar(url: string, pasta: 'workflows' | 'campanhas', empresaId?: string | number): Promise<boolean> {
+        try {
+            if (!url || !empresaId) return false;
+            const marcador = '/whatsapp-media/';
+            const i = url.indexOf(marcador);
+            if (i === -1) return false;
+
+            const caminho = decodeURIComponent(url.slice(i + marcador.length).split('?')[0]);
+            const prefixoEsperado = `${pasta}/${empresaId}/`;
+            if (!caminho.startsWith(prefixoEsperado) || caminho.includes('..')) {
+                console.warn(`[MediaUpload] Recusado apagar "${caminho}": fora da pasta da empresa ${empresaId}.`);
+                return false;
+            }
+
+            const { error } = await supabase.storage.from('whatsapp-media').remove([caminho]);
+            if (error) {
+                console.error('[MediaUpload] Erro ao apagar ficheiro:', error.message);
+                return false;
+            }
+            return true;
+        } catch (e: any) {
+            console.error('[MediaUpload] Erro inesperado ao apagar ficheiro:', e.message);
+            return false;
+        }
+    }
 }

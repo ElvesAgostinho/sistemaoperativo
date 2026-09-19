@@ -359,6 +359,28 @@ function NovaCampanhaWizard({ onClose, onCreated, tipoInicial }: { onClose: () =
 
     const inserirVariavel = (v: string) => setMensagemTexto(t => `${t}{{${v}}}`);
 
+    // Um ficheiro carregado que acaba por não ser usado (removido aqui, ou o
+    // assistente fechado antes de criar a campanha) tem de sair do Storage,
+    // senão fica lá para sempre sem nada que lhe aponte.
+    const apagarDoStorage = async (url?: string) => {
+        if (!url) return;
+        await authFetch(`${API}/api/campanhas/media`, {
+            method: 'DELETE', body: JSON.stringify({ url })
+        }).catch(() => { /* limpeza não deve interromper o utilizador */ });
+    };
+
+    const removerAnexo = async () => {
+        const url = media?.url;
+        setMedia(null);
+        await apagarDoStorage(url);
+    };
+
+    const fecharAssistente = async () => {
+        // Só o que ainda não ficou preso a nenhuma campanha.
+        await apagarDoStorage(media?.url);
+        onClose();
+    };
+
     const anexarFicheiro = async (file: File) => {
         setAEnviarMedia(true);
         setErro('');
@@ -456,7 +478,7 @@ function NovaCampanhaWizard({ onClose, onCreated, tipoInicial }: { onClose: () =
                         </div>
                     ))}
                 </div>
-                <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#5B738B' }}><X size={20} /></button>
+                <button onClick={fecharAssistente} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#5B738B' }}><X size={20} /></button>
             </div>
 
             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '28px', display: 'flex', justifyContent: 'center' }}>
@@ -552,7 +574,7 @@ function NovaCampanhaWizard({ onClose, onCreated, tipoInicial }: { onClose: () =
                                             <div style={{ fontSize: '13px', fontWeight: 600, color: '#1D2D3E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{media.nome}</div>
                                             <div style={{ fontSize: '11.5px', color: '#8996A3', textTransform: 'capitalize' }}>{media.tipo}</div>
                                         </div>
-                                        <button onClick={() => setMedia(null)} title="Remover"
+                                        <button onClick={removerAnexo} title="Remover"
                                             style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#BB0000' }}><Trash2 size={15} /></button>
                                     </div>
                                 )}
@@ -721,7 +743,7 @@ function NovaCampanhaWizard({ onClose, onCreated, tipoInicial }: { onClose: () =
             </div>
 
             <div style={{ padding: '16px 28px', backgroundColor: 'white', borderTop: '1px solid #D5D7DA', display: 'flex', justifyContent: 'space-between' }}>
-                <button onClick={() => passo === 1 ? onClose() : setPasso(p => p - 1)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', borderRadius: '2px', border: '1px solid #D5D7DA', background: 'white', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+                <button onClick={() => passo === 1 ? fecharAssistente() : setPasso(p => p - 1)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', borderRadius: '2px', border: '1px solid #D5D7DA', background: 'white', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
                     <ChevronLeft size={15} /> {passo === 1 ? 'Cancelar' : 'Voltar'}
                 </button>
                 {passo < PASSOS.length ? (

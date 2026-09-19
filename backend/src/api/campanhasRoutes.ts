@@ -52,6 +52,20 @@ router.post('/mensagem/preview', requireAuth, async (req: AuthRequest, res: Resp
     }
 });
 
+// Apaga um anexo que já não é preciso (o utilizador removeu-o no assistente ou
+// fechou-o sem criar a campanha). Sem isto, cada ficheiro escolhido e depois
+// descartado ficava no Storage para sempre.
+router.delete('/media', requireAuth, async (req: AuthRequest, res: Response) => {
+    try {
+        const { url } = req.body;
+        if (!url) return res.status(400).json({ error: 'Falta o link do ficheiro.' });
+        const apagado = await MediaUploadService.apagar(url, 'campanhas', req.user!.empresa_id || undefined);
+        res.json({ success: true, apagado });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Tags distintas já usadas nos contactos da empresa — para o seletor de público-alvo.
 router.get('/tags-disponiveis', requireAuth, async (req: AuthRequest, res: Response) => {
     try {
@@ -166,11 +180,17 @@ router.post('/:id/cancelar', requireAuth, async (req: AuthRequest, res: Response
 
 router.delete('/:id', requireAuth, async (req: AuthRequest, res: Response) => {
     try {
-        const { data: campanha } = await getSupabase(req).from('campanhas').select('estado').eq('id', req.params.id).eq('empresa_id', req.user!.empresa_id).single();
+        const { data: campanha } = await getSupabase(req).from('campanhas').select('estado, media_url').eq('id', req.params.id).eq('empresa_id', req.user!.empresa_id).single();
         if (!campanha) return res.status(404).json({ error: 'Campanha não encontrada.' });
         if (['Em_Execucao'].includes(campanha.estado)) return res.status(400).json({ error: 'Pause a campanha antes de a eliminar.' });
         const { error } = await getSupabase(req).from('campanhas').delete().eq('id', req.params.id).eq('empresa_id', req.user!.empresa_id);
         if (error) throw error;
+
+        // O anexo morre com a campanha — só depois de a eliminação ter mesmo
+        // corrido bem, e sem deixar o pedido falhar se a limpeza não der.
+        if (campanha.media_url) {
+            await MediaUploadService.apagar(campanha.media_url, 'campanhas', req.user!.empresa_id || undefined);
+        }
         res.json({ success: true });
     } catch (err: any) {
         res.status(500).json({ error: err.message });
