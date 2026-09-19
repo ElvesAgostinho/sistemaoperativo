@@ -27,3 +27,9 @@ ALTER TABLE public.campanhas ADD COLUMN IF NOT EXISTS mensagem_texto text;
 -- Campanhas não oficiais não têm template — estas colunas passam a opcionais.
 ALTER TABLE public.campanhas ALTER COLUMN template_name DROP NOT NULL;
 ALTER TABLE public.campanhas ALTER COLUMN template_language DROP NOT NULL;
+
+-- Multimédia opcional da campanha (imagem, vídeo, áudio ou documento).
+-- O ficheiro fica no Supabase Storage; aqui guarda-se só o link.
+ALTER TABLE public.campanhas ADD COLUMN IF NOT EXISTS media_url text;
+ALTER TABLE public.campanhas ADD COLUMN IF NOT EXISTS media_tipo text;
+ALTER TABLE public.campanhas ADD COLUMN IF NOT EXISTS media_nome text;

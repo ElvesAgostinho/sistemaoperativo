@@ -91,6 +91,7 @@ export class CampaignService {
         dados: {
             nome: string; descricao?: string; tipo_api?: 'oficial' | 'nao_oficial';
             template_name?: string; template_language?: string; template_preview?: string; mensagem_texto?: string;
+            media_url?: string; media_tipo?: string; media_nome?: string;
             publico_tipo: 'todos' | 'tags' | 'manual'; publico_tags?: string[]; manual_ids?: number[];
             variaveis?: Record<string, VariavelConfig>; agendada_para?: string; velocidade_por_minuto?: number;
         },
@@ -100,7 +101,10 @@ export class CampaignService {
         const tipoApi = dados.tipo_api === 'nao_oficial' ? 'nao_oficial' : 'oficial';
 
         if (tipoApi === 'nao_oficial') {
-            if (!dados.mensagem_texto?.trim()) throw new Error('Escreva a mensagem a enviar.');
+            // Com multimédia anexada, o texto passa a ser opcional (vai como legenda).
+            if (!dados.mensagem_texto?.trim() && !dados.media_url) {
+                throw new Error('Escreva a mensagem a enviar ou anexe um ficheiro.');
+            }
         } else if (!dados.template_name || !dados.template_language) {
             throw new Error('Escolha um modelo aprovado pela Meta.');
         }
@@ -134,7 +138,10 @@ export class CampaignService {
             template_name: tipoApi === 'oficial' ? dados.template_name : null,
             template_language: tipoApi === 'oficial' ? dados.template_language : null,
             template_preview: tipoApi === 'oficial' ? (dados.template_preview || null) : null,
-            mensagem_texto: tipoApi === 'nao_oficial' ? dados.mensagem_texto!.trim() : null,
+            mensagem_texto: tipoApi === 'nao_oficial' ? (dados.mensagem_texto?.trim() || null) : null,
+            media_url: tipoApi === 'nao_oficial' ? (dados.media_url || null) : null,
+            media_tipo: tipoApi === 'nao_oficial' ? (dados.media_tipo || null) : null,
+            media_nome: tipoApi === 'nao_oficial' ? (dados.media_nome || null) : null,
             publico_tipo: dados.publico_tipo,
             publico_tags: dados.publico_tags || null,
             variaveis: tipoApi === 'oficial' ? (dados.variaveis || {}) : {},
@@ -154,7 +161,7 @@ export class CampaignService {
             // Tal como nas campanhas oficiais, a mensagem fica já resolvida por
             // contacto no momento da criação — o envio não recalcula nada.
             variaveis_resolvidas: tipoApi === 'nao_oficial'
-                ? { texto: CampaignService.resolverMensagemTexto(dados.mensagem_texto!, c) }
+                ? { texto: CampaignService.resolverMensagemTexto(dados.mensagem_texto || '', c) }
                 : CampaignService.resolverVariaveis(dados.variaveis || {}, c),
             estado: 'Pendente',
         }));
@@ -279,7 +286,23 @@ export class CampaignService {
             let resultado: string | boolean;
             if (campanha.tipo_api === 'nao_oficial') {
                 const texto = variaveis.texto || campanha.mensagem_texto || '';
-                resultado = await WhatsAppChannelManager.sendMessage(supabase, campanha.channel_id, dest.telefone, texto);
+
+                if (campanha.media_url) {
+                    // Notas de voz não admitem legenda — o texto, se existir, vai
+                    // numa mensagem própria antes do áudio. Nos restantes tipos o
+                    // texto segue como legenda da própria multimédia.
+                    if (campanha.media_tipo === 'audio' && texto) {
+                        await WhatsAppChannelManager.sendMessage(supabase, campanha.channel_id, dest.telefone, texto);
+                        await new Promise(r => setTimeout(r, 1500));
+                    }
+                    resultado = await WhatsAppChannelManager.sendMediaMessage(
+                        supabase, campanha.channel_id, dest.telefone, campanha.media_url,
+                        campanha.media_nome || 'ficheiro',
+                        campanha.media_tipo === 'audio' ? '' : texto
+                    );
+                } else {
+                    resultado = await WhatsAppChannelManager.sendMessage(supabase, campanha.channel_id, dest.telefone, texto);
+                }
             } else {
                 const bodyParams = Object.keys(variaveis).sort((a, b) => Number(a) - Number(b)).map(k => variaveis[k]);
                 resultado = await WhatsAppChannelManager.sendTemplateMessage(
@@ -298,8 +321,9 @@ export class CampaignService {
             }).eq('id', dest.id);
 
             if (sucesso) {
+                const texto = variaveis.texto || campanha.mensagem_texto || '';
                 const textoEnviado = campanha.tipo_api === 'nao_oficial'
-                    ? (variaveis.texto || campanha.mensagem_texto || '')
+                    ? (campanha.media_url ? `${texto} [MEDIA_URL:${campanha.media_url}]`.trim() : texto)
                     : campanha.template_name;
                 await CampaignService.registarNaCaixaDeEntrada(campanha, dest, messageId, textoEnviado);
             }

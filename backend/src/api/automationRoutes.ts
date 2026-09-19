@@ -2,25 +2,11 @@ import { Router } from 'express';
 import { getAutomations, createAutomation, processWebhook, deleteAutomation, toggleAutomation, updateAutomation } from '../controllers/automationController';
 
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
+import { MediaUploadService } from '../services/MediaUploadService';
 
 const router = Router();
 
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const dir = path.join(__dirname, '..', '..', '..', 'Media_Workflows');
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
-        cb(null, dir);
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, uniqueSuffix + '-' + file.originalname);
-    }
-});
-const upload = multer({ storage });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
 
 // Gestão de Workflows
 router.get('/', getAutomations);
@@ -29,11 +15,21 @@ router.delete('/:id', deleteAutomation);
 router.put('/:id/toggle', toggleAutomation);
 router.put('/:id', updateAutomation); // Nova Rota
 
-// Upload Multimédia
-router.post('/upload', upload.single('file'), (req, res) => {
-    if (!req.file) return res.status(400).json({ error: 'Nenhum ficheiro enviado' });
-    const fullPath = path.join('C:\\Users\\DELL\\Desktop\\SISTEMA OPERATIVO\\Media_Workflows', req.file.filename);
-    res.json({ success: true, filePath: fullPath });
+// Upload Multimédia — vai para o Supabase Storage e o nó guarda o link.
+// (Antes era gravado num caminho de Windows fixo no código, que não existe
+// no servidor Linux de produção: os nós de imagem/áudio/vídeo falhavam
+// sempre com "ficheiro não encontrado".)
+router.post('/upload', upload.single('file'), async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'Nenhum ficheiro enviado' });
+        const empresaId = (req as any).user?.empresa_id;
+        const resultado = await MediaUploadService.upload(
+            req.file.buffer, req.file.originalname, req.file.mimetype, 'workflows', empresaId
+        );
+        res.json({ success: true, filePath: resultado.url, tipo: resultado.tipo });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Webhook Listener Genérico

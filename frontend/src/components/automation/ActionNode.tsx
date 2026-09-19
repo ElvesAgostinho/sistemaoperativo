@@ -5,7 +5,6 @@ import NodeDeleteButton from './NodeDeleteButton';
 import NodeDuplicateButton from './NodeDuplicateButton';
 
 function renderIcon(actionType: string) {
-  if (actionType === 'CREATE_CLIENT') return <Database size={15} color="#3b82f6" />;
   if (actionType === 'SEND_DOCUMENT') return <FileText size={15} color="#ef4444" />;
   if (actionType === 'SEND_IMAGE') return <Image size={15} color="#10b981" />;
   if (actionType === 'SEND_VIDEO') return <Play size={15} color="#ef4444" />;
@@ -27,7 +26,6 @@ function renderIcon(actionType: string) {
 function summarize(d: ActionNodeData): string {
   const c = d.config || {};
   switch (d.actionType) {
-    case 'CREATE_CLIENT': return c.nome || c.telefone || 'Novo cliente';
     case 'REPLY_MESSAGE': return c.mensagem || '(sem texto)';
     case 'SEND_EMAIL': return c.assunto || c.para || '(sem assunto)';
     case 'SEND_IMAGE': case 'SEND_VIDEO': case 'SEND_AUDIO': case 'SEND_DOCUMENT':

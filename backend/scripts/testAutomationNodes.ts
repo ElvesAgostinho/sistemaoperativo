@@ -263,20 +263,6 @@ async function testGraphNodes() {
         assert(sentWhatsApp.length === 0, 'não devia ter enviado nada');
     });
 
-    await test('CREATE_CLIENT propaga o client_id para os nós seguintes', async () => {
-        activeResponses['clientes:select'] = { data: null, error: null }; // não existe ainda -> cria
-        activeResponses['clientes:insert'] = { data: { id: 'cli-999' }, error: null };
-
-        const nodes = [
-            { id: 't', type: 'trigger', data: {} },
-            { id: 'a1', type: 'action', data: { actionType: 'CREATE_CLIENT', config: { nome: '{{nome_whatsapp}}', telefone: '{{telefone}}' } } }
-        ];
-        const edges = [{ id: 'e1', source: 't', target: 'a1' }];
-        const ctx = await runGraph(nodes, edges, 'a1', { nome_whatsapp: 'João', telefone: '244911111111' });
-
-        assert(ctx.client_id === 'cli-999', `client_id não propagado, veio ${ctx.client_id}`);
-    });
-
     await test('ADD_TAG / REMOVE_TAG lê e junta tags corretamente', async () => {
         activeResponses['clientes:select'] = { data: { tags: ['antigo'], custom_fields: {} }, error: null };
         const nodes = [{ id: 'a1', type: 'action', data: { actionType: 'ADD_TAG', config: { tag: 'vip, interessado' } } }];

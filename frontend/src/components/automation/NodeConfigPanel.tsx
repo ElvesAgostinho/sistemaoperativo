@@ -203,14 +203,6 @@ export default function NodeConfigPanel({ node, automations, currentAutomationId
             ))}
           </select>
 
-          {d.actionType === 'CREATE_CLIENT' && (
-            <>
-              <label style={labelStyle}>Nome</label>
-              <input style={fieldStyle} type="text" value={config.nome || ''} onChange={e => updateConfig({ nome: e.target.value })} placeholder="{{nome_whatsapp}}" />
-              <label style={labelStyle}>Telefone</label>
-              <input style={fieldStyle} type="text" value={config.telefone || ''} onChange={e => updateConfig({ telefone: e.target.value })} placeholder="{{telefone}}" />
-            </>
-          )}
 
 
           {d.actionType === 'REPLY_MESSAGE' && (

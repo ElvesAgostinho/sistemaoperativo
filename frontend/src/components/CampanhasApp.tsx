@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
     Megaphone, Plus, X, ChevronLeft, ChevronRight, Check, Play, Pause, Ban, Trash2,
     Users, MessageSquare, Send, CheckCheck, Eye, AlertTriangle, Settings, MessagesSquare,
-    BadgeCheck, QrCode
+    BadgeCheck, QrCode, Paperclip
 } from 'lucide-react';
 
 type TipoApi = 'oficial' | 'nao_oficial';
@@ -294,6 +294,8 @@ function NovaCampanhaWizard({ onClose, onCreated, tipoInicial }: { onClose: () =
 
     const [mensagemTexto, setMensagemTexto] = useState('');
     const [previewMensagem, setPreviewMensagem] = useState<{ preview: string; contacto: string | null } | null>(null);
+    const [media, setMedia] = useState<{ url: string; tipo: string; nome: string } | null>(null);
+    const [aEnviarMedia, setAEnviarMedia] = useState(false);
 
     const [publicoTipo, setPublicoTipo] = useState<'todos' | 'tags'>('todos');
     const [tagsDisponiveis, setTagsDisponiveis] = useState<string[]>([]);
@@ -357,13 +359,33 @@ function NovaCampanhaWizard({ onClose, onCreated, tipoInicial }: { onClose: () =
 
     const inserirVariavel = (v: string) => setMensagemTexto(t => `${t}{{${v}}}`);
 
+    const anexarFicheiro = async (file: File) => {
+        setAEnviarMedia(true);
+        setErro('');
+        try {
+            const form = new FormData();
+            form.append('file', file);
+            const token = localStorage.getItem('os_auth_token');
+            const res = await fetch(`${API}/api/campanhas/upload`, {
+                method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) { setErro(data.error || 'Falha ao anexar o ficheiro.'); return; }
+            setMedia({ url: data.url, tipo: data.tipo, nome: data.nome });
+        } catch {
+            setErro('Erro de comunicação ao anexar o ficheiro.');
+        } finally {
+            setAEnviarMedia(false);
+        }
+    };
+
     const podeAvancar = () => {
         if (passoAtual === 'Tipo') {
             if (nome.trim().length === 0) return false;
             return tipoApi === 'nao_oficial' ? !!canalEvolution : temMeta;
         }
         if (passoAtual === 'Modelo') return !!templateSel;
-        if (passoAtual === 'Mensagem') return mensagemTexto.trim().length > 0;
+        if (passoAtual === 'Mensagem') return mensagemTexto.trim().length > 0 || !!media;
         if (passoAtual === 'Público') return (previewPublico?.total || 0) > 0;
         if (passoAtual === 'Agendamento') return enviarAgora || !!dataAgendada;
         return true;
@@ -381,6 +403,7 @@ function NovaCampanhaWizard({ onClose, onCreated, tipoInicial }: { onClose: () =
                     nome, descricao,
                     ...(tipoApi === 'nao_oficial' ? {
                         mensagem_texto: mensagemTexto,
+                        media_url: media?.url, media_tipo: media?.tipo, media_nome: media?.nome,
                     } : {
                         template_name: templateSel.name,
                         template_language: templateSel.language,
@@ -488,6 +511,44 @@ function NovaCampanhaWizard({ onClose, onCreated, tipoInicial }: { onClose: () =
                                 As variáveis são substituídas por contacto. Se o contacto não tiver o campo preenchido,
                                 fica vazio — evite frases que fiquem estranhas sem ele.
                             </p>
+
+                            <div style={{ marginTop: '20px', paddingTop: '18px', borderTop: '1px solid #E7E9EB' }}>
+                                <label style={{ fontSize: '12px', fontWeight: 700, color: '#1D2D3E' }}>Anexar imagem, vídeo, áudio ou documento (opcional)</label>
+                                {!media ? (
+                                    <div style={{ marginTop: '10px' }}>
+                                        <input type="file" accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx"
+                                            disabled={aEnviarMedia}
+                                            onChange={e => { const f = e.target.files?.[0]; if (f) anexarFicheiro(f); }}
+                                            style={{ fontSize: '13px' }} />
+                                        {aEnviarMedia && <span style={{ fontSize: '12.5px', color: '#5B738B', marginLeft: '8px' }}>a carregar...</span>}
+                                    </div>
+                                ) : (
+                                    <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '12px', background: 'white', border: '1px solid #D5D7DA', borderRadius: '2px', padding: '12px' }}>
+                                        {media.tipo === 'imagem' && <img src={media.url} alt="" style={{ width: '54px', height: '54px', objectFit: 'cover', borderRadius: '2px' }} />}
+                                        {media.tipo === 'video' && <video src={media.url} style={{ width: '54px', height: '54px', objectFit: 'cover', borderRadius: '2px' }} />}
+                                        {media.tipo === 'audio' && <Play size={22} color="#0854A0" />}
+                                        {media.tipo === 'documento' && <Paperclip size={22} color="#5B738B" />}
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ fontSize: '13px', fontWeight: 600, color: '#1D2D3E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{media.nome}</div>
+                                            <div style={{ fontSize: '11.5px', color: '#8996A3', textTransform: 'capitalize' }}>{media.tipo}</div>
+                                        </div>
+                                        <button onClick={() => setMedia(null)} title="Remover"
+                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#BB0000' }}><Trash2 size={15} /></button>
+                                    </div>
+                                )}
+                                {media?.tipo === 'audio' && (
+                                    <p style={{ fontSize: '12px', color: '#8996A3', margin: '8px 2px 0', lineHeight: 1.5 }}>
+                                        O áudio chega como nota de voz. Como as notas de voz não levam legenda, o texto
+                                        acima (se houver) é enviado numa mensagem separada, logo antes do áudio.
+                                    </p>
+                                )}
+                                {media && media.tipo !== 'audio' && mensagemTexto.trim() && (
+                                    <p style={{ fontSize: '12px', color: '#8996A3', margin: '8px 2px 0' }}>
+                                        O texto acima vai como legenda do ficheiro, numa só mensagem.
+                                    </p>
+                                )}
+                                {erro && <p style={{ color: '#BB0000', fontSize: '12.5px', marginTop: '10px' }}>{erro}</p>}
+                            </div>
 
                             {previewMensagem && (
                                 <div style={{ marginTop: '18px' }}>
@@ -610,7 +671,14 @@ function NovaCampanhaWizard({ onClose, onCreated, tipoInicial }: { onClose: () =
                                 ) : (
                                     <div>
                                         <strong>Mensagem:</strong>
-                                        <div style={{ marginTop: '6px', background: '#F5F6F7', border: '1px solid #E7E9EB', borderRadius: '2px', padding: '10px 12px', whiteSpace: 'pre-wrap', fontSize: '13px' }}>{mensagemTexto}</div>
+                                        <div style={{ marginTop: '6px', background: '#F5F6F7', border: '1px solid #E7E9EB', borderRadius: '2px', padding: '10px 12px', whiteSpace: 'pre-wrap', fontSize: '13px' }}>
+                                            {mensagemTexto || <span style={{ color: '#8996A3' }}>(sem texto — só o ficheiro)</span>}
+                                        </div>
+                                        {media && (
+                                            <div style={{ marginTop: '8px', fontSize: '13px' }}>
+                                                <strong>Anexo:</strong> {media.nome} <span style={{ color: '#8996A3', textTransform: 'capitalize' }}>({media.tipo})</span>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                                 <div><strong>Público:</strong> {previewPublico?.total || 0} contacto(s)</div>

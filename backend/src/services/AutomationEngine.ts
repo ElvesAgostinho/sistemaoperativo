@@ -1,4 +1,3 @@
-import { CrmService } from './CrmService';
 import { KnowledgeBaseService } from './KnowledgeBaseService';
 import { AIGatewayService } from './AIGatewayService';
 import { supabase } from '../lib/supabaseClient'; // Service role client
@@ -276,30 +275,6 @@ export class AutomationEngine {
         const config = node.data?.config || {};
 
         switch (node.data?.actionType) {
-            case 'CREATE_CLIENT': {
-                const clientName = this.parseString(config.nome, context);
-                const clientPhone = this.parseString(config.telefone, context);
-
-                const clientData = {
-                    empresa_id,
-                    nome: clientName || clientPhone || 'Sem Nome',
-                    telefone: clientPhone
-                };
-
-                let clientId;
-                if (clientPhone) {
-                    let query = supabase.from('clientes').select('id').eq('telefone', clientPhone).limit(1);
-                    if (empresa_id) query = query.eq('empresa_id', empresa_id);
-                    const { data: existing } = await query.single();
-                    clientId = existing ? existing.id : await CrmService.createCliente(null, clientData);
-                } else {
-                    clientId = await CrmService.createCliente(null, clientData);
-                }
-
-                context['client_id'] = clientId;
-                break;
-            }
-
             case 'LOG_MESSAGE': {
                 const msg = this.parseString(config.mensagem, context);
                 console.log(`[AUTOPILOT LOG]: ${msg}`);
@@ -313,7 +288,7 @@ export class AutomationEngine {
                 const tagList = tagsRaw.split(',').map((t: string) => t.trim()).filter(Boolean);
 
                 if (!clientId || tagList.length === 0) {
-                    console.error(`[AUTOPILOT] ${node.data.actionType} falhou: sem client_id no contexto ou sem tag indicada (execute CREATE_CLIENT antes, se necessário).`);
+                    console.error(`[AUTOPILOT] ${node.data.actionType} falhou: sem client_id no contexto ou sem tag indicada (o cliente é criado automaticamente ao receber a mensagem).`);
                     break;
                 }
 
@@ -601,25 +576,37 @@ export class AutomationEngine {
                 }
 
                 try {
-                    const fs = require('fs');
                     const path = require('path');
-                    if (!fs.existsSync(filePath)) {
-                        console.error(`[AUTOPILOT] ${node.data.actionType} falhou: ficheiro não encontrado em ${filePath}`);
-                        break;
-                    }
+                    // Ficheiros novos ficam no Supabase Storage e chegam aqui como
+                    // link. Caminhos locais são de automações guardadas antes dessa
+                    // mudança (ou de desenvolvimento) e continuam a ser lidos do disco.
+                    const ehLink = /^https?:\/\//i.test(filePath);
+                    const fileName = ehLink
+                        ? decodeURIComponent(filePath.split('?')[0].split('/').pop() || 'ficheiro')
+                        : path.basename(filePath);
+                    const mimeType = this.mimeTypeForFile(ehLink ? filePath.split('?')[0] : filePath);
 
-                    // Leitura assíncrona — não bloqueia o event loop em ficheiros grandes
-                    // (a API do WhatsApp exige o payload completo num único pedido, então
-                    // não há streaming real possível neste ponto, mas isto evita travar o
-                    // resto do backend enquanto o ficheiro é lido/codificado).
-                    const buffer = await fs.promises.readFile(filePath);
-                    const fileName = path.basename(filePath);
-                    const mimeType = this.mimeTypeForFile(filePath);
-                    const base64Raw = buffer.toString('base64');
-                    // Formato enviado à Evolution/Meta: SEM ";name=" (o parser delas só
-                    // aceita "data:mime;base64,..."). O nome do ficheiro para o CRM vai
-                    // à parte, só na cópia guardada em wa_messages.
-                    const base64Data = `data:${mimeType};base64,${base64Raw}`;
+                    let mediaParaEnviar: string;
+                    let base64Raw = '';
+                    if (ehLink) {
+                        mediaParaEnviar = filePath;
+                    } else {
+                        const fs = require('fs');
+                        if (!fs.existsSync(filePath)) {
+                            console.error(`[AUTOPILOT] ${node.data.actionType} falhou: ficheiro não encontrado em ${filePath}. Reenvie o ficheiro na configuração do nó.`);
+                            break;
+                        }
+                        // Leitura assíncrona — não bloqueia o event loop em ficheiros grandes
+                        // (a API do WhatsApp exige o payload completo num único pedido, então
+                        // não há streaming real possível neste ponto, mas isto evita travar o
+                        // resto do backend enquanto o ficheiro é lido/codificado).
+                        const buffer = await fs.promises.readFile(filePath);
+                        base64Raw = buffer.toString('base64');
+                        // Formato enviado à Evolution/Meta: SEM ";name=" (o parser delas só
+                        // aceita "data:mime;base64,..."). O nome do ficheiro para o CRM vai
+                        // à parte, só na cópia guardada em wa_messages.
+                        mediaParaEnviar = `data:${mimeType};base64,${base64Raw}`;
+                    }
 
                     const { WhatsAppChannelManager } = require('./WhatsAppChannelManager');
                     let finalChannel = mediaChannelId;
@@ -631,14 +618,15 @@ export class AutomationEngine {
                     }
 
                     if (finalChannel) {
-                        const sent = await WhatsAppChannelManager.sendMediaMessage(supabase, finalChannel, mediaPhone, base64Data, fileName, mediaCaption);
+                        const sent = await WhatsAppChannelManager.sendMediaMessage(supabase, finalChannel, mediaPhone, mediaParaEnviar, fileName, mediaCaption);
                         if (sent) {
                             console.log(`[AUTOPILOT] ${node.data.actionType} enviado para ${mediaPhone}: ${fileName}`);
                             // Mesma lacuna do REPLY_MESSAGE: sem isto, o ficheiro chega ao
                             // telemóvel do cliente mas nunca aparece na conversa no CRM.
                             if (context['conversation_id']) {
-                                const base64ForCrm = `data:${mimeType};name=${encodeURIComponent(fileName)};base64,${base64Raw}`;
-                                const crmContent = `${mediaCaption ? mediaCaption + ' ' : ''}[MEDIA_BASE64:${base64ForCrm}]`;
+                                const crmContent = ehLink
+                                    ? `${mediaCaption ? mediaCaption + ' ' : ''}[MEDIA_URL:${filePath}]`
+                                    : `${mediaCaption ? mediaCaption + ' ' : ''}[MEDIA_BASE64:data:${mimeType};name=${encodeURIComponent(fileName)};base64,${base64Raw}]`;
                                 await this.saveMessage(context['conversation_id'], {
                                     channel_id: finalChannel,
                                     phone_number: mediaPhone,

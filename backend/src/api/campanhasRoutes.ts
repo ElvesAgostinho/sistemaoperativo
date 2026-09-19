@@ -1,9 +1,25 @@
 import { Router, Response } from 'express';
+import multer from 'multer';
 import { getSupabase, supabase } from '../lib/supabaseClient';
 import { requireAuth, AuthRequest } from '../middleware/authMiddleware';
 import { CampaignService } from '../services/CampaignService';
+import { MediaUploadService } from '../services/MediaUploadService';
 
 const router = Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
+
+// Imagem/vídeo/áudio/documento a anexar à campanha.
+router.post('/upload', requireAuth, upload.single('file'), async (req: AuthRequest, res: Response) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'Nenhum ficheiro enviado.' });
+        const resultado = await MediaUploadService.upload(
+            req.file.buffer, req.file.originalname, req.file.mimetype, 'campanhas', req.user!.empresa_id || undefined
+        );
+        res.json({ success: true, ...resultado });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
 // Canais de WhatsApp ligados — o assistente usa isto para saber se a empresa
 // tem API oficial (Meta), não oficial (Evolution/QR Code), ou ambas.

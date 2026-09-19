@@ -1,4 +1,24 @@
+const MIME_POR_EXTENSAO: Record<string, string> = {
+    jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp',
+    mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm', avi: 'video/x-msvideo',
+    mp3: 'audio/mpeg', ogg: 'audio/ogg', opus: 'audio/ogg', wav: 'audio/wav', m4a: 'audio/mp4', aac: 'audio/aac',
+    pdf: 'application/pdf', doc: 'application/msword',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xls: 'application/vnd.ms-excel',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    txt: 'text/plain', csv: 'text/csv', zip: 'application/zip'
+};
+
 export class WhatsAppChannelManager {
+
+    // Um link não traz o mimetype consigo — deduz-se pela extensão do próprio
+    // link ou, se este não tiver extensão utilizável, pela do nome do ficheiro.
+    private static mimeTypePorExtensao(url: string, fileName?: string): string {
+        const extDe = (s: string) => (s.split('?')[0].split('.').pop() || '').toLowerCase();
+        return MIME_POR_EXTENSAO[extDe(url)]
+            || (fileName ? MIME_POR_EXTENSAO[extDe(fileName)] : undefined)
+            || 'application/octet-stream';
+    }
     /**
      * Envia uma mensagem física (texto) usando a API oficial da Meta ou Evolution
      */
@@ -201,14 +221,25 @@ export class WhatsAppChannelManager {
                 const evolutionUrl = process.env.EVOLUTION_API_URL || 'https://evolution.topconsultores.pt';
                 const apiK = process.env.AUTHENTICATION_API_KEY || '';
 
-                // FIX #6 — Evolution v2: mediaMessage payload correcto
-                // Separar o prefixo data:mimetype;base64,... do dado puro
-                const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-                if (!matches || matches.length !== 3) {
-                    throw new Error('Formato base64 inválido');
+                // Aceita tanto um data URI (data:mime;base64,...) como um link
+                // http(s) — a Evolution vai buscar o ficheiro ela própria. Os
+                // ficheiros guardados no Supabase Storage chegam aqui como link,
+                // e assim não é preciso descarregá-los e recodificá-los por cada
+                // destinatário de uma campanha.
+                let mimetype: string;
+                let base64Str: string;
+
+                if (/^https?:\/\//i.test(base64Data)) {
+                    mimetype = WhatsAppChannelManager.mimeTypePorExtensao(base64Data, fileName);
+                    base64Str = base64Data;
+                } else {
+                    const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+                    if (!matches || matches.length !== 3) {
+                        throw new Error('Formato base64 inválido');
+                    }
+                    mimetype = matches[1];
+                    base64Str = matches[2];
                 }
-                const mimetype = matches[1];
-                const base64Str = matches[2];
 
                 let mediatype = 'document';
                 if (mimetype.startsWith('image/')) mediatype = 'image';
@@ -272,11 +303,27 @@ export class WhatsAppChannelManager {
                 return true;
 
             } else if (channel.provider === 'meta') {
-                // Para Meta: upload multipart/form-data para /media e depois enviar por URL
+                // Para Meta: upload multipart/form-data para /media e depois enviar por URL.
+                // A Meta exige o ficheiro em si (não aceita um link nosso), por isso
+                // um link tem de ser descarregado primeiro.
                 const { phoneNumberId, accessToken } = channel.credentials;
-                const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-                if (!matches) return false;
-                const [, mimeType, b64Str] = matches;
+                let mimeType: string;
+                let b64Str: string;
+
+                if (/^https?:\/\//i.test(base64Data)) {
+                    const ficheiro = await fetch(base64Data);
+                    if (!ficheiro.ok) {
+                        console.error('[Meta API Media] Não foi possível descarregar o ficheiro:', base64Data);
+                        return false;
+                    }
+                    mimeType = ficheiro.headers.get('content-type') || WhatsAppChannelManager.mimeTypePorExtensao(base64Data, fileName);
+                    b64Str = Buffer.from(await ficheiro.arrayBuffer()).toString('base64');
+                } else {
+                    const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+                    if (!matches) return false;
+                    mimeType = matches[1];
+                    b64Str = matches[2];
+                }
 
                 // 1. Upload do ficheiro para a Meta
                 const formData = new FormData();

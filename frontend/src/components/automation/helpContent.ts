@@ -201,19 +201,6 @@ export const HELP_ITEMS: HelpItem[] = [
   },
   // ---- CRM ----
   {
-    id: 'create_client',
-    titulo: 'Criar Cliente',
-    categoria: 'CRM',
-    cor: '#3b82f6',
-    oQueFaz: 'Regista o contacto do WhatsApp como Cliente no módulo de CRM (se ainda não existir).',
-    quandoUsar: 'No início de um fluxo de vendas/atendimento, para garantir que todo contacto vira um registo no CRM — mesmo antes de virar uma negociação.',
-    campos: [
-      { label: 'Nome', explicacao: 'Normalmente {{nome_whatsapp}} (o nome de perfil do WhatsApp).' },
-      { label: 'Telefone', explicacao: 'Normalmente {{telefone}}.' }
-    ],
-    exemplo: { cenario: 'Registar automaticamente todo cliente novo que escreve.', passos: ['Nome: {{nome_whatsapp}}', 'Telefone: {{telefone}}'] }
-  },
-  {
     id: 'tags',
     titulo: 'Adicionar / Remover Tag',
     categoria: 'CRM',
