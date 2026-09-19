@@ -117,7 +117,7 @@ export default function CampanhasApp({ onNavigate }: { onNavigate: (v: 'chats' |
                     </p>
                 </div>
 
-                <div style={{ flex: 1, overflowY: 'auto' }}>
+                <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
                     {loading && <div style={{ padding: '20px', color: '#5B738B', fontSize: '13px' }}>A carregar...</div>}
                     {!loading && campanhasFiltradas.length === 0 && (
                         <div style={{ padding: '20px', color: '#5B738B', fontSize: '13px', textAlign: 'center' }}>
@@ -142,7 +142,7 @@ export default function CampanhasApp({ onNavigate }: { onNavigate: (v: 'chats' |
                 </div>
             </div>
 
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
                 {showWizard ? (
                     <NovaCampanhaWizard tipoInicial={aba} onClose={() => setShowWizard(false)} onCreated={() => { setShowWizard(false); fetchCampanhas(); }} />
                 ) : ativa ? (
@@ -219,7 +219,7 @@ function CampanhaDetail({ campanha, onAcao, onEliminar, onVoltar, onRefresh }: {
                 </div>
             </div>
 
-            <div style={{ flex: 1, overflowY: 'auto', padding: '20px', backgroundColor: '#f7f8fa' }}>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '20px', backgroundColor: '#f7f8fa' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '12px', marginBottom: '18px' }}>
                     {[
                         { label: 'Total', valor: m.total, icon: Users, cor: '#1D2D3E' },
@@ -444,7 +444,7 @@ function NovaCampanhaWizard({ onClose, onCreated, tipoInicial }: { onClose: () =
     };
 
     return (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: '#f7f8fa' }}>
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', backgroundColor: '#f7f8fa' }}>
             <div style={{ padding: '14px 24px', backgroundColor: 'white', borderBottom: '1px solid #D5D7DA', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
                     {PASSOS.map((p, i) => (
@@ -459,7 +459,7 @@ function NovaCampanhaWizard({ onClose, onCreated, tipoInicial }: { onClose: () =
                 <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#5B738B' }}><X size={20} /></button>
             </div>
 
-            <div style={{ flex: 1, overflowY: 'auto', padding: '28px', display: 'flex', justifyContent: 'center' }}>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '28px', display: 'flex', justifyContent: 'center' }}>
                 <div style={{ width: '100%', maxWidth: '620px' }}>
                     {passoAtual === 'Tipo' && (
                         <div>
