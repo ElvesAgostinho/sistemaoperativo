@@ -379,17 +379,35 @@ function NovaCampanhaWizard({ onClose, onCreated, tipoInicial }: { onClose: () =
         }
     };
 
-    const podeAvancar = () => {
+    // Devolve o que falta para poder avançar, ou null se já estiver tudo.
+    // Ter isto explícito (em vez de só desativar o botão) evita o beco sem saída
+    // de ficar com "Continuar" apagado sem perceber porquê.
+    const queFalta = (): string | null => {
         if (passoAtual === 'Tipo') {
-            if (nome.trim().length === 0) return false;
-            return tipoApi === 'nao_oficial' ? !!canalEvolution : temMeta;
+            if (tipoApi === 'nao_oficial' && !canalEvolution) {
+                return 'Não há nenhum número ligado por QR Code. Ligue um em WhatsApp → Configurações de Canais.';
+            }
+            if (tipoApi === 'oficial' && !temMeta) {
+                return 'Não há nenhum canal da API oficial da Meta ligado. Configure-o em WhatsApp → Configurações de Canais.';
+            }
+            if (nome.trim().length === 0) return 'Escreva o nome da campanha (campo abaixo).';
+            return null;
         }
-        if (passoAtual === 'Modelo') return !!templateSel;
-        if (passoAtual === 'Mensagem') return mensagemTexto.trim().length > 0 || !!media;
-        if (passoAtual === 'Público') return (previewPublico?.total || 0) > 0;
-        if (passoAtual === 'Agendamento') return enviarAgora || !!dataAgendada;
-        return true;
+        if (passoAtual === 'Modelo') return templateSel ? null : 'Escolha um dos modelos aprovados pela Meta.';
+        if (passoAtual === 'Mensagem') {
+            return (mensagemTexto.trim().length > 0 || media) ? null : 'Escreva a mensagem ou anexe um ficheiro.';
+        }
+        if (passoAtual === 'Público') {
+            return (previewPublico?.total || 0) > 0 ? null : 'Nenhum contacto corresponde a este público-alvo.';
+        }
+        if (passoAtual === 'Agendamento') {
+            return (enviarAgora || dataAgendada) ? null : 'Escolha a data e hora do envio.';
+        }
+        return null;
     };
+
+    const bloqueio = queFalta();
+    const podeAvancar = () => bloqueio === null;
 
     const criar = async () => {
         setCriando(true);
@@ -445,7 +463,12 @@ function NovaCampanhaWizard({ onClose, onCreated, tipoInicial }: { onClose: () =
                 <div style={{ width: '100%', maxWidth: '620px' }}>
                     {passoAtual === 'Tipo' && (
                         <div>
-                            <h3 style={hStyle}>Por onde vai enviar?</h3>
+                            <h3 style={hStyle}>Nome da campanha</h3>
+                            <input value={nome} onChange={e => setNome(e.target.value)} autoFocus
+                                placeholder="Ex: Promoção de Fim de Ano" style={inputStyle} />
+                            <textarea value={descricao} onChange={e => setDescricao(e.target.value)} placeholder="Descrição (opcional)" rows={2} style={{ ...inputStyle, marginTop: '12px', resize: 'vertical' }} />
+
+                            <h3 style={{ ...hStyle, marginTop: '26px' }}>Por onde vai enviar?</h3>
                             <div style={{ display: 'grid', gap: '10px', marginBottom: '20px' }}>
                                 <div onClick={() => { setTipoApi('oficial'); setVelocidade(20); setPasso(1); }}
                                     style={tipoCardStyle(tipoApi === 'oficial', !temMeta)}>
@@ -486,9 +509,6 @@ function NovaCampanhaWizard({ onClose, onCreated, tipoInicial }: { onClose: () =
                                 </div>
                             )}
 
-                            <h3 style={{ ...hStyle, marginTop: '24px' }}>Nome da campanha</h3>
-                            <input value={nome} onChange={e => setNome(e.target.value)} placeholder="Ex: Promoção de Fim de Ano" style={inputStyle} />
-                            <textarea value={descricao} onChange={e => setDescricao(e.target.value)} placeholder="Descrição (opcional)" rows={3} style={{ ...inputStyle, marginTop: '12px', resize: 'vertical' }} />
                         </div>
                     )}
 
@@ -705,9 +725,16 @@ function NovaCampanhaWizard({ onClose, onCreated, tipoInicial }: { onClose: () =
                     <ChevronLeft size={15} /> {passo === 1 ? 'Cancelar' : 'Voltar'}
                 </button>
                 {passo < PASSOS.length ? (
-                    <button onClick={() => setPasso(p => p + 1)} disabled={!podeAvancar()} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', borderRadius: '2px', border: 'none', background: podeAvancar() ? '#0854A0' : '#D5D7DA', color: 'white', cursor: podeAvancar() ? 'pointer' : 'not-allowed', fontSize: '13px', fontWeight: 600 }}>
-                        Continuar <ChevronRight size={15} />
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                        {bloqueio && (
+                            <span style={{ fontSize: '12.5px', color: '#92400e', display: 'flex', alignItems: 'center', gap: '6px', textAlign: 'right' }}>
+                                <AlertTriangle size={14} color="#92400e" style={{ flexShrink: 0 }} /> {bloqueio}
+                            </span>
+                        )}
+                        <button onClick={() => setPasso(p => p + 1)} disabled={!podeAvancar()} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', borderRadius: '2px', border: 'none', background: podeAvancar() ? '#0854A0' : '#D5D7DA', color: 'white', cursor: podeAvancar() ? 'pointer' : 'not-allowed', fontSize: '13px', fontWeight: 600, flexShrink: 0 }}>
+                            Continuar <ChevronRight size={15} />
+                        </button>
+                    </div>
                 ) : (
                     <button onClick={criar} disabled={criando} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', borderRadius: '2px', border: 'none', background: '#0854A0', color: 'white', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
                         {criando ? 'A criar...' : (enviarAgora ? 'Criar e Enviar' : 'Criar e Agendar')}
