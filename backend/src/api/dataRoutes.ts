@@ -64,7 +64,7 @@ async function buildStats(supabase: SupabaseClient, empresa_id?: number) {
 
 // Se a empresa tiver a própria chave da OpenAI configurada (BYOK), usamo-la
 // diretamente — é uma escolha explícita dela, não deve ser desviada para o
-// OpenClaw. Sem chave própria, cai no ponto único OpenClaw-primeiro-OpenAI-
+// gateway. Sem chave própria, cai no ponto único gateway-primeiro-OpenAI-
 // reserva, como todo o resto do sistema.
 const getCustomOpenAIKey = async (req: Request): Promise<string | null> => {
     const supabase = getSupabase(req);

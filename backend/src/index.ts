@@ -53,7 +53,6 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use('/tmp', express.static(path.join(__dirname, '..', 'tmp')));
 
 import authRoutes from './api/authRoutes';
-import openclawRoutes from './api/openclawRoutes';
 import agentWebhookRoutes from './api/agentWebhookRoutes';
 
 // Routes
@@ -65,7 +64,6 @@ app.use('/api/crm', requireAuth, crmRoutes);
 app.use('/api/data', requireAuth, dataRoutes);
 app.use('/api/automation', requireAuth, automationRoutes);
 app.use('/api/whatsapp', whatsappRoutes); // WhatsApp internal routes handle auth per endpoint
-app.use('/api/openclaw', openclawRoutes); // Frontend -> VPS 1 -> VPS 2
 app.use('/api/agent', agentWebhookRoutes); // VPS 2 -> VPS 1
 app.use('/api/knowledge', requireAuth, knowledgeRoutes);
 app.use('/api/settings', requireAuth, settingsRoutes);

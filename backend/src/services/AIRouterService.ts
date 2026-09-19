@@ -7,12 +7,12 @@ import { AIGatewayService } from './AIGatewayService';
  *  AI ROUTER INTELIGENTE
  *  Decide automaticamente qual IA usar baseado no tipo de tarefa:
  *
- *  SENSÍVEL     → Sempre OpenClaw (self-hospedado) - dados nunca saem para terceiros
+ *  SENSÍVEL     → Sempre o gateway self-hospedado - dados nunca saem para terceiros
  *  COMPLEXO     → OpenAI (análise profunda, geração avançada)
- *  SIMPLES      → OpenClaw primeiro → fallback OpenAI se falhar
- *  FALLBACK     → Se OpenClaw falhar em tarefa não-sensível → OpenAI
+ *  SIMPLES      → Gateway self-hospedado primeiro → fallback OpenAI se falhar
+ *  FALLBACK     → Se o gateway falhar em tarefa não-sensível → OpenAI
  *
- *  (Já não usa Ollama — o "local" abaixo é o OpenClaw, self-hospedado no VPS
+ *  (Já não usa Ollama — o "local" abaixo é o gateway self-hospedado no VPS
  *  próprio, não um modelo a correr no mesmo processo do backend.)
  * =============================================================
  */
@@ -107,11 +107,11 @@ function decidirAI(taskType: TaskType, contexto: string, modo: string): RouterDe
     };
 }
 
-// ─── Chamada "Local" (OpenClaw, self-hospedado no VPS próprio) ────────────────
+// ─── Chamada "Local" (gateway self-hospedado no VPS próprio) ────────────────
 // Usa o ponto único AIGatewayService.chamar (propaga erro em vez de cair para a
 // OpenAI sozinho — quem decide se pode ou não recorrer à OpenAI é o
 // rotearEExecutar abaixo, com base em isSensitive).
-async function chamarOpenClaw(prompt: string, systemPrompt?: string): Promise<string> {
+async function chamarGateway(prompt: string, systemPrompt?: string): Promise<string> {
     const completion = await AIGatewayService.chamar({
         messages: [
             { role: 'system', content: systemPrompt || 'És um assistente especializado em Recursos Humanos, legislação laboral angolana e gestão empresarial. Responde sempre em Português de Angola.' },
@@ -169,13 +169,13 @@ export async function rotearEExecutar(
             texto = result.texto;
             tokens = result.tokens;
         } else {
-            // Tentar OpenClaw (self-hospedado)
+            // Tentar o gateway self-hospedado
             try {
-                texto = await chamarOpenClaw(prompt);
+                texto = await chamarGateway(prompt);
             } catch (localErr: any) {
                 // Fallback → OpenAI se não for sensível e key existir
                 if (!decisao.isSensitive && process.env.OPENAI_API_KEY) {
-                    console.warn(`[AIRouter] OpenClaw falhou (${localErr.message}), a usar fallback OpenAI...`);
+                    console.warn(`[AIRouter] Gateway falhou (${localErr.message}), a usar fallback OpenAI...`);
                     aiUsado = 'openai';
                     const result = await chamarOpenAI(prompt);
                     texto = result.texto;

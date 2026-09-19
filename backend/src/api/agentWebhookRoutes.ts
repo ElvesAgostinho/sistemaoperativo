@@ -4,17 +4,17 @@ import { supabase } from '../lib/supabaseClient';
 const router = Router();
 
 // ==============================================================
-// 2. ROTAS PARA O OPENCLAW (VPS 2) SE COMUNICAR COM O BACKEND
+// ROTA DE CALLBACK PARA UM AGENTE EXTERNO
 // ==============================================================
 
 /**
  * Endpoint de Ferramentas (Tools) do Agente.
- * O OpenClaw será configurado para disparar um Webhook para esta rota
- * sempre que a IA decidir que precisa de uma ação externa (ex: consultar saldo, gerar PDF).
+ * Desativada por omissão: sem AGENT_WEBHOOK_SECRET definido devolve 503.
+ * Ficou do tempo do OpenClaw (já removido); mantida por servir qualquer agente externo.
  */
 router.post('/tools', async (req: Request, res: Response) => {
     try {
-        // Validação de segurança (Token de autorização do OpenClaw).
+        // Validação de segurança (token partilhado com o agente externo).
         // Falha fechado: se o segredo não estiver configurado no servidor, a rota
         // fica bloqueada por completo em vez de ficar aberta a qualquer pedido.
         const authHeader = req.headers.authorization;
@@ -70,7 +70,7 @@ router.post('/tools', async (req: Request, res: Response) => {
         }
 
     } catch (err: any) {
-        console.error('[AgentWebhook] Erro ao processar webhook do OpenClaw:', err.message);
+        console.error('[AgentWebhook] Erro ao processar webhook do agente:', err.message);
         res.status(500).json({ error: err.message });
     }
 });

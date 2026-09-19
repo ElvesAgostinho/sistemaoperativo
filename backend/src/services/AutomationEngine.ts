@@ -453,7 +453,7 @@ export class AutomationEngine {
 
             case 'AI_REPLY': {
                 // Resposta gerada por IA com contexto da Base de Conhecimento (RAG) —
-                // chamada enxuta ao AIGatewayService (OpenClaw primeiro, OpenAI como
+                // chamada enxuta ao AIGatewayService (gateway self-hospedado primeiro, OpenAI como
                 // reserva), não o loop completo do EnterpriseAssistantService (que tem
                 // tools de sistema de ficheiros, Excel, etc. — pesadas demais para uma
                 // resposta pontual num fluxo).
@@ -909,7 +909,7 @@ export class AutomationEngine {
                 console.log(`[Automation Engine] Assistente IA desativado nas Definições desta empresa — a ignorar mensagem de ${message.phone_number} sem gastar tokens.`);
                 return;
             }
-            console.log(`[Automation Engine] Acionando IA (OpenClaw) para mensagem de ${message.phone_number}`);
+            console.log(`[Automation Engine] Acionando o Assistente IA para mensagem de ${message.phone_number}`);
 
             const { EnterpriseAssistantService } = require('./EnterpriseAssistantService');
 
@@ -949,7 +949,7 @@ export class AutomationEngine {
                 await this.saveMessage(conversationId, {
                     channel_id: message.channel_id,
                     phone_number: message.phone_number,
-                    contact_name: 'IA (OpenClaw)',
+                    contact_name: 'Assistente IA',
                     content: aiResponse,
                     direction: 'outbound'
                 });

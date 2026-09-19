@@ -27,7 +27,7 @@ export interface KnowledgeSearchResult {
  * ficheiros já geridos por knowledgeRoutes.ts (que continuam em disco, sem
  * mudanças), fatia, gera embeddings e indexa em `knowledge_chunks` (pgvector).
  * Os embeddings usam a API da OpenAI diretamente (OPENAI_API_KEY), não o
- * OpenClaw — o OpenClaw é usado só para as conversas de chat.
+ * gateway self-hospedado — esse é usado só para as conversas de chat.
  */
 export class KnowledgeBaseService {
     private static getOpenAIClient(): OpenAI {

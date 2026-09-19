@@ -5,10 +5,38 @@ function criarClienteGateway(): OpenAI {
     // LiteLLM, que corre no VPS próprio).
     const gatewayUrl = process.env.AI_GATEWAY_URL || 'http://187.124.218.242:4000';
     const baseUrl = gatewayUrl.replace(/\/$/, '');
+
+    // Sem chave própria do gateway, NÃO se usa a da OpenAI como substituto.
+    // Isso mandava o segredo da OpenAI para um serviço terceiro e, como o
+    // LiteLLM não reconhece essa chave, devolvia sempre "No connected db" —
+    // um erro que não diz nada a quem o lê e que escondia a verdadeira causa
+    // (a variável AI_GATEWAY_API_KEY não estar configurada).
+    const chave = process.env.AI_GATEWAY_API_KEY;
+    if (!chave) throw new Error('AI_GATEWAY_API_KEY não configurada — o gateway não pode ser usado.');
+
     return new OpenAI({
         baseURL: process.env.OPENAI_BASE_URL || `${baseUrl}/v1`,
-        apiKey: process.env.AI_GATEWAY_API_KEY || process.env.OPENAI_API_KEY || ''
+        apiKey: chave
     });
+}
+
+// O recurso à OpenAI é silencioso por natureza (a resposta chega na mesma),
+// por isso é fácil passarem semanas a pagar tokens da OpenAI sem ninguém dar
+// por isso. Avisa à primeira falha e depois de hora a hora, sempre com a
+// causa concreta.
+let ultimoAviso = 0;
+let falhasDesdeAviso = 0;
+const INTERVALO_AVISO_MS = 60 * 60 * 1000;
+
+function avisarRecursoAOpenAI(motivo: string) {
+    falhasDesdeAviso++;
+    const agora = Date.now();
+    if (ultimoAviso !== 0 && agora - ultimoAviso < INTERVALO_AVISO_MS) return;
+
+    const extra = falhasDesdeAviso > 1 ? ` (${falhasDesdeAviso} chamadas desde o último aviso)` : '';
+    console.warn(`[AIGatewayService] A usar a OpenAI em vez do gateway self-hospedado${extra}. Isto custa mais por pedido. Causa: ${motivo}`);
+    ultimoAviso = agora;
+    falhasDesdeAviso = 0;
 }
 
 interface ChatParams {
@@ -54,7 +82,7 @@ export class AIGatewayService {
         try {
             return await this.chamar(params);
         } catch (e: any) {
-            console.warn(`[AIGatewayService] Gateway indisponível, a usar OpenAI como reserva: ${e?.message || e}`);
+            avisarRecursoAOpenAI(e?.message || String(e));
         }
 
         const openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });

@@ -10,7 +10,7 @@ export class ExcelService {
    */
   static async generateReport(filename: string, data: any[]): Promise<string> {
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = 'BusinessOS OpenClaw';
+    workbook.creator = 'BusinessOS';
     workbook.created = new Date();
 
     const sheet = workbook.addWorksheet('Relatório Principal', {

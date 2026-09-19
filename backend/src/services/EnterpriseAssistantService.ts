@@ -192,7 +192,7 @@ ${hasAgendamento ? `
             messages.push(msg);
         }
 
-        // 4. Chamar a IA — OpenClaw primeiro (mais barato), OpenAI como reserva automática
+        // 4. Chamar a IA — gateway self-hospedado primeiro (mais barato), OpenAI como reserva
         let result = await AIGatewayService.chamarComFallback({ messages, tools: toolsForThisChat });
 
         let choice = result.choices[0];
