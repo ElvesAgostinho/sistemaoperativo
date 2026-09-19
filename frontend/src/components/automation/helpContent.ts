@@ -280,9 +280,9 @@ export const HELP_ITEMS: HelpItem[] = [
     titulo: 'Saltar para Outro Fluxo',
     categoria: 'Avançado',
     cor: '#8b5cf6',
-    oQueFaz: 'Transfere a execução para outra automação já criada, reaproveitando-a como se fosse um "sub-fluxo".',
-    quandoUsar: 'Para não repetir os mesmos passos em vários fluxos — ex: um "Fluxo de Boas-Vindas" comum, chamado a partir de vários pontos diferentes.',
-    campos: [{ label: 'Fluxo Alvo', explicacao: 'Escolha entre as suas outras automações já criadas e ativas.' }],
+    oQueFaz: 'Corre outra automação já criada e, quando esta terminar, VOLTA e continua o fluxo atual a partir do nó seguinte. Funciona como um "sub-fluxo" emprestado, não como uma transferência definitiva.',
+    quandoUsar: 'Para não repetir os mesmos passos em vários fluxos — ex: um "Fluxo de Boas-Vindas" comum, chamado a partir de vários pontos diferentes. Se não quiser que o fluxo atual continue depois, ligue o salto a um nó "Fim do Fluxo".',
+    campos: [{ label: 'Fluxo Alvo', explicacao: 'Escolha entre as suas outras automações já criadas e ativas. Dois fluxos que saltem um para o outro não entram em ciclo — o segundo salto é ignorado.' }],
     exemplo: { cenario: 'Vários gatilhos diferentes, mas todos terminam com o mesmo "Fluxo de Agradecimento".', passos: ['Criar uma automação separada só com esse agradecimento', 'Em cada fluxo, terminar com "Saltar para Outro Fluxo" → escolher essa automação'] }
   },
   {

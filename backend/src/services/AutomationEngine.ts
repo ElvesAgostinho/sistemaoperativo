@@ -28,6 +28,9 @@ interface FlowEdge {
 }
 
 const MAX_GRAPH_STEPS = 200;
+// Profundidade máxima de "Saltar para Outro Fluxo" encadeados (A chama B, que
+// chama C, ...). Um fluxo que precise de mais do que isto está mal desenhado.
+const MAX_SALTOS_ENCADEADOS = 5;
 
 export class AutomationEngine {
 
@@ -65,7 +68,7 @@ export class AutomationEngine {
                 const firstEdge = edges.find(e => e.source === trigger.id);
                 if (!firstEdge) continue;
 
-                await this.executeGraph(nodes, edges, firstEdge.target, { ...payload }, automation.empresa_id);
+                await this.executeGraph(nodes, edges, firstEdge.target, { ...payload }, automation.empresa_id, [automation.id]);
             } catch (err) {
                 console.error(`Erro ao executar automação ${automation.nome}:`, err);
             }
@@ -104,13 +107,34 @@ export class AutomationEngine {
 
             const { data: automations } = await supabase.from('automations').select('*').eq('ativo', true).eq('empresa_id', empresaId);
 
-            let handled = false;
-            for (const automation of (automations || [])) {
-                const { nodes, edges } = this.parseGraph(automation);
-                const trigger = nodes.find(n => n.type === 'trigger');
-                if (!trigger || trigger.data?.triggerKind !== 'whatsapp_message') continue;
-                if (!this.evaluateWhatsAppTrigger(trigger.data, message.content)) continue;
+            // Só UM fluxo responde a cada mensagem (evita respostas duplicadas).
+            // Antes era "o primeiro que a base de dados devolvesse" — sem ORDER BY,
+            // portanto com dois fluxos ativos a apanhar a mesma mensagem, qual deles
+            // respondia era imprevisível e podia até mudar de mensagem para mensagem.
+            // Agora ganha o gatilho mais específico (palavra-chave/regex antes de
+            // "qualquer mensagem") e, em caso de empate, o fluxo mais antigo.
+            const candidatos = (automations || [])
+                .map((automation: any) => {
+                    const { nodes, edges } = this.parseGraph(automation);
+                    const trigger = nodes.find((n: FlowNode) => n.type === 'trigger');
+                    if (!trigger || trigger.data?.triggerKind !== 'whatsapp_message') return null;
+                    if (!this.evaluateWhatsAppTrigger(trigger.data, message.content)) return null;
+                    return { automation, nodes, edges, trigger };
+                })
+                .filter((c): c is NonNullable<typeof c> => c !== null)
+                .sort((a, b) => {
+                    const peso = (modo?: string) => (modo === 'any' || !modo ? 1 : 0);
+                    const diff = peso(a.trigger.data?.matchMode) - peso(b.trigger.data?.matchMode);
+                    if (diff !== 0) return diff;
+                    return Number(a.automation.id) - Number(b.automation.id);
+                });
 
+            if (candidatos.length > 1) {
+                console.log(`[AUTOPILOT] ${candidatos.length} fluxos ativos apanham esta mensagem; escolhido "${candidatos[0].automation.nome}" (gatilho mais específico). Ignorados: ${candidatos.slice(1).map(c => c.automation.nome).join(', ')}.`);
+            }
+
+            let handled = false;
+            for (const { automation, nodes, edges, trigger } of candidatos) {
                 const context: Record<string, any> = {
                     telefone: message.phone_number,
                     nome_whatsapp: message.contact_name,
@@ -122,12 +146,14 @@ export class AutomationEngine {
                     ...crmInfo.customFields
                 };
 
-                const firstEdge = edges.find(e => e.source === trigger.id);
+                const firstEdge = edges.find((e: FlowEdge) => e.source === trigger.id);
                 if (firstEdge) {
-                    await this.executeGraph(nodes, edges, firstEdge.target, context, empresaId || null);
+                    // O próprio fluxo entra na cadeia de saltos: assim um "Saltar
+                    // para Outro Fluxo" que aponte de volta para ele é travado.
+                    await this.executeGraph(nodes, edges, firstEdge.target, context, empresaId || null, [automation.id]);
                 }
                 handled = true;
-                break; // primeiro workflow que bater evita múltiplas respostas
+                break; // só o fluxo escolhido responde
             }
 
             if (!handled) {
@@ -191,7 +217,7 @@ export class AutomationEngine {
      * Percorre o grafo a partir de startNodeId até não haver mais aresta de saída,
      * executando nós de ação e escolhendo o branch correto em nós de condição.
      */
-    private static async executeGraph(nodes: FlowNode[], edges: FlowEdge[], startNodeId: string, initialContext: any, empresa_id: number | null): Promise<any> {
+    private static async executeGraph(nodes: FlowNode[], edges: FlowEdge[], startNodeId: string, initialContext: any, empresa_id: number | null, cadeiaFluxos: number[] = []): Promise<any> {
         let context = { ...initialContext };
         let currentNodeId: string | undefined = startNodeId;
         let iterations = 0;
@@ -219,7 +245,7 @@ export class AutomationEngine {
             }
 
             if (node.type === 'action') {
-                await this.executeAction(node, context, empresa_id, nodes, edges);
+                await this.executeAction(node, context, empresa_id, nodes, edges, cadeiaFluxos);
                 const edge = edges.find(e => e.source === node.id);
                 currentNodeId = edge?.target;
                 continue;
@@ -271,7 +297,7 @@ export class AutomationEngine {
         return options.find(opt => opt.matchValue && mensagem.includes(String(opt.matchValue).trim().toLowerCase()));
     }
 
-    private static async executeAction(node: FlowNode, context: any, empresa_id: number | null, allNodes: FlowNode[], allEdges: FlowEdge[]) {
+    private static async executeAction(node: FlowNode, context: any, empresa_id: number | null, allNodes: FlowNode[], allEdges: FlowEdge[], cadeiaFluxos: number[] = []) {
         const config = node.data?.config || {};
 
         switch (node.data?.actionType) {
@@ -482,19 +508,39 @@ export class AutomationEngine {
                 const targetName = config.target_workflow_nome;
                 if (targetName) {
                     try {
+                        // .limit(1).maybeSingle() em vez de .single(): os nomes das
+                        // automações não são únicos, e o .single() rebentava (e o
+                        // salto era silenciosamente ignorado) sempre que existissem
+                        // dois fluxos com o mesmo nome. O .order fixa qual deles é
+                        // escolhido, em vez de depender da ordem do Postgres.
                         let targetQuery = supabase.from('automations').select('*').eq('nome', targetName).eq('ativo', true);
                         if (empresa_id) targetQuery = targetQuery.eq('empresa_id', empresa_id);
-                        const { data: targetAuto } = await targetQuery.single();
-                        if (targetAuto) {
-                            console.log(`[JUMP_TO_WORKFLOW] A saltar para a automação: ${targetName}`);
-                            const { nodes: targetNodes, edges: targetEdges } = this.parseGraph(targetAuto);
-                            const targetTrigger = targetNodes.find(n => n.type === 'trigger');
-                            const targetFirstEdge = targetTrigger ? targetEdges.find(e => e.source === targetTrigger.id) : undefined;
-                            if (targetFirstEdge) {
-                                await this.executeGraph(targetNodes, targetEdges, targetFirstEdge.target, context, targetAuto.empresa_id);
-                            }
-                        } else {
+                        const { data: targetAuto } = await targetQuery.order('id', { ascending: true }).limit(1).maybeSingle();
+
+                        if (!targetAuto) {
                             console.warn(`[JUMP_TO_WORKFLOW] Automação alvo não encontrada ou inativa: ${targetName}`);
+                            break;
+                        }
+
+                        // Travão de ciclos: sem isto, dois fluxos a saltarem um para o
+                        // outro (A→B→A) chamavam-se recursivamente para sempre até
+                        // esgotarem a memória e derrubarem o backend — de todas as
+                        // empresas, não só de quem configurou o ciclo.
+                        if (cadeiaFluxos.includes(targetAuto.id)) {
+                            console.warn(`[JUMP_TO_WORKFLOW] Ciclo detetado: "${targetName}" já está nesta cadeia de saltos (${cadeiaFluxos.join(' → ')}). Salto ignorado.`);
+                            break;
+                        }
+                        if (cadeiaFluxos.length >= MAX_SALTOS_ENCADEADOS) {
+                            console.warn(`[JUMP_TO_WORKFLOW] Limite de ${MAX_SALTOS_ENCADEADOS} saltos encadeados atingido. Salto para "${targetName}" ignorado.`);
+                            break;
+                        }
+
+                        console.log(`[JUMP_TO_WORKFLOW] A saltar para a automação: ${targetName}`);
+                        const { nodes: targetNodes, edges: targetEdges } = this.parseGraph(targetAuto);
+                        const targetTrigger = targetNodes.find(n => n.type === 'trigger');
+                        const targetFirstEdge = targetTrigger ? targetEdges.find(e => e.source === targetTrigger.id) : undefined;
+                        if (targetFirstEdge) {
+                            await this.executeGraph(targetNodes, targetEdges, targetFirstEdge.target, context, targetAuto.empresa_id, [...cadeiaFluxos, targetAuto.id]);
                         }
                     } catch (e) {
                         console.error(`Erro ao saltar para workflow ${targetName}:`, e);

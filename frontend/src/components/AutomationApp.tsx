@@ -53,6 +53,11 @@ export default function AutomationApp() {
     )
   );
 
+  // Mesma regra de desempate do motor (AutomationEngine): entre gatilhos igualmente
+  // genéricos ganha o fluxo mais antigo. Mostrado no aviso para o dono saber, sem
+  // ter de adivinhar, qual dos fluxos é que vai mesmo responder.
+  const catchAllMaisAntigo = [...catchAllAutomations].sort((a, b) => Number(a.id) - Number(b.id))[0];
+
   const selectAutomation = (id: number) => {
     setSelectedId(id);
     // Em ecrãs estreitos, escolher um fluxo já fecha a lista para libertar espaço ao canvas
@@ -357,6 +362,13 @@ export default function AutomationApp() {
               WhatsApp e está ativa — isso intercepta as conversas antes do Assistente IA (Base de Conhecimento,
               Agendamento, etc.) ter oportunidade de responder. Se quiser que a IA também consiga responder,
               restrinja o gatilho a palavras-chave específicas ou desative esta automação.
+              {catchAllAutomations.length > 1 && (
+                <div style={{ marginTop: '8px' }}>
+                  Como há {catchAllAutomations.length} fluxos a apanhar tudo, <strong>só um responde a cada
+                  mensagem</strong>: ganha o gatilho mais específico e, em caso de empate, o fluxo mais antigo —
+                  neste caso <strong>"{catchAllMaisAntigo?.nome}"</strong>. Os restantes nunca chegam a correr.
+                </div>
+              )}
             </div>
           </div>
         )}

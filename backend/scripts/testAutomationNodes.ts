@@ -428,12 +428,127 @@ async function testGraphNodes() {
 }
 
 // ============================================================
+// TESTES — "Saltar para Outro Fluxo" e escolha entre fluxos ativos
+// ============================================================
+function fluxo(id: number, nome: string, nodes: any[], edges: any[]) {
+    return { id, nome, ativo: true, empresa_id: 'empresa-mock-1', nodes: JSON.stringify(nodes), edges: JSON.stringify(edges) };
+}
+
+function fluxoQueResponde(id: number, nome: string, texto: string, matchMode: string = 'any', matchValue = '') {
+    return fluxo(id, nome,
+        [
+            { id: `t${id}`, type: 'trigger', data: { triggerKind: 'whatsapp_message', matchMode, matchValue } },
+            { id: `r${id}`, type: 'action', data: { actionType: 'REPLY_MESSAGE', config: { mensagem: texto } } }
+        ],
+        [{ id: `e${id}`, source: `t${id}`, target: `r${id}` }]
+    );
+}
+
+function fluxoQueSalta(id: number, nome: string, alvo: string) {
+    return fluxo(id, nome,
+        [
+            { id: `t${id}`, type: 'trigger', data: { triggerKind: 'whatsapp_message', matchMode: 'any' } },
+            { id: `j${id}`, type: 'action', data: { actionType: 'JUMP_TO_WORKFLOW', config: { target_workflow_nome: alvo } } }
+        ],
+        [{ id: `e${id}`, source: `t${id}`, target: `j${id}` }]
+    );
+}
+
+async function receberMensagem(conteudo: string) {
+    activeResponses['wa_channels:select'] = { data: { empresa_id: 'empresa-mock-1', id: 'ch-1' }, error: null };
+    activeResponses['wa_conversations:select'] = { data: { id: 'conv-1' }, error: null };
+    activeResponses['clientes:select'] = { data: { id: 'cli-1', tags: [], custom_fields: {}, bot_paused: false }, error: null };
+    activeResponses['negocios:select'] = { data: { id: 'neg-1' }, error: null };
+    await Engine.processIncomingWhatsAppMessage({
+        channel_id: 'ch-1', phone_number: '244900000000', contact_name: 'Teste', content: conteudo, direction: 'inbound'
+    });
+}
+
+async function testSaltosEEscolhaDeFluxo() {
+    console.log('\n== Saltar para Outro Fluxo / vários fluxos ativos ==');
+
+    await test('Salto corre o fluxo alvo e DEPOIS continua o original (sub-fluxo)', async () => {
+        activeResponses['automations:select'] = { data: fluxoQueResponde(2, 'Fluxo B', 'B'), error: null };
+        const nodes = [
+            { id: 'a1', type: 'action', data: { actionType: 'REPLY_MESSAGE', config: { mensagem: 'antes' } } },
+            { id: 'a2', type: 'action', data: { actionType: 'JUMP_TO_WORKFLOW', config: { target_workflow_nome: 'Fluxo B' } } },
+            { id: 'a3', type: 'action', data: { actionType: 'REPLY_MESSAGE', config: { mensagem: 'depois' } } }
+        ];
+        const edges = [{ id: 'e1', source: 'a1', target: 'a2' }, { id: 'e2', source: 'a2', target: 'a3' }];
+        await runGraph(nodes, edges, 'a1', { telefone: '244900000000', channel_id: 'ch-1' });
+
+        const ordem = sentWhatsApp.map(m => m.content);
+        assert(ordem.join('|') === 'antes|B|depois', `ordem errada: ${ordem.join('|')}`);
+    });
+
+    await test('Salto mútuo A→B→A é travado (não derruba o servidor)', async () => {
+        activeResponses['automations:select'] = (ctx: any) => ({
+            data: ctx.filters.nome === 'Fluxo A' ? fluxoQueSalta(1, 'Fluxo A', 'Fluxo B') : fluxoQueSalta(2, 'Fluxo B', 'Fluxo A'),
+            error: null
+        });
+        const nodes = [{ id: 'x', type: 'action', data: { actionType: 'JUMP_TO_WORKFLOW', config: { target_workflow_nome: 'Fluxo A' } } }];
+
+        const inicio = Date.now();
+        await Promise.race([
+            runGraph(nodes, [], 'x', { telefone: '244900000000', channel_id: 'ch-1' }),
+            new Promise((_, rej) => setTimeout(() => rej(new Error('não parou — recursão infinita')), 8000))
+        ]);
+        assert(Date.now() - inicio < 8000, 'demorou demasiado, provável recursão');
+    });
+
+    await test('Saltos encadeados param no limite de profundidade', async () => {
+        // Cada fluxo salta para um nome diferente, sempre existente: sem limite,
+        // isto seguia para sempre.
+        let n = 0;
+        activeResponses['automations:select'] = () => { n++; return { data: fluxoQueSalta(100 + n, `Fluxo ${n}`, `Fluxo ${n + 1}`), error: null }; };
+        const nodes = [{ id: 'x', type: 'action', data: { actionType: 'JUMP_TO_WORKFLOW', config: { target_workflow_nome: 'Fluxo 1' } } }];
+        await runGraph(nodes, [], 'x', { telefone: '244900000000', channel_id: 'ch-1' });
+        assert(n <= 8, `seguiu saltos a mais (${n}) — limite de profundidade não respeitado`);
+    });
+
+    await test('Com dois fluxos ativos, só um responde', async () => {
+        activeResponses['automations:select'] = { data: [fluxoQueResponde(10, 'Fluxo 1', 'R1'), fluxoQueResponde(11, 'Fluxo 2', 'R2')], error: null };
+        await receberMensagem('olá');
+        assert(sentWhatsApp.length === 1, `esperava 1 resposta, vieram ${sentWhatsApp.length}`);
+    });
+
+    await test('Gatilho por palavra-chave ganha ao "qualquer mensagem"', async () => {
+        activeResponses['automations:select'] = {
+            data: [
+                fluxoQueResponde(10, 'Apanha tudo', 'GENERICO', 'any'),
+                fluxoQueResponde(11, 'Preços', 'ESPECIFICO', 'keyword', 'preço')
+            ],
+            error: null
+        };
+        await receberMensagem('qual o preço?');
+        assert(sentWhatsApp[0]?.content === 'ESPECIFICO', `respondeu o fluxo errado: ${sentWhatsApp[0]?.content}`);
+    });
+
+    await test('Escolha é estável: mesma mensagem, mesmo fluxo (ordem da BD ao contrário)', async () => {
+        const f1 = fluxoQueResponde(10, 'Fluxo 1', 'R1');
+        const f2 = fluxoQueResponde(11, 'Fluxo 2', 'R2');
+
+        activeResponses['automations:select'] = { data: [f1, f2], error: null };
+        await receberMensagem('olá');
+        const primeira = sentWhatsApp[0]?.content;
+
+        sentWhatsApp.length = 0;
+        activeResponses['automations:select'] = { data: [f2, f1], error: null }; // ordem trocada
+        await receberMensagem('olá');
+        const segunda = sentWhatsApp[0]?.content;
+
+        assert(primeira === segunda, `escolha instável: ${primeira} vs ${segunda}`);
+    });
+}
+
+// ============================================================
 // Run
 // ============================================================
 (async () => {
     console.log('=== Teste dos nós do Autopilot (mock, sem tocar serviços reais) ===');
     await testPureFunctions();
     await testGraphNodes();
+    await testSaltosEEscolhaDeFluxo();
 
     console.log(`\n=== Resultado: ${passed} passaram, ${failed} falharam ===`);
     if (failures.length > 0) {
