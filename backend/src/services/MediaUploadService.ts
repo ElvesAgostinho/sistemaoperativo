@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabaseClient';
 
 export type TipoMedia = 'imagem' | 'video' | 'audio' | 'documento';
+export type Pasta = 'workflows' | 'campanhas' | 'conhecimento';
 
 /**
  * Guarda multimédia enviada pelo utilizador (nós do Autopilot, campanhas) no
@@ -24,15 +25,20 @@ export class MediaUploadService {
         buffer: Buffer,
         nomeOriginal: string,
         mimeType: string,
-        pasta: 'workflows' | 'campanhas',
-        empresaId?: string | number
+        pasta: Pasta,
+        empresaId?: string | number,
+        // A Base de Conhecimento guarda um ficheiro por nome (reenviar substitui
+        // o anterior); multimédia guarda cada envio como ficheiro novo.
+        opcoes?: { nomeFixo?: boolean }
     ): Promise<{ url: string; tipo: TipoMedia; nome: string }> {
         const nomeSeguro = nomeOriginal.replace(/[^a-zA-Z0-9._-]/g, '_');
-        const caminho = `${pasta}/${empresaId || 'sem-empresa'}/${Date.now()}_${nomeSeguro}`;
+        const caminho = opcoes?.nomeFixo
+            ? `${pasta}/${empresaId || 'sem-empresa'}/${nomeSeguro}`
+            : `${pasta}/${empresaId || 'sem-empresa'}/${Date.now()}_${nomeSeguro}`;
 
         const { error } = await supabase.storage
             .from('whatsapp-media')
-            .upload(caminho, buffer, { contentType: mimeType, upsert: false });
+            .upload(caminho, buffer, { contentType: mimeType, upsert: !!opcoes?.nomeFixo });
 
         if (error) throw new Error('Falha ao guardar o ficheiro: ' + error.message);
 
@@ -51,7 +57,7 @@ export class MediaUploadService {
      * pertence a esta empresa — apagar multimédia é sempre limpeza, nunca deve
      * fazer falhar a operação principal que a despoletou.
      */
-    public static async apagar(url: string, pasta: 'workflows' | 'campanhas', empresaId?: string | number): Promise<boolean> {
+    public static async apagar(url: string, pasta: Pasta, empresaId?: string | number): Promise<boolean> {
         try {
             if (!url || !empresaId) return false;
             const marcador = '/whatsapp-media/';

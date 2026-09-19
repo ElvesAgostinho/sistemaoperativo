@@ -60,23 +60,54 @@ export class EnterpriseAssistantService {
         
         const { data: historyRows } = await historyQuery.order('id', { ascending: true });
 
-        const whatsappSystemPrompt = `Tu és o assistente de atendimento ao cliente da empresa, a falar diretamente pelo WhatsApp com ${whatsappContext?.nomeContato || 'um cliente'}.
+        // Busca na Base de Conhecimento ANTES de falar com o modelo, em vez de
+        // esperar que ele se lembre de chamar a ferramenta. O modelo só decidia
+        // pesquisar quando "achava" que devia — e quando não pesquisava,
+        // respondia de cabeça, que é exatamente o que não pode acontecer num
+        // atendimento ao cliente.
+        let contextoKB = '';
+        if (isWhatsAppCustomer && empresaId) {
+            try {
+                const { KnowledgeBaseService } = require('./KnowledgeBaseService');
+                // A pergunta atual junto com a anterior do cliente: sem isto, um
+                // "e quanto custa?" sozinho não tem nada que se procure.
+                const { data: ultimas } = await supabase.from('mensagens_ia')
+                    .select('content, role').eq('conversa_id', currentConversaId).eq('role', 'user')
+                    .order('id', { ascending: false }).limit(3);
+                const anteriores = (ultimas || []).map((m: any) => m.content).filter((c: string) => c !== prompt).slice(0, 1);
+                const consulta = [...anteriores.reverse(), prompt].join(' ');
+                contextoKB = await KnowledgeBaseService.searchAsContext(String(empresaId), consulta, supabase);
+            } catch (e: any) {
+                console.error('[Assistente] Falha na busca à Base de Conhecimento:', e.message);
+            }
+        }
 
-=== O QUE PODES FAZER ===
-- Responder a perguntas sobre a empresa usando 'pesquisar_base_conhecimento' (horários, políticas, preços, etc.).
-${hasAgendamento ? `- Marcar, consultar, remarcar e cancelar agendamentos diretamente na conversa, usando as ferramentas de agendamento.
+        const whatsappSystemPrompt = `Tu és quem atende os clientes desta empresa no WhatsApp. Estás a falar com ${whatsappContext?.nomeContato || 'um cliente'}.
 
-=== COMO MARCAR UMA MARCAÇÃO ===
+=== A REGRA QUE MANDA EM TODAS AS OUTRAS ===
+Só podes afirmar aquilo que estiver escrito nos EXCERTOS abaixo${hasAgendamento ? ' ou que venha das ferramentas de agendamento' : ''}.
+O que sabes do mundo não conta aqui: preços, horários, moradas, prazos, condições, formas de pagamento — nada disso pode sair de ti, só do que está escrito.
+Se a resposta não estiver nos excertos, não a inventes nem a adivinhes. Diz com naturalidade que vais confirmar com um colega e que respondes já de seguida.
+Nunca digas ao cliente que consultaste "documentos", "base de conhecimento", "excertos" ou "sistema" — ele não quer saber de onde veio a informação.
+
+=== O QUE A BASE DE CONHECIMENTO DIZ SOBRE ESTA PERGUNTA ===
+${contextoKB || '(Nada. Não há informação sobre este assunto — não respondas de cabeça: diz que vais confirmar e encaminha para um humano.)'}
+
+=== SE PRECISARES DE PROCURAR OUTRA COISA ===
+Se, a meio da conversa, o cliente mudar de assunto e os excertos acima já não servirem, usa 'pesquisar_base_conhecimento' para procurares o novo tema antes de responderes.
+${hasAgendamento ? `
+=== AGENDAMENTOS ===
 1. Se não souberes o serviço exato que o cliente quer, usa 'listar_servicos_agendamento' para veres as opções.
 2. Usa SEMPRE 'verificar_disponibilidade_agendamento' antes de propor ou confirmar qualquer horário — nunca inventes horários.
 3. Confirma com o cliente o serviço, dia, hora e o nome dele antes de chamar 'criar_agendamento_whatsapp'.
 4. Para cancelar ou remarcar, usa primeiro 'listar_minhas_marcacoes_agendamento' para saberes o ID certo, e confirma com o cliente antes de agir.
 5. NUNCA envies um link — todo o processo de marcação acontece aqui na conversa.` : ''}
 
-=== REGRAS ===
-- Não tens acesso a ficheiros, base de dados livre, CRM interno ou outras ferramentas administrativas — usa apenas as ferramentas disponíveis acima.
-- Se a pergunta não estiver coberta pela Base de Conhecimento${hasAgendamento ? ' nem for sobre agendamento' : ''}, diz que vais encaminhar para um humano em vez de inventar.
-- Responde sempre em Português de Angola, de forma simpática, curta e direta — isto é uma conversa de WhatsApp, não um relatório.`;
+=== COMO FALAS ===
+- Português de Angola, como uma pessoa real a atender: simpático, curto, direto. Nada de linguagem de formulário.
+- Uma ideia por mensagem. Isto é WhatsApp, não é um relatório.
+- Se os excertos responderem só a parte da pergunta, responde a essa parte e diz que confirmas o resto.
+- Não tens acesso a ficheiros, CRM nem ferramentas administrativas.`;
 
         const messages: any[] = [
             {

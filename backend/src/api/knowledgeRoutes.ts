@@ -2,58 +2,50 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/authMiddleware';
 import multer from 'multer';
 import path from 'path';
-import fs from 'fs';
-import os from 'os';
-import { getSupabase } from '../lib/supabaseClient';
+import { getSupabase, supabase } from '../lib/supabaseClient';
 import { KnowledgeBaseService } from '../services/KnowledgeBaseService';
+import { MediaUploadService } from '../services/MediaUploadService';
 
 const router = Router();
 
-const baseDir = path.join(os.homedir(), 'Desktop', 'SISTEMA OPERATIVO', 'Base_Conhecimento');
+// Em memória: o ficheiro vai para o Supabase Storage e o texto é indexado a
+// partir do próprio buffer. Antes era gravado numa pasta do servidor
+// (~/Desktop/SISTEMA OPERATIVO/Base_Conhecimento) — um caminho da máquina de
+// desenvolvimento que, no container, era recriado vazio a cada redeploy: os
+// ficheiros desapareciam e ficavam trechos indexados sem ficheiro à vista.
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
 
-const getTenantDir = (req: any) => {
-    const empresaId = req.user?.empresa_id;
-    if (!empresaId) throw new Error('empresa_id não encontrado');
-    return path.join(baseDir, String(empresaId));
-};
+// O multer/busboy lê o nome como latin1 por definição do multipart/form-data —
+// nomes com acentos ("Currículo") chegam corrompidos ("CurrÃculo") sem isto.
+// path.basename() descarta qualquer caminho embutido ("../outra_empresa/x.pdf").
+const nomeSeguroDoUpload = (file: Express.Multer.File) =>
+    path.basename(Buffer.from(file.originalname, 'latin1').toString('utf8'));
 
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        try {
-            const tenantDir = getTenantDir(req);
-            if (!fs.existsSync(tenantDir)) {
-                fs.mkdirSync(tenantDir, { recursive: true });
-            }
-            cb(null, tenantDir);
-        } catch (error: any) {
-            cb(error, '');
-        }
-    },
-    filename: (req, file, cb) => {
-        // O multer/busboy interpreta o nome do ficheiro como latin1 por definição do
-        // multipart/form-data — nomes com acentos (ex: "Currículo") chegam corrompidos
-        // ("CurrÃculo") se não forem reconvertidos para utf8 aqui.
-        const nomeCorrigido = Buffer.from(file.originalname, 'latin1').toString('utf8');
-        // path.basename() descarta qualquer componente de diretório (ex:
-        // "../../outra_empresa/ficheiro.pdf") — sem isto, o multer gravava o
-        // ficheiro fora da pasta desta empresa, na pasta de OUTRA.
-        cb(null, path.basename(nomeCorrigido));
-    }
-});
-const upload = multer({ storage });
-
-router.get('/', requireAuth, (req, res) => {
+router.get('/', requireAuth, async (req, res) => {
     try {
-        const tenantDir = getTenantDir(req);
-        if (!fs.existsSync(tenantDir)) {
-            fs.mkdirSync(tenantDir, { recursive: true });
-        }
-        const files = fs.readdirSync(tenantDir).filter(f => f.endsWith('.txt') || f.endsWith('.md') || f.endsWith('.pdf'));
-        const fileData = files.map(f => {
-            const stat = fs.statSync(path.join(tenantDir, f));
-            return { name: f, size: stat.size, date: stat.mtime };
+        const empresaId = (req as any).user?.empresa_id;
+        if (!empresaId) return res.status(400).json({ error: 'Empresa não encontrada.' });
+
+        // A lista mostra o que está INDEXADO, porque é isso que a IA consegue
+        // mesmo usar para responder — não o que por acaso esteja num disco.
+        const indexados = await KnowledgeBaseService.listarIndexados(empresaId, getSupabase(req));
+        const { data: objetos } = await supabase.storage.from('whatsapp-media').list(`conhecimento/${empresaId}`, { limit: 500 });
+        const porNome = new Map((objetos || []).map((o: any) => [o.name, o]));
+
+        const files = indexados.map(f => {
+            const obj: any = porNome.get(f.nome);
+            return {
+                name: f.nome,
+                chunks: f.chunks,
+                size: obj?.metadata?.size ?? null,
+                date: obj?.created_at ?? null,
+                // Indexado mas sem ficheiro guardado: veio de antes desta mudança.
+                // A IA continua a usá-lo (os trechos existem), só não há original
+                // para descarregar.
+                semOriginal: !obj
+            };
         });
-        res.json({ success: true, files: fileData });
+        res.json({ success: true, files });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
@@ -63,44 +55,50 @@ router.post('/upload', requireAuth, upload.single('file'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'Nenhum ficheiro enviado' });
 
     const empresaId = (req as any).user?.empresa_id;
-    let message = 'Ficheiro guardado com sucesso!';
+    if (!empresaId) return res.status(400).json({ error: 'Empresa não encontrada.' });
+    const nomeFicheiro = nomeSeguroDoUpload(req.file);
 
     try {
+        // Indexar primeiro: se o ficheiro não servir (formato não suportado,
+        // PDF só com imagens), não vale a pena guardá-lo — a IA não o usaria.
         const supabase = getSupabase(req);
-        const { chunks } = await KnowledgeBaseService.indexFile(empresaId, req.file.filename, req.file.path, supabase);
-        message = `Ficheiro guardado e indexado (${chunks} trecho(s)) — já disponível para a IA usar nas respostas.`;
-    } catch (err: any) {
-        console.error('[knowledgeRoutes] Erro ao indexar ficheiro para RAG:', err);
-        message = 'Ficheiro guardado, mas a indexação para a IA falhou (' + err.message + '). A IA pode não conseguir usar este documento ainda.';
-    }
+        const { chunks } = await KnowledgeBaseService.indexBuffer(empresaId, nomeFicheiro, req.file.buffer, supabase);
 
-    res.json({ success: true, message });
+        if (chunks === 0) {
+            return res.status(400).json({
+                error: 'Não foi possível extrair texto deste ficheiro. Se for um PDF digitalizado (imagem), converta-o para texto primeiro.'
+            });
+        }
+
+        await MediaUploadService.upload(req.file.buffer, nomeFicheiro, req.file.mimetype, 'conhecimento', empresaId, { nomeFixo: true });
+
+        res.json({ success: true, message: `Ficheiro indexado em ${chunks} trecho(s) — a IA já o pode usar nas respostas.` });
+    } catch (err: any) {
+        console.error('[knowledgeRoutes] Erro ao indexar ficheiro:', err);
+        res.status(500).json({ error: 'Falha ao processar o ficheiro: ' + err.message });
+    }
 });
 
 router.delete('/:filename', requireAuth, async (req, res) => {
     try {
-        const tenantDir = getTenantDir(req);
-        // path.basename() + confirmar que o caminho final continua dentro da
-        // pasta desta empresa — sem isto, um nome como "../../outra_empresa/
-        // ficheiro.pdf" no URL apagava um ficheiro de OUTRA empresa.
-        const filenameSeguro = path.basename(req.params.filename);
-        const filePath = path.join(tenantDir, filenameSeguro);
-        if (path.dirname(filePath) !== tenantDir) {
-            return res.status(400).json({ error: 'Nome de ficheiro inválido.' });
-        }
-
         const empresaId = (req as any).user?.empresa_id;
-        const supabase = getSupabase(req);
-        await KnowledgeBaseService.deleteFileChunks(empresaId, filenameSeguro, supabase).catch(err => {
-            console.error('[knowledgeRoutes] Erro ao apagar chunks indexados:', err);
-        });
+        if (!empresaId) return res.status(400).json({ error: 'Empresa não encontrada.' });
+        const filenameSeguro = path.basename(req.params.filename);
 
-        if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-            res.json({ success: true, message: 'Apagado com sucesso' });
-        } else {
-            res.status(404).json({ error: 'Ficheiro não encontrado' });
+        // Apagar = deixar de estar disponível para a IA. É isso que conta, e é
+        // por isso que o sucesso depende dos trechos, não do ficheiro guardado.
+        const supabaseUser = getSupabase(req);
+        const antes = await KnowledgeBaseService.listarIndexados(empresaId, supabaseUser);
+        if (!antes.some(f => f.nome === filenameSeguro)) {
+            return res.status(404).json({ error: 'Ficheiro não encontrado.' });
         }
+
+        await KnowledgeBaseService.deleteFileChunks(empresaId, filenameSeguro, supabaseUser);
+        await supabase.storage.from('whatsapp-media')
+            .remove([`conhecimento/${empresaId}/${filenameSeguro.replace(/[^a-zA-Z0-9._-]/g, '_')}`])
+            .catch(() => { /* o original pode não existir; o que importa é já não ser usado */ });
+
+        res.json({ success: true, message: 'Apagado — a IA deixa de usar este documento.' });
     } catch(err: any) {
         res.status(500).json({ error: err.message });
     }
