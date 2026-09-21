@@ -173,7 +173,7 @@ const SuperAdminApp = () => {
   };
 
   return (
-    <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto', width: '100%', fontFamily: 'Roboto, sans-serif' }}>
+    <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto', width: '100%', fontFamily: 'Roboto, sans-serif', flex: 1, minHeight: 0, overflowY: 'auto', boxSizing: 'border-box' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
         <Shield size={32} color="#0854A0" />
         <h1 style={{ margin: 0, color: '#1D2D3E', fontSize: '24px' }}>Gestão Global SaaS</h1>
