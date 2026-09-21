@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Download, Check, Trash2, RefreshCw, FileText, FileImage, FileSpreadsheet, Upload, History, Users, Lock, Shield, RotateCcw, Loader2, Mail, MessageSquare, Cpu } from 'lucide-react';
-import { API, authFetch, AREAS, COR, ROTULO_CICLO, COR_CICLO, Doc, TipoDoc, fmtData, fmtDataHora, fmtTam, btn, input, label, ROTULO_ACAO } from './comum';
+import { API, authFetch, AREAS, COR, ROTULO_CICLO, COR_CICLO, fmtData, fmtDataHora, fmtTam, btn, input, label, ROTULO_ACAO } from './comum';
+import type { Doc, TipoDoc } from './comum';
 
 function IconeDoc({ doc, size = 18 }: { doc: Doc; size?: number }) {
     const m = doc.mime_type || '';

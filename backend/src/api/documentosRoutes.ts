@@ -14,7 +14,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 30 
 const empresaDe = (req: AuthRequest) => String(req.user!.empresa_id);
 const nomeSeguro = (f: Express.Multer.File) => path.basename(Buffer.from(f.originalname, 'latin1').toString('utf8'));
 const utilizador = (req: AuthRequest): Utilizador => ({
-    id: req.user!.id, nome: (req.user as any).nome, role: req.user!.role, empresa_id: empresaDe(req),
+    id: req.user!.id, nome: (req.user as any).nome || req.user!.email, role: req.user!.role, empresa_id: empresaDe(req),
     ip: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket?.remoteAddress || undefined
 });
 const ehAdmin = (req: AuthRequest) => ['admin', 'superadmin'].includes(req.user!.role);

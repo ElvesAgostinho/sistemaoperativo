@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
-    FolderOpen, Folder, FolderPlus, Search, Upload, Inbox, ShieldAlert, Wrench, Settings, FileText, FileImage, FileSpreadsheet,
+    FolderOpen, Folder, FolderPlus, Search, Upload, Inbox, ShieldAlert, Wrench, Settings, FileText, FileImage, FileSpreadsheet, ArrowLeft,
     Mail, MessageSquare, Cpu, User, Briefcase, Users, ChevronRight, ChevronDown, X, Check, Trash2, AlertTriangle, Clock, CheckCircle2, Plus, Sparkles, Loader2, ScrollText, Pencil
 } from 'lucide-react';
-import { API, authFetch, AREAS, COR, Doc, TipoDoc, diasAte, fmtData, fmtDataHora, btn, input, label, ROTULO_ACAO } from './documentos/comum';
+import { API, authFetch, AREAS, COR, diasAte, fmtData, fmtDataHora, btn, input, label, ROTULO_ACAO } from './documentos/comum';
+import type { Doc, TipoDoc } from './documentos/comum';
 import DocumentoDetalhe, { BadgeCiclo, IconeConfidencialidade } from './documentos/DocumentoDetalhe';
 import DocumentosTipos from './documentos/DocumentosTipos';
 
@@ -43,7 +44,7 @@ function comCaminhos(pastas: any[]): any[] {
 }
 
 // ============================================================
-export default function DocumentosApp() {
+export default function DocumentosApp({ onVoltar }: { onVoltar?: () => void }) {
     const [vista, setVista] = useState<Vista>('todos');
     const [areaSel, setAreaSel] = useState<string | null>(null);
     const [pastaSel, setPastaSel] = useState<any | null>(null);
@@ -85,7 +86,7 @@ export default function DocumentosApp() {
     }, [vista, areaSel, pastaSel, filtroTexto]);
 
     useEffect(() => { fetchResumo(); fetchTiposEPastas(); }, [fetchResumo, fetchTiposEPastas]);
-    useEffect(() => { if (['todos', 'area', 'pasta', 'por_rever'].includes(vista)) { setLoading(true); fetchDocs(); } }, [vista, areaSel, pastaSel, fetchDocs]);
+    useEffect(() => { fetchResumo(); if (['todos', 'area', 'pasta', 'por_rever'].includes(vista)) { setLoading(true); fetchDocs(); } }, [vista, areaSel, pastaSel, fetchDocs, fetchResumo]);
     useEffect(() => {
         if (!resumo || (resumo.aProcessar || 0) === 0) return;
         const t = setInterval(() => { fetchResumo(); fetchDocs(); }, 6000);
@@ -135,8 +136,8 @@ export default function DocumentosApp() {
         );
     }
 
-    const navItem = (ativo: boolean, onClick: () => void, icone: any, texto: string, badge?: number, badgeCor?: string) => (
-        <div onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: '9px', padding: '7px 12px', borderRadius: '2px', cursor: 'pointer', fontSize: '13px', fontWeight: ativo ? 700 : 500, color: ativo ? COR.accent : COR.ink, background: ativo ? '#E4EDF7' : 'transparent' }}>
+    const navItem = (ativo: boolean, onClick: () => void, icone: any, texto: string, badge?: number, badgeCor?: string, chave?: string) => (
+        <div key={chave} onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: '9px', padding: '6px 10px', borderRadius: '2px', cursor: 'pointer', fontSize: '12.5px', fontWeight: ativo ? 700 : 500, color: ativo ? COR.accent : COR.ink, background: ativo ? '#E4EDF7' : 'transparent' }}>
             {icone}<span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{texto}</span>
             {badge !== undefined && badge > 0 && <span style={{ fontSize: '10.5px', fontWeight: 700, color: 'white', background: badgeCor || COR.muted, padding: '1px 7px', borderRadius: '9px' }}>{badge}</span>}
         </div>
@@ -148,20 +149,26 @@ export default function DocumentosApp() {
 
             {/* ---------- NAV ---------- */}
             <div style={{ width: '250px', minWidth: '250px', background: 'white', borderRight: `1px solid ${COR.border}`, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-                <div style={{ padding: '14px 16px', borderBottom: `1px solid ${COR.border}`, display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, color: COR.ink, height: '59px', boxSizing: 'border-box' }}>
-                    <FolderOpen size={20} color={COR.accent} /> Documentos
+                <div style={{ padding: '0 10px', borderBottom: `1px solid ${COR.border}`, display: 'flex', alignItems: 'center', gap: '8px', height: '52px', boxSizing: 'border-box' }}>
+                    {onVoltar && (
+                        <button onClick={onVoltar} title="Voltar ao menu principal"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 10px', borderRadius: '2px', border: `1px solid ${COR.border}`, background: 'white', color: COR.ink, fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' }}>
+                            <ArrowLeft size={14} /> Voltar
+                        </button>
+                    )}
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 700, color: COR.ink, fontSize: '14px', marginLeft: 'auto' }}><FolderOpen size={17} color={COR.accent} /> Documentos</span>
                 </div>
-                <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '2px', overflowY: 'auto', flex: 1, minHeight: 0 }}>
+                <div style={{ padding: '8px', display: 'flex', flexDirection: 'column', gap: '1px', overflowY: 'auto', flex: 1, minHeight: 0 }}>
                     {navItem(vista === 'todos', () => { setVista('todos'); setAreaSel(null); }, <FolderOpen size={15} />, 'Todos os documentos')}
                     {navItem(vista === 'pesquisa', () => setVista('pesquisa'), <Sparkles size={15} />, 'Perguntar ao arquivo')}
                     {navItem(vista === 'por_rever', () => setVista('por_rever'), <Inbox size={15} />, 'Por rever', resumo?.porRever, COR.warn)}
                     {navItem(vista === 'conformidade', () => setVista('conformidade'), <ShieldAlert size={15} />, 'Conformidade', (resumo?.vencidos || 0) + (resumo?.aVencer || 0), resumo?.vencidos > 0 ? COR.bad : COR.warn)}
                     {navItem(vista === 'ativos', () => setVista('ativos'), <Wrench size={15} />, 'Ativos')}
 
-                    <div style={{ ...label, margin: '14px 12px 6px' }}>Áreas</div>
+                    <div style={{ ...label, margin: '10px 10px 4px' }}>Áreas</div>
                     {AREAS.filter(a => !resumo?.areasPermitidas || resumo.areasPermitidas.includes(a)).map(a => {
                         const n = resumo?.areas?.find((x: any) => x.nome === a)?.total || 0;
-                        return navItem(vista === 'area' && areaSel === a, () => { setVista('area'); setAreaSel(a); }, <ChevronRight size={13} color={COR.faint} />, a, n, COR.faint);
+                        return navItem(vista === 'area' && areaSel === a, () => { setVista('area'); setAreaSel(a); }, <ChevronRight size={13} color={COR.faint} />, a, n, COR.faint, a);
                     })}
 
                     <ArvorePastas pastas={pastas} ativa={vista === 'pasta' ? pastaSel : undefined} onEscolher={p => { setVista('pasta'); setPastaSel(p); }} onMudou={fetchTiposEPastas} />

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, Trash2, ArrowUp, ArrowDown, X } from 'lucide-react';
-import { API, authFetch, AREAS, COR, TipoDoc, btn, input, label } from './comum';
+import { API, authFetch, AREAS, COR, btn, input, label } from './comum';
+import type { TipoDoc } from './comum';
 
 const TIPOS_CAMPO = [
     { v: 'texto', l: 'Texto' }, { v: 'numero', l: 'Número' }, { v: 'moeda', l: 'Moeda (Kz)' },

@@ -295,10 +295,26 @@ export class DocumentosGovernoService {
     // ============================================================
     // AUDITORIA
     // ============================================================
+    // O token só traz o email; o nome próprio vem do perfil e fica em cache
+    // para não custar uma consulta por cada evento.
+    private static nomesCache = new Map<string, { nome: string; ate: number }>();
+    private static async nomeDe(user: Utilizador): Promise<string> {
+        const c = this.nomesCache.get(user.id);
+        if (c && c.ate > Date.now()) return c.nome;
+        let nome = user.nome || '';
+        try {
+            const { data } = await supabase.from('perfis').select('nome').eq('id', user.id).maybeSingle();
+            if (data?.nome) nome = data.nome;
+        } catch { /* fica o email */ }
+        this.nomesCache.set(user.id, { nome, ate: Date.now() + 10 * 60 * 1000 });
+        return nome;
+    }
+
     public static async auditar(empresaId: string, user: Utilizador | null, acao: string, doc: { id?: string; titulo?: string } | null, detalhes: Record<string, any> = {}, resultado = 'ok') {
         try {
+            const userNome = user ? await this.nomeDe(user) : 'sistema';
             await supabase.from('documentos_auditoria').insert({
-                empresa_id: empresaId, user_id: user?.id || null, user_nome: user?.nome || (user ? null : 'sistema'),
+                empresa_id: empresaId, user_id: user?.id || null, user_nome: userNome || null,
                 acao, documento_id: doc?.id || null, documento_titulo: doc?.titulo || null, detalhes, ip: user?.ip || null, resultado
             });
         } catch (e: any) {

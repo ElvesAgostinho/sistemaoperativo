@@ -49,6 +49,8 @@ const MODULOS: { key: string; label: string; icon: any }[] = [
   { key: 'superadmin', label: 'SaaS Global', icon: Globe },
 ];
 
+const MODULOS_ECRA_INTEIRO: string[] = ['documentos'];
+
 const ROLE_PERMISSIONS: Record<string, string[]> = {
   superadmin: ['home', 'superadmin', 'hr', 'crm', 'data', 'chat', 'auto', 'wa', 'kb', 'email', 'settings', 'reunioes', 'afiliados', 'contabilidade', 'agendamento', 'documentos'],
   admin: ['home', 'hr', 'crm', 'data', 'chat', 'auto', 'wa', 'kb', 'email', 'settings', 'reunioes', 'afiliados', 'contabilidade', 'agendamento', 'documentos'],
@@ -453,7 +455,9 @@ function App() {
 
       {/* Corpo: menu lateral em árvore (estilo SAP Easy Access) + conteúdo */}
       <div className="sap-body">
-        <div className="sap-sidebar">
+        {/* Módulos de trabalho intensivo (Documentos) ocupam o ecrã inteiro: o
+            menu principal sai e o módulo traz o seu próprio botão de voltar. */}
+        {!MODULOS_ECRA_INTEIRO.includes(activeModule) && <div className="sap-sidebar">
           <div className="sap-sidebar-label">Menu</div>
           {MODULOS.filter(m => hasAccess(m.key)).map(m => (
             <div
@@ -465,7 +469,7 @@ function App() {
               <span>{m.label}</span>
             </div>
           ))}
-        </div>
+        </div>}
 
         <div className="sap-main">
           {activeModule === 'home' && (
@@ -498,7 +502,7 @@ function App() {
                 {activeModule === 'afiliados' && <AfiliadosApp />}
                 {activeModule === 'contabilidade' && <FinanceiroApp />}
                 {activeModule === 'agendamento' && <AgendamentoApp />}
-                {activeModule === 'documentos' && <DocumentosApp />}
+                {activeModule === 'documentos' && <DocumentosApp onVoltar={() => navigateTo('home')} />}
 
                 {activeModule === 'chat' && (
                    <div className="odoo-content-area" style={{ padding: 0 }}>
