@@ -37,7 +37,8 @@ CREATE TABLE IF NOT EXISTS public.documentos (
 
     titulo text NOT NULL,
     nome_ficheiro text NOT NULL,
-    url text,                                   -- Supabase Storage
+    url text,                                   -- (não usado: os links são assinados na leitura)
+    storage_path text,                          -- caminho no bucket privado "documentos"
     mime_type text,
     tamanho integer,
     hash text,                                  -- sha256 do conteúdo, para não guardar o mesmo ficheiro duas vezes
@@ -140,3 +141,6 @@ BEGIN
     END LOOP;
 END;
 $$ LANGUAGE plpgsql;
+
+-- Acrescento (se já correu a versão anterior desta migração):
+ALTER TABLE public.documentos ADD COLUMN IF NOT EXISTS storage_path text;

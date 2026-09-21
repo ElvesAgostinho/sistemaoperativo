@@ -42,17 +42,16 @@ export class DocumentosService {
             return { id: existente.id, duplicado: true, estado: existente.estado };
         }
 
-        // Nome com prefixo aleatório: o bucket é público por link, portanto o
-        // link não pode ser adivinhável a partir do nome do ficheiro.
-        const token = crypto.randomBytes(6).toString('hex');
-        const guardado = await MediaUploadService.upload(e.buffer, `${token}_${e.nomeFicheiro}`, e.mimeType, 'documentos', e.empresaId);
+        // Bucket privado: o ficheiro só sai por links assinados que expiram.
+        const storagePath = await MediaUploadService.guardarDocumento(e.buffer, e.empresaId, e.nomeFicheiro, e.mimeType);
 
         const pre = e.preClassificado;
         const { data, error } = await supabase.from('documentos').insert({
             empresa_id: e.empresaId,
             titulo: pre?.titulo || e.nomeFicheiro,
             nome_ficheiro: e.nomeFicheiro,
-            url: guardado.url,
+            url: null,
+            storage_path: storagePath,
             mime_type: e.mimeType,
             tamanho: e.buffer.length,
             hash,
@@ -105,9 +104,7 @@ export class DocumentosService {
 
     private static async processar(doc: any): Promise<void> {
         try {
-            const res = await fetch(doc.url);
-            if (!res.ok) throw new Error(`Não foi possível ler o ficheiro guardado (HTTP ${res.status}).`);
-            const buffer = Buffer.from(await res.arrayBuffer());
+            const buffer = await MediaUploadService.descarregarDocumento(doc.storage_path);
 
             const analise = await DocumentoIAService.analisar(buffer, doc.mime_type || 'application/octet-stream', doc.nome_ficheiro);
 
@@ -217,15 +214,15 @@ export class DocumentosService {
         }
         if (porDoc.size === 0) return { documentos: [], resposta: null };
 
-        let q = supabase.from('documentos').select('id, titulo, area, tipo, resumo, entidade_nome, validade, data_documento, url, nome_ficheiro, campos')
+        let q = supabase.from('documentos').select('id, titulo, area, tipo, resumo, entidade_nome, validade, data_documento, storage_path, nome_ficheiro, mime_type, campos')
             .eq('empresa_id', empresaId).in('id', Array.from(porDoc.keys())).neq('estado', 'descartado');
         if (areasPermitidas) q = q.in('area', areasPermitidas);
         const { data: docs } = await q;
 
-        const documentos = (docs || [])
+        const documentos = await this.comLinks((docs || [])
             .map((d: any) => ({ ...d, relevancia: porDoc.get(d.id)!.similarity, excertos: porDoc.get(d.id)!.excertos }))
             .sort((a: any, b: any) => b.relevancia - a.relevancia)
-            .slice(0, 6);
+            .slice(0, 6));
 
         const resposta = documentos.length > 0 ? await this.responderComDocumentos(pergunta, documentos) : null;
         return { documentos, resposta };
@@ -255,7 +252,7 @@ export class DocumentosService {
     // CONFORMIDADE — o que caduca, o que já caducou
     // ============================================================
     public static async conformidade(empresaId: string, areasPermitidas: string[] | null) {
-        let q = supabase.from('documentos').select('id, titulo, area, tipo, entidade_nome, entidade_tipo, validade, url')
+        let q = supabase.from('documentos').select('id, titulo, area, tipo, entidade_nome, entidade_tipo, validade, storage_path, mime_type, nome_ficheiro')
             .eq('empresa_id', empresaId).eq('estado', 'arquivado').not('validade', 'is', null).order('validade', { ascending: true });
         if (areasPermitidas) q = q.in('area', areasPermitidas);
         const { data } = await q;
@@ -271,7 +268,12 @@ export class DocumentosService {
             else if (v <= limite) aVencer.push(item);
             else emDia.push(item);
         }
-        return { vencidos, aVencer, emDia, diasAviso: DIAS_AVISO_VALIDADE };
+        return { vencidos: await this.comLinks(vencidos), aVencer: await this.comLinks(aVencer), emDia: await this.comLinks(emDia), diasAviso: DIAS_AVISO_VALIDADE };
+    }
+
+    /** Junta a cada documento um link assinado de 1 hora para ver/descarregar. */
+    public static async comLinks<T extends { storage_path?: string | null }>(docs: T[]): Promise<(T & { url: string | null })[]> {
+        return Promise.all(docs.map(async d => ({ ...d, url: d.storage_path ? await MediaUploadService.assinarDocumento(d.storage_path) : null })));
     }
 
     // ============================================================

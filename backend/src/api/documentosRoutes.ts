@@ -59,7 +59,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         const areas = await filtroAreas(req);
         const { area, estado, entidade_tipo, entidade_id, texto } = req.query as Record<string, string>;
         let q = supabase.from('documentos')
-            .select('id, titulo, nome_ficheiro, url, mime_type, tamanho, area, tipo, resumo, campos, data_documento, validade, entidade_tipo, entidade_id, entidade_nome, origem, origem_detalhe, estado, confianca, erro, criado_em')
+            .select('id, titulo, nome_ficheiro, storage_path, mime_type, tamanho, area, tipo, resumo, campos, data_documento, validade, entidade_tipo, entidade_id, entidade_nome, origem, origem_detalhe, estado, confianca, erro, criado_em')
             .eq('empresa_id', empresaDe(req)).order('criado_em', { ascending: false }).limit(300);
         if (areas) q = q.in('area', areas);
         if (area) q = q.eq('area', area);
@@ -68,7 +68,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         if (texto) q = q.or(`titulo.ilike.%${texto}%,resumo.ilike.%${texto}%,entidade_nome.ilike.%${texto}%,nome_ficheiro.ilike.%${texto}%`);
         const { data, error } = await q;
         if (error) throw error;
-        res.json({ success: true, documentos: data });
+        res.json({ success: true, documentos: await DocumentosService.comLinks(data || []) });
     } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
@@ -116,7 +116,8 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
         if (!data) return res.status(404).json({ error: 'Documento não encontrado.' });
         const areas = await filtroAreas(req);
         if (areas && !areas.includes(data.area)) return res.status(403).json({ error: 'Sem acesso a esta área.' });
-        res.json({ success: true, documento: data });
+        const [documento] = await DocumentosService.comLinks([data]);
+        res.json({ success: true, documento });
     } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
@@ -154,11 +155,11 @@ router.post('/:id/reprocessar', async (req: AuthRequest, res: Response) => {
 
 router.delete('/:id', async (req: AuthRequest, res: Response) => {
     try {
-        const { data: doc } = await supabase.from('documentos').select('id, url').eq('id', req.params.id).eq('empresa_id', empresaDe(req)).maybeSingle();
+        const { data: doc } = await supabase.from('documentos').select('id, storage_path').eq('id', req.params.id).eq('empresa_id', empresaDe(req)).maybeSingle();
         if (!doc) return res.status(404).json({ error: 'Documento não encontrado.' });
         const { error } = await supabase.from('documentos').delete().eq('id', doc.id).eq('empresa_id', empresaDe(req));
         if (error) throw error;
-        if (doc.url) await MediaUploadService.apagar(doc.url, 'documentos', empresaDe(req));
+        if (doc.storage_path) await MediaUploadService.apagarDocumento(doc.storage_path, empresaDe(req));
         res.json({ success: true });
     } catch (err: any) { res.status(500).json({ error: err.message }); }
 });

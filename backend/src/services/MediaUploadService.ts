@@ -48,6 +48,58 @@ export class MediaUploadService {
         return { url: data.publicUrl, tipo: MediaUploadService.tipoDeMedia(mimeType), nome: nomeOriginal };
     }
 
+    // ============================================================
+    // BUCKET PRIVADO DE DOCUMENTOS
+    // Contratos, recibos e identificação nunca podem ter um link permanente:
+    // guardam-se num bucket privado (criado pelo backend se não existir, sem
+    // restrição de tipo de ficheiro) e só saem por links assinados que
+    // expiram. O bucket público "whatsapp-media" fica só para multimédia.
+    // ============================================================
+    private static readonly BUCKET_DOCS = 'documentos';
+    private static bucketDocsPronto = false;
+
+    private static async garantirBucketDocs(): Promise<void> {
+        if (this.bucketDocsPronto) return;
+        const { data } = await supabase.storage.getBucket(this.BUCKET_DOCS);
+        if (!data) {
+            const { error } = await supabase.storage.createBucket(this.BUCKET_DOCS, { public: false, fileSizeLimit: 30 * 1024 * 1024 });
+            if (error && !/already exists/i.test(error.message)) throw new Error('Não foi possível criar o bucket de documentos: ' + error.message);
+        }
+        this.bucketDocsPronto = true;
+    }
+
+    /** Guarda um documento no bucket privado e devolve o caminho (não um link). */
+    public static async guardarDocumento(buffer: Buffer, empresaId: string, nomeFicheiro: string, mimeType: string): Promise<string> {
+        await this.garantirBucketDocs();
+        const nomeSeguro = nomeFicheiro.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const caminho = `${empresaId}/${Date.now()}_${nomeSeguro}`;
+        const { error } = await supabase.storage.from(this.BUCKET_DOCS).upload(caminho, buffer, { contentType: mimeType, upsert: false });
+        if (error) throw new Error('Falha ao guardar o ficheiro: ' + error.message);
+        return caminho;
+    }
+
+    /** Link temporário para ver/descarregar (expira). */
+    public static async assinarDocumento(caminho: string, segundos = 3600): Promise<string | null> {
+        if (!caminho) return null;
+        const { data, error } = await supabase.storage.from(this.BUCKET_DOCS).createSignedUrl(caminho, segundos);
+        if (error) { console.error('[MediaUpload] Falha a assinar link:', error.message); return null; }
+        return data?.signedUrl || null;
+    }
+
+    public static async descarregarDocumento(caminho: string): Promise<Buffer> {
+        const { data, error } = await supabase.storage.from(this.BUCKET_DOCS).download(caminho);
+        if (error || !data) throw new Error('Não foi possível ler o ficheiro guardado: ' + (error?.message || 'vazio'));
+        return Buffer.from(await data.arrayBuffer());
+    }
+
+    public static async apagarDocumento(caminho: string, empresaId: string): Promise<boolean> {
+        // Só dentro da pasta da própria empresa.
+        if (!caminho || !caminho.startsWith(`${empresaId}/`) || caminho.includes('..')) return false;
+        const { error } = await supabase.storage.from(this.BUCKET_DOCS).remove([caminho]);
+        if (error) { console.error('[MediaUpload] Falha a apagar documento:', error.message); return false; }
+        return true;
+    }
+
     /**
      * Apaga um ficheiro a partir do link público, mas SÓ se ele estiver dentro
      * da pasta da própria empresa. Sem esta verificação, bastava passar o link
