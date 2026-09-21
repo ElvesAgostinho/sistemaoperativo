@@ -12,9 +12,9 @@ const MENSAGENS_PENDENTE = [
 
 const FONT_DISPLAY = "'Roboto', 'Segoe UI', sans-serif";
 const FONT_BODY = "'Roboto', 'Segoe UI', sans-serif";
-const ACCENT = '#0854A0';
-const ACCENT_HOVER = '#063E78';
-const ACCENT_SOFT = '#E4EDF7';
+const ACCENT = '#0E5A6B';
+const ACCENT_HOVER = '#0A4451';
+const ACCENT_SOFT = '#E1EEF0';
 const INK = '#1D2D3E';
 const INK_MUTED = '#5B738B';
 const BORDER = '#D5D7DA';
@@ -139,7 +139,7 @@ export default function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
       </button>
 
       {/* Lado Esquerdo - Branding */}
-      <div style={{ flex: 1, position: 'relative', background: '#354A5E', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '60px', paddingTop: '110px', color: 'white', overflow: 'hidden' }}>
+      <div style={{ flex: 1, position: 'relative', background: '#0A3B47', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '60px', paddingTop: '110px', color: 'white', overflow: 'hidden' }}>
         <div style={{ zIndex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '44px' }}>
             <LogoMark size={40} />

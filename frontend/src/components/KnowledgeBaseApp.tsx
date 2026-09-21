@@ -109,7 +109,7 @@ export default function KnowledgeBaseApp() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
         <div>
           <h1 style={{ fontSize: '28px', color: '#1D2D3E', margin: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <BookOpen size={32} color="#0854A0" /> Base de Conhecimento IA
+            <BookOpen size={32} color="#0E5A6B" /> Base de Conhecimento IA
           </h1>
           <p style={{ color: '#5B738B', margin: 0, fontSize: '15px' }}>Documentos, Regras e Contexto para a Inteligência Artificial consultar.</p>
         </div>
@@ -142,7 +142,7 @@ export default function KnowledgeBaseApp() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
                 {filteredFiles.map(file => (
                   <div key={file.name} style={{ border: '1px solid #D5D7DA', borderRadius: '2px', padding: '16px', display: 'flex', alignItems: 'flex-start', gap: '12px', backgroundColor: '#F5F6F7' }}>
-                    <div style={{ padding: '10px', backgroundColor: '#E4EDF7', borderRadius: '2px', color: '#0854A0' }}>
+                    <div style={{ padding: '10px', backgroundColor: '#E1EEF0', borderRadius: '2px', color: '#0E5A6B' }}>
                       <FileText size={24} />
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -178,8 +178,8 @@ export default function KnowledgeBaseApp() {
             onDragOver={handleDrag}
             onDrop={handleDrop}
             style={{ 
-              backgroundColor: dragActive ? '#E4EDF7' : 'white',
-              border: `2px dashed ${dragActive ? '#0854A0' : '#D5D7DA'}`, 
+              backgroundColor: dragActive ? '#E1EEF0' : 'white',
+              border: `2px dashed ${dragActive ? '#0E5A6B' : '#D5D7DA'}`, 
               borderRadius: '2px', 
               padding: '40px 24px', 
               display: 'flex', 
@@ -200,11 +200,11 @@ export default function KnowledgeBaseApp() {
               onChange={(e) => e.target.files && handleUpload(e.target.files[0])}
             />
             <div style={{ backgroundColor: '#E7E9EB', padding: '16px', borderRadius: '50%', marginBottom: '16px' }}>
-              <Upload size={32} color={dragActive ? '#0854A0' : '#5B738B'} />
+              <Upload size={32} color={dragActive ? '#0E5A6B' : '#5B738B'} />
             </div>
             <h3 style={{ margin: '0 0 8px 0', fontSize: '16px', color: '#1D2D3E' }}>Adicionar Conhecimento</h3>
             <p style={{ margin: 0, fontSize: '13px', color: '#5B738B' }}>Arraste ficheiros .TXT, .MD ou .PDF ou clique para procurar.</p>
-            {isUploading && <p style={{ color: '#0854A0', fontSize: '13px', marginTop: '12px', fontWeight: 'bold' }}>A enviar...</p>}
+            {isUploading && <p style={{ color: '#0E5A6B', fontSize: '13px', marginTop: '12px', fontWeight: 'bold' }}>A enviar...</p>}
           </div>
 
           <div style={{ backgroundColor: 'white', borderRadius: '2px', border: '1px solid #D5D7DA', padding: '20px' }}>

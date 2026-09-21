@@ -175,7 +175,7 @@ const SuperAdminApp = () => {
   return (
     <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto', width: '100%', fontFamily: 'Roboto, sans-serif', flex: 1, minHeight: 0, overflowY: 'auto', boxSizing: 'border-box' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-        <Shield size={32} color="#0854A0" />
+        <Shield size={32} color="#0E5A6B" />
         <h1 style={{ margin: 0, color: '#1D2D3E', fontSize: '24px' }}>Gestão Global SaaS</h1>
       </div>
 
@@ -183,8 +183,8 @@ const SuperAdminApp = () => {
         <button
           onClick={() => setActiveTab('empresas')}
           style={{
-            padding: '12px 24px', background: 'none', border: 'none', borderBottom: activeTab === 'empresas' ? '3px solid #0854A0' : '3px solid transparent',
-            color: activeTab === 'empresas' ? '#0854A0' : '#5B738B', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px'
+            padding: '12px 24px', background: 'none', border: 'none', borderBottom: activeTab === 'empresas' ? '3px solid #0E5A6B' : '3px solid transparent',
+            color: activeTab === 'empresas' ? '#0E5A6B' : '#5B738B', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px'
           }}
         >
           <Building size={18} /> Empresas
@@ -192,8 +192,8 @@ const SuperAdminApp = () => {
         <button
           onClick={() => setActiveTab('users')}
           style={{
-            padding: '12px 24px', background: 'none', border: 'none', borderBottom: activeTab === 'users' ? '3px solid #0854A0' : '3px solid transparent',
-            color: activeTab === 'users' ? '#0854A0' : '#5B738B', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px'
+            padding: '12px 24px', background: 'none', border: 'none', borderBottom: activeTab === 'users' ? '3px solid #0E5A6B' : '3px solid transparent',
+            color: activeTab === 'users' ? '#0E5A6B' : '#5B738B', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px'
           }}
         >
           <Users size={18} /> Utilizadores Globais
@@ -207,7 +207,7 @@ const SuperAdminApp = () => {
       )}
 
       {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}><Loader2 className="animate-spin" size={32} color="#0854A0" /></div>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}><Loader2 className="animate-spin" size={32} color="#0E5A6B" /></div>
       ) : activeTab === 'empresas' ? (
         <div style={{ background: 'white', borderRadius: '2px', border: '1px solid #D5D7DA', overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
@@ -298,7 +298,7 @@ const SuperAdminApp = () => {
           <div style={{ background: 'white', borderRadius: '2px', width: '500px', maxWidth: '90%', boxShadow: '0 2px 10px rgba(29,45,62,0.2)', display: 'flex', flexDirection: 'column', maxHeight: '90vh' }}>
             <div style={{ padding: '20px 24px', borderBottom: '1px solid #D5D7DA', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F5F6F7', borderTopLeftRadius: '2px', borderTopRightRadius: '2px' }}>
               <h2 style={{ margin: 0, fontSize: '18px', color: '#1D2D3E', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Settings size={20} color="#0854A0" /> 
+                <Settings size={20} color="#0E5A6B" /> 
                 Licenciamento: {editingEmpresa.nome}
               </h2>
               <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#5B738B' }}>

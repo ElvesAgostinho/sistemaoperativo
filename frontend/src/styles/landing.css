@@ -4,9 +4,9 @@
    ============================================================ */
 
 :root {
-  --lp-accent: #0854A0;
-  --lp-accent-hover: #063E78;
-  --lp-accent-soft: #E4EDF7;
+  --lp-accent: #0E5A6B;
+  --lp-accent-hover: #0A4451;
+  --lp-accent-soft: #E1EEF0;
   --lp-gold: #8A4B0B;
   --lp-ink: #1D2D3E;
   --lp-ink-muted: #5B738B;
@@ -14,7 +14,7 @@
   --lp-paper: #F5F6F7;
   --lp-surface: #FFFFFF;
   --lp-border: #D5D7DA;
-  --lp-dark: #354A5E;
+  --lp-dark: #0A3B47;
   --lp-dark-surface: #1D2D3E;
   --lp-dark-border: #465A6E;
   --lp-shadow: none;

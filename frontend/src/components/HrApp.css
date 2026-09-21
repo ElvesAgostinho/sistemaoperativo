@@ -12,9 +12,9 @@
   --odoo-sheet-bg: #FFFFFF;
   --odoo-bg-gray: #F5F6F7;
 
-  --hr-accent: #0854A0;
-  --hr-accent-hover: #063E78;
-  --hr-accent-soft: #E4EDF7;
+  --hr-accent: #0E5A6B;
+  --hr-accent-hover: #0A4451;
+  --hr-accent-soft: #E1EEF0;
   --hr-ink: #1D2D3E;
   --hr-ink-muted: #5B738B;
   --hr-ink-faint: #8996A3;
@@ -248,7 +248,7 @@
   font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
   padding: 3px 9px; border-radius: 2px; white-space: nowrap;
 }
-.rec-vaga-badge.aberta { background: #E4EDF7; color: #0854A0; }
+.rec-vaga-badge.aberta { background: #E1EEF0; color: #0E5A6B; }
 .rec-vaga-badge.pausada { background: #FCEFDD; color: #8A4B0B; }
 .rec-vaga-badge.fechada { background: #EAEBEC; color: #5B738B; }
 .rec-vaga-count { font-size: 12px; color: var(--hr-accent); font-weight: 700; margin-top: 8px; }

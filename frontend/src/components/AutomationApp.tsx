@@ -219,12 +219,12 @@ export default function AutomationApp() {
         <div style={{ padding: '20px', borderBottom: '1px solid var(--odoo-border)', minWidth: '300px' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
             <h2 style={{ margin: 0, fontSize: '18px', color: '#1D2D3E', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Zap size={20} color="#0854A0" /> Autopilot
+              <Zap size={20} color="#0E5A6B" /> Autopilot
             </h2>
             <button
               onClick={() => setHelpOpen(true)}
               title="Manual — como construir um fluxo"
-              style={{ display: 'flex', alignItems: 'center', gap: '5px', background: '#E4EDF7', border: '1px solid #bae6fd', color: '#0854A0', borderRadius: '2px', padding: '5px 9px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}
+              style={{ display: 'flex', alignItems: 'center', gap: '5px', background: '#E1EEF0', border: '1px solid #bae6fd', color: '#0E5A6B', borderRadius: '2px', padding: '5px 9px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}
             >
               <HelpCircle size={13} /> Ajuda
             </button>
@@ -238,8 +238,8 @@ export default function AutomationApp() {
               key={auto.id}
               style={{
                 padding: '12px',
-                backgroundColor: selectedId === auto.id ? '#E4EDF7' : 'white',
-                border: selectedId === auto.id ? '1px solid #0854A0' : '1px solid var(--odoo-border)',
+                backgroundColor: selectedId === auto.id ? '#E1EEF0' : 'white',
+                border: selectedId === auto.id ? '1px solid #0E5A6B' : '1px solid var(--odoo-border)',
                 borderRadius: '2px',
                 marginBottom: '8px',
                 cursor: 'pointer',
@@ -274,7 +274,7 @@ export default function AutomationApp() {
                       onKeyDown={(e) => { if (e.key === 'Escape') cancelRenaming(); }}
                       disabled={isRenaming}
                       autoFocus
-                      style={{ flex: 1, minWidth: 0, fontSize: '13px', fontWeight: 'bold', padding: '4px 6px', borderRadius: '2px', border: '1px solid #0854A0' }}
+                      style={{ flex: 1, minWidth: 0, fontSize: '13px', fontWeight: 'bold', padding: '4px 6px', borderRadius: '2px', border: '1px solid #0E5A6B' }}
                     />
                     <button type="submit" disabled={isRenaming} title="Guardar nome" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: '#107E3E' }}>
                       <Check size={16} />

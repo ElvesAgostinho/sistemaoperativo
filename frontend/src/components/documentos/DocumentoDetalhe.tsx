@@ -433,7 +433,7 @@ function Acesso({ doc, utilizadores, setErro }: { doc: Doc; utilizadores: any[];
             {acessos.map(a => (
                 <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', borderBottom: `1px solid ${COR.borderSoft}` }}>
                     <div style={{ flex: 1 }}><div style={{ fontSize: '13px', fontWeight: 600, color: COR.ink }}>{a.nome}</div><div style={{ fontSize: '11.5px', color: COR.faint }}>{a.email}</div></div>
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: COR.accent, background: '#E4EDF7', padding: '2px 8px', borderRadius: '2px', textTransform: 'uppercase' }}>{a.nivel}</span>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: COR.accent, background: '#E1EEF0', padding: '2px 8px', borderRadius: '2px', textTransform: 'uppercase' }}>{a.nivel}</span>
                     <span style={{ fontSize: '11.5px', color: a.expira_em && new Date(a.expira_em) < new Date() ? COR.bad : COR.faint, width: '90px' }}>{a.expira_em ? `até ${fmtData(a.expira_em.slice(0, 10))}` : 'sem prazo'}</span>
                     <button style={{ ...btn(false, true), padding: '4px 8px' }} onClick={() => revogar(a.user_id)}><Trash2 size={12} /></button>
                 </div>

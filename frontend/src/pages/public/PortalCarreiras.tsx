@@ -3,13 +3,13 @@ import { Briefcase, MapPin, Clock, Search, ArrowRight, Wallet } from 'lucide-rea
 
 const FONT_DISPLAY = "'Roboto', 'Segoe UI', sans-serif";
 const FONT_BODY = "'Roboto', 'Segoe UI', sans-serif";
-const ACCENT = '#0854A0';
-const ACCENT_SOFT = '#E4EDF7';
+const ACCENT = '#0E5A6B';
+const ACCENT_SOFT = '#E1EEF0';
 const INK = '#1D2D3E';
 const INK_MUTED = '#5B738B';
 const BORDER = '#D5D7DA';
 const CANVAS = '#F5F6F7';
-const SHELL = '#354A5E';
+const SHELL = '#0A3B47';
 
 interface Vaga {
     id: string;

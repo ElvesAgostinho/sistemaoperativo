@@ -154,7 +154,7 @@ export default function Aprovacao({ doc, utilizadores, podeEditar, onMudou, setE
 
 export function BadgeProcesso({ estado }: { estado: string }) {
     const m: Record<string, { c: string; bg: string; t: string }> = {
-        em_curso: { c: COR.accent, bg: '#E4EDF7', t: 'Em curso' }, aprovado: { c: COR.good, bg: '#DCEEE2', t: 'Aprovado' },
+        em_curso: { c: COR.accent, bg: '#E1EEF0', t: 'Em curso' }, aprovado: { c: COR.good, bg: '#DCEEE2', t: 'Aprovado' },
         rejeitado: { c: COR.bad, bg: '#F6DEDE', t: 'Rejeitado' }, cancelado: { c: COR.faint, bg: COR.borderSoft, t: 'Cancelado' }
     };
     const c = m[estado] || m.em_curso;

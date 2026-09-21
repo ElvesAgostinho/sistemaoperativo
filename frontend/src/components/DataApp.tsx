@@ -4,7 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
 import './DataApp.css';
 
 const REFRESH_INTERVAL_MS = 30000;
-const PALETTE = ['#017E84', '#44607A', '#B7791F', '#5C7A5C', '#8B9B97', '#B23A3A'];
+const PALETTE = ['#0E5A6B', '#44607A', '#B7791F', '#5C7A5C', '#8B9B97', '#B23A3A'];
 
 const authFetch = (url: string, options: any = {}) => {
   const token = localStorage.getItem('os_auth_token');
@@ -98,7 +98,7 @@ export default function DataApp() {
   if (loading) {
     return (
       <div className="reports-modern" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Loader2 className="animate-spin" size={32} color="#017E84" />
+        <Loader2 className="animate-spin" size={32} color="#0E5A6B" />
       </div>
     );
   }
@@ -163,7 +163,7 @@ export default function DataApp() {
                     cursor={{ fill: '#F5F8F7' }}
                     contentStyle={{ borderRadius: '10px', border: '1px solid #E2E8E6', boxShadow: '0 6px 20px rgba(22,33,31,0.1)', fontFamily: 'IBM Plex Sans', fontSize: '13px' }}
                   />
-                  <Bar dataKey="value" name="Negócios" fill="#017E84" radius={[6, 6, 0, 0]} maxBarSize={48} />
+                  <Bar dataKey="value" name="Negócios" fill="#0E5A6B" radius={[6, 6, 0, 0]} maxBarSize={48} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -207,7 +207,7 @@ export default function DataApp() {
             <input type="file" accept=".csv, .xlsx, .xls" id="data-upload" style={{ display: 'none' }} onChange={handleFileChange} />
             {file && (
               <div className="rp-upload-chip">
-                <FileText size={14} color="#017E84" />
+                <FileText size={14} color="#0E5A6B" />
                 <span style={{ maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</span>
                 <button onClick={() => setFile(null)} title="Remover"><X size={14} /></button>
               </div>
@@ -242,7 +242,7 @@ export default function DataApp() {
               <div className="rp-insight-card" key={i}>
                 <div className="rp-insight-header">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <FileText size={17} color="#017E84" />
+                    <FileText size={17} color="#0E5A6B" />
                     <span style={{ fontWeight: 700, fontSize: '14.5px' }}>{item.filename}</span>
                   </div>
                   <div className="rp-insight-date">
@@ -264,7 +264,7 @@ export default function DataApp() {
                     <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                       {item.insights?.insights?.map((insight: string, idx: number) => (
                         <li key={idx} style={{ fontSize: '13.5px', display: 'flex', alignItems: 'flex-start', gap: '8px', lineHeight: 1.5 }}>
-                          <ChevronRight size={14} color="#017E84" style={{ flexShrink: 0, marginTop: '2px' }} />
+                          <ChevronRight size={14} color="#0E5A6B" style={{ flexShrink: 0, marginTop: '2px' }} />
                           <span>{insight}</span>
                         </li>
                       ))}

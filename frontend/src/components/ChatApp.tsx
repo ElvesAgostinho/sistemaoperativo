@@ -242,8 +242,8 @@ export default function ChatApp() {
           );
       } else if (uiData.component === 'WordReportCard') {
           return (
-              <div style={{ background: '#fff', border: '1px solid #0854A0', borderRadius: '2px', padding: '16px', marginTop: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0854A0', marginBottom: '12px', fontWeight: 'bold' }}>
+              <div style={{ background: '#fff', border: '1px solid #0E5A6B', borderRadius: '2px', padding: '16px', marginTop: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0E5A6B', marginBottom: '12px', fontWeight: 'bold' }}>
                       <CheckCircle size={18} />
                       Gerar Relatório Word
                   </div>
@@ -254,7 +254,7 @@ export default function ChatApp() {
                   <div style={{ marginTop: '16px', display: 'flex', gap: '8px' }}>
                       <button 
                           onClick={() => handleExecuteAction('gerar_relatorio_word', uiData.data)}
-                          style={{ background: '#0854A0', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold' }}>
+                          style={{ background: '#0E5A6B', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold' }}>
                           <CheckCircle size={16} /> Gerar e Abrir Word
                       </button>
                   </div>
@@ -309,7 +309,7 @@ export default function ChatApp() {
                       Aprovar Envio de WhatsApp
                   </div>
                   <p style={{ fontSize: '13px', marginBottom: '12px' }}>Confirma o envio da mensagem abaixo para o número <strong>{uiData.data.telefone}</strong>?</p>
-                  <div style={{ background: '#E4EDF7', padding: '12px', borderRadius: '2px', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ background: '#E1EEF0', padding: '12px', borderRadius: '2px', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       {uiData.data.mensagem}
                   </div>
                   <div style={{ marginTop: '16px', display: 'flex', gap: '8px' }}>

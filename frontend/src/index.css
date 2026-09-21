@@ -4,8 +4,8 @@
   /* Paleta corporativa (inspirada no SAP Fiori) — usada em toda a app via .odoo-* */
   --odoo-purple: #5B738B;
   --odoo-purple-hover: #4A5F73;
-  --odoo-teal: #0854A0;
-  --odoo-teal-hover: #063E78;
+  --odoo-teal: #0E5A6B;
+  --odoo-teal-hover: #0A4451;
   --odoo-bg-gray: #F5F6F7;
   --odoo-sheet-bg: #FFFFFF;
   --odoo-border: #D5D7DA;
@@ -14,7 +14,7 @@
   --odoo-danger: #BB0000;
   --odoo-success: #107E3E;
   --odoo-warning: #DF6E0C;
-  --odoo-shell: #354A5E;
+  --odoo-shell: #0A3B47;
 }
 
 *, *::before, *::after {
@@ -152,7 +152,7 @@ body {
 .sap-sidebar-item svg { flex-shrink: 0; color: var(--odoo-text-muted); }
 .sap-sidebar-item:hover { background-color: var(--odoo-bg-gray); }
 .sap-sidebar-item.active {
-  background-color: #E4EDF7;
+  background-color: #E1EEF0;
   border-left-color: var(--odoo-teal);
   font-weight: 700;
   color: var(--odoo-teal);

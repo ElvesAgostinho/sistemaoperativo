@@ -4,8 +4,8 @@ import { Cookie } from 'lucide-react';
 const STORAGE_KEY = 'os_cookie_consent_v1';
 
 const FONT_BODY = "'Roboto', 'Segoe UI', sans-serif";
-const ACCENT = '#0854A0';
-const ACCENT_HOVER = '#063E78';
+const ACCENT = '#0E5A6B';
+const ACCENT_HOVER = '#0A4451';
 const INK = '#1D2D3E';
 const BORDER = '#D5D7DA';
 
@@ -33,7 +33,7 @@ export default function CookieBanner() {
             boxShadow: '0 2px 10px rgba(29,45,62,0.2)', padding: '18px 20px',
             display: 'flex', alignItems: 'flex-start', gap: '14px', fontFamily: FONT_BODY
         }}>
-            <div style={{ width: '32px', height: '32px', borderRadius: '2px', background: '#E4EDF7', color: ACCENT, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <div style={{ width: '32px', height: '32px', borderRadius: '2px', background: '#E1EEF0', color: ACCENT, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <Cookie size={16} />
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>

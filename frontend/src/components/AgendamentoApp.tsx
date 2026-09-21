@@ -105,7 +105,7 @@ function DashboardView({ onIrParaMarcacoes }: { onIrParaMarcacoes: () => void })
 
       <div className="ag-panel" style={{ marginBottom: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <div className="ag-panel-title" style={{ marginBottom: 0 }}><Calendar size={16} color="#0854A0" /> Próximas Marcações</div>
+          <div className="ag-panel-title" style={{ marginBottom: 0 }}><Calendar size={16} color="#0E5A6B" /> Próximas Marcações</div>
           <button className="ag-btn ag-btn-sm" onClick={onIrParaMarcacoes}>Ver todas</button>
         </div>
         {proximas.length === 0 ? (

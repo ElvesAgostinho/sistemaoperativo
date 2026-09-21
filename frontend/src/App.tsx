@@ -246,6 +246,17 @@ function App() {
     return () => clearInterval(interval);
   }, [user, token, activeModule]);
 
+  // Outros módulos pedem para saltar para cá ("abrir este documento", "ver este email").
+  // Fica antes dos "return" antecipados para a ordem dos hooks não mudar.
+  useEffect(() => {
+    const ouvir = (e: Event) => {
+      const m = (e as CustomEvent).detail?.modulo;
+      if (m && user?.role) setActiveModule(m);
+    };
+    window.addEventListener('os:navegar', ouvir);
+    return () => window.removeEventListener('os:navegar', ouvir);
+  }, [user]);
+
   const handleLogin = (userData: any, authToken: string, refreshToken?: string) => {
     setUser(userData);
     setToken(authToken);
@@ -309,12 +320,6 @@ function App() {
     }
   };
 
-  // Outros módulos pedem para saltar para cá ("abrir este documento", "ver este email").
-  useEffect(() => {
-    const ouvir = (e: Event) => { const m = (e as CustomEvent).detail?.modulo; if (m) navigateTo(m); };
-    window.addEventListener('os:navegar', ouvir);
-    return () => window.removeEventListener('os:navegar', ouvir);
-  }); // sem dependências: navigateTo/hasAccess mudam com o user
 
   const hasAccess = (module: string) => {
     if (!user || !user.role) return false;

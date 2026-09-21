@@ -9,7 +9,7 @@ export const authFetch = (url: string, options: any = {}) => {
 
 export const AREAS = ['Legal & Licenças', 'Financeiro', 'RH', 'Clientes', 'Fornecedores', 'Operações', 'Qualidade & Segurança', 'Outros'];
 
-export const COR = { accent: '#0854A0', ink: '#1D2D3E', muted: '#5B738B', faint: '#8996A3', border: '#D5D7DA', borderSoft: '#E7E9EB', canvas: '#F5F6F7', good: '#107E3E', warn: '#DF6E0C', bad: '#BB0000' };
+export const COR = { accent: '#0E5A6B', ink: '#1D2D3E', muted: '#5B738B', faint: '#8996A3', border: '#D5D7DA', borderSoft: '#E7E9EB', canvas: '#F5F6F7', good: '#107E3E', warn: '#DF6E0C', bad: '#BB0000' };
 
 export const ROTULO_CICLO: Record<string, string> = {
     DRAFT: 'Rascunho', PENDING_REVIEW: 'Por rever', IN_REVIEW: 'Em revisão', PENDING_APPROVAL: 'Aguarda aprovação',
@@ -18,8 +18,8 @@ export const ROTULO_CICLO: Record<string, string> = {
 };
 export const COR_CICLO: Record<string, { c: string; bg: string }> = {
     DRAFT: { c: COR.muted, bg: COR.borderSoft }, PENDING_REVIEW: { c: COR.warn, bg: '#FCEFDD' }, IN_REVIEW: { c: COR.warn, bg: '#FCEFDD' },
-    PENDING_APPROVAL: { c: COR.accent, bg: '#E4EDF7' }, APPROVED: { c: COR.good, bg: '#DCEEE2' }, REJECTED: { c: COR.bad, bg: '#F6DEDE' },
-    PENDING_SIGNATURE: { c: COR.accent, bg: '#E4EDF7' }, SIGNED: { c: COR.good, bg: '#DCEEE2' }, ACTIVE: { c: COR.good, bg: '#DCEEE2' },
+    PENDING_APPROVAL: { c: COR.accent, bg: '#E1EEF0' }, APPROVED: { c: COR.good, bg: '#DCEEE2' }, REJECTED: { c: COR.bad, bg: '#F6DEDE' },
+    PENDING_SIGNATURE: { c: COR.accent, bg: '#E1EEF0' }, SIGNED: { c: COR.good, bg: '#DCEEE2' }, ACTIVE: { c: COR.good, bg: '#DCEEE2' },
     EXPIRED: { c: COR.bad, bg: '#F6DEDE' }, ARCHIVED: { c: COR.faint, bg: COR.borderSoft }, RETENTION_PENDING: { c: COR.warn, bg: '#FCEFDD' }, DELETED: { c: COR.bad, bg: '#F6DEDE' }
 };
 
@@ -65,7 +65,7 @@ export const ROTULO_ACAO: Record<string, string> = {
 
 export const ROTULO_TAREFA: Record<string, string> = { pendente: 'Pendente', aprovada: 'Aprovada', rejeitada: 'Rejeitada', delegada: 'Delegada', cancelada: 'Cancelada', escalada: 'Escalada' };
 export const COR_TAREFA: Record<string, { c: string; bg: string }> = {
-    pendente: { c: COR.accent, bg: '#E4EDF7' }, aprovada: { c: COR.good, bg: '#DCEEE2' }, rejeitada: { c: COR.bad, bg: '#F6DEDE' },
+    pendente: { c: COR.accent, bg: '#E1EEF0' }, aprovada: { c: COR.good, bg: '#DCEEE2' }, rejeitada: { c: COR.bad, bg: '#F6DEDE' },
     delegada: { c: COR.muted, bg: COR.borderSoft }, cancelada: { c: COR.faint, bg: COR.borderSoft }, escalada: { c: COR.warn, bg: '#FCEFDD' }
 };
 export const ROTULO_ENTIDADE: Record<string, string> = { cliente: 'Cliente', colaborador: 'Colaborador', ativo: 'Ativo', negocio: 'Negócio' };

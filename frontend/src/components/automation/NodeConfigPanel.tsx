@@ -304,9 +304,9 @@ export default function NodeConfigPanel({ node, automations, currentAutomationId
                       onClick={() => updateConfig({ segundos: p.valor, minutos: undefined })}
                       style={{
                         padding: '5px 10px', borderRadius: '999px', fontSize: '12px', cursor: 'pointer',
-                        border: segundosAtuais === p.valor ? '1px solid #0854A0' : '1px solid #cbd5e1',
-                        background: segundosAtuais === p.valor ? '#E4EDF7' : '#fff',
-                        color: segundosAtuais === p.valor ? '#0854A0' : '#475569',
+                        border: segundosAtuais === p.valor ? '1px solid #0E5A6B' : '1px solid #cbd5e1',
+                        background: segundosAtuais === p.valor ? '#E1EEF0' : '#fff',
+                        color: segundosAtuais === p.valor ? '#0E5A6B' : '#475569',
                         fontWeight: segundosAtuais === p.valor ? 700 : 500,
                       }}
                     >

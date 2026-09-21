@@ -4,8 +4,8 @@ import { LogoMark } from '../../components/BrandLogo';
 
 const FONT_DISPLAY = "'Roboto', 'Segoe UI', sans-serif";
 const FONT_BODY = "'Roboto', 'Segoe UI', sans-serif";
-const ACCENT = '#0854A0';
-const ACCENT_SOFT = '#E4EDF7';
+const ACCENT = '#0E5A6B';
+const ACCENT_SOFT = '#E1EEF0';
 const INK = '#1D2D3E';
 const INK_MUTED = '#5B738B';
 const BORDER = '#D5D7DA';
@@ -21,7 +21,7 @@ const linkStyle: CSSProperties = { color: ACCENT, fontWeight: 600, textDecoratio
 export default function LegalPageLayout({ titulo, ultimaAtualizacao, children }: LegalPageLayoutProps) {
     return (
         <div style={{ minHeight: '100vh', backgroundColor: '#F5F6F7', fontFamily: FONT_BODY, color: INK }}>
-            <header style={{ backgroundColor: '#354A5E', padding: '18px 24px', display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <header style={{ backgroundColor: '#0A3B47', padding: '18px 24px', display: 'flex', alignItems: 'center', gap: '14px' }}>
                 <a href="/" style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'white', textDecoration: 'none' }}>
                     <LogoMark size={28} />
                     <span style={{ fontFamily: FONT_DISPLAY, fontSize: '16px', fontWeight: 700 }}>BusinessOS</span>

@@ -157,7 +157,7 @@ export default function DocumentosApp({ onVoltar }: { onVoltar?: () => void }) {
     }
 
     const navItem = (ativo: boolean, onClick: () => void, icone: any, texto: string, badge?: number, badgeCor?: string, chave?: string) => (
-        <div key={chave} onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: '9px', padding: '6px 10px', borderRadius: '2px', cursor: 'pointer', fontSize: '12.5px', fontWeight: ativo ? 700 : 500, color: ativo ? COR.accent : COR.ink, background: ativo ? '#E4EDF7' : 'transparent' }}>
+        <div key={chave} onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: '9px', padding: '6px 10px', borderRadius: '2px', cursor: 'pointer', fontSize: '12.5px', fontWeight: ativo ? 700 : 500, color: ativo ? COR.accent : COR.ink, background: ativo ? '#E1EEF0' : 'transparent' }}>
             {icone}<span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{texto}</span>
             {badge !== undefined && badge > 0 && <span style={{ fontSize: '10.5px', fontWeight: 700, color: 'white', background: badgeCor || COR.muted, padding: '1px 7px', borderRadius: '9px' }}>{badge}</span>}
         </div>
@@ -207,12 +207,12 @@ export default function DocumentosApp({ onVoltar }: { onVoltar?: () => void }) {
             {/* ---------- CONTEÚDO ---------- */}
             <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
                 {arrastar && (
-                    <div style={{ position: 'absolute', inset: 0, zIndex: 20, background: 'rgba(8,84,160,0.08)', border: `3px dashed ${COR.accent}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 700, color: COR.accent, pointerEvents: 'none' }}>
+                    <div style={{ position: 'absolute', inset: 0, zIndex: 20, background: 'rgba(14,90,107,0.08)', border: `3px dashed ${COR.accent}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 700, color: COR.accent, pointerEvents: 'none' }}>
                         Largue os ficheiros para arquivar{vista === 'pasta' && pastaSel ? ` em "${pastaSel.nome}"` : ''}
                     </div>
                 )}
                 {(resumo?.aProcessar > 0 || aEnviar) && (
-                    <div style={{ margin: '12px 20px 0', padding: '10px 14px', background: '#E4EDF7', border: `1px solid ${COR.accent}`, borderRadius: '2px', fontSize: '12.5px', color: COR.accent, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ margin: '12px 20px 0', padding: '10px 14px', background: '#E1EEF0', border: `1px solid ${COR.accent}`, borderRadius: '2px', fontSize: '12.5px', color: COR.accent, display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
                         {aEnviar ? `A enviar ${aEnviar.feitos}/${aEnviar.total} ficheiros...` : `${resumo.aProcessar} documento${resumo.aProcessar === 1 ? '' : 's'} a ser${resumo.aProcessar === 1 ? '' : 'em'} lido${resumo.aProcessar === 1 ? '' : 's'} pela IA — o arquivo atualiza-se sozinho.`}
                     </div>
@@ -280,7 +280,7 @@ function ArvorePastas({ pastas, ativa, onEscolher, onMudou }: { pastas: any[]; a
         const sub = filhos(p.id); const aberta = abertas.has(p.id); const ehAtiva = ativa?.id === p.id;
         return (
             <div>
-                <div className="pasta-linha" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '5px 8px 5px ' + (8 + nivel * 14) + 'px', borderRadius: '2px', cursor: 'pointer', fontSize: '12.5px', fontWeight: ehAtiva ? 700 : 500, color: ehAtiva ? COR.accent : COR.ink, background: ehAtiva ? '#E4EDF7' : 'transparent' }}>
+                <div className="pasta-linha" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '5px 8px 5px ' + (8 + nivel * 14) + 'px', borderRadius: '2px', cursor: 'pointer', fontSize: '12.5px', fontWeight: ehAtiva ? 700 : 500, color: ehAtiva ? COR.accent : COR.ink, background: ehAtiva ? '#E1EEF0' : 'transparent' }}>
                     <span onClick={() => setAbertas(s => { const n = new Set(s); n.has(p.id) ? n.delete(p.id) : n.add(p.id); return n; })} style={{ width: '14px', display: 'inline-flex', color: COR.faint }}>
                         {sub.length > 0 ? (aberta ? <ChevronDown size={12} /> : <ChevronRight size={12} />) : null}
                     </span>
@@ -305,7 +305,7 @@ function ArvorePastas({ pastas, ativa, onEscolher, onMudou }: { pastas: any[]; a
                 <span style={{ flex: 1 }}>Pastas</span>
                 <FolderPlus size={13} color={COR.accent} style={{ cursor: 'pointer' }} onClick={() => { setACriarEm('raiz'); setNome(''); }} />
             </div>
-            <div onClick={() => onEscolher(null)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 8px', borderRadius: '2px', cursor: 'pointer', fontSize: '12.5px', fontWeight: ativa === null ? 700 : 500, color: ativa === null ? COR.accent : COR.ink, background: ativa === null ? '#E4EDF7' : 'transparent' }}>
+            <div onClick={() => onEscolher(null)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 8px', borderRadius: '2px', cursor: 'pointer', fontSize: '12.5px', fontWeight: ativa === null ? 700 : 500, color: ativa === null ? COR.accent : COR.ink, background: ativa === null ? '#E1EEF0' : 'transparent' }}>
                 <Folder size={13} color={COR.faint} /> Sem pasta
             </div>
             {aCriarEm === 'raiz' && <FormNova nivel={0} nome={nome} setNome={setNome} onOk={criar} onCancelar={() => setACriarEm(null)} />}
@@ -434,7 +434,7 @@ function Pesquisa({ onAbrir }: { onAbrir: (d: Doc) => void }) {
                             <div style={{ background: 'white', border: `1px solid ${COR.border}`, borderRadius: '2px', padding: '16px', fontSize: '13.5px', color: COR.muted }}>Não encontrei nada no arquivo sobre isso. Se o documento existe, pode ainda não ter sido carregado — ou estar numa área ou nível de confidencialidade a que não tem acesso.</div>
                         ) : (
                             <>
-                                {resultado.resposta && <div style={{ background: '#E4EDF7', border: `1px solid ${COR.accent}`, borderRadius: '2px', padding: '14px 16px', fontSize: '14px', color: COR.ink, lineHeight: 1.6, display: 'flex', gap: '10px' }}><Sparkles size={16} color={COR.accent} style={{ flexShrink: 0, marginTop: '3px' }} /><div>{resultado.resposta}</div></div>}
+                                {resultado.resposta && <div style={{ background: '#E1EEF0', border: `1px solid ${COR.accent}`, borderRadius: '2px', padding: '14px 16px', fontSize: '14px', color: COR.ink, lineHeight: 1.6, display: 'flex', gap: '10px' }}><Sparkles size={16} color={COR.accent} style={{ flexShrink: 0, marginTop: '3px' }} /><div>{resultado.resposta}</div></div>}
                                 <div style={{ ...label, margin: '18px 0 8px' }}>Documentos encontrados</div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                     {resultado.documentos.map((d: any) => (
@@ -532,7 +532,7 @@ function Ativos({ onAbrirDoc }: { onAbrirDoc: (d: Doc) => void }) {
                         <tbody>
                             {ativos.length === 0 && <tr><td colSpan={7} style={{ padding: '24px', textAlign: 'center', color: COR.faint }}>Ainda não há ativos registados.</td></tr>}
                             {ativos.map(a => (
-                                <tr key={a.id} onClick={() => setSel(a)} style={{ borderTop: `1px solid ${COR.borderSoft}`, cursor: 'pointer', background: sel?.id === a.id ? '#E4EDF7' : 'white' }}>
+                                <tr key={a.id} onClick={() => setSel(a)} style={{ borderTop: `1px solid ${COR.borderSoft}`, cursor: 'pointer', background: sel?.id === a.id ? '#E1EEF0' : 'white' }}>
                                     <td style={{ padding: '10px 12px', fontWeight: 600, color: COR.ink }}>{a.nome}</td><td style={{ padding: '10px 12px' }}>{a.categoria}</td>
                                     <td style={{ padding: '10px 12px' }}>{[a.marca, a.modelo].filter(Boolean).join(' ') || '—'}</td><td style={{ padding: '10px 12px' }}>{a.localizacao || '—'}</td>
                                     <td style={{ padding: '10px 12px' }}><span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 7px', borderRadius: '2px', color: a.estado === 'Ativo' ? COR.good : a.estado === 'Desativado' ? COR.faint : COR.warn, background: a.estado === 'Ativo' ? '#DCEEE2' : a.estado === 'Desativado' ? COR.borderSoft : '#FCEFDD' }}>{a.estado}</span></td>

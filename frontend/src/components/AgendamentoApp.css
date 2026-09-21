@@ -4,9 +4,9 @@
    ============================================================ */
 
 .ag-shell {
-  --ag-accent: #0854A0;
-  --ag-accent-hover: #063E78;
-  --ag-accent-soft: #E4EDF7;
+  --ag-accent: #0E5A6B;
+  --ag-accent-hover: #0A4451;
+  --ag-accent-soft: #E1EEF0;
   --ag-canvas: #F5F6F7;
   --ag-surface: #FFFFFF;
   --ag-border: #D5D7DA;
@@ -17,7 +17,7 @@
   --ag-good-bg: #DCEEE2; --ag-good-fg: #107E3E;
   --ag-warn-bg: #FCEFDD; --ag-warn-fg: #8A4B0B;
   --ag-bad-bg: #F6DEDE; --ag-bad-fg: #BB0000;
-  --ag-info-bg: #E4EDF7; --ag-info-fg: #0854A0;
+  --ag-info-bg: #E1EEF0; --ag-info-fg: #0E5A6B;
   --ag-shadow: none;
   --ag-shadow-lg: 0 2px 10px rgba(29,45,62,0.18);
   --ag-font-display: 'Roboto', 'Segoe UI', system-ui, sans-serif;

@@ -5,9 +5,9 @@
    ============================================================ */
 
 .affiliates-modern {
-  --af-accent: #0854A0;
-  --af-accent-hover: #063E78;
-  --af-accent-soft: #E4EDF7;
+  --af-accent: #0E5A6B;
+  --af-accent-hover: #0A4451;
+  --af-accent-soft: #E1EEF0;
   --af-ink: #1D2D3E;
   --af-ink-muted: #5B738B;
   --af-ink-faint: #8996A3;
@@ -18,7 +18,7 @@
   --af-good-bg: #DCEEE2; --af-good-fg: #107E3E;
   --af-warn-bg: #FCEFDD; --af-warn-fg: #8A4B0B;
   --af-bad-bg: #F6DEDE; --af-bad-fg: #BB0000;
-  --af-info-bg: #E4EDF7; --af-info-fg: #0854A0;
+  --af-info-bg: #E1EEF0; --af-info-fg: #0E5A6B;
   --af-shadow-card: none;
   --af-font-display: 'Roboto', 'Segoe UI', system-ui, sans-serif;
   --af-font-body: 'Roboto', 'Segoe UI', system-ui, sans-serif;

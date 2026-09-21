@@ -5,9 +5,9 @@
    ============================================================ */
 
 .reun-modern {
-  --reun-accent: #0854A0;
-  --reun-accent-hover: #063E78;
-  --reun-accent-soft: #E4EDF7;
+  --reun-accent: #0E5A6B;
+  --reun-accent-hover: #0A4451;
+  --reun-accent-soft: #E1EEF0;
   --reun-ink: #1D2D3E;
   --reun-ink-muted: #5B738B;
   --reun-ink-faint: #8996A3;
@@ -16,7 +16,7 @@
   --reun-border: #D5D7DA;
   --reun-border-soft: #E7E9EB;
   --reun-good-bg: #DCEEE2; --reun-good-fg: #107E3E;
-  --reun-info-bg: #E4EDF7; --reun-info-fg: #0854A0;
+  --reun-info-bg: #E1EEF0; --reun-info-fg: #0E5A6B;
   --reun-bad-bg: #F6DEDE; --reun-bad-fg: #BB0000;
   --reun-warn-bg: #FCEFDD; --reun-warn-fg: #8A4B0B;
   --reun-shadow-card: none;

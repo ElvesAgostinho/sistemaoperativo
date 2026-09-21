@@ -82,7 +82,7 @@ export default function ConfiguracaoProforma({ compact = false }: { compact?: bo
             {!compact && (
                 <>
                     <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#0f172a', margin: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <FileText size={22} color="#017E84" /> Modelo de Proforma
+                        <FileText size={22} color="#0E5A6B" /> Modelo de Proforma
                     </h1>
                     <p style={{ color: '#64748b', fontSize: '14px', margin: '0 0 24px 0' }}>
                         Este texto é usado em TODAS as propostas comerciais geradas no CRM ("Gerar Proforma") — editar aqui
@@ -93,7 +93,7 @@ export default function ConfiguracaoProforma({ compact = false }: { compact?: bo
 
             <div style={{ backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '24px', marginBottom: '20px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-                    <Package size={18} color="#017E84" />
+                    <Package size={18} color="#0E5A6B" />
                     <h4 style={{ margin: 0, fontSize: '15px', color: '#0f172a' }}>Catálogo de Produtos/Serviços</h4>
                 </div>
                 <p style={{ fontSize: '12.5px', color: '#64748b', margin: '0 0 14px' }}>
@@ -114,7 +114,7 @@ export default function ConfiguracaoProforma({ compact = false }: { compact?: bo
                 ))}
 
                 <button type="button" onClick={addCatalogoItem}
-                    style={{ marginTop: '4px', padding: '8px 14px', backgroundColor: '#f0fdfa', color: '#017E84', border: '1px solid #99f6e4', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    style={{ marginTop: '4px', padding: '8px 14px', backgroundColor: '#f0fdfa', color: '#0E5A6B', border: '1px solid #99f6e4', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                     <Plus size={14} /> Adicionar item
                 </button>
             </div>
@@ -150,7 +150,7 @@ export default function ConfiguracaoProforma({ compact = false }: { compact?: bo
             </div>
 
             <button onClick={salvar} disabled={saving}
-                style={{ width: 'fit-content', padding: '10px 24px', backgroundColor: '#017E84', color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                style={{ width: 'fit-content', padding: '10px 24px', backgroundColor: '#0E5A6B', color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {saving ? <Loader size={16} className="spin" /> : <Save size={16} />}
                 {saving ? 'A Guardar...' : 'Guardar Modelo de Proforma'}
             </button>

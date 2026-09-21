@@ -421,7 +421,7 @@ export default function HrApp() {
     { key: 'Novo', label: 'Novo', color: '#8B9B97' },
     { key: 'Triagem', label: 'Em Triagem', color: '#2E5C8A' },
     { key: 'Entrevista', label: 'Entrevista', color: '#B7791F' },
-    { key: 'Oferta', label: 'Oferta', color: '#017E84' },
+    { key: 'Oferta', label: 'Oferta', color: '#0E5A6B' },
     { key: 'Contratado', label: 'Contratado', color: '#1F7A45' },
     { key: 'Rejeitado', label: 'Rejeitado', color: '#B23A3A' },
   ];

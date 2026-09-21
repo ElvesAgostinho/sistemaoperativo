@@ -126,7 +126,7 @@ function VoiceNotePlayer({ src, outbound }: { src: string; outbound: boolean }) 
     };
 
     const progress = duration > 0 ? Math.min(1, currentTime / duration) : 0;
-    const accent = outbound ? '#0854A0' : '#25D366';
+    const accent = outbound ? '#0E5A6B' : '#25D366';
 
     return (
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '4px', minWidth: '220px' }}>
@@ -824,13 +824,13 @@ export default function WhatsAppChatApp() {
             <div style={{ width: '30%', minWidth: '300px', borderRight: '1px solid #D5D7DA', display: 'flex', flexDirection: 'column', backgroundColor: 'white' }}>
                 <div style={{ padding: '10px 16px', backgroundColor: '#F5F6F7', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '59px', borderBottom: '1px solid #D5D7DA' }}>
                     <div style={{ fontWeight: 600, color: '#1D2D3E', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <MessageSquare size={20} color="#0854A0" /> WhatsApp
+                        <MessageSquare size={20} color="#0E5A6B" /> WhatsApp
                     </div>
                     <div style={{ display: 'flex', gap: '16px', color: '#5B738B' }}>
-                        <span title="Conversas"><MessageSquare size={20} style={{ cursor: 'pointer', color: currentView === 'chats' ? '#0854A0' : '#5B738B' }} onClick={() => setCurrentView('chats')} /></span>
-                        <span title="Grupos"><Users size={20} style={{ cursor: 'pointer', color: currentView === 'groups' ? '#0854A0' : '#5B738B' }} onClick={() => setCurrentView('groups')} /></span>
-                        <span title="Campanhas"><Megaphone size={20} style={{ cursor: 'pointer', color: currentView === 'campaigns' ? '#0854A0' : '#5B738B' }} onClick={() => setCurrentView('campaigns')} /></span>
-                        <span title="Configurações de Canais"><Settings size={20} style={{ cursor: 'pointer', color: currentView === 'settings' ? '#0854A0' : '#5B738B' }} onClick={() => setCurrentView('settings')} /></span>
+                        <span title="Conversas"><MessageSquare size={20} style={{ cursor: 'pointer', color: currentView === 'chats' ? '#0E5A6B' : '#5B738B' }} onClick={() => setCurrentView('chats')} /></span>
+                        <span title="Grupos"><Users size={20} style={{ cursor: 'pointer', color: currentView === 'groups' ? '#0E5A6B' : '#5B738B' }} onClick={() => setCurrentView('groups')} /></span>
+                        <span title="Campanhas"><Megaphone size={20} style={{ cursor: 'pointer', color: currentView === 'campaigns' ? '#0E5A6B' : '#5B738B' }} onClick={() => setCurrentView('campaigns')} /></span>
+                        <span title="Configurações de Canais"><Settings size={20} style={{ cursor: 'pointer', color: currentView === 'settings' ? '#0E5A6B' : '#5B738B' }} onClick={() => setCurrentView('settings')} /></span>
                     </div>
                 </div>
 
@@ -847,9 +847,9 @@ export default function WhatsAppChatApp() {
                             </div>
                             {currentUser && (currentUser.role === 'admin' || currentUser.role === 'supervisor' || currentUser.role === 'superadmin') && (
                                 <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
-                                    <button onClick={() => setFilter('all')} style={{ padding: '4px 8px', borderRadius: '2px', fontSize: '12px', border: 'none', cursor: 'pointer', backgroundColor: filter === 'all' ? '#0854A0' : '#F5F6F7', color: filter === 'all' ? 'white' : '#5B738B' }}>Todas</button>
-                                    <button onClick={() => setFilter('mine')} style={{ padding: '4px 8px', borderRadius: '2px', fontSize: '12px', border: 'none', cursor: 'pointer', backgroundColor: filter === 'mine' ? '#0854A0' : '#F5F6F7', color: filter === 'mine' ? 'white' : '#5B738B' }}>Minhas</button>
-                                    <button onClick={() => setFilter('unassigned')} style={{ padding: '4px 8px', borderRadius: '2px', fontSize: '12px', border: 'none', cursor: 'pointer', backgroundColor: filter === 'unassigned' ? '#0854A0' : '#F5F6F7', color: filter === 'unassigned' ? 'white' : '#5B738B' }}>Na Fila</button>
+                                    <button onClick={() => setFilter('all')} style={{ padding: '4px 8px', borderRadius: '2px', fontSize: '12px', border: 'none', cursor: 'pointer', backgroundColor: filter === 'all' ? '#0E5A6B' : '#F5F6F7', color: filter === 'all' ? 'white' : '#5B738B' }}>Todas</button>
+                                    <button onClick={() => setFilter('mine')} style={{ padding: '4px 8px', borderRadius: '2px', fontSize: '12px', border: 'none', cursor: 'pointer', backgroundColor: filter === 'mine' ? '#0E5A6B' : '#F5F6F7', color: filter === 'mine' ? 'white' : '#5B738B' }}>Minhas</button>
+                                    <button onClick={() => setFilter('unassigned')} style={{ padding: '4px 8px', borderRadius: '2px', fontSize: '12px', border: 'none', cursor: 'pointer', backgroundColor: filter === 'unassigned' ? '#0E5A6B' : '#F5F6F7', color: filter === 'unassigned' ? 'white' : '#5B738B' }}>Na Fila</button>
                                 </div>
                             )}
                         </div>
@@ -885,10 +885,10 @@ export default function WhatsAppChatApp() {
                                             <span style={{ fontSize: '14px', color: '#5B738B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>
                                                 {formatPhoneNumber(conv.phone_number)}
                                             </span>
-                                            {conv.status === 'bot' && <span title="O Bot está a responder"><Bot size={14} color="#0854A0" /></span>}
+                                            {conv.status === 'bot' && <span title="O Bot está a responder"><Bot size={14} color="#0E5A6B" /></span>}
                                         </div>
                                         {conv.assigned_to && (
-                                            <div style={{ fontSize: '11px', color: '#0854A0', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            <div style={{ fontSize: '11px', color: '#0E5A6B', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                 <UserPlus size={12} /> {agents.find(a => a.id === conv.assigned_to)?.nome || 'Agente Atribuído'}
                                             </div>
                                         )}
@@ -904,7 +904,7 @@ export default function WhatsAppChatApp() {
                         {hasChatLicense ? (
                             <div style={{ border: `1px solid ${aiFallbackEnabled ? '#D5D7DA' : '#F6DEDE'}`, borderRadius: '2px', padding: '16px', marginBottom: '20px', backgroundColor: aiFallbackEnabled ? 'white' : '#F6DEDE' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    <Bot size={22} color={aiFallbackEnabled ? '#0854A0' : '#8996A3'} />
+                                    <Bot size={22} color={aiFallbackEnabled ? '#0E5A6B' : '#8996A3'} />
                                     <div style={{ flex: 1 }}>
                                         <h4 style={{ margin: 0, fontSize: '15px', color: '#1D2D3E' }}>Assistente IA Automático</h4>
                                         <p style={{ margin: '2px 0 0', fontSize: '12.5px', color: '#5B738B', lineHeight: 1.4 }}>
@@ -916,7 +916,7 @@ export default function WhatsAppChatApp() {
                                         onClick={savingAiFallback ? undefined : toggleAiFallback}
                                         style={{
                                             width: '40px', height: '20px', borderRadius: '2px', flexShrink: 0,
-                                            backgroundColor: aiFallbackEnabled ? '#0854A0' : '#D5D7DA',
+                                            backgroundColor: aiFallbackEnabled ? '#0E5A6B' : '#D5D7DA',
                                             position: 'relative', cursor: savingAiFallback ? 'wait' : 'pointer', transition: 'background-color 0.3s'
                                         }}
                                         title={aiFallbackEnabled ? 'Desativar Assistente IA no WhatsApp' : 'Ativar Assistente IA no WhatsApp'}
@@ -950,7 +950,7 @@ export default function WhatsAppChatApp() {
 
                         <div style={{ border: '1px solid #D5D7DA', borderRadius: '2px', padding: '16px', marginBottom: '20px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                                <QrCode size={24} color="#0854A0" />
+                                <QrCode size={24} color="#0E5A6B" />
                                 <h4 style={{ margin: 0, fontSize: '16px', color: '#1D2D3E' }}>Evolution API (QR Code / Pareamento)</h4>
                                 {evolutionStatus === 'connected' && (
                                     <span style={{ marginLeft: 'auto', backgroundColor: '#DCEEE2', color: '#107E3E', padding: '4px 12px', borderRadius: '2px', fontSize: '12px', fontWeight: 'bold' }}>Ligado</span>
@@ -991,7 +991,7 @@ export default function WhatsAppChatApp() {
                                     </div>
                                 </div>
                             ) : (
-                                <button onClick={() => { setConnectMode('qr'); setShowQr(true); }} style={{ width: '100%', padding: '10px', backgroundColor: '#0854A0', color: 'white', border: 'none', borderRadius: '2px', cursor: 'pointer', fontWeight: 500, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+                                <button onClick={() => { setConnectMode('qr'); setShowQr(true); }} style={{ width: '100%', padding: '10px', backgroundColor: '#0E5A6B', color: 'white', border: 'none', borderRadius: '2px', cursor: 'pointer', fontWeight: 500, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
                                     <Plus size={16} /> Ligar WhatsApp
                                 </button>
                             )}
@@ -999,7 +999,7 @@ export default function WhatsAppChatApp() {
 
                         <div style={{ border: '1px solid #D5D7DA', borderRadius: '2px', padding: '24px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                                <Key size={24} color="#0854A0" />
+                                <Key size={24} color="#0E5A6B" />
                                 <h4 style={{ margin: 0, fontSize: '18px', color: '#1D2D3E' }}>Meta Cloud API (Oficial)</h4>
                                 
                                 {metaStatus === 'connected' && (
@@ -1016,13 +1016,13 @@ export default function WhatsAppChatApp() {
                             </p>
                             
                             {metaStatus === 'connected' && (
-                                <div style={{ marginBottom: '24px', padding: '16px', backgroundColor: '#E4EDF7', border: '1px solid #E4EDF7', borderRadius: '2px' }}>
-                                    <h5 style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#0854A0' }}>Gestão de Templates</h5>
-                                    <p style={{ fontSize: '13px', color: '#0854A0', marginBottom: '12px' }}>Sincronize os templates pré-aprovados na sua conta Meta.</p>
+                                <div style={{ marginBottom: '24px', padding: '16px', backgroundColor: '#E1EEF0', border: '1px solid #E1EEF0', borderRadius: '2px' }}>
+                                    <h5 style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#0E5A6B' }}>Gestão de Templates</h5>
+                                    <p style={{ fontSize: '13px', color: '#0E5A6B', marginBottom: '12px' }}>Sincronize os templates pré-aprovados na sua conta Meta.</p>
                                     <button 
                                         onClick={handleSyncTemplates} 
                                         disabled={isSyncingTemplates}
-                                        style={{ padding: '8px 16px', backgroundColor: '#0854A0', color: 'white', border: 'none', borderRadius: '2px', cursor: isSyncingTemplates ? 'wait' : 'pointer', fontSize: '13px', fontWeight: 500 }}
+                                        style={{ padding: '8px 16px', backgroundColor: '#0E5A6B', color: 'white', border: 'none', borderRadius: '2px', cursor: isSyncingTemplates ? 'wait' : 'pointer', fontSize: '13px', fontWeight: 500 }}
                                     >
                                         {isSyncingTemplates ? 'A Sincronizar...' : `Sincronizar Templates (${templates.length} ativos)`}
                                     </button>
@@ -1056,7 +1056,7 @@ export default function WhatsAppChatApp() {
                                 <button 
                                     onClick={handleSaveMeta}
                                     disabled={metaStatus === 'saving' || !metaConfig.accessToken || !metaConfig.verifyToken}
-                                    style={{ flex: 1, padding: '12px', backgroundColor: metaStatus === 'saving' ? '#8996A3' : '#0854A0', color: 'white', border: 'none', borderRadius: '2px', cursor: (metaStatus === 'saving' || !metaConfig.accessToken || !metaConfig.verifyToken) ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '14px' }}
+                                    style={{ flex: 1, padding: '12px', backgroundColor: metaStatus === 'saving' ? '#8996A3' : '#0E5A6B', color: 'white', border: 'none', borderRadius: '2px', cursor: (metaStatus === 'saving' || !metaConfig.accessToken || !metaConfig.verifyToken) ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '14px' }}
                                 >
                                     {metaStatus === 'saving' ? 'A Guardar e Conectar...' : 'Testar e Guardar Configurações'}
                                 </button>
@@ -1120,7 +1120,7 @@ export default function WhatsAppChatApp() {
                                         onClick={toggleBotStatus}
                                         style={{ 
                                             width: '40px', height: '20px', borderRadius: '2px', 
-                                            backgroundColor: isBotPaused ? '#D5D7DA' : '#0854A0', 
+                                            backgroundColor: isBotPaused ? '#D5D7DA' : '#0E5A6B', 
                                             position: 'relative', cursor: 'pointer', transition: 'background-color 0.3s'
                                         }}
                                     >
@@ -1137,7 +1137,7 @@ export default function WhatsAppChatApp() {
                             {messages.map(msg => (
                                 <div key={msg.id} style={{ alignSelf: msg.direction === 'outbound' ? 'flex-end' : 'flex-start', maxWidth: '65%' }}>
                                     <div style={{ 
-                                        backgroundColor: msg.direction === 'outbound' ? '#E4EDF7' : 'white', 
+                                        backgroundColor: msg.direction === 'outbound' ? '#E1EEF0' : 'white', 
                                         padding: '6px 12px', 
                                         borderRadius: '2px', 
                                         boxShadow: '0 1px 0.5px rgba(11,20,26,.13)',
@@ -1166,7 +1166,7 @@ export default function WhatsAppChatApp() {
                                                         mediaEl = <VoiceNotePlayer src={url} outbound={msg.direction === 'outbound'} />;
                                                     } else {
                                                         const fname = url.split('/').pop()?.split('?')[0] || 'ficheiro';
-                                                        mediaEl = <a href={url} target="_blank" rel="noreferrer" download style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: cleanText ? '8px' : '0', color: '#0854A0', textDecoration: 'underline' }}>&#128196; {decodeURIComponent(fname)}</a>;
+                                                        mediaEl = <a href={url} target="_blank" rel="noreferrer" download style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: cleanText ? '8px' : '0', color: '#0E5A6B', textDecoration: 'underline' }}>&#128196; {decodeURIComponent(fname)}</a>;
                                                     }
                                                     return (<>{cleanText && <div>{cleanText}</div>}{mediaEl}</>);
                                                 }
@@ -1188,7 +1188,7 @@ export default function WhatsAppChatApp() {
                                                     } else if (mimeType.startsWith('audio/')) {
                                                         mediaElement = <VoiceNotePlayer src={dataUri} outbound={msg.direction === 'outbound'} />;
                                                     } else {
-                                                        mediaElement = <a href={dataUri} download={downloadName} style={{ display: 'block', marginTop: cleanText ? '8px' : '0', color: '#0854A0', textDecoration: 'underline' }}>Descarregar {downloadName}</a>;
+                                                        mediaElement = <a href={dataUri} download={downloadName} style={{ display: 'block', marginTop: cleanText ? '8px' : '0', color: '#0E5A6B', textDecoration: 'underline' }}>Descarregar {downloadName}</a>;
                                                     }
                                                     return (<>{cleanText && <div>{cleanText}</div>}{mediaElement}</>);
                                                 }
@@ -1229,7 +1229,7 @@ export default function WhatsAppChatApp() {
                                                         {msg.status === 'sending' && <Clock size={12} color="#8996A3" />}
                                                         {msg.status === 'sent' && <Check size={14} color="#8996A3" />}
                                                         {(msg.status === 'delivered' || msg.status === 'read' || !msg.status) && (
-                                                            <CheckCheck size={15} color={(msg.status === 'read' || msg.status === 'delivered') ? '#0854A0' : '#8996A3'} />
+                                                            <CheckCheck size={15} color={(msg.status === 'read' || msg.status === 'delivered') ? '#0E5A6B' : '#8996A3'} />
                                                         )}
                                                         {msg.status === 'failed' && <AlertCircle size={14} color="#BB0000" />}
                                                     </>
@@ -1263,7 +1263,7 @@ export default function WhatsAppChatApp() {
                                         />
                                         <button 
                                             onClick={() => setShowTemplateModal(true)}
-                                            style={{ padding: '0 16px', backgroundColor: '#0854A0', color: 'white', border: 'none', borderRadius: '2px', cursor: 'pointer', fontWeight: 500, whiteSpace: 'nowrap' }}
+                                            style={{ padding: '0 16px', backgroundColor: '#0E5A6B', color: 'white', border: 'none', borderRadius: '2px', cursor: 'pointer', fontWeight: 500, whiteSpace: 'nowrap' }}
                                         >
                                             Usar Template
                                         </button>
@@ -1271,7 +1271,7 @@ export default function WhatsAppChatApp() {
                                 ) : (
                                     <>
                                         <div style={{ position: 'relative' }}>
-                                            <Smile size={24} color={showEmojiPicker ? '#0854A0' : '#5B738B'} style={{ cursor: 'pointer' }} onClick={() => setShowEmojiPicker(!showEmojiPicker)} />
+                                            <Smile size={24} color={showEmojiPicker ? '#0E5A6B' : '#5B738B'} style={{ cursor: 'pointer' }} onClick={() => setShowEmojiPicker(!showEmojiPicker)} />
                                             {showEmojiPicker && (
                                                 <div style={{ position: 'absolute', bottom: '40px', left: 0, zIndex: 100 }}>
                                                     <EmojiPicker 
@@ -1301,7 +1301,7 @@ export default function WhatsAppChatApp() {
                                             placeholder="Digite uma mensagem" 
                                             style={{ flex: 1, border: 'none', borderRadius: '2px', padding: '10px 16px', fontSize: '15px', outline: 'none' }}
                                         />
-                                        {inputText.trim() && <Send size={24} color="#0854A0" style={{ cursor: 'pointer' }} onClick={handleSend} />}
+                                        {inputText.trim() && <Send size={24} color="#0E5A6B" style={{ cursor: 'pointer' }} onClick={handleSend} />}
                                     </>
                                 );
                             })()}
@@ -1312,7 +1312,7 @@ export default function WhatsAppChatApp() {
                         {currentView === 'chats' ? (
                             <>
                                 <div style={{ backgroundColor: '#F5F6F7', padding: '24px', borderRadius: '50%', marginBottom: '24px' }}>
-                                    <MessageSquare size={64} color="#0854A0" />
+                                    <MessageSquare size={64} color="#0E5A6B" />
                                 </div>
                                 <h2 style={{ fontWeight: 300, color: '#5B738B', fontSize: '32px', marginBottom: '16px' }}>WhatsApp Web Omnichannel</h2>
                                 <p style={{ fontSize: '14px', maxWidth: '400px', textAlign: 'center', lineHeight: '20px' }}>
@@ -1371,7 +1371,7 @@ export default function WhatsAppChatApp() {
                                                     alert('Erro de comunicação com o servidor.');
                                                 }
                                             }}
-                                            style={{ width: '100%', padding: '8px', backgroundColor: '#0854A0', color: 'white', border: 'none', borderRadius: '2px', cursor: 'pointer' }}
+                                            style={{ width: '100%', padding: '8px', backgroundColor: '#0E5A6B', color: 'white', border: 'none', borderRadius: '2px', cursor: 'pointer' }}
                                         >
                                             Selecionar e Enviar
                                         </button>
@@ -1427,7 +1427,7 @@ export default function WhatsAppChatApp() {
                                 <div style={{ color: '#5B738B', textAlign: 'center', padding: '20px' }}>Sem registos de auditoria para esta conversa.</div>
                             ) : (
                                 auditLogs.map(log => (
-                                    <div key={log.id} style={{ padding: '12px', backgroundColor: '#F5F6F7', borderRadius: '2px', borderLeft: '4px solid #0854A0' }}>
+                                    <div key={log.id} style={{ padding: '12px', backgroundColor: '#F5F6F7', borderRadius: '2px', borderLeft: '4px solid #0E5A6B' }}>
                                         <div style={{ fontSize: '12px', color: '#5B738B', marginBottom: '4px' }}>{new Date(log.created_at).toLocaleString()}</div>
                                         <div style={{ color: '#1D2D3E', fontSize: '14px' }}>
                                             <strong>{log.performed_by_name}</strong> {log.details}
@@ -1473,7 +1473,7 @@ export default function WhatsAppChatApp() {
                                         <img src={qrCodeData} alt="QR Code" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                                     ) : (
                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-                                            <div className="spinner" style={{ width: '24px', height: '24px', border: '3px solid #D5D7DA', borderTopColor: '#0854A0', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                                            <div className="spinner" style={{ width: '24px', height: '24px', border: '3px solid #D5D7DA', borderTopColor: '#0E5A6B', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
                                             <span style={{ fontSize: '14px', fontWeight: 500 }}>A gerar QR Code...</span>
                                             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
                                         </div>
@@ -1495,7 +1495,7 @@ export default function WhatsAppChatApp() {
                                     <button onClick={() => setShowQr(false)} style={{ flex: 1, padding: '12px', border: '1px solid #D5D7DA', background: 'white', color: '#5B738B', borderRadius: '2px', cursor: 'pointer', fontSize: '14px', fontWeight: 500 }}>
                                         Cancelar
                                     </button>
-                                    <button onClick={() => handleGenerateQr()} style={{ flex: 1, padding: '12px', border: 'none', background: '#0854A0', color: 'white', borderRadius: '2px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                    <button onClick={() => handleGenerateQr()} style={{ flex: 1, padding: '12px', border: 'none', background: '#0E5A6B', color: 'white', borderRadius: '2px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.59-11.12l5.67 5.67"/></svg>
                                         Atualizar
                                     </button>
@@ -1518,14 +1518,14 @@ export default function WhatsAppChatApp() {
                                             <button onClick={() => setShowQr(false)} style={{ flex: 1, padding: '12px', border: '1px solid #D5D7DA', background: 'white', color: '#5B738B', borderRadius: '2px', cursor: 'pointer', fontSize: '14px', fontWeight: 500 }}>
                                                 Cancelar
                                             </button>
-                                            <button onClick={() => handleGenerateQr(pairingPhone)} disabled={pairingPhone.replace(/\D/g, '').length < 9} style={{ flex: 1, padding: '12px', border: 'none', background: pairingPhone.replace(/\D/g, '').length < 9 ? '#D5D7DA' : '#0854A0', color: 'white', borderRadius: '2px', cursor: pairingPhone.replace(/\D/g, '').length < 9 ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 600 }}>
+                                            <button onClick={() => handleGenerateQr(pairingPhone)} disabled={pairingPhone.replace(/\D/g, '').length < 9} style={{ flex: 1, padding: '12px', border: 'none', background: pairingPhone.replace(/\D/g, '').length < 9 ? '#D5D7DA' : '#0E5A6B', color: 'white', borderRadius: '2px', cursor: pairingPhone.replace(/\D/g, '').length < 9 ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 600 }}>
                                                 Gerar Código
                                             </button>
                                         </div>
                                     </>
                                 ) : (
                                     <>
-                                        <div style={{ width: '100%', padding: '24px 12px', backgroundColor: '#DCEEE2', border: '1.5px dashed #0854A0', borderRadius: '2px', marginBottom: '20px', textAlign: 'center' }}>
+                                        <div style={{ width: '100%', padding: '24px 12px', backgroundColor: '#DCEEE2', border: '1.5px dashed #0E5A6B', borderRadius: '2px', marginBottom: '20px', textAlign: 'center' }}>
                                             <div style={{ fontSize: '30px', fontWeight: 700, letterSpacing: '4px', color: '#1D2D3E', fontFamily: 'monospace' }}>{pairingCode}</div>
                                         </div>
                                         <div style={{ width: '100%', padding: '14px', backgroundColor: '#E7E9EB', borderRadius: '2px', marginBottom: '24px' }}>
@@ -1537,7 +1537,7 @@ export default function WhatsAppChatApp() {
                                             <button onClick={() => setShowQr(false)} style={{ flex: 1, padding: '12px', border: '1px solid #D5D7DA', background: 'white', color: '#5B738B', borderRadius: '2px', cursor: 'pointer', fontSize: '14px', fontWeight: 500 }}>
                                                 Cancelar
                                             </button>
-                                            <button onClick={() => handleGenerateQr(pairingPhone)} style={{ flex: 1, padding: '12px', border: 'none', background: '#0854A0', color: 'white', borderRadius: '2px', cursor: 'pointer', fontSize: '14px', fontWeight: 600 }}>
+                                            <button onClick={() => handleGenerateQr(pairingPhone)} style={{ flex: 1, padding: '12px', border: 'none', background: '#0E5A6B', color: 'white', borderRadius: '2px', cursor: 'pointer', fontSize: '14px', fontWeight: 600 }}>
                                                 Gerar Novo Código
                                             </button>
                                         </div>

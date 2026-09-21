@@ -157,7 +157,7 @@ export default function EmailApp() {
         <div style={{ height: '100%', display: 'flex', backgroundColor: '#F5F6F7', overflow: 'hidden' }}>
             {/* Sidebar */}
             <div style={{ width: '250px', backgroundColor: 'white', borderRight: '1px solid #D5D7DA', display: 'flex', flexDirection: 'column' }}>
-                <div style={{ padding: '20px 16px', borderBottom: '1px solid #D5D7DA', display: 'flex', alignItems: 'center', gap: '10px', background: 'linear-gradient(135deg, #0854A0 0%, #0854A0 100%)' }}>
+                <div style={{ padding: '20px 16px', borderBottom: '1px solid #D5D7DA', display: 'flex', alignItems: 'center', gap: '10px', background: 'linear-gradient(135deg, #0E5A6B 0%, #0E5A6B 100%)' }}>
                     <Mail size={22} color="white" />
                     <span style={{ fontWeight: '700', fontSize: '16px', color: 'white' }}>Email</span>
                 </div>
@@ -165,7 +165,7 @@ export default function EmailApp() {
                 <div style={{ padding: '16px 12px' }}>
                     <button 
                         onClick={() => { setView('compose'); setStatus('idle'); }}
-                        style={{ width: '100%', padding: '10px', borderRadius: '2px', backgroundColor: '#0854A0', color: 'white', border: 'none', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer' }}
+                        style={{ width: '100%', padding: '10px', borderRadius: '2px', backgroundColor: '#0E5A6B', color: 'white', border: 'none', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer' }}
                     >
                         <Send size={16} /> Compor
                     </button>
@@ -174,14 +174,14 @@ export default function EmailApp() {
                 <div style={{ flex: 1, padding: '0 12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     <div 
                         onClick={() => setView('inbox')}
-                        style={{ padding: '10px 12px', borderRadius: '2px', backgroundColor: view === 'inbox' ? '#E4EDF7' : 'transparent', color: view === 'inbox' ? '#0854A0' : '#5B738B', fontWeight: view === 'inbox' ? '600' : '500', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
+                        style={{ padding: '10px 12px', borderRadius: '2px', backgroundColor: view === 'inbox' ? '#E1EEF0' : 'transparent', color: view === 'inbox' ? '#0E5A6B' : '#5B738B', fontWeight: view === 'inbox' ? '600' : '500', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
                     >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Inbox size={16} /> Caixa de Entrada</div>
-                        {unreadCount > 0 && <span style={{ background: '#0854A0', color: 'white', fontSize: '11px', padding: '2px 6px', borderRadius: '2px' }}>{unreadCount}</span>}
+                        {unreadCount > 0 && <span style={{ background: '#0E5A6B', color: 'white', fontSize: '11px', padding: '2px 6px', borderRadius: '2px' }}>{unreadCount}</span>}
                     </div>
                     <div 
                         onClick={() => setView('sent')}
-                        style={{ padding: '10px 12px', borderRadius: '2px', backgroundColor: view === 'sent' ? '#E4EDF7' : 'transparent', color: view === 'sent' ? '#0854A0' : '#5B738B', fontWeight: view === 'sent' ? '600' : '500', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                        style={{ padding: '10px 12px', borderRadius: '2px', backgroundColor: view === 'sent' ? '#E1EEF0' : 'transparent', color: view === 'sent' ? '#0E5A6B' : '#5B738B', fontWeight: view === 'sent' ? '600' : '500', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
                     >
                         <Send size={16} /> Enviados
                     </div>
@@ -209,9 +209,9 @@ export default function EmailApp() {
                                         <div 
                                             key={e.id}
                                             onClick={() => { setActiveEmail(e); setView('read'); markAsRead(e); }}
-                                            style={{ backgroundColor: 'white', border: '1px solid #D5D7DA', borderRadius: '2px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', borderLeft: !e.lido && view === 'inbox' ? '3px solid #0854A0' : '1px solid #D5D7DA', opacity: e.lido ? 0.7 : 1 }}
+                                            style={{ backgroundColor: 'white', border: '1px solid #D5D7DA', borderRadius: '2px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', borderLeft: !e.lido && view === 'inbox' ? '3px solid #0E5A6B' : '1px solid #D5D7DA', opacity: e.lido ? 0.7 : 1 }}
                                         >
-                                            <div style={{ color: e.lido ? '#8996A3' : '#0854A0' }}>
+                                            <div style={{ color: e.lido ? '#8996A3' : '#0E5A6B' }}>
                                                 {e.lido ? <MailOpen size={18} /> : <MailIcon size={18} />}
                                             </div>
                                             <div style={{ flex: 1, minWidth: 0 }}>
@@ -259,7 +259,7 @@ export default function EmailApp() {
                         <div style={{ backgroundColor: 'white', borderRadius: '2px', border: '1px solid #D5D7DA', display: 'flex', flexDirection: 'column', flex: 1 }}>
                             <div style={{ padding: '16px 24px', borderBottom: '1px solid #E7E9EB', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <h2 style={{ margin: 0, fontSize: '18px', color: '#1D2D3E', fontWeight: '700' }}>Nova Mensagem</h2>
-                                <button onClick={handleSend} disabled={status === 'sending'} style={{ padding: '8px 20px', background: status === 'sending' ? '#93c5fd' : '#0854A0', color: 'white', border: 'none', borderRadius: '2px', cursor: status === 'sending' ? 'not-allowed' : 'pointer', fontWeight: '600', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <button onClick={handleSend} disabled={status === 'sending'} style={{ padding: '8px 20px', background: status === 'sending' ? '#93c5fd' : '#0E5A6B', color: 'white', border: 'none', borderRadius: '2px', cursor: status === 'sending' ? 'not-allowed' : 'pointer', fontWeight: '600', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     {status === 'sending' ? <Loader size={16} className="spin" /> : <Send size={16} />} Enviar
                                 </button>
                             </div>

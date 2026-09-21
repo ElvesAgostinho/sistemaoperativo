@@ -277,7 +277,7 @@ export default function SettingsApp() {
             <div style={{ width: '220px', backgroundColor: 'white', borderRight: '1px solid #D5D7DA', padding: '24px 0' }}>
                 <div style={{ padding: '0 16px 16px', borderBottom: '1px solid #D5D7DA', marginBottom: '8px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700', color: '#1D2D3E', fontSize: '16px' }}>
-                        <Settings size={20} color="#0854A0" /> Definições
+                        <Settings size={20} color="#0E5A6B" /> Definições
                     </div>
                 </div>
                 {[
@@ -291,10 +291,10 @@ export default function SettingsApp() {
                         key={item.id}
                         onClick={() => setActiveTab(item.id as any)}
                         style={{
-                            width: '100%', padding: '10px 16px', border: 'none', background: activeTab === item.id ? '#E4EDF7' : 'none',
+                            width: '100%', padding: '10px 16px', border: 'none', background: activeTab === item.id ? '#E1EEF0' : 'none',
                             textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px',
-                            color: activeTab === item.id ? '#0854A0' : '#5B738B', fontWeight: activeTab === item.id ? '600' : '400',
-                            fontSize: '14px', borderLeft: activeTab === item.id ? '3px solid #0854A0' : '3px solid transparent',
+                            color: activeTab === item.id ? '#0E5A6B' : '#5B738B', fontWeight: activeTab === item.id ? '600' : '400',
+                            fontSize: '14px', borderLeft: activeTab === item.id ? '3px solid #0E5A6B' : '3px solid transparent',
                         }}
                     >
                         {item.icon} {item.label}
@@ -314,9 +314,9 @@ export default function SettingsApp() {
 
                         {/* Card Principal */}
                         <div style={{ backgroundColor: 'white', borderRadius: '2px', border: '1px solid #D5D7DA', overflow: 'hidden', marginBottom: '24px' }}>
-                            <div style={{ padding: '20px 24px', borderBottom: '1px solid #E7E9EB', background: 'linear-gradient(135deg, #E4EDF7, #F5F6F7)' }}>
+                            <div style={{ padding: '20px 24px', borderBottom: '1px solid #E7E9EB', background: 'linear-gradient(135deg, #E1EEF0, #F5F6F7)' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontWeight: '700', color: '#1D2D3E', fontSize: '16px' }}>
-                                    <Mail size={20} color="#0854A0" /> Servidor SMTP
+                                    <Mail size={20} color="#0E5A6B" /> Servidor SMTP
                                 </div>
                                 <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#5B738B' }}>Para Gmail: use smtp.gmail.com com porta 587 e uma App Password (não a password normal).</p>
                             </div>
@@ -449,7 +449,7 @@ export default function SettingsApp() {
                             <button
                                 onClick={handleSave}
                                 disabled={saving}
-                                style={{ padding: '10px 24px', background: saving ? '#93c5fd' : 'linear-gradient(135deg, #0854A0, #0854A0)', color: 'white', border: 'none', borderRadius: '2px', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: '700', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                                style={{ padding: '10px 24px', background: saving ? '#93c5fd' : 'linear-gradient(135deg, #0E5A6B, #0E5A6B)', color: 'white', border: 'none', borderRadius: '2px', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: '700', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}
                             >
                                 {saving ? <Loader size={16} /> : (saved ? <CheckCircle size={16} /> : <Save size={16} />)}
                                 {saved ? 'Guardado!' : (saving ? 'A guardar...' : 'Guardar Configurações')}
@@ -546,7 +546,7 @@ export default function SettingsApp() {
                                        navigator.clipboard.writeText(`${window.location.origin}/?code=${currentUser.codigo_convite}`);
                                        alert('Link de convite copiado!');
                                     }}
-                                    style={{ background: '#0854A0', color: 'white', border: 'none', padding: '4px 8px', borderRadius: '2px', fontSize: '12px', cursor: 'pointer', marginLeft: '8px' }}>
+                                    style={{ background: '#0E5A6B', color: 'white', border: 'none', padding: '4px 8px', borderRadius: '2px', fontSize: '12px', cursor: 'pointer', marginLeft: '8px' }}>
                                     Copiar Link
                                   </button>
                                </div>
@@ -554,7 +554,7 @@ export default function SettingsApp() {
                         </div>
 
                         <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1D2D3E', margin: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Shield size={24} color="#0854A0" /> Gestão de Equipa e Permissões
+                            <Shield size={24} color="#0E5A6B" /> Gestão de Equipa e Permissões
                         </h1>
                         <p style={{ color: '#5B738B', fontSize: '14px', margin: '0 0 32px 0' }}>
                             Aprove novos registos, defina perfis de acesso (RBAC) e bloqueie utilizadores inativos.
@@ -665,7 +665,7 @@ export default function SettingsApp() {
                         <button
                             onClick={handleSaveEmpresa}
                             disabled={savingEmpresa}
-                            style={{ width: 'fit-content', padding: '10px 24px', backgroundColor: '#0854A0', color: 'white', border: 'none', borderRadius: '2px', fontSize: '14px', fontWeight: '600', cursor: savingEmpresa ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '32px' }}
+                            style={{ width: 'fit-content', padding: '10px 24px', backgroundColor: '#0E5A6B', color: 'white', border: 'none', borderRadius: '2px', fontSize: '14px', fontWeight: '600', cursor: savingEmpresa ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '32px' }}
                         >
                             {savingEmpresa ? <Loader size={16} className="animate-spin" /> : <Save size={16} />}
                             {savingEmpresa ? 'A Guardar...' : 'Guardar Logótipo'}

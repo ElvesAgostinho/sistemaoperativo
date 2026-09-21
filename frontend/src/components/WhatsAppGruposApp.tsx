@@ -44,18 +44,18 @@ export default function WhatsAppGruposApp({ onNavigate }: { onNavigate: (v: 'cha
             <div style={{ width: '30%', minWidth: '300px', borderRight: '1px solid #D5D7DA', display: 'flex', flexDirection: 'column', backgroundColor: 'white' }}>
                 <div style={{ padding: '10px 16px', backgroundColor: '#F5F6F7', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '59px', borderBottom: '1px solid #D5D7DA' }}>
                     <div style={{ fontWeight: 600, color: '#1D2D3E', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Users size={20} color="#0854A0" /> Grupos
+                        <Users size={20} color="#0E5A6B" /> Grupos
                     </div>
                     <div style={{ display: 'flex', gap: '16px', color: '#5B738B' }}>
                         <span title="Conversas"><MessageSquare size={20} style={{ cursor: 'pointer' }} onClick={() => onNavigate('chats')} /></span>
-                        <span title="Grupos"><Users size={20} style={{ cursor: 'pointer', color: '#0854A0' }} onClick={() => onNavigate('groups')} /></span>
+                        <span title="Grupos"><Users size={20} style={{ cursor: 'pointer', color: '#0E5A6B' }} onClick={() => onNavigate('groups')} /></span>
                         <span title="Campanhas"><Megaphone size={20} style={{ cursor: 'pointer' }} onClick={() => onNavigate('campaigns')} /></span>
                         <span title="Configurações de Canais"><Settings size={20} style={{ cursor: 'pointer' }} onClick={() => onNavigate('settings')} /></span>
                     </div>
                 </div>
 
                 <div style={{ padding: '10px', borderBottom: '1px solid #F5F6F7' }}>
-                    <button onClick={() => setShowDescobrir(true)} style={{ width: '100%', padding: '9px', borderRadius: '2px', border: 'none', background: '#0854A0', color: 'white', fontWeight: 600, fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                    <button onClick={() => setShowDescobrir(true)} style={{ width: '100%', padding: '9px', borderRadius: '2px', border: 'none', background: '#0E5A6B', color: 'white', fontWeight: 600, fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                         <Plus size={15} /> Adicionar Grupo
                     </button>
                     <p style={{ fontSize: '11.5px', color: '#5B738B', margin: '8px 2px 0', lineHeight: 1.5 }}>
@@ -79,7 +79,7 @@ export default function WhatsAppGruposApp({ onNavigate }: { onNavigate: (v: 'cha
                             <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ fontSize: '14.5px', color: '#1D2D3E', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.nome}</span>
-                                    {g.resposta_automatica_ativa && <Bot size={14} color="#0854A0" title="Resposta automática ativa" />}
+                                    {g.resposta_automatica_ativa && <Bot size={14} color="#0E5A6B" title="Resposta automática ativa" />}
                                 </div>
                                 <div style={{ fontSize: '12px', color: '#5B738B', marginTop: '2px' }}>
                                     {g.mensagens_hoje || 0} mensagens hoje {!g.monitorizar && '· pausado'}
@@ -94,7 +94,7 @@ export default function WhatsAppGruposApp({ onNavigate }: { onNavigate: (v: 'cha
                 {!ativo ? (
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#5B738B' }}>
                         <div style={{ backgroundColor: '#F5F6F7', padding: '24px', borderRadius: '50%', marginBottom: '24px' }}>
-                            <Users size={64} color="#0854A0" />
+                            <Users size={64} color="#0E5A6B" />
                         </div>
                         <h2 style={{ fontWeight: 300, color: '#5B738B', fontSize: '28px', marginBottom: '16px' }}>Grupos de WhatsApp</h2>
                         <p style={{ fontSize: '14px', maxWidth: '440px', textAlign: 'center', lineHeight: '20px' }}>
@@ -130,7 +130,7 @@ function GrupoDetail({ grupo, tab, setTab, onUpdated }: { grupo: Grupo; tab: 're
                     ].map(({ k, label, icon: Icon }) => (
                         <button key={k} onClick={() => setTab(k as any)} style={{
                             display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '2px', border: 'none', cursor: 'pointer',
-                            fontSize: '12.5px', fontWeight: 600, background: tab === k ? '#0854A0' : 'transparent', color: tab === k ? 'white' : '#5B738B'
+                            fontSize: '12.5px', fontWeight: 600, background: tab === k ? '#0E5A6B' : 'transparent', color: tab === k ? 'white' : '#5B738B'
                         }}>
                             <Icon size={14} /> {label}
                         </button>
@@ -179,7 +179,7 @@ function ResumoTab({ grupo }: { grupo: Grupo }) {
                     <option value={72}>Últimos 3 dias</option>
                     <option value={168}>Última semana</option>
                 </select>
-                <button onClick={gerar} disabled={gerando} style={{ padding: '9px 16px', borderRadius: '2px', border: 'none', background: '#0854A0', color: 'white', fontWeight: 600, fontSize: '13px', cursor: gerando ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <button onClick={gerar} disabled={gerando} style={{ padding: '9px 16px', borderRadius: '2px', border: 'none', background: '#0E5A6B', color: 'white', fontWeight: 600, fontSize: '13px', cursor: gerando ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     {gerando ? <RefreshCw size={14} className="spin" /> : <Sparkles size={14} />} {gerando ? 'A gerar...' : 'Gerar Resumo Agora'}
                 </button>
             </div>
@@ -247,9 +247,9 @@ function MensagensTab({ grupo }: { grupo: Grupo }) {
             {mensagens.length === 0 && <div style={{ textAlign: 'center', color: '#5B738B', padding: '40px 20px', fontSize: '13.5px' }}>Sem mensagens guardadas ainda.</div>}
             {mensagens.map((m: any) => (
                 <div key={m.id} style={{ display: 'flex', marginBottom: '10px', justifyContent: m.direction === 'outbound' ? 'flex-end' : 'flex-start' }}>
-                    <div style={{ maxWidth: '75%', padding: '9px 13px', borderRadius: '2px', background: m.direction === 'outbound' ? '#E4EDF7' : 'white', border: m.direction === 'outbound' ? 'none' : '1px solid #D5D7DA' }}>
+                    <div style={{ maxWidth: '75%', padding: '9px 13px', borderRadius: '2px', background: m.direction === 'outbound' ? '#E1EEF0' : 'white', border: m.direction === 'outbound' ? 'none' : '1px solid #D5D7DA' }}>
                         {m.direction === 'outbound' ? (
-                            <div style={{ fontSize: '11px', fontWeight: 700, color: '#0854A0', marginBottom: '3px', display: 'flex', alignItems: 'center', gap: '4px' }}><Bot size={11} /> Assistente IA</div>
+                            <div style={{ fontSize: '11px', fontWeight: 700, color: '#0E5A6B', marginBottom: '3px', display: 'flex', alignItems: 'center', gap: '4px' }}><Bot size={11} /> Assistente IA</div>
                         ) : (
                             <div style={{ fontSize: '11px', fontWeight: 700, color: '#107E3E', marginBottom: '3px' }}>{m.remetente_nome}</div>
                         )}
@@ -299,7 +299,7 @@ function ConfigTab({ grupo, onUpdated }: { grupo: Grupo; onUpdated: () => void }
                         <div style={{ fontWeight: 600, fontSize: '13.5px', color: '#1D2D3E' }}>Monitorizar este grupo</div>
                         <div style={{ fontSize: '12px', color: '#5B738B' }}>Guarda as mensagens para permitir resumos.</div>
                     </div>
-                    <input type="checkbox" checked={monitorizar} onChange={e => setMonitorizar(e.target.checked)} style={{ width: '18px', height: '18px', accentColor: '#0854A0' }} />
+                    <input type="checkbox" checked={monitorizar} onChange={e => setMonitorizar(e.target.checked)} style={{ width: '18px', height: '18px', accentColor: '#0E5A6B' }} />
                 </label>
 
                 <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
@@ -307,7 +307,7 @@ function ConfigTab({ grupo, onUpdated }: { grupo: Grupo; onUpdated: () => void }
                         <div style={{ fontWeight: 600, fontSize: '13.5px', color: '#1D2D3E' }}>Resposta automática por IA</div>
                         <div style={{ fontSize: '12px', color: '#5B738B' }}>Responde no grupo a perguntas de preço/disponibilidade dos clientes.</div>
                     </div>
-                    <input type="checkbox" checked={respostaAtiva} onChange={e => setRespostaAtiva(e.target.checked)} style={{ width: '18px', height: '18px', accentColor: '#0854A0' }} />
+                    <input type="checkbox" checked={respostaAtiva} onChange={e => setRespostaAtiva(e.target.checked)} style={{ width: '18px', height: '18px', accentColor: '#0E5A6B' }} />
                 </label>
             </div>
 
@@ -333,7 +333,7 @@ function ConfigTab({ grupo, onUpdated }: { grupo: Grupo; onUpdated: () => void }
                 </div>
             </div>
 
-            <button onClick={salvar} disabled={saving} style={{ width: '100%', padding: '11px', borderRadius: '9px', border: 'none', background: '#0854A0', color: 'white', fontWeight: 700, fontSize: '14px', cursor: saving ? 'wait' : 'pointer' }}>
+            <button onClick={salvar} disabled={saving} style={{ width: '100%', padding: '11px', borderRadius: '9px', border: 'none', background: '#0E5A6B', color: 'white', fontWeight: 700, fontSize: '14px', cursor: saving ? 'wait' : 'pointer' }}>
                 {saving ? 'A guardar...' : 'Guardar Configuração'}
             </button>
         </div>
@@ -391,7 +391,7 @@ function DescobrirGruposModal({ onClose, onAdded }: { onClose: () => void; onAdd
                                 <span style={{ fontSize: '11.5px', color: '#107E3E', fontWeight: 600 }}>Já adicionado</span>
                             ) : (
                                 <button onClick={() => adicionar(g)} disabled={adicionando === g.group_jid}
-                                    style={{ padding: '6px 12px', borderRadius: '7px', border: 'none', background: '#0854A0', color: 'white', fontSize: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    style={{ padding: '6px 12px', borderRadius: '7px', border: 'none', background: '#0E5A6B', color: 'white', fontSize: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                     {adicionando === g.group_jid ? '...' : <><Plus size={13} /> Adicionar</>}
                                 </button>
                             )}

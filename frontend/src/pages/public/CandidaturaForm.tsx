@@ -4,9 +4,9 @@ import { LogoMark } from '../../components/BrandLogo';
 
 const FONT_DISPLAY = "'Roboto', 'Segoe UI', sans-serif";
 const FONT_BODY = "'Roboto', 'Segoe UI', sans-serif";
-const ACCENT = '#0854A0';
-const ACCENT_HOVER = '#063E78';
-const ACCENT_SOFT = '#E4EDF7';
+const ACCENT = '#0E5A6B';
+const ACCENT_HOVER = '#0A4451';
+const ACCENT_SOFT = '#E1EEF0';
 const INK = '#1D2D3E';
 const INK_MUTED = '#5B738B';
 const BORDER = '#D5D7DA';
@@ -129,7 +129,7 @@ const CandidaturaForm = () => {
 
     return (
         <div style={{ minHeight: '100vh', backgroundColor: '#F5F6F7', fontFamily: FONT_BODY, color: INK }}>
-            <header style={{ background: '#354A5E', padding: '18px 24px', display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <header style={{ background: '#0A3B47', padding: '18px 24px', display: 'flex', alignItems: 'center', gap: '14px' }}>
                 <button onClick={() => navigateTo(`/carreiras/${empresa_id}`)} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'none', border: 'none', color: 'rgba(255,255,255,0.8)', cursor: 'pointer', fontSize: '13px', fontWeight: 600, fontFamily: FONT_BODY }}>
                     <ArrowLeft size={16} /> Todas as vagas
                 </button>

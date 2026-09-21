@@ -4,8 +4,8 @@ import { CalendarClock, Check, ChevronLeft, Clock, Scissors, User, Loader2, Cale
 interface Servico { id: number; nome: string; duracao_minutos: number; preco: number | null; cor: string; }
 interface Profissional { id: number; nome: string; }
 
-const ACCENT = '#0854A0';
-const DARK = '#354A5E';
+const ACCENT = '#0E5A6B';
+const DARK = '#0A3B47';
 
 const styles: Record<string, React.CSSProperties> = {
   page: { minHeight: '100vh', background: '#F5F6F7', fontFamily: "'Roboto','Segoe UI',system-ui,sans-serif", color: '#1D2D3E' },
@@ -20,7 +20,7 @@ const styles: Record<string, React.CSSProperties> = {
   cardSub: { fontSize: '12.5px', color: '#5B738B', marginBottom: '16px' },
   option: (selected: boolean) => ({
     display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 15px', borderRadius: '2px',
-    border: `1.5px solid ${selected ? ACCENT : '#D5D7DA'}`, background: selected ? '#E4EDF7' : '#FAFAFA', cursor: 'pointer', marginBottom: '9px'
+    border: `1.5px solid ${selected ? ACCENT : '#D5D7DA'}`, background: selected ? '#E1EEF0' : '#FAFAFA', cursor: 'pointer', marginBottom: '9px'
   }),
   btnPrimary: { width: '100%', padding: '13px', borderRadius: '2px', border: 'none', background: ACCENT, color: '#FFFFFF', fontWeight: 700, fontSize: '14.5px', cursor: 'pointer', fontFamily: "'Roboto',sans-serif" },
   btnBack: { background: 'none', border: 'none', color: '#5B738B', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '13px', marginBottom: '14px', padding: 0, fontFamily: "'Roboto',sans-serif" },

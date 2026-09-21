@@ -86,7 +86,7 @@ function DashboardTab({ onIrParaTransacoes }: { onIrParaTransacoes: () => void }
   }, []);
 
   if (loading) {
-    return <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}><Loader2 className="animate-spin" size={28} color="#017E84" /></div>;
+    return <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}><Loader2 className="animate-spin" size={28} color="#0E5A6B" /></div>;
   }
 
   return (
@@ -125,7 +125,7 @@ function DashboardTab({ onIrParaTransacoes }: { onIrParaTransacoes: () => void }
                 <YAxis axisLine={false} tickLine={false} tick={{ fill: '#5B6B67', fontSize: 11, fontFamily: 'IBM Plex Mono' }} dx={-6} />
                 <RechartsTooltip contentStyle={{ borderRadius: '10px', border: '1px solid #E2E8E6', fontFamily: 'IBM Plex Sans', fontSize: '13px' }} formatter={(v: any) => formatKz(Number(v))} />
                 <Legend wrapperStyle={{ fontSize: '12px', fontFamily: 'IBM Plex Sans' }} />
-                <Bar dataKey="entradas" name="Entradas" fill="#017E84" radius={[6, 6, 0, 0]} maxBarSize={36} />
+                <Bar dataKey="entradas" name="Entradas" fill="#0E5A6B" radius={[6, 6, 0, 0]} maxBarSize={36} />
                 <Bar dataKey="saidas" name="Saídas" fill="#B23A3A" radius={[6, 6, 0, 0]} maxBarSize={36} />
               </BarChart>
             </ResponsiveContainer>
@@ -412,7 +412,7 @@ function SalariosTab() {
       </div>
 
       {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}><Loader2 className="animate-spin" size={28} color="#017E84" /></div>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}><Loader2 className="animate-spin" size={28} color="#0E5A6B" /></div>
       ) : !dados?.processado ? (
         <div className="fin-panel">
           <div className="fin-empty-state">
@@ -537,7 +537,7 @@ function AvancadoTab() {
       </div>
 
       {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}><Loader2 className="animate-spin" size={28} color="#017E84" /></div>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}><Loader2 className="animate-spin" size={28} color="#0E5A6B" /></div>
       ) : (
         <>
           {subTab === 'contas' && <AvPlanosDeContas contas={contas} refresh={carregarDadosBase} />}

@@ -161,7 +161,7 @@ export default function PortalAfiliado() {
           </div>
           <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '2px', border: '1px solid #D5D7DA', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-              <div style={{ padding: '10px', backgroundColor: '#E4EDF7', borderRadius: '2px', color: '#0854A0' }}><Users size={24} /></div>
+              <div style={{ padding: '10px', backgroundColor: '#E1EEF0', borderRadius: '2px', color: '#0E5A6B' }}><Users size={24} /></div>
               <h3 style={{ margin: 0, fontSize: '16px', color: '#5B738B' }}>Leads Gerados (Negócios)</h3>
             </div>
             <p style={{ fontSize: '32px', fontWeight: 'bold', margin: 0, color: '#1D2D3E' }}>
@@ -185,7 +185,7 @@ export default function PortalAfiliado() {
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#5B738B', marginBottom: '8px' }}>Link para Redes Sociais / Web</label>
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <input readOnly value={linkWeb} style={{ flex: 1, padding: '10px', borderRadius: '2px', border: '1px solid #D5D7DA', backgroundColor: '#F5F6F7', color: '#1D2D3E' }} />
-                  <button onClick={() => copyToClipboard(linkWeb)} style={{ padding: '10px 16px', backgroundColor: '#0854A0', color: 'white', border: 'none', borderRadius: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <button onClick={() => copyToClipboard(linkWeb)} style={{ padding: '10px 16px', backgroundColor: '#0E5A6B', color: 'white', border: 'none', borderRadius: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     {copied ? <CheckCircle size={16}/> : <Copy size={16}/>}
                   </button>
                 </div>
@@ -245,7 +245,7 @@ export default function PortalAfiliado() {
                         {new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA' }).format(c.valor_comissao)}
                       </div>
                       {c.estado === 'Pendente' && <span style={{ padding: '2px 8px', backgroundColor: '#FCEFDD', color: '#8A4B0B', borderRadius: '2px', fontSize: '11px', fontWeight: 600 }}>Pendente</span>}
-                      {c.estado === 'Aprovada' && <span style={{ padding: '2px 8px', backgroundColor: '#E4EDF7', color: '#0854A0', borderRadius: '2px', fontSize: '11px', fontWeight: 600 }}>Aprovada</span>}
+                      {c.estado === 'Aprovada' && <span style={{ padding: '2px 8px', backgroundColor: '#E1EEF0', color: '#0E5A6B', borderRadius: '2px', fontSize: '11px', fontWeight: 600 }}>Aprovada</span>}
                       {(c.estado === 'Paga' || c.estado === 'Processada') && <span style={{ padding: '2px 8px', backgroundColor: '#DCEEE2', color: '#107E3E', borderRadius: '2px', fontSize: '11px', fontWeight: 600 }}>Paga</span>}
                     </div>
                   </div>

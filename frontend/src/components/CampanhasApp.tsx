@@ -9,7 +9,7 @@ type TipoApi = 'oficial' | 'nao_oficial';
 
 const TIPO_INFO: Record<TipoApi, { label: string; curto: string; color: string; bg: string }> = {
     oficial: { label: 'API Oficial (Meta)', curto: 'Oficial', color: '#107E3E', bg: '#DCEEE2' },
-    nao_oficial: { label: 'API Não Oficial (QR Code)', curto: 'Não oficial', color: '#0854A0', bg: '#E4EDF7' },
+    nao_oficial: { label: 'API Não Oficial (QR Code)', curto: 'Não oficial', color: '#0E5A6B', bg: '#E1EEF0' },
 };
 
 const API = import.meta.env.VITE_API_URL;
@@ -20,7 +20,7 @@ const authFetch = (url: string, options: any = {}) => {
 
 const ESTADO_INFO: Record<string, { label: string; color: string; bg: string }> = {
     Rascunho: { label: 'Rascunho', color: '#5B738B', bg: '#E7E9EB' },
-    Agendada: { label: 'Agendada', color: '#0854A0', bg: '#E4EDF7' },
+    Agendada: { label: 'Agendada', color: '#0E5A6B', bg: '#E1EEF0' },
     Em_Execucao: { label: 'Em Execução', color: '#107E3E', bg: '#DCEEE2' },
     Pausada: { label: 'Pausada', color: '#92400e', bg: '#fef3c7' },
     Concluida: { label: 'Concluída', color: '#107E3E', bg: '#DCEEE2' },
@@ -82,12 +82,12 @@ export default function CampanhasApp({ onNavigate }: { onNavigate: (v: 'chats' |
             <div style={{ width: '30%', minWidth: '320px', borderRight: '1px solid #D5D7DA', display: 'flex', flexDirection: 'column', backgroundColor: 'white' }}>
                 <div style={{ padding: '10px 16px', backgroundColor: '#F5F6F7', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '59px', borderBottom: '1px solid #D5D7DA' }}>
                     <div style={{ fontWeight: 600, color: '#1D2D3E', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Megaphone size={20} color="#0854A0" /> Campanhas
+                        <Megaphone size={20} color="#0E5A6B" /> Campanhas
                     </div>
                     <div style={{ display: 'flex', gap: '16px', color: '#54656f' }}>
                         <span title="Conversas"><MessagesSquare size={20} style={{ cursor: 'pointer' }} onClick={() => onNavigate('chats')} /></span>
                         <span title="Grupos"><Users size={20} style={{ cursor: 'pointer' }} onClick={() => onNavigate('groups')} /></span>
-                        <span title="Campanhas"><Megaphone size={20} style={{ cursor: 'pointer', color: '#0854A0' }} onClick={() => onNavigate('campaigns')} /></span>
+                        <span title="Campanhas"><Megaphone size={20} style={{ cursor: 'pointer', color: '#0E5A6B' }} onClick={() => onNavigate('campaigns')} /></span>
                         <span title="Configurações de Canais"><Settings size={20} style={{ cursor: 'pointer' }} onClick={() => onNavigate('settings')} /></span>
                     </div>
                 </div>
@@ -98,8 +98,8 @@ export default function CampanhasApp({ onNavigate }: { onNavigate: (v: 'chats' |
                             style={{
                                 flex: 1, padding: '10px 8px', border: 'none', cursor: 'pointer', fontSize: '12.5px', fontWeight: 700,
                                 background: aba === t ? 'white' : '#F5F6F7',
-                                color: aba === t ? '#0854A0' : '#5B738B',
-                                borderBottom: aba === t ? '2px solid #0854A0' : '2px solid transparent',
+                                color: aba === t ? '#0E5A6B' : '#5B738B',
+                                borderBottom: aba === t ? '2px solid #0E5A6B' : '2px solid transparent',
                             }}>
                             {TIPO_INFO[t].curto}
                         </button>
@@ -107,7 +107,7 @@ export default function CampanhasApp({ onNavigate }: { onNavigate: (v: 'chats' |
                 </div>
 
                 <div style={{ padding: '10px', borderBottom: '1px solid #f2f2f2' }}>
-                    <button onClick={() => { setAtiva(null); setShowWizard(true); }} style={{ width: '100%', padding: '9px', borderRadius: '2px', border: 'none', background: '#0854A0', color: 'white', fontWeight: 600, fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                    <button onClick={() => { setAtiva(null); setShowWizard(true); }} style={{ width: '100%', padding: '9px', borderRadius: '2px', border: 'none', background: '#0E5A6B', color: 'white', fontWeight: 600, fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                         <Plus size={15} /> Nova Campanha
                     </button>
                     <p style={{ fontSize: '11.5px', color: '#5B738B', margin: '8px 2px 0', lineHeight: 1.5 }}>
@@ -150,7 +150,7 @@ export default function CampanhasApp({ onNavigate }: { onNavigate: (v: 'chats' |
                 ) : (
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#5B738B' }}>
                         <div style={{ backgroundColor: '#F5F6F7', padding: '24px', borderRadius: '50%', marginBottom: '24px' }}>
-                            <Megaphone size={64} color="#0854A0" />
+                            <Megaphone size={64} color="#0E5A6B" />
                         </div>
                         <h2 style={{ fontWeight: 300, color: '#41525d', fontSize: '28px', marginBottom: '16px' }}>
                             Campanhas {aba === 'oficial' ? 'pela API Oficial' : 'pela API Não Oficial'}
@@ -207,7 +207,7 @@ function CampanhaDetail({ campanha, onAcao, onEliminar, onVoltar, onRefresh }: {
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
                     {['Rascunho', 'Pausada'].includes(detalhe.estado) && (
-                        <button onClick={() => onAcao(campanha.id, 'iniciar')} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '2px', border: 'none', background: '#0854A0', color: 'white', fontWeight: 600, fontSize: '12.5px', cursor: 'pointer' }}><Play size={14} /> {detalhe.estado === 'Pausada' ? 'Retomar' : 'Iniciar'}</button>
+                        <button onClick={() => onAcao(campanha.id, 'iniciar')} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '2px', border: 'none', background: '#0E5A6B', color: 'white', fontWeight: 600, fontSize: '12.5px', cursor: 'pointer' }}><Play size={14} /> {detalhe.estado === 'Pausada' ? 'Retomar' : 'Iniciar'}</button>
                     )}
                     {['Agendada', 'Em_Execucao'].includes(detalhe.estado) && (
                         <button onClick={() => onAcao(campanha.id, 'pausar')} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '2px', border: '1px solid #D5D7DA', background: 'white', color: '#92400e', fontWeight: 600, fontSize: '12.5px', cursor: 'pointer' }}><Pause size={14} /> Pausar</button>
@@ -223,10 +223,10 @@ function CampanhaDetail({ campanha, onAcao, onEliminar, onVoltar, onRefresh }: {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '12px', marginBottom: '18px' }}>
                     {[
                         { label: 'Total', valor: m.total, icon: Users, cor: '#1D2D3E' },
-                        { label: 'Enviadas', valor: m.enviada, icon: Send, cor: '#0854A0' },
+                        { label: 'Enviadas', valor: m.enviada, icon: Send, cor: '#0E5A6B' },
                         { label: 'Entregues', valor: m.entregue, icon: CheckCheck, cor: '#107E3E' },
                         { label: 'Lidas', valor: m.lida, icon: Eye, cor: '#107E3E' },
-                        { label: 'Respondidas', valor: m.respondida, icon: MessageSquare, cor: '#0854A0' },
+                        { label: 'Respondidas', valor: m.respondida, icon: MessageSquare, cor: '#0E5A6B' },
                         { label: 'Falharam', valor: m.falhou, icon: AlertTriangle, cor: '#BB0000' },
                     ].map(k => (
                         <div key={k.label} style={{ background: 'white', borderRadius: '2px', border: '1px solid #D5D7DA', padding: '14px' }}>
@@ -267,11 +267,11 @@ const tdStyle: React.CSSProperties = { padding: '10px 14px' };
 
 const DEST_BADGE: Record<string, { color: string; bg: string }> = {
     Pendente: { color: '#5B738B', bg: '#E7E9EB' },
-    Enviada: { color: '#0854A0', bg: '#E4EDF7' },
+    Enviada: { color: '#0E5A6B', bg: '#E1EEF0' },
     Entregue: { color: '#107E3E', bg: '#DCEEE2' },
     Lida: { color: '#107E3E', bg: '#DCEEE2' },
     Falhou: { color: '#BB0000', bg: '#F6DEDE' },
-    Respondida: { color: '#0854A0', bg: '#E4EDF7' },
+    Respondida: { color: '#0E5A6B', bg: '#E1EEF0' },
 };
 
 function EstadoDestBadge({ estado }: { estado: string }) {
@@ -471,7 +471,7 @@ function NovaCampanhaWizard({ onClose, onCreated, tipoInicial }: { onClose: () =
                 <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
                     {PASSOS.map((p, i) => (
                         <div key={p} style={{ display: 'flex', alignItems: 'center', gap: '6px', opacity: passo === i + 1 ? 1 : 0.4 }}>
-                            <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: passo > i + 1 ? '#0854A0' : passo === i + 1 ? '#1D2D3E' : '#D5D7DA', color: 'white', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: passo > i + 1 ? '#0E5A6B' : passo === i + 1 ? '#1D2D3E' : '#D5D7DA', color: 'white', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 {passo > i + 1 ? <Check size={12} /> : i + 1}
                             </div>
                             <span style={{ fontSize: '12.5px', fontWeight: 600, color: '#1D2D3E' }}>{p}</span>
@@ -507,7 +507,7 @@ function NovaCampanhaWizard({ onClose, onCreated, tipoInicial }: { onClose: () =
                                 <div onClick={() => { setTipoApi('nao_oficial'); setVelocidade(8); setPasso(1); }}
                                     style={tipoCardStyle(tipoApi === 'nao_oficial', !canalEvolution)}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <QrCode size={16} color="#0854A0" />
+                                        <QrCode size={16} color="#0E5A6B" />
                                         <strong style={{ fontSize: '13.5px' }}>API Não Oficial (QR Code)</strong>
                                         {!canalEvolution && <span style={{ fontSize: '11px', color: '#BB0000' }}>sem número ligado</span>}
                                     </div>
@@ -541,7 +541,7 @@ function NovaCampanhaWizard({ onClose, onCreated, tipoInicial }: { onClose: () =
                                 <span style={{ fontSize: '12px', color: '#5B738B', alignSelf: 'center', marginRight: '4px' }}>Inserir:</span>
                                 {['nome', 'empresa', 'telefone'].map(v => (
                                     <button key={v} onClick={() => inserirVariavel(v)}
-                                        style={{ padding: '5px 10px', borderRadius: '2px', border: '1px solid #D5D7DA', background: 'white', fontSize: '12px', fontWeight: 600, color: '#0854A0', cursor: 'pointer' }}>
+                                        style={{ padding: '5px 10px', borderRadius: '2px', border: '1px solid #D5D7DA', background: 'white', fontSize: '12px', fontWeight: 600, color: '#0E5A6B', cursor: 'pointer' }}>
                                         {'{{'}{v}{'}}'}
                                     </button>
                                 ))}
@@ -568,7 +568,7 @@ function NovaCampanhaWizard({ onClose, onCreated, tipoInicial }: { onClose: () =
                                     <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '12px', background: 'white', border: '1px solid #D5D7DA', borderRadius: '2px', padding: '12px' }}>
                                         {media.tipo === 'imagem' && <img src={media.url} alt="" style={{ width: '54px', height: '54px', objectFit: 'cover', borderRadius: '2px' }} />}
                                         {media.tipo === 'video' && <video src={media.url} style={{ width: '54px', height: '54px', objectFit: 'cover', borderRadius: '2px' }} />}
-                                        {media.tipo === 'audio' && <Play size={22} color="#0854A0" />}
+                                        {media.tipo === 'audio' && <Play size={22} color="#0E5A6B" />}
                                         {media.tipo === 'documento' && <Paperclip size={22} color="#5B738B" />}
                                         <div style={{ flex: 1, minWidth: 0 }}>
                                             <div style={{ fontSize: '13px', fontWeight: 600, color: '#1D2D3E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{media.nome}</div>
@@ -597,7 +597,7 @@ function NovaCampanhaWizard({ onClose, onCreated, tipoInicial }: { onClose: () =
                                     <label style={{ fontSize: '12px', fontWeight: 700, color: '#1D2D3E' }}>
                                         Pré-visualização{previewMensagem.contacto ? ` — como chega a ${previewMensagem.contacto}` : ''}
                                     </label>
-                                    <div style={{ marginTop: '8px', background: '#E4EDF7', border: '1px solid #D5D7DA', borderRadius: '2px', padding: '12px 14px', fontSize: '13.5px', color: '#1D2D3E', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
+                                    <div style={{ marginTop: '8px', background: '#E1EEF0', border: '1px solid #D5D7DA', borderRadius: '2px', padding: '12px 14px', fontSize: '13.5px', color: '#1D2D3E', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
                                         {previewMensagem.preview || <span style={{ color: '#8996A3' }}>(vazio)</span>}
                                     </div>
                                 </div>
@@ -611,7 +611,7 @@ function NovaCampanhaWizard({ onClose, onCreated, tipoInicial }: { onClose: () =
                             {templates.length === 0 && <p style={{ color: '#8996A3', fontSize: '13px' }}>Nenhum modelo aprovado encontrado. Sincronize os modelos em WhatsApp → Configurações de Canais.</p>}
                             {templates.map((t: any) => (
                                 <div key={t.id} onClick={() => setTemplateSel(t)}
-                                    style={{ padding: '14px', borderRadius: '2px', border: `1.5px solid ${templateSel?.id === t.id ? '#0854A0' : '#D5D7DA'}`, background: templateSel?.id === t.id ? '#DCEEE2' : 'white', marginBottom: '10px', cursor: 'pointer' }}>
+                                    style={{ padding: '14px', borderRadius: '2px', border: `1.5px solid ${templateSel?.id === t.id ? '#0E5A6B' : '#D5D7DA'}`, background: templateSel?.id === t.id ? '#DCEEE2' : 'white', marginBottom: '10px', cursor: 'pointer' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                         <strong style={{ fontSize: '13.5px' }}>{t.name}</strong>
                                         <span style={{ fontSize: '11px', color: '#5B738B' }}>{t.language} · {t.category}</span>
@@ -753,12 +753,12 @@ function NovaCampanhaWizard({ onClose, onCreated, tipoInicial }: { onClose: () =
                                 <AlertTriangle size={14} color="#92400e" style={{ flexShrink: 0 }} /> {bloqueio}
                             </span>
                         )}
-                        <button onClick={() => setPasso(p => p + 1)} disabled={!podeAvancar()} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', borderRadius: '2px', border: 'none', background: podeAvancar() ? '#0854A0' : '#D5D7DA', color: 'white', cursor: podeAvancar() ? 'pointer' : 'not-allowed', fontSize: '13px', fontWeight: 600, flexShrink: 0 }}>
+                        <button onClick={() => setPasso(p => p + 1)} disabled={!podeAvancar()} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', borderRadius: '2px', border: 'none', background: podeAvancar() ? '#0E5A6B' : '#D5D7DA', color: 'white', cursor: podeAvancar() ? 'pointer' : 'not-allowed', fontSize: '13px', fontWeight: 600, flexShrink: 0 }}>
                             Continuar <ChevronRight size={15} />
                         </button>
                     </div>
                 ) : (
-                    <button onClick={criar} disabled={criando} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', borderRadius: '2px', border: 'none', background: '#0854A0', color: 'white', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+                    <button onClick={criar} disabled={criando} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', borderRadius: '2px', border: 'none', background: '#0E5A6B', color: 'white', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
                         {criando ? 'A criar...' : (enviarAgora ? 'Criar e Enviar' : 'Criar e Agendar')}
                     </button>
                 )}
@@ -770,13 +770,13 @@ function NovaCampanhaWizard({ onClose, onCreated, tipoInicial }: { onClose: () =
 const hStyle: React.CSSProperties = { fontSize: '17px', fontWeight: 700, color: '#1D2D3E', marginBottom: '16px' };
 const inputStyle: React.CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: '2px', border: '1px solid #D5D7DA', fontSize: '13.5px', fontFamily: 'inherit' };
 const pillStyle = (ativo: boolean): React.CSSProperties => ({
-    padding: '8px 14px', borderRadius: '2px', border: `1.5px solid ${ativo ? '#0854A0' : '#D5D7DA'}`,
-    background: ativo ? '#0854A0' : 'white', color: ativo ? 'white' : '#1D2D3E', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer'
+    padding: '8px 14px', borderRadius: '2px', border: `1.5px solid ${ativo ? '#0E5A6B' : '#D5D7DA'}`,
+    background: ativo ? '#0E5A6B' : 'white', color: ativo ? 'white' : '#1D2D3E', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer'
 });
 const tipoCardStyle = (ativo: boolean, indisponivel: boolean): React.CSSProperties => ({
     padding: '14px', borderRadius: '2px', cursor: 'pointer',
-    border: `1.5px solid ${ativo ? '#0854A0' : '#D5D7DA'}`,
-    background: ativo ? '#E4EDF7' : 'white',
+    border: `1.5px solid ${ativo ? '#0E5A6B' : '#D5D7DA'}`,
+    background: ativo ? '#E1EEF0' : 'white',
     opacity: indisponivel ? 0.6 : 1,
 });
 const avisoStyle: React.CSSProperties = {
