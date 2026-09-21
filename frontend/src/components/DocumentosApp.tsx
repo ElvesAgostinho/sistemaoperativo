@@ -98,7 +98,7 @@ export default function DocumentosApp({ onVoltar }: { onVoltar?: () => void }) {
 
     useEffect(() => { fetchResumo(); fetchTiposEPastas(); }, [fetchResumo, fetchTiposEPastas]);
     useEffect(() => { const t = setInterval(fetchResumo, 60000); return () => clearInterval(t); }, [fetchResumo]);
-    useEffect(() => { fetchResumo(); if (['todos', 'area', 'pasta', 'por_rever', 'entidade'].includes(vista)) { setLoading(true); fetchDocs(); } }, [vista, areaSel, pastaSel, entidadeSel, fetchDocs, fetchResumo]);
+    useEffect(() => { fetchResumo(); if (['todos', 'area', 'pasta', 'por_rever', 'entidade'].includes(vista)) { setLoading(true); setDocs([]); fetchDocs(); } }, [vista, areaSel, pastaSel, entidadeSel, fetchDocs, fetchResumo]);
     // Chegámos aqui vindos de outro módulo (ficha de cliente, email, notificação)?
     useEffect(() => {
         const alvo = consumirAlvo('documentos');
@@ -364,9 +364,10 @@ function ListaDocs({ vista, areaSel, pastaSel, entidadeSel, pastas, docs, loadin
                         {vista !== 'por_rever' && <div>Arraste ficheiros para esta janela ou clique para carregar. A IA lê, classifica e arruma por si.</div>}
                     </div>
                 )}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: '10px' }}>
+                {/* Enquanto carrega não se mostram os cartões da vista anterior — apareciam e desapareciam. */}
+                {!loading && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: '10px' }}>
                     {docs.map((d: Doc) => <CartaoDoc key={d.id} doc={d} porRever={vista === 'por_rever'} onAbrir={() => onAbrir(d)} onAtualizar={onAtualizar} />)}
-                </div>
+                </div>}
             </div>
         </div>
     );
