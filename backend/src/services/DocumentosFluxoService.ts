@@ -401,9 +401,10 @@ export class DocumentosFluxoService {
 
     /** Visão global: por cada entidade do tipo da checklist, quantos obrigatórios faltam. */
     public static async panoramaChecklist(checklist: any): Promise<any[]> {
-        const tabela = ({ cliente: 'clientes', colaborador: 'colaboradores', ativo: 'ativos', negocio: 'negocios' } as any)[checklist.entidade_tipo];
-        if (!tabela) return [];
-        const { data: entidades } = await supabase.from(tabela).select('id, nome, titulo').eq('empresa_id', checklist.empresa_id).order('nome').limit(500);
+        const alvo = ({ cliente: ['clientes', 'nome'], colaborador: ['colaboradores', 'nome'], ativo: ['ativos', 'nome'], negocio: ['negocios', 'titulo'] } as Record<string, [string, string]>)[checklist.entidade_tipo];
+        if (!alvo) return [];
+        const { data: brutos } = await supabase.from(alvo[0]).select(`id, ${alvo[1]}`).eq('empresa_id', checklist.empresa_id).order(alvo[1]).limit(500);
+        const entidades = (brutos || []).map((e: any) => ({ id: e.id, nome: e[alvo[1]] }));
         if (!entidades || entidades.length === 0) return [];
         const obrigatorios = (checklist.itens || []).filter((i: any) => i.obrigatorio !== false).map((i: any) => i.tipo_id);
         const { data: docs } = await supabase.from('documentos').select('entidade_id, tipo_id, ciclo, validade')
@@ -419,7 +420,7 @@ export class DocumentosFluxoService {
         return entidades.map((e: any) => {
             const tem = cobertos.get(String(e.id)) || new Set();
             const faltam = obrigatorios.filter((t: number) => !tem.has(t)).length;
-            return { id: e.id, nome: e.nome || e.titulo || `#${e.id}`, obrigatorios: obrigatorios.length, em_falta: faltam, completa: faltam === 0 };
+            return { id: e.id, nome: e.nome || `#${e.id}`, obrigatorios: obrigatorios.length, em_falta: faltam, completa: faltam === 0 };
         }).sort((a: any, b: any) => b.em_falta - a.em_falta || a.nome.localeCompare(b.nome));
     }
 

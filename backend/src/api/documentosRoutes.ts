@@ -90,9 +90,9 @@ router.get('/resumo', async (req: AuthRequest, res: Response) => {
 router.get('/', async (req: AuthRequest, res: Response) => {
     try {
         const areas = await filtroAreas(req);
-        const { area, estado, ciclo, entidade_tipo, entidade_id, texto, pasta_id, tipo_id } = req.query as Record<string, string>;
+        const { area, estado, ciclo, entidade_tipo, entidade_id, texto, pasta_id, tipo_id, origem_ref } = req.query as Record<string, string>;
         let q = supabase.from('documentos')
-            .select('id, codigo, titulo, nome_ficheiro, storage_path, mime_type, tamanho, area, tipo, tipo_id, resumo, campos, metadados, data_documento, validade, entidade_tipo, entidade_id, entidade_nome, origem, origem_detalhe, estado, ciclo, confidencialidade, versao_atual, pasta_id, responsavel_id, criado_por, confianca, erro, criado_em')
+            .select('id, codigo, titulo, nome_ficheiro, storage_path, mime_type, tamanho, area, tipo, tipo_id, resumo, campos, metadados, data_documento, validade, entidade_tipo, entidade_id, entidade_nome, origem, origem_ref, origem_detalhe, estado, ciclo, confidencialidade, versao_atual, pasta_id, responsavel_id, criado_por, confianca, erro, criado_em')
             .eq('empresa_id', empresaDe(req)).order('criado_em', { ascending: false }).limit(300);
         if (areas) q = q.in('area', areas);
         if (area) q = q.eq('area', area);
@@ -101,6 +101,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         if (tipo_id) q = q.eq('tipo_id', Number(tipo_id));
         if (pasta_id) q = pasta_id === 'raiz' ? q.is('pasta_id', null) : q.eq('pasta_id', Number(pasta_id));
         if (entidade_tipo && entidade_id) q = q.eq('entidade_tipo', entidade_tipo).eq('entidade_id', entidade_id);
+        if (origem_ref) q = q.eq('origem_ref', origem_ref);   // ex.: os anexos arquivados de um email
         if (texto) {
             const t = texto.replace(/[%,()]/g, ' ').trim();
             q = q.or(`titulo.ilike.%${t}%,codigo.ilike.%${t}%,resumo.ilike.%${t}%,entidade_nome.ilike.%${t}%,nome_ficheiro.ilike.%${t}%`);
@@ -131,7 +132,20 @@ router.post('/pesquisar', async (req: AuthRequest, res: Response) => {
 // ============================================================
 // ENTRADA MANUAL
 // ============================================================
+// Cada tabela tem a sua coluna de nome; pedir uma que não existe faz a consulta falhar.
+const TABELA_ENTIDADE: Record<string, [string, string]> = { cliente: ['clientes', 'nome'], colaborador: ['colaboradores', 'nome'], ativo: ['ativos', 'nome'], negocio: ['negocios', 'titulo'], reuniao: ['reunioes', 'titulo'] };
+async function resolverEntidade(empresaId: string, tipo?: string, id?: string): Promise<{ entidade_tipo: string; entidade_id: string; entidade_nome: string } | null | 'invalida'> {
+    if (!tipo || !id) return null;
+    const alvo = TABELA_ENTIDADE[tipo];
+    if (!alvo) return 'invalida';
+    const { data: ent } = await supabase.from(alvo[0]).select(`id, ${alvo[1]}`).eq('id', id).eq('empresa_id', empresaId).maybeSingle();
+    if (!ent) return 'invalida';
+    return { entidade_tipo: tipo, entidade_id: String(id), entidade_nome: (ent as any)[alvo[1]] || '' };
+}
+
 router.post('/upload', upload.array('files', 20), async (req: AuthRequest, res: Response) => {
+    const ligacao = await resolverEntidade(empresaDe(req), req.body.entidade_tipo, req.body.entidade_id);
+    if (ligacao === 'invalida') return res.status(400).json({ error: 'Entidade não encontrada.' });
     const ficheiros = (req.files as Express.Multer.File[]) || [];
     if (ficheiros.length === 0) return res.status(400).json({ error: 'Nenhum ficheiro enviado.' });
     const pastaId = req.body.pasta_id ? Number(req.body.pasta_id) : null;
@@ -143,6 +157,7 @@ router.post('/upload', upload.array('files', 20), async (req: AuthRequest, res: 
                 origem: 'manual', criadoPor: req.user!.id
             });
             if (pastaId && !r.duplicado) await supabase.from('documentos').update({ pasta_id: pastaId }).eq('id', r.id).eq('empresa_id', empresaDe(req));
+            if (ligacao && !r.duplicado) await supabase.from('documentos').update(ligacao).eq('id', r.id).eq('empresa_id', empresaDe(req));
             resultados.push({ nome: nomeSeguro(f), ...r });
         } catch (e: any) {
             resultados.push({ nome: nomeSeguro(f), erro: e.message });
@@ -589,11 +604,9 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
             if (!pasta) return res.status(400).json({ error: 'Pasta não encontrada.' });
         }
         if (alt.entidade_tipo && alt.entidade_id) {
-            const tabela = ({ cliente: 'clientes', colaborador: 'colaboradores', ativo: 'ativos', negocio: 'negocios', reuniao: 'reunioes' } as any)[alt.entidade_tipo];
-            if (!tabela) return res.status(400).json({ error: 'Tipo de entidade inválido.' });
-            const { data: ent } = await supabase.from(tabela).select('id, nome, titulo').eq('id', alt.entidade_id).eq('empresa_id', empresaDe(req)).maybeSingle();
-            if (!ent) return res.status(400).json({ error: 'Entidade não encontrada.' });
-            alt.entidade_nome = ent.nome || ent.titulo || alt.entidade_nome;
+            const lig = await resolverEntidade(empresaDe(req), alt.entidade_tipo, alt.entidade_id);
+            if (lig === 'invalida' || !lig) return res.status(400).json({ error: 'Entidade não encontrada.' });
+            alt.entidade_nome = lig.entidade_nome || alt.entidade_nome;
         }
 
         // Confirmar um "Por rever" ativa o documento no ciclo de vida.
@@ -619,6 +632,25 @@ router.post('/:id/transicao', async (req: AuthRequest, res: Response) => {
         const r = await DocumentosGovernoService.transitar(doc, para, 'utilizador', utilizador(req), req.body.motivo);
         if (!r.ok) return res.status(400).json({ error: r.erro });
         res.json({ success: true, ciclo: para, rotulo: ROTULO_CICLO[para] });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+// Enviar o documento (versão atual) por email, pelo SMTP da empresa. Fica registado em Enviados e na auditoria.
+router.post('/:id/enviar-email', async (req: AuthRequest, res: Response) => {
+    try {
+        const doc = await carregarComAcesso(req, res, 'ver'); if (!doc) return;
+        const para = String(req.body.para || '').trim();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(para)) return res.status(400).json({ error: 'Indique um email de destino válido.' });
+        if (doc.confidencialidade === 'Restrito' && doc.nivel_acesso !== 'gerir') return res.status(403).json({ error: 'Só quem gere um documento Restrito o pode enviar para fora.' });
+        const assunto = String(req.body.assunto || '').trim() || `${doc.codigo ? doc.codigo + ' — ' : ''}${doc.titulo}`;
+        const mensagem = String(req.body.mensagem || '').trim();
+        const buffer = await MediaUploadService.descarregarDocumento(doc.storage_path);
+        const { EmailService } = require('../services/EmailService');
+        const corpo = `<p>${mensagem ? mensagem.replace(/\n/g, '<br>') : `Segue em anexo o documento <strong>${doc.titulo}</strong>.`}</p><p style="color:#888;font-size:12px">Enviado por ${utilizador(req).nome} através do BusinessOS.</p>`;
+        const r = await EmailService.enviarComAnexos(para, assunto, corpo, [{ filename: doc.nome_ficheiro, content: buffer, contentType: doc.mime_type || undefined }], empresaDe(req));
+        if (!r.ok) return res.status(400).json({ error: r.erro });
+        await DocumentosGovernoService.auditar(empresaDe(req), utilizador(req), 'enviado_email', doc, { para, assunto, versao: doc.versao_atual });
+        res.json({ success: true });
     } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 

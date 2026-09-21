@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, ChevronRight, Check, X, Building, DollarSign, Target, TrendingUp, Users, XCircle } from 'lucide-react';
+import { Plus, Trash2, ChevronRight, Check, X, Building, DollarSign, Target, TrendingUp, Users, XCircle, FolderOpen } from 'lucide-react';
+import DocumentosLigados from './documentos/DocumentosLigados';
 import './CrmApp.css';
 
 interface Cliente {
@@ -43,6 +44,7 @@ export default function CrmApp() {
 
   const [negocios, setNegocios] = useState<Negocio[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [docsCliente, setDocsCliente] = useState<Cliente | null>(null);
   const [searchCliente, setSearchCliente] = useState('');
 
   const [showClienteModal, setShowClienteModal] = useState(false);
@@ -392,7 +394,14 @@ export default function CrmApp() {
                         <td>{c.empresa || '-'}</td>
                         <td>{c.telefone || '-'}</td>
                         <td>{c.email || '-'}</td>
-                        <td style={{ textAlign: 'center' }}>
+                        <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                          <button
+                            onClick={() => setDocsCliente(c)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--crm-accent)', marginRight: '6px' }}
+                            title="Documentos deste cliente"
+                          >
+                            <FolderOpen size={16} />
+                          </button>
                           <button
                             onClick={() => deleteCliente(c.id)}
                             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--crm-bad-fg)' }}
@@ -415,6 +424,17 @@ export default function CrmApp() {
           </>
         )}
 
+        {docsCliente && (
+          <div className="crm-modal-overlay" onClick={() => setDocsCliente(null)}>
+            <div className="crm-modal-card" style={{ width: '640px', maxWidth: '95vw' }} onClick={e => e.stopPropagation()}>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
+                <h3 style={{ margin: 0, flex: 1 }}>{docsCliente.nome}</h3>
+                <button onClick={() => setDocsCliente(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={18} /></button>
+              </div>
+              <DocumentosLigados entidadeTipo="cliente" entidadeId={docsCliente.id} nome={docsCliente.nome} />
+            </div>
+          </div>
+        )}
         {showClienteModal && (
           <div className="crm-modal-overlay">
             <div className="crm-modal-card" style={{ width: '420px' }}>

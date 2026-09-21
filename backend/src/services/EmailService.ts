@@ -128,6 +128,27 @@ export class EmailService {
         }
     }
 
+    /** Envia um email com anexos em memória (usado pelo módulo de Documentos). */
+    public static async enviarComAnexos(para: string, assunto: string, corpoHtml: string, anexos: { filename: string; content: Buffer; contentType?: string }[], empresaId?: string | number): Promise<{ ok: boolean; erro?: string }> {
+        if (!para || !para.trim()) return { ok: false, erro: 'Indique o destinatário.' };
+        if (!(await this.isConfigured(empresaId))) return { ok: false, erro: 'O email da empresa ainda não está configurado (Email → Definições).' };
+        const { user, nome } = await this.getSmtpConfig(empresaId);
+        try {
+            const transporter = await this.createTransporter(empresaId);
+            const info = await transporter.sendMail({ from: `"${nome}" <${user}>`, to: para, subject: assunto, html: corpoHtml, text: corpoHtml.replace(/<[^>]+>/g, ''), attachments: anexos });
+            try {
+                await supabase.from('emails').insert({
+                    empresa_id: empresaId || null, direcao: 'sent', message_id: info.messageId, de: `"${nome}" <${user}>`, para, assunto,
+                    corpo_html: corpoHtml + `<p style="color:#888;font-size:12px">Anexos: ${anexos.map(a => a.filename).join(', ')}</p>`, corpo_texto: corpoHtml.replace(/<[^>]+>/g, ''), lido: true, data_envio: new Date().toISOString()
+                });
+            } catch (e) { console.error('[EmailService] Falha ao guardar na BD', e); }
+            return { ok: true };
+        } catch (error: any) {
+            console.error(`[EmailService] Erro ao enviar email com anexos para ${para}:`, error);
+            return { ok: false, erro: error.message };
+        }
+    }
+
     public static async enviarRecibo(emailDestino: string, nomeFuncionario: string, mesAno: string, pdfPath: string, empresaId?: string | number, userClient?: any): Promise<boolean> {
         const configOK = await this.isConfigured(empresaId, userClient);
         if (!configOK) return false;

@@ -10,8 +10,9 @@ import DocumentosTipos from './documentos/DocumentosTipos';
 import DocumentosFluxos from './documentos/DocumentosFluxos';
 import Aprovacoes, { Notificacoes } from './documentos/Aprovacoes';
 import Checklists from './documentos/Checklists';
+import { consumirAlvo } from '../lib/navegacao';
 
-type Vista = 'todos' | 'area' | 'pasta' | 'por_rever' | 'conformidade' | 'ativos' | 'definicoes' | 'pesquisa' | 'auditoria' | 'aprovacoes' | 'checklists';
+type Vista = 'todos' | 'area' | 'pasta' | 'por_rever' | 'conformidade' | 'ativos' | 'definicoes' | 'pesquisa' | 'auditoria' | 'aprovacoes' | 'checklists' | 'entidade';
 
 function IconeDoc({ doc, size = 18 }: { doc: Doc; size?: number }) {
     const m = doc.mime_type || '';
@@ -51,6 +52,7 @@ export default function DocumentosApp({ onVoltar }: { onVoltar?: () => void }) {
     const [vista, setVista] = useState<Vista>('todos');
     const [areaSel, setAreaSel] = useState<string | null>(null);
     const [pastaSel, setPastaSel] = useState<any | null>(null);
+    const [entidadeSel, setEntidadeSel] = useState<{ tipo: string; id: string; nome: string } | null>(null);
     const [resumo, setResumo] = useState<any>(null);
     const [tipos, setTipos] = useState<TipoDoc[]>([]);
     const [pastas, setPastas] = useState<any[]>([]);
@@ -87,15 +89,24 @@ export default function DocumentosApp({ onVoltar }: { onVoltar?: () => void }) {
         if (vista === 'area' && areaSel) params.set('area', areaSel);
         if (vista === 'pasta') params.set('pasta_id', pastaSel ? String(pastaSel.id) : 'raiz');
         if (vista === 'por_rever') params.set('estado', 'por_rever');
+        if (vista === 'entidade' && entidadeSel) { params.set('entidade_tipo', entidadeSel.tipo); params.set('entidade_id', entidadeSel.id); }
         if (filtroTexto.trim()) params.set('texto', filtroTexto.trim());
         const res = await authFetch(`${API}/api/documentos?${params}`); const data = await res.json();
         if (data.success) setDocs(data.documentos || []);
         setLoading(false);
-    }, [vista, areaSel, pastaSel, filtroTexto]);
+    }, [vista, areaSel, pastaSel, entidadeSel, filtroTexto]);
 
     useEffect(() => { fetchResumo(); fetchTiposEPastas(); }, [fetchResumo, fetchTiposEPastas]);
     useEffect(() => { const t = setInterval(fetchResumo, 60000); return () => clearInterval(t); }, [fetchResumo]);
-    useEffect(() => { fetchResumo(); if (['todos', 'area', 'pasta', 'por_rever'].includes(vista)) { setLoading(true); fetchDocs(); } }, [vista, areaSel, pastaSel, fetchDocs, fetchResumo]);
+    useEffect(() => { fetchResumo(); if (['todos', 'area', 'pasta', 'por_rever', 'entidade'].includes(vista)) { setLoading(true); fetchDocs(); } }, [vista, areaSel, pastaSel, entidadeSel, fetchDocs, fetchResumo]);
+    // Chegámos aqui vindos de outro módulo (ficha de cliente, email, notificação)?
+    useEffect(() => {
+        const alvo = consumirAlvo('documentos');
+        if (!alvo) return;
+        if (alvo.doc) abrirPorId(alvo.doc);
+        else if (alvo.entidade_tipo && alvo.entidade_id) { setEntidadeSel({ tipo: alvo.entidade_tipo, id: alvo.entidade_id, nome: alvo.entidade_nome || '' }); setVista('entidade'); }
+        else if (alvo.vista === 'aprovacoes') setVista('aprovacoes');
+    }, [abrirPorId]);
     useEffect(() => {
         if (!resumo || (resumo.aProcessar || 0) === 0) return;
         const t = setInterval(() => { fetchResumo(); fetchDocs(); }, 6000);
@@ -212,8 +223,8 @@ export default function DocumentosApp({ onVoltar }: { onVoltar?: () => void }) {
                     </div>
                 )}
 
-                {(vista === 'todos' || vista === 'area' || vista === 'pasta' || vista === 'por_rever') && (
-                    <ListaDocs vista={vista} areaSel={areaSel} pastaSel={pastaSel} pastas={pastas} docs={docs} loading={loading} filtroTexto={filtroTexto} setFiltroTexto={setFiltroTexto}
+                {(vista === 'todos' || vista === 'area' || vista === 'pasta' || vista === 'por_rever' || vista === 'entidade') && (
+                    <ListaDocs vista={vista} areaSel={areaSel} pastaSel={pastaSel} entidadeSel={entidadeSel} pastas={pastas} docs={docs} loading={loading} filtroTexto={filtroTexto} setFiltroTexto={setFiltroTexto}
                         onAbrir={setDocAberto} onUpload={() => fileRef.current?.click()} onAtualizar={atualizarDoc} comErro={resumo?.comErro || 0} />
                 )}
                 {vista === 'pesquisa' && <Pesquisa onAbrir={setDocAberto} />}
@@ -315,8 +326,8 @@ function FormNova({ nivel, nome, setNome, onOk, onCancelar }: any) {
 // ============================================================
 // LISTA
 // ============================================================
-function ListaDocs({ vista, areaSel, pastaSel, pastas, docs, loading, filtroTexto, setFiltroTexto, onAbrir, onUpload, onAtualizar, comErro }: any) {
-    const titulo = vista === 'por_rever' ? 'Por rever' : vista === 'area' ? areaSel : vista === 'pasta' ? (pastaSel ? pastaSel.caminho || pastaSel.nome : 'Sem pasta') : 'Todos os documentos';
+function ListaDocs({ vista, areaSel, pastaSel, entidadeSel, pastas, docs, loading, filtroTexto, setFiltroTexto, onAbrir, onUpload, onAtualizar, comErro }: any) {
+    const titulo = vista === 'por_rever' ? 'Por rever' : vista === 'area' ? areaSel : vista === 'pasta' ? (pastaSel ? pastaSel.caminho || pastaSel.nome : 'Sem pasta') : vista === 'entidade' ? `Documentos de ${entidadeSel?.nome || 'registo'}` : 'Todos os documentos';
     const [rascunho, setRascunho] = useState(filtroTexto);
     useEffect(() => { const t = setTimeout(() => setFiltroTexto(rascunho), 350); return () => clearTimeout(t); }, [rascunho, setFiltroTexto]);
     const subpastas = vista === 'pasta' ? pastas.filter((p: any) => (p.parent_id || null) === (pastaSel?.id || null)) : [];

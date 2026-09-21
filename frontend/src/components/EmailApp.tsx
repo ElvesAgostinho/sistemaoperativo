@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Send, Inbox, User, Type, AlertCircle, Loader, RefreshCw, Trash2, MailOpen, Mail as MailIcon } from 'lucide-react';
+import { Mail, Send, Inbox, User, Type, AlertCircle, Loader, RefreshCw, Trash2, MailOpen, Mail as MailIcon, FolderOpen, FileText } from 'lucide-react';
+import { irPara, consumirAlvo } from '../lib/navegacao';
 
 type SendStatus = 'idle' | 'sending' | 'success' | 'error';
 type ViewMode = 'inbox' | 'sent' | 'compose' | 'read';
 
 interface Email {
     id: string;
+    message_id?: string;
     direcao: 'inbox' | 'sent';
     de: string;
     para: string;
@@ -137,6 +139,17 @@ export default function EmailApp() {
         }
     };
 
+    // Viemos do módulo Documentos ("ver email de origem"): abrir essa mensagem assim que a lista chegar.
+    useEffect(() => {
+        const alvo = consumirAlvo('email');
+        if (!alvo?.message_id) return;
+        const tentar = (lista: Email[]) => { const e = lista.find(x => x.message_id === alvo.message_id); if (e) { setActiveEmail(e); setView('read'); return true; } return false; };
+        if (!tentar(emails)) {
+            const t = setInterval(() => { setEmails(atual => { if (tentar(atual)) clearInterval(t); return atual; }); }, 800);
+            setTimeout(() => clearInterval(t), 15000);
+        }
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
     const filteredEmails = emails.filter(e => view === 'inbox' ? e.direcao === 'inbox' : e.direcao === 'sent');
     const unreadCount = emails.filter(e => e.direcao === 'inbox' && !e.lido).length;
 
@@ -229,6 +242,7 @@ export default function EmailApp() {
                                 <div>{new Date(activeEmail.data_envio).toLocaleString('pt-PT')}</div>
                             </div>
                             <div style={{ fontSize: '13px', color: '#5B738B', marginTop: '4px' }}><strong>Para:</strong> {activeEmail.para}</div>
+                            {activeEmail.message_id && <DocumentosDoEmail messageId={activeEmail.message_id} />}
                         </div>
                         <div style={{ flex: 1, padding: '24px', overflow: 'auto' }}>
                             {activeEmail.corpo_html ? (
@@ -274,6 +288,39 @@ export default function EmailApp() {
                 .spin { animation: spin 1s linear infinite; }
                 @keyframes spin { 100% { transform: rotate(360deg); } }
             `}</style>
+        </div>
+    );
+}
+
+
+/** Anexos deste email que o módulo Documentos já leu e arquivou (se a empresa tiver o módulo). */
+function DocumentosDoEmail({ messageId }: { messageId: string }) {
+    const [docs, setDocs] = useState<any[] | null>(null);
+    useEffect(() => {
+        let vivo = true;
+        (async () => {
+            try {
+                const token = localStorage.getItem('os_auth_token') || '';
+                const r = await fetch(`${import.meta.env.VITE_API_URL}/api/documentos?origem_ref=${encodeURIComponent(messageId)}`, { headers: { Authorization: `Bearer ${token}` } });
+                if (!r.ok) { if (vivo) setDocs([]); return; }
+                const d = await r.json(); if (vivo) setDocs(d.success ? d.documentos : []);
+            } catch { if (vivo) setDocs([]); }
+        })();
+        return () => { vivo = false; };
+    }, [messageId]);
+    if (!docs || docs.length === 0) return null;
+    return (
+        <div style={{ marginTop: '12px', padding: '10px 12px', background: '#F5F6F7', border: '1px solid #D5D7DA', borderRadius: '2px' }}>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: '#1D2D3E', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}><FolderOpen size={14} /> Anexos arquivados em Documentos</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {docs.map(d => (
+                    <button key={d.id} onClick={() => irPara('documentos', { doc: d.id })} title={d.resumo || d.titulo}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '5px 10px', borderRadius: '2px', border: '1px solid #D5D7DA', background: 'white', cursor: 'pointer', fontSize: '12px', color: '#1D2D3E' }}>
+                        <FileText size={13} />{d.codigo && <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{d.codigo}</span>}<span>{d.titulo}</span>
+                        {d.estado === 'a_processar' && <span style={{ color: '#5B738B' }}>· a ser lido</span>}{d.estado === 'por_rever' && <span style={{ color: '#DF6E0C' }}>· por rever</span>}
+                    </button>
+                ))}
+            </div>
         </div>
     );
 }

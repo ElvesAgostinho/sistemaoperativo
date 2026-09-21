@@ -218,7 +218,7 @@ ${hasAgendamento ? `
             for (const toolCall of choice.message.tool_calls) {
                 const tc = toolCall as any;
                 const args = JSON.parse(tc.function.arguments);
-                const toolResponse = await executeAITool(tc.function.name, args, empresaId, whatsappContext);
+                const toolResponse = await executeAITool(tc.function.name, args, empresaId, whatsappContext, whatsappContext ? undefined : { id: userId, role: userRole });
                 
                 // Grava a resposta da tool
                 await supabase.from('mensagens_ia').insert({

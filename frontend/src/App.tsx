@@ -15,6 +15,7 @@ import DataApp from './components/DataApp';
 import AfiliadosApp from './components/AfiliadosApp';
 import FinanceiroApp from './components/FinanceiroApp';
 import AgendamentoApp from './components/AgendamentoApp';
+import { alvoDoUrl } from './lib/navegacao';
 import DocumentosApp from './components/DocumentosApp';
 import PortalAfiliado from './components/PortalAfiliado';
 import PortalCarreiras from './pages/public/PortalCarreiras';
@@ -170,6 +171,10 @@ function App() {
       }
     }
 
+    // Links diretos para um módulo (ex.: email de aprovação → ?modulo=documentos&doc=...)
+    const moduloDoUrl = alvoDoUrl();
+    if (moduloDoUrl) setActiveModule(moduloDoUrl as any);
+
     // Verificar query param de meeting e afiliados
     const params = new URLSearchParams(window.location.search);
     const mId = params.get('meetingId');
@@ -303,6 +308,13 @@ function App() {
       setActiveModule(module);
     }
   };
+
+  // Outros módulos pedem para saltar para cá ("abrir este documento", "ver este email").
+  useEffect(() => {
+    const ouvir = (e: Event) => { const m = (e as CustomEvent).detail?.modulo; if (m) navigateTo(m); };
+    window.addEventListener('os:navegar', ouvir);
+    return () => window.removeEventListener('os:navegar', ouvir);
+  }); // sem dependências: navigateTo/hasAccess mudam com o user
 
   const hasAccess = (module: string) => {
     if (!user || !user.role) return false;

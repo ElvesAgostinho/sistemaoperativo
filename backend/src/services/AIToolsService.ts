@@ -126,7 +126,23 @@ const TABELAS_CONSULTAVEIS: Record<string, { ordenarPor: string; ascendente?: bo
     alertas_assistente: { ordenarPor: 'criado_em', descricao: 'Histórico de ações já executadas pelo Assistente IA.' },
 };
 
+export const pesquisarDocumentosTool = {
+    type: "function" as const,
+    function: {
+        name: "pesquisar_documentos",
+        description: "Pesquisa no arquivo de Documentos da empresa (contratos, alvarás, faturas, certificados, licenças, identificação de colaboradores...). Usa quando o utilizador perguntar por um documento, por prazos/validades, por dados de um contrato, ou 'temos o alvará de X?'. Devolve os documentos mais relevantes com código, título, entidade, validade, dados extraídos e excertos, e uma resposta já redigida. Só devolve documentos que este utilizador pode ver.",
+        parameters: {
+            type: "object",
+            properties: {
+                pergunta: { type: "string", description: "A pergunta em linguagem natural (ex: 'quando caduca o alvará?', 'valor do contrato com a Sonangol', 'documentos da Unitel')." }
+            },
+            required: ["pergunta"]
+        }
+    }
+};
+
 export const aiTools = [
+    pesquisarDocumentosTool,
     {
         type: "function" as const,
         function: {
@@ -514,8 +530,27 @@ export interface WhatsAppToolContext {
     nomeContato?: string;
 }
 
-export async function executeAITool(name: string, args: any, empresaId?: number, whatsappContext?: WhatsAppToolContext) {
-    if (name === 'consultar_dados_empresa') {
+/** Quem está a falar com o Copilot (utilizador interno) — para aplicar as permissões dos módulos, ex.: Documentos. */
+export interface UtilizadorToolContext { id: string; role: string }
+
+export async function executeAITool(name: string, args: any, empresaId?: number, whatsappContext?: WhatsAppToolContext, utilizador?: UtilizadorToolContext) {
+    if (name === 'pesquisar_documentos') {
+        try {
+            if (!empresaId) return JSON.stringify({ status: 'error', error: 'empresaId não fornecido.' });
+            if (whatsappContext) return JSON.stringify({ status: 'error', error: 'O arquivo de documentos não está disponível neste canal.' });
+            const { DocumentosService } = require('./DocumentosService');
+            if (!(await DocumentosService.empresaTemModulo(String(empresaId)))) return JSON.stringify({ status: 'error', error: 'A empresa não tem o módulo Documentos.' });
+            const areas = utilizador ? await DocumentosService.areasPermitidas(String(empresaId), utilizador.id, utilizador.role) : null;
+            const r = await DocumentosService.pesquisar(String(empresaId), String(args.pergunta || ''), areas, utilizador);
+            if (!r.documentos.length) return JSON.stringify({ status: 'success', message: 'Não há documentos no arquivo que respondam a isto.' });
+            return JSON.stringify({
+                status: 'success', resposta_sugerida: r.resposta,
+                documentos: r.documentos.map((d: any) => ({ codigo: d.codigo, titulo: d.titulo, tipo: d.tipo, area: d.area, estado: d.ciclo, entidade: d.entidade_nome, data: d.data_documento, validade: d.validade, dados: d.metadados, resumo: d.resumo, excertos: d.excertos }))
+            });
+        } catch (error: any) {
+            return JSON.stringify({ status: 'error', error: error.message });
+        }
+    } else if (name === 'consultar_dados_empresa') {
         try {
             if (!empresaId) return JSON.stringify({ status: 'error', error: 'empresaId não fornecido.' });
             const tabela = String(args.tabela || '');

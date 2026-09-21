@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Upload, Users, FileText, Download, CheckCircle, AlertTriangle, Briefcase, Calendar, Plus, Bot, Trash2, Sun, Search, Lock, Edit2, DollarSign, Star, LayoutGrid, List, Copy, X, MessageSquare, Video, PauseCircle, PlayCircle, XCircle, Target, Percent } from 'lucide-react';
 import './HrApp.css';
+import DocumentosLigados from './documentos/DocumentosLigados';
 
 const authFetch = (url: string, options: any = {}) => { const token = localStorage.getItem('os_auth_token'); const headers = { ...options.headers }; if (token) headers['Authorization'] = `Bearer ${token}`; return fetch(url, { ...options, headers }); };
 
@@ -2785,6 +2786,8 @@ export default function HrApp() {
             <div className="hr-modal-card" style={{ backgroundColor: 'white', borderRadius: '8px', width: '800px', maxWidth: '95%', padding: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', maxHeight: '90vh', overflowY: 'auto' }}>
               <h3 style={{ marginTop: 0, marginBottom: '24px', borderBottom: '1px solid var(--odoo-border)', paddingBottom: '12px' }}>Editar Colaborador: {editEmployee.nome}</h3>
               
+              {editEmployee.id && <div style={{ marginBottom: '20px' }}><DocumentosLigados entidadeTipo="colaborador" entidadeId={editEmployee.id} nome={editEmployee.nome} compacto /></div>}
+
               <form onSubmit={handleUpdateEmployee}>
                 
                 <h4 style={{ color: 'var(--odoo-teal)', marginBottom: '12px' }}>1. Dados Pessoais</h4>

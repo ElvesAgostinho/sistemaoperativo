@@ -22,11 +22,25 @@ export interface AnaliseDocumento {
     resumo: string;
     entidade: { tipo: 'cliente' | 'colaborador' | 'ativo' | 'fornecedor' | null; nome: string | null };
     campos: Record<string, any>;
+    metadados: Record<string, any>;        // campos do tipo configurado pela empresa, já pela chave certa
     data_documento: string | null;
     validade: string | null;
     texto: string;
     confianca: number;
 }
+
+/**
+ * O que a empresa já sabe e que ajuda a IA a acertar: os tipos de documento
+ * que configurou (com os campos próprios), os nomes dos clientes /
+ * colaboradores / ativos registados e o nome da própria empresa (para não a
+ * confundir com a contraparte).
+ */
+export interface ContextoEmpresa {
+    empresaNome?: string | null;
+    tipos?: { nome: string; area_padrao?: string; tem_validade?: boolean; campos?: { chave: string; rotulo: string; tipo: string; opcoes?: string[] }[] }[];
+    entidades?: { clientes?: string[]; colaboradores?: string[]; ativos?: string[] };
+}
+const MAX_NOMES_POR_LISTA = 300;
 
 // Modelo com visão: lê fotos e PDFs digitalizados. A OpenAI é chamada
 // diretamente (não pelo gateway) porque o gateway só publica um alias de
@@ -42,7 +56,7 @@ const MAX_TEXTO_ENVIADO = 12000;
  */
 export class DocumentoIAService {
 
-    public static async analisar(buffer: Buffer, mimeType: string, nomeFicheiro: string): Promise<AnaliseDocumento> {
+    public static async analisar(buffer: Buffer, mimeType: string, nomeFicheiro: string, contexto: ContextoEmpresa = {}): Promise<AnaliseDocumento> {
         const { texto, precisaVisao } = await this.extrairTexto(buffer, mimeType, nomeFicheiro);
 
         const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -74,7 +88,7 @@ export class DocumentoIAService {
             temperature: 0,
             response_format: { type: 'json_object' },
             messages: [
-                { role: 'system', content: this.promptSistema() },
+                { role: 'system', content: this.promptSistema(contexto) },
                 { role: 'user', content: conteudoUtilizador }
             ]
         } as any);
@@ -88,30 +102,48 @@ export class DocumentoIAService {
 
     // ------------------------------------------------------------------
 
-    private static promptSistema(): string {
-        return `És o arquivista de uma empresa. Recebes um documento e devolves APENAS um objeto JSON com esta forma exata:
+    private static promptSistema(ctx: ContextoEmpresa): string {
+        const tipos = (ctx.tipos || []).filter(t => t.nome);
+        const listaTipos = tipos.length > 0
+            ? tipos.map(t => `  - "${t.nome}"${t.area_padrao ? ` (área habitual: ${t.area_padrao})` : ''}${t.tem_validade ? ' [tem validade]' : ''}${(t.campos || []).length ? `: campos ${t.campos!.map(c => `${c.chave} (${c.rotulo}, ${c.tipo}${c.opcoes?.length ? `: ${c.opcoes.join('/')}` : ''})`).join(', ')}` : ''}`).join('\n')
+            : null;
+        const corta = (l?: string[]) => (l || []).filter(Boolean).slice(0, MAX_NOMES_POR_LISTA);
+        const clientes = corta(ctx.entidades?.clientes), colaboradores = corta(ctx.entidades?.colaboradores), ativos = corta(ctx.entidades?.ativos);
+        const blocoEmpresa = [
+            ctx.empresaNome ? `A empresa dona do arquivo chama-se "${ctx.empresaNome}". Ela própria NUNCA é a "entidade": a entidade é a outra parte (o cliente, o fornecedor, o colaborador, o equipamento).` : '',
+            listaTipos ? `TIPOS DE DOCUMENTO CONFIGURADOS PELA EMPRESA (usa um destes em "tipo" sempre que encaixar; só recorres à lista genérica se nenhum servir):\n${listaTipos}\nPara o tipo escolhido, preenche "metadados" com as chaves EXATAS dos campos desse tipo (valor null quando o documento não o diz).` : '',
+            clientes.length ? `CLIENTES REGISTADOS: ${clientes.join(' | ')}` : '',
+            colaboradores.length ? `COLABORADORES REGISTADOS: ${colaboradores.join(' | ')}` : '',
+            ativos.length ? `ATIVOS/EQUIPAMENTOS REGISTADOS: ${ativos.join(' | ')}` : '',
+            (clientes.length || colaboradores.length || ativos.length) ? `Se a entidade do documento for um destes registos, escreve o nome EXATAMENTE como está na lista (mesmo que o documento o escreva de forma diferente, com "Lda", siglas ou maiúsculas). Se não for nenhum, escreve o nome como aparece no documento.` : ''
+        ].filter(Boolean).join('\n\n');
+
+        return `És o arquivista de uma empresa em Angola. Recebes um documento e devolves APENAS um objeto JSON com esta forma exata:
 
 {
   "e_documento": true/false,
   "titulo": "título curto e útil (ex: 'Fatura Unitel nº 2024/118', 'Alvará Industrial 2025', 'Contrato de trabalho — Ana Silva')",
   "area": uma de [${AREAS.map(a => `"${a}"`).join(', ')}],
-  "tipo": uma de [${TIPOS.map(t => `"${t}"`).join(', ')}],
-  "resumo": "uma frase a dizer o que é e o que interessa",
+  "tipo": ${tipos.length ? 'um dos tipos configurados pela empresa (abaixo) ou, só se nenhum servir, ' : ''}uma de [${TIPOS.map(t => `"${t}"`).join(', ')}],
+  "resumo": "uma frase a dizer o que é e o que interessa (quem, o quê, quanto, até quando)",
   "entidade": { "tipo": "cliente" | "colaborador" | "ativo" | "fornecedor" | null, "nome": "nome da pessoa/empresa/equipamento a que o documento diz respeito" | null },
   "campos": { "emissor": ..., "destinatario": ..., "nif": ..., "numero": ..., "valor": número ou null, "moeda": "AOA"/"USD"/"EUR"/null, ...outros campos relevantes },
+  "metadados": { ...campos do tipo configurado, pela chave exata... } ou {},
   "data_documento": "AAAA-MM-DD" | null,
   "validade": "AAAA-MM-DD" | null,
   "texto": "transcrição completa (só quando te pedirem)",
   "confianca": 0.0 a 1.0
 }
 
-Regras:
+${blocoEmpresa ? blocoEmpresa + '\n\n' : ''}Regras:
 - "e_documento" é false para coisas que não são documentos da empresa: logótipos, assinaturas soltas, memes, publicidade, newsletters, fotos sem texto útil.
 - "validade" é a data em que o documento CADUCA ou o contrato TERMINA (licenças, alvarás, certificados, BI, apólices, contratos com prazo, garantias). Se não caduca, null. Nunca inventes datas.
 - "entidade": para uma fatura de fornecedor é o fornecedor; para uma proforma ou contrato de venda é o cliente; para contrato de trabalho, BI, recibo de vencimento ou certificado de formação é o colaborador; para manual, certificado de calibração, inspeção ou apólice de uma máquina/viatura é o ativo.
 - "area": Legal & Licenças (alvarás, licenças, certidões, registos, INSS, estatutos), Financeiro (faturas, recibos, comprovativos, extratos, impostos), RH (contratos de trabalho, identificação de colaboradores, formações, medicina do trabalho), Clientes (propostas, contratos de venda, proformas a clientes), Fornecedores (faturas e contratos de fornecedores, importação, alfândega), Operações (manuais, fichas técnicas, manutenções, produção), Qualidade & Segurança (certificados de qualidade, inspeções, fichas de segurança, auditorias, planos de emergência), Outros.
 - "confianca": quão certo estás da área, tipo e entidade. Documento nítido e inequívoco: 0.9+. Foto má, texto parcial ou tipo ambíguo: abaixo de 0.7.
-- Valores numéricos sem símbolos nem separadores de milhar. Datas sempre AAAA-MM-DD.
+- "data_documento" é a data de emissão/assinatura. Num contrato com início e fim, "validade" é a data de fim; se houver renovação automática, mantém a data de fim e indica-o em "campos.renovacao_automatica": true.
+- Valores numéricos sem símbolos nem separadores de milhar ("25.000.000,00 Kz" → 25000000). Datas sempre AAAA-MM-DD; datas por extenso em português ("31 de outubro de 2027") convertem-se.
+- Nunca inventes NIF, números de documento ou datas: se não estiver escrito, null.
 - Responde só com o JSON.`;
     }
 
@@ -130,6 +162,7 @@ Regras:
             resumo: (json.resumo || '').toString().slice(0, 500),
             entidade: { tipo: entTipo, nome: json.entidade?.nome ? String(json.entidade.nome).slice(0, 200) : null },
             campos: (json.campos && typeof json.campos === 'object') ? json.campos : {},
+            metadados: (json.metadados && typeof json.metadados === 'object' && !Array.isArray(json.metadados)) ? json.metadados : {},
             data_documento: dataDoc,
             validade,
             texto: (texto || '').toString(),

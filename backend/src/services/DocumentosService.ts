@@ -118,7 +118,8 @@ export class DocumentosService {
         try {
             const buffer = await MediaUploadService.descarregarDocumento(doc.storage_path);
 
-            const analise = await DocumentoIAService.analisar(buffer, doc.mime_type || 'application/octet-stream', doc.nome_ficheiro);
+            const contexto = await this.contextoParaIA(doc.empresa_id);
+            const analise = await DocumentoIAService.analisar(buffer, doc.mime_type || 'application/octet-stream', doc.nome_ficheiro, contexto);
 
             if (!analise.e_documento) {
                 await supabase.from('documentos').update({
@@ -137,7 +138,8 @@ export class DocumentosService {
                 area: analise.area,
                 tipo: tipoDoc?.nome || analise.tipo,
                 tipo_id: tipoDoc?.id || null,
-                metadados: DocumentosGovernoService.metadadosDe(tipoDoc, analise.campos),
+                // o que a IA pôs já pela chave certa ganha aos campos soltos mapeados por sinónimos
+                metadados: DocumentosGovernoService.metadadosDe(tipoDoc, { ...analise.campos, ...analise.metadados }),
                 confidencialidade: tipoDoc?.confidencialidade_padrao || 'Normal',
                 ciclo: arquivaSozinho ? 'ACTIVE' : 'PENDING_REVIEW',
                 resumo: analise.resumo,
@@ -145,9 +147,10 @@ export class DocumentosService {
                 campos: analise.campos,
                 data_documento: analise.data_documento,
                 validade: analise.validade,
-                entidade_tipo: ligacao?.tipo || null,
-                entidade_id: ligacao?.id || null,
-                entidade_nome: ligacao?.nome || analise.entidade.nome,
+                // uma ligação feita à mão (ex.: carregado a partir da ficha do cliente) prevalece sobre a sugestão da IA
+                entidade_tipo: doc.entidade_id ? doc.entidade_tipo : (ligacao?.tipo || null),
+                entidade_id: doc.entidade_id ? doc.entidade_id : (ligacao?.id || null),
+                entidade_nome: doc.entidade_id ? doc.entidade_nome : (ligacao?.nome || analise.entidade.nome),
                 confianca: analise.confianca,
                 estado: arquivaSozinho ? 'arquivado' : 'por_rever',
                 erro: null,
@@ -162,6 +165,32 @@ export class DocumentosService {
             console.error(`[Documentos] Falha a processar ${doc.nome_ficheiro}:`, e.message);
             await supabase.from('documentos').update({ estado: 'erro', erro: String(e.message).slice(0, 500), atualizado_em: new Date().toISOString() }).eq('id', doc.id);
         }
+    }
+
+    /**
+     * Contexto que a empresa já tem e que faz a IA acertar mais: os tipos
+     * configurados (com os campos), os nomes dos registos e o nome da empresa.
+     * Fica em cache 5 minutos por empresa — a fila processa muitos documentos
+     * seguidos e isto não muda de minuto a minuto.
+     */
+    private static contextoCache = new Map<string, { ate: number; ctx: any }>();
+    private static async contextoParaIA(empresaId: string): Promise<any> {
+        const c = this.contextoCache.get(empresaId);
+        if (c && c.ate > Date.now()) return c.ctx;
+        const [tipos, { data: emp }, { data: cli }, { data: col }, { data: ati }] = await Promise.all([
+            DocumentosGovernoService.tipos(empresaId),
+            supabase.from('empresas').select('nome').eq('id', empresaId).maybeSingle(),
+            supabase.from('clientes').select('nome').eq('empresa_id', empresaId).order('nome').limit(300),
+            supabase.from('colaboradores').select('nome').eq('empresa_id', empresaId).order('nome').limit(300),
+            supabase.from('ativos').select('nome').eq('empresa_id', empresaId).order('nome').limit(300),
+        ]);
+        const ctx = {
+            empresaNome: emp?.nome || null,
+            tipos: tipos.filter((t: any) => t.ativo).map((t: any) => ({ nome: t.nome, area_padrao: t.area_padrao, tem_validade: t.tem_validade, campos: t.campos || [] })),
+            entidades: { clientes: (cli || []).map((x: any) => x.nome), colaboradores: (col || []).map((x: any) => x.nome), ativos: (ati || []).map((x: any) => x.nome) }
+        };
+        this.contextoCache.set(empresaId, { ate: Date.now() + 5 * 60 * 1000, ctx });
+        return ctx;
     }
 
     // ============================================================
@@ -249,9 +278,19 @@ export class DocumentosService {
             if (atual.excertos.length < 2) atual.excertos.push(r.conteudo);
             porDoc.set(r.documento_id, atual);
         }
+        // Sem excertos por significado, tenta pelo menos por palavras no título,
+        // código, entidade ou resumo (ex.: "CTR-2026-00012", "Sonangol").
+        if (porDoc.size === 0) {
+            const termos = pergunta.split(/\s+/).map(t => t.replace(/[%_,.;:?!"']/g, '')).filter(t => t.length >= 3).slice(0, 5);
+            if (termos.length > 0) {
+                const filtro = termos.map(t => `titulo.ilike.%${t}%,codigo.ilike.%${t}%,entidade_nome.ilike.%${t}%,resumo.ilike.%${t}%`).join(',');
+                const { data: porTexto } = await supabase.from('documentos').select('id').eq('empresa_id', empresaId).neq('estado', 'descartado').neq('ciclo', 'DELETED').or(filtro).limit(12);
+                for (const d of porTexto || []) porDoc.set(d.id, { similarity: 0.3, excertos: [] });
+            }
+        }
         if (porDoc.size === 0) return { documentos: [], resposta: null };
 
-        let q = supabase.from('documentos').select('id, titulo, codigo, area, tipo, resumo, entidade_nome, validade, data_documento, storage_path, nome_ficheiro, mime_type, campos, confidencialidade, responsavel_id, criado_por')
+        let q = supabase.from('documentos').select('id, titulo, codigo, area, tipo, ciclo, resumo, entidade_nome, validade, data_documento, storage_path, nome_ficheiro, mime_type, campos, metadados, confidencialidade, responsavel_id, criado_por')
             .eq('empresa_id', empresaId).in('id', Array.from(porDoc.keys())).neq('estado', 'descartado').neq('ciclo', 'DELETED');
         if (areasPermitidas) q = q.in('area', areasPermitidas);
         const { data: docs } = await q;
@@ -269,13 +308,28 @@ export class DocumentosService {
     private static async responderComDocumentos(pergunta: string, documentos: any[]): Promise<string | null> {
         try {
             const { AIGatewayService } = require('./AIGatewayService');
-            const contexto = documentos.map((d, i) =>
-                `[Documento ${i + 1}: "${d.titulo}" — ${d.tipo || 'documento'}, área ${d.area}${d.entidade_nome ? `, de ${d.entidade_nome}` : ''}${d.validade ? `, válido até ${d.validade}` : ''}]\n${d.excertos.join('\n...\n')}`
-            ).join('\n\n');
+            const hoje = new Date().toISOString().slice(0, 10);
+            const contexto = documentos.map((d, i) => {
+                const meta = Object.entries(d.metadados || {}).filter(([, v]) => v !== null && v !== '' && typeof v !== 'object').map(([k, v]) => `${k}: ${v}`).join('; ');
+                const cab = [
+                    `[Documento ${i + 1}${d.codigo ? ` ${d.codigo}` : ''}: "${d.titulo}" — ${d.tipo || 'documento'}, área ${d.area}, estado ${d.ciclo}`,
+                    d.entidade_nome ? `entidade: ${d.entidade_nome}` : '', d.data_documento ? `data: ${d.data_documento}` : '',
+                    d.validade ? `validade: ${d.validade}${d.validade < hoje ? ' (JÁ CADUCOU)' : ''}` : '', meta ? `dados: ${meta}` : ''
+                ].filter(Boolean).join(' · ') + ']';
+                return `${cab}\n${d.resumo ? `Resumo: ${d.resumo}\n` : ''}${d.excertos.join('\n...\n')}`;
+            }).join('\n\n');
             const r = await AIGatewayService.chamarComFallback({
                 temperature: 0,
                 messages: [
-                    { role: 'system', content: `És o arquivista da empresa. Respondes à pergunta usando SÓ os documentos abaixo. Cita o documento pelo título quando usares informação dele (ex: "segundo a Fatura Unitel nº 118..."). Se os documentos não respondem, diz isso claramente em vez de inventar. Português de Angola, direto, no máximo 4 frases.\n\n${contexto}` },
+                    { role: 'system', content: `És o arquivista da empresa. Hoje é ${hoje}. Respondes à pergunta usando SÓ os documentos abaixo — nada do que não estiver neles.
+Regras:
+- Cita sempre o documento de onde tiras cada facto, pelo código e título (ex: "segundo o CTR-2026-00012, Contrato Sonangol...").
+- Se a pergunta pede uma lista (que contratos, quais caducam, quanto pagámos), responde em lista curta, um documento por linha, com o dado pedido.
+- Datas e valores exatamente como estão nos documentos; valores em Kz com separador de milhares (25.000.000 Kz).
+- Se os documentos não respondem, ou só respondem em parte, diz isso claramente e o que falta — nunca inventes.
+- Português de Angola, direto, sem introduções. Máximo 6 frases ou 6 linhas de lista.
+
+${contexto}` },
                     { role: 'user', content: pergunta }
                 ]
             });

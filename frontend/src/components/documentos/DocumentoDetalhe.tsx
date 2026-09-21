@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Download, Check, Trash2, RefreshCw, FileText, FileImage, FileSpreadsheet, Upload, History, Users, Lock, Shield, RotateCcw, Loader2, Mail, MessageSquare, Cpu, CheckSquare } from 'lucide-react';
+import { X, Download, Check, Trash2, RefreshCw, FileText, FileImage, FileSpreadsheet, Upload, History, Users, Lock, Shield, RotateCcw, Loader2, Mail, MessageSquare, Cpu, CheckSquare, Send, ExternalLink } from 'lucide-react';
 import { API, authFetch, AREAS, COR, ROTULO_CICLO, COR_CICLO, fmtData, fmtDataHora, fmtTam, btn, input, label, ROTULO_ACAO } from './comum';
 import type { Doc, TipoDoc } from './comum';
 import Aprovacao from './Aprovacao';
+import { irPara } from '../../lib/navegacao';
 
 function IconeDoc({ doc, size = 18 }: { doc: Doc; size?: number }) {
     const m = doc.mime_type || '';
@@ -35,6 +36,17 @@ export default function DocumentoDetalhe({ doc: docInicial, tipos, pastas, onFec
     const [opcoes, setOpcoes] = useState<any>(null);
     const [aGuardar, setAGuardar] = useState(false);
     const [erro, setErro] = useState('');
+    const [envio, setEnvio] = useState<{ para: string; assunto: string; mensagem: string } | null>(null);
+    const [aEnviarEmail, setAEnviarEmail] = useState(false);
+
+    const enviarEmail = async () => {
+        if (!envio) return;
+        setAEnviarEmail(true); setErro('');
+        const r = await authFetch(`${API}/api/documentos/${doc.id}/enviar-email`, { method: 'POST', body: JSON.stringify(envio) }); const d = await r.json();
+        setAEnviarEmail(false);
+        if (!r.ok || !d.success) { setErro(d.error || 'Não foi possível enviar.'); return; }
+        setEnvio(null); recarregar();
+    };
 
     const recarregar = async () => {
         const r = await authFetch(`${API}/api/documentos/${docInicial.id}`); const d = await r.json();
@@ -118,6 +130,7 @@ export default function DocumentoDetalhe({ doc: docInicial, tipos, pastas, onFec
                     </div>
                     <div style={{ fontSize: '11.5px', color: COR.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.nome_ficheiro} · {fmtTam(doc.tamanho || 0)}</div>
                 </div>
+                <button onClick={() => setEnvio(envio ? null : { para: '', assunto: `${doc.codigo ? doc.codigo + ' — ' : ''}${doc.titulo}`, mensagem: '' })} title="Enviar por email (fica registado)" style={{ background: 'none', border: 'none', cursor: 'pointer', color: COR.accent }}><Send size={16} /></button>
                 <button onClick={descarregar} title="Descarregar (fica registado)" style={{ background: 'none', border: 'none', cursor: 'pointer', color: COR.accent }}><Download size={17} /></button>
                 <X size={18} style={{ cursor: 'pointer', color: COR.muted }} onClick={onFechar} />
             </div>
@@ -128,6 +141,18 @@ export default function DocumentoDetalhe({ doc: docInicial, tipos, pastas, onFec
             </div>
 
             {erro && <div style={{ margin: '10px 16px 0', padding: '8px 12px', background: '#F6DEDE', border: '1px solid #fecaca', borderRadius: '2px', fontSize: '12.5px', color: COR.bad, display: 'flex', justifyContent: 'space-between' }}><span>{erro}</span><X size={14} style={{ cursor: 'pointer' }} onClick={() => setErro('')} /></div>}
+            {envio && (
+                <div style={{ margin: '10px 16px 0', padding: '12px', border: `1px solid ${COR.accent}`, borderRadius: '2px', background: COR.canvas }}>
+                    <div style={{ fontWeight: 700, fontSize: '13px', color: COR.ink, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}><Mail size={14} /> Enviar por email (pelo email da empresa)</div>
+                    <label style={label}>Para</label><input value={envio.para} onChange={e => setEnvio({ ...envio, para: e.target.value })} placeholder="nome@empresa.ao" style={input} />
+                    <label style={{ ...label, marginTop: '8px' }}>Assunto</label><input value={envio.assunto} onChange={e => setEnvio({ ...envio, assunto: e.target.value })} style={input} />
+                    <label style={{ ...label, marginTop: '8px' }}>Mensagem (opcional)</label><textarea value={envio.mensagem} onChange={e => setEnvio({ ...envio, mensagem: e.target.value })} rows={2} style={{ ...input, resize: 'vertical' }} />
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '10px' }}>
+                        <button style={btn()} onClick={() => setEnvio(null)}>Cancelar</button>
+                        <button style={btn(true)} disabled={aEnviarEmail || !envio.para.trim()} onClick={enviarEmail}><Send size={13} /> {aEnviarEmail ? 'A enviar...' : 'Enviar'}</button>
+                    </div>
+                </div>
+            )}
 
             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
                 {aba === 'dados' && (
@@ -260,7 +285,14 @@ export default function DocumentoDetalhe({ doc: docInicial, tipos, pastas, onFec
                                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                                     {doc.origem === 'email' ? <Mail size={12} /> : doc.origem === 'whatsapp' ? <MessageSquare size={12} /> : doc.origem === 'sistema' ? <Cpu size={12} /> : <Upload size={12} />}
                                     Entrou por {({ manual: 'upload manual', email: 'email', whatsapp: 'WhatsApp', sistema: 'geração do sistema' } as any)[doc.origem]}{doc.origem_detalhe ? ` — ${doc.origem_detalhe}` : ''}
+                                    {doc.origem === 'email' && doc.origem_ref && <button onClick={() => irPara('email', { message_id: doc.origem_ref! })} style={{ ...btn(), padding: '2px 7px', fontSize: '11px', marginLeft: '4px' }}><ExternalLink size={11} /> Ver email</button>}
                                 </span>
+                                {doc.entidade_tipo && doc.entidade_id && ['cliente', 'colaborador'].includes(doc.entidade_tipo) && (
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                                        Ligado a {doc.entidade_nome}
+                                        <button onClick={() => irPara(doc.entidade_tipo === 'cliente' ? 'crm' : 'hr')} style={{ ...btn(), padding: '2px 7px', fontSize: '11px', marginLeft: '4px' }}><ExternalLink size={11} /> Abrir {doc.entidade_tipo === 'cliente' ? 'CRM' : 'RH'}</button>
+                                    </span>
+                                )}
                                 <span>Arquivado em {fmtDataHora(doc.criado_em)} · o seu acesso: <strong>{doc.nivel_acesso}</strong></span>
                             </div>
                         </div>

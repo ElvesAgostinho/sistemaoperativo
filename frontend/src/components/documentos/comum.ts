@@ -28,7 +28,7 @@ export interface Doc {
     area: string; tipo: string | null; tipo_id: number | null; resumo: string | null; campos: Record<string, any>; metadados: Record<string, any>;
     data_documento: string | null; validade: string | null;
     entidade_tipo: string | null; entidade_id: string | null; entidade_nome: string | null;
-    origem: string; origem_detalhe: string | null; estado: string; ciclo: string; confidencialidade: string; versao_atual: number;
+    origem: string; origem_ref?: string | null; origem_detalhe: string | null; estado: string; ciclo: string; confidencialidade: string; versao_atual: number;
     pasta_id: number | null; responsavel_id: string | null; criado_por: string | null; confianca: number | null; erro: string | null; criado_em: string; texto?: string;
     nivel_acesso?: string;
 }
@@ -60,7 +60,7 @@ export const ROTULO_ACAO: Record<string, string> = {
     acesso_concedido: 'Acesso concedido', acesso_revogado: 'Acesso revogado', acesso_negado: 'Acesso negado', reprocessar: 'Reprocessado',
     pesquisa: 'Pesquisa', tipo_criado: 'Tipo criado', tipo_alterado: 'Tipo alterado', definicoes_captura: 'Captura alterada', permissoes_area: 'Permissões de área alteradas',
     fluxo_iniciado: 'Submetido a aprovação', aprovou: 'Aprovou', rejeitou: 'Rejeitou', delegou: 'Delegou', escalado: 'Escalado por prazo', fluxo_cancelado: 'Aprovação cancelada',
-    fluxo_criado: 'Fluxo criado', fluxo_editado: 'Fluxo alterado'
+    fluxo_criado: 'Fluxo criado', fluxo_editado: 'Fluxo alterado', enviado_email: 'Enviado por email'
 };
 
 export const ROTULO_TAREFA: Record<string, string> = { pendente: 'Pendente', aprovada: 'Aprovada', rejeitada: 'Rejeitada', delegada: 'Delegada', cancelada: 'Cancelada', escalada: 'Escalada' };
