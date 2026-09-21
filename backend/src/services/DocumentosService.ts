@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabaseClient';
 import { MediaUploadService } from './MediaUploadService';
 import { DocumentoIAService, AREAS, Area, AnaliseDocumento } from './DocumentoIAService';
 import { KnowledgeBaseService } from './KnowledgeBaseService';
+import { DocumentosGovernoService } from './DocumentosGovernoService';
 
 export type Origem = 'manual' | 'email' | 'whatsapp' | 'sistema';
 
@@ -46,6 +47,7 @@ export class DocumentosService {
         const storagePath = await MediaUploadService.guardarDocumento(e.buffer, e.empresaId, e.nomeFicheiro, e.mimeType);
 
         const pre = e.preClassificado;
+        const tipoPre = pre ? await DocumentosGovernoService.tipoPorNome(e.empresaId, pre.tipo) : null;
         const { data, error } = await supabase.from('documentos').insert({
             empresa_id: e.empresaId,
             titulo: pre?.titulo || e.nomeFicheiro,
@@ -66,9 +68,19 @@ export class DocumentosService {
             origem_detalhe: e.origemDetalhe || null,
             estado: pre ? 'arquivado' : 'a_processar',
             confianca: pre ? 1 : null,
-            criado_por: e.criadoPor || null
+            criado_por: e.criadoPor || null,
+            tipo_id: tipoPre?.id || null,
+            confidencialidade: tipoPre?.confidencialidade_padrao || 'Normal',
+            ciclo: pre ? 'ACTIVE' : 'DRAFT'
         }).select('id, estado').single();
         if (error) throw error;
+
+        await DocumentosGovernoService.registarVersaoInicial(e.empresaId, {
+            id: data.id, storage_path: storagePath, nome_ficheiro: e.nomeFicheiro, mime_type: e.mimeType, tamanho: e.buffer.length, hash
+        }, e.criadoPor);
+        if (pre) await DocumentosGovernoService.atribuirCodigo(e.empresaId, data.id, tipoPre?.prefixo || 'DOC');
+        await DocumentosGovernoService.auditar(e.empresaId, e.criadoPor ? { id: e.criadoPor, role: '', empresa_id: e.empresaId } : null, 'upload',
+            { id: data.id, titulo: pre?.titulo || e.nomeFicheiro }, { origem: e.origem, nome_ficheiro: e.nomeFicheiro, tamanho: e.buffer.length });
 
         if (pre) {
             // Só indexar para pesquisa; a classificação já veio feita.
@@ -118,11 +130,16 @@ export class DocumentosService {
 
             const ligacao = await this.ligarEntidade(doc.empresa_id, analise.entidade);
             const arquivaSozinho = analise.confianca >= CONFIANCA_MINIMA;
+            const tipoDoc = await DocumentosGovernoService.tipoPorNome(doc.empresa_id, analise.tipo);
 
             await supabase.from('documentos').update({
                 titulo: analise.titulo,
                 area: analise.area,
-                tipo: analise.tipo,
+                tipo: tipoDoc?.nome || analise.tipo,
+                tipo_id: tipoDoc?.id || null,
+                metadados: DocumentosGovernoService.metadadosDe(tipoDoc, analise.campos),
+                confidencialidade: tipoDoc?.confidencialidade_padrao || 'Normal',
+                ciclo: arquivaSozinho ? 'ACTIVE' : 'PENDING_REVIEW',
                 resumo: analise.resumo,
                 texto: analise.texto.slice(0, 200000),
                 campos: analise.campos,
@@ -137,6 +154,9 @@ export class DocumentosService {
                 atualizado_em: new Date().toISOString()
             }).eq('id', doc.id);
 
+            await DocumentosGovernoService.atribuirCodigo(doc.empresa_id, doc.id, tipoDoc?.prefixo || 'DOC');
+            await DocumentosGovernoService.auditar(doc.empresa_id, null, 'classificado', { id: doc.id, titulo: analise.titulo },
+                { area: analise.area, tipo: tipoDoc?.nome || analise.tipo, confianca: analise.confianca, estado: arquivaSozinho ? 'arquivado' : 'por_rever' });
             await this.indexarChunks(doc.empresa_id, doc.id, analise.texto);
         } catch (e: any) {
             console.error(`[Documentos] Falha a processar ${doc.nome_ficheiro}:`, e.message);
@@ -199,7 +219,22 @@ export class DocumentosService {
         if (error) throw error;
     }
 
-    public static async pesquisar(empresaId: string, pergunta: string, areasPermitidas: string[] | null) {
+    /**
+     * Documentos confidenciais/restritos só aparecem a quem pode vê-los: admins,
+     * responsável/autor, ou quem tem acesso explícito válido. Aplica-se a
+     * listagens, pesquisa e conformidade — a IA nunca cita o que o utilizador
+     * não podia abrir.
+     */
+    public static async filtrarVisiveis<T extends { id: string; confidencialidade?: string; responsavel_id?: string | null; criado_por?: string | null }>(docs: T[], user: { id: string; role: string }): Promise<T[]> {
+        if (user.role === 'admin' || user.role === 'superadmin') return docs;
+        const sensiveis = docs.filter(d => d.confidencialidade && d.confidencialidade !== 'Normal');
+        if (sensiveis.length === 0) return docs;
+        const { data } = await supabase.from('documento_acessos').select('documento_id, expira_em').eq('user_id', user.id).in('documento_id', sensiveis.map(d => d.id));
+        const comAcesso = new Set((data || []).filter((a: any) => !a.expira_em || new Date(a.expira_em) > new Date()).map((a: any) => a.documento_id));
+        return docs.filter(d => !d.confidencialidade || d.confidencialidade === 'Normal' || d.responsavel_id === user.id || d.criado_por === user.id || comAcesso.has(d.id));
+    }
+
+    public static async pesquisar(empresaId: string, pergunta: string, areasPermitidas: string[] | null, user?: { id: string; role: string }) {
         const embedding = await KnowledgeBaseService.embedText(pergunta);
         const { data, error } = await supabase.rpc('match_documento_chunks', { query_embedding: embedding, match_empresa_id: empresaId, match_count: 12 });
         if (error) throw error;
@@ -214,12 +249,13 @@ export class DocumentosService {
         }
         if (porDoc.size === 0) return { documentos: [], resposta: null };
 
-        let q = supabase.from('documentos').select('id, titulo, area, tipo, resumo, entidade_nome, validade, data_documento, storage_path, nome_ficheiro, mime_type, campos')
-            .eq('empresa_id', empresaId).in('id', Array.from(porDoc.keys())).neq('estado', 'descartado');
+        let q = supabase.from('documentos').select('id, titulo, codigo, area, tipo, resumo, entidade_nome, validade, data_documento, storage_path, nome_ficheiro, mime_type, campos, confidencialidade, responsavel_id, criado_por')
+            .eq('empresa_id', empresaId).in('id', Array.from(porDoc.keys())).neq('estado', 'descartado').neq('ciclo', 'DELETED');
         if (areasPermitidas) q = q.in('area', areasPermitidas);
         const { data: docs } = await q;
 
-        const documentos = await this.comLinks((docs || [])
+        const visiveis = user ? await this.filtrarVisiveis(docs || [], user) : (docs || []);
+        const documentos = await this.comLinks(visiveis
             .map((d: any) => ({ ...d, relevancia: porDoc.get(d.id)!.similarity, excertos: porDoc.get(d.id)!.excertos }))
             .sort((a: any, b: any) => b.relevancia - a.relevancia)
             .slice(0, 6));
@@ -251,11 +287,12 @@ export class DocumentosService {
     // ============================================================
     // CONFORMIDADE — o que caduca, o que já caducou
     // ============================================================
-    public static async conformidade(empresaId: string, areasPermitidas: string[] | null) {
-        let q = supabase.from('documentos').select('id, titulo, area, tipo, entidade_nome, entidade_tipo, validade, storage_path, mime_type, nome_ficheiro')
-            .eq('empresa_id', empresaId).eq('estado', 'arquivado').not('validade', 'is', null).order('validade', { ascending: true });
+    public static async conformidade(empresaId: string, areasPermitidas: string[] | null, user?: { id: string; role: string }) {
+        let q = supabase.from('documentos').select('id, titulo, codigo, area, tipo, entidade_nome, entidade_tipo, validade, storage_path, mime_type, nome_ficheiro, ciclo, confidencialidade, responsavel_id, criado_por')
+            .eq('empresa_id', empresaId).eq('estado', 'arquivado').neq('ciclo', 'DELETED').neq('ciclo', 'ARCHIVED').not('validade', 'is', null).order('validade', { ascending: true });
         if (areasPermitidas) q = q.in('area', areasPermitidas);
-        const { data } = await q;
+        const { data: brutos } = await q;
+        const data = user ? await this.filtrarVisiveis(brutos || [], user) : (brutos || []);
 
         const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
         const limite = new Date(hoje); limite.setDate(limite.getDate() + DIAS_AVISO_VALIDADE);

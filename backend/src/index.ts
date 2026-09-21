@@ -115,4 +115,11 @@ app.listen(port, () => {
   setInterval(() => {
     DocumentosService.processarFila().catch(console.error);
   }, 30 * 1000);
+
+  // Documentos ativos cuja validade passou caducam sozinhos (ciclo -> EXPIRED).
+  const { DocumentosGovernoService } = require('./services/DocumentosGovernoService');
+  DocumentosGovernoService.caducarVencidos().catch(console.error);
+  setInterval(() => {
+    DocumentosGovernoService.caducarVencidos().catch(console.error);
+  }, 60 * 60 * 1000);
 });
