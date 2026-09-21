@@ -110,7 +110,7 @@ export class DocumentoIAService {
         const corta = (l?: string[]) => (l || []).filter(Boolean).slice(0, MAX_NOMES_POR_LISTA);
         const clientes = corta(ctx.entidades?.clientes), colaboradores = corta(ctx.entidades?.colaboradores), ativos = corta(ctx.entidades?.ativos);
         const blocoEmpresa = [
-            ctx.empresaNome ? `A empresa dona do arquivo chama-se "${ctx.empresaNome}". Ela própria NUNCA é a "entidade": a entidade é a outra parte (o cliente, o fornecedor, o colaborador, o equipamento).` : '',
+            ctx.empresaNome ? `A empresa dona do arquivo chama-se "${ctx.empresaNome}". Ela própria NUNCA é a "entidade": a entidade é a outra parte (o cliente, o fornecedor, o colaborador, o equipamento). Do mesmo modo, NIF, morada e contactos em "metadados" (ex.: nif, contraparte) são os da outra parte — se o documento só trouxer os da própria empresa, deixa null.` : '',
             listaTipos ? `TIPOS DE DOCUMENTO CONFIGURADOS PELA EMPRESA (usa um destes em "tipo" sempre que encaixar; só recorres à lista genérica se nenhum servir):\n${listaTipos}\nPara o tipo escolhido, preenche "metadados" com as chaves EXATAS dos campos desse tipo (valor null quando o documento não o diz).` : '',
             clientes.length ? `CLIENTES REGISTADOS: ${clientes.join(' | ')}` : '',
             colaboradores.length ? `COLABORADORES REGISTADOS: ${colaboradores.join(' | ')}` : '',
