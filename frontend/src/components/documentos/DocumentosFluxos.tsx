@@ -40,6 +40,12 @@ export default function DocumentosFluxos({ tipos }: { tipos: TipoDoc[] }) {
         if (!res.ok || !d.success) { setErro(d.error || 'Não foi possível guardar.'); return; }
         setEdit(null); carregar();
     };
+    const apagar = async (f: any) => {
+        if (!confirm(`Apagar o fluxo "${f.nome}"? Os processos já feitos mantêm o histórico.`)) return;
+        const res = await authFetch(`${API}/api/documentos/fluxos/${f.id}`, { method: 'DELETE' }); const d = await res.json();
+        if (!res.ok || !d.success) { alert('Erro: ' + (d.error || 'não foi possível apagar.')); return; }
+        carregar();
+    };
     const alternarAtivo = async (f: any) => {
         const res = await authFetch(`${API}/api/documentos/fluxos/${f.id}`, { method: 'PUT', body: JSON.stringify({ ativo: !f.ativo }) });
         const d = await res.json();
@@ -123,6 +129,7 @@ export default function DocumentosFluxos({ tipos }: { tipos: TipoDoc[] }) {
                     </div>
                     <button style={{ ...btn(), padding: '4px 8px' }} onClick={() => setEdit({ ...f, tipo_id: f.tipo_id || '', etapas: (f.etapas || []).map((e: any) => ({ ...e, prazo_horas: e.prazo_horas ?? '', escalar_para: e.escalar_para || '' })) })}>Editar</button>
                     <button style={{ ...btn(), padding: '4px 8px' }} onClick={() => alternarAtivo(f)}>{f.ativo ? 'Desativar' : 'Ativar'}</button>
+                    <button style={{ ...btn(false, true), padding: '4px 8px' }} title="Apagar fluxo" onClick={() => apagar(f)}><Trash2 size={12} /></button>
                 </div>
             ))}
         </div>

@@ -60,7 +60,7 @@ export const ROTULO_ACAO: Record<string, string> = {
     acesso_concedido: 'Acesso concedido', acesso_revogado: 'Acesso revogado', acesso_negado: 'Acesso negado', reprocessar: 'Reprocessado',
     pesquisa: 'Pesquisa', tipo_criado: 'Tipo criado', tipo_alterado: 'Tipo alterado', definicoes_captura: 'Captura alterada', permissoes_area: 'Permissões de área alteradas',
     fluxo_iniciado: 'Submetido a aprovação', aprovou: 'Aprovou', rejeitou: 'Rejeitou', delegou: 'Delegou', escalado: 'Escalado por prazo', fluxo_cancelado: 'Aprovação cancelada',
-    fluxo_criado: 'Fluxo criado', fluxo_editado: 'Fluxo alterado', enviado_email: 'Enviado por email'
+    fluxo_criado: 'Fluxo criado', fluxo_editado: 'Fluxo alterado', fluxo_apagado: 'Fluxo apagado', enviado_email: 'Enviado por email'
 };
 
 export const ROTULO_TAREFA: Record<string, string> = { pendente: 'Pendente', aprovada: 'Aprovada', rejeitada: 'Rejeitada', delegada: 'Delegada', cancelada: 'Cancelada', escalada: 'Escalada' };

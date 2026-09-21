@@ -443,6 +443,18 @@ router.put('/fluxos/:id', soAdmin, async (req: AuthRequest, res: Response) => {
     } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
+// Apagar um fluxo: os processos já feitos guardam o nome e as etapas, por isso não se perdem.
+router.delete('/fluxos/:id', soAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+        const { count } = await supabase.from('documento_processos').select('id', { count: 'exact', head: true }).eq('fluxo_id', Number(req.params.id)).eq('empresa_id', empresaDe(req)).eq('estado', 'em_curso');
+        if ((count || 0) > 0) return res.status(400).json({ error: `Há ${count} processo(s) em curso neste fluxo. Desative-o em vez de o apagar.` });
+        const { data } = await supabase.from('documento_fluxos').delete().eq('id', Number(req.params.id)).eq('empresa_id', empresaDe(req)).select('id, nome').maybeSingle();
+        if (!data) return res.status(404).json({ error: 'Fluxo não encontrado.' });
+        await DocumentosGovernoService.auditar(empresaDe(req), utilizador(req), 'fluxo_apagado', null, { fluxo_id: data.id, fluxo: data.nome });
+        res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
 // ============================================================
 // AS MINHAS APROVAÇÕES E NOTIFICAÇÕES
 // ============================================================
