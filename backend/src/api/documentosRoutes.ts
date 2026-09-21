@@ -7,6 +7,7 @@ import { DocumentosService } from '../services/DocumentosService';
 import { DocumentosGovernoService, Utilizador } from '../services/DocumentosGovernoService';
 import { DocumentosCicloService, Ciclo, CICLOS, ROTULO_CICLO } from '../services/DocumentosCicloService';
 import { MediaUploadService } from '../services/MediaUploadService';
+import { DocumentosFluxoService } from '../services/DocumentosFluxoService';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 30 * 1024 * 1024, files: 20 } });
@@ -71,10 +72,15 @@ router.get('/resumo', async (req: AuthRequest, res: Response) => {
             if (d.estado === 'erro') comErro++;
         }
         const conf = await DocumentosService.conformidade(empresaDe(req), areas, utilizador(req));
+        const [{ count: tarefasPendentes }, { count: notificacoesNaoLidas }] = await Promise.all([
+            supabase.from('documento_tarefas').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaDe(req)).eq('aprovador_id', req.user!.id).eq('estado', 'pendente'),
+            supabase.from('documento_notificacoes').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaDe(req)).eq('user_id', req.user!.id).eq('lida', false)
+        ]);
         res.json({
             success: true,
             areas: DocumentosService.areas.map(a => ({ nome: a, total: porArea[a] || 0 })),
             porRever, aProcessar, comErro,
+            tarefasPendentes: tarefasPendentes || 0, notificacoesNaoLidas: notificacoesNaoLidas || 0,
             vencidos: conf.vencidos.length, aVencer: conf.aVencer.length,
             areasPermitidas: areas, ehAdmin: ehAdmin(req)
         });
@@ -376,6 +382,157 @@ router.put('/definicoes/permissoes/:userId', soAdmin, async (req: AuthRequest, r
 });
 
 // ============================================================
+// FLUXOS DE APROVAÇÃO (modelos) — admin edita, todos leem
+// ============================================================
+router.get('/fluxos', async (req: AuthRequest, res: Response) => {
+    try {
+        const fluxos = await DocumentosFluxoService.fluxos(empresaDe(req));
+        res.json({ success: true, fluxos: ehAdmin(req) ? fluxos : fluxos.filter((f: any) => f.ativo) });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.post('/fluxos', soAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+        const nome = String(req.body.nome || '').trim();
+        if (!nome) return res.status(400).json({ error: 'Indique o nome do fluxo.' });
+        const v = await DocumentosFluxoService.validarEtapas(empresaDe(req), req.body.etapas);
+        if (v.erro) return res.status(400).json({ error: v.erro });
+        const { data, error } = await supabase.from('documento_fluxos').insert({
+            empresa_id: empresaDe(req), nome, descricao: req.body.descricao || null, tipo_id: req.body.tipo_id ? Number(req.body.tipo_id) : null,
+            etapas: v.etapas, ativar_ao_aprovar: req.body.ativar_ao_aprovar !== false, criado_por: req.user!.id
+        }).select('*').single();
+        if (error) return res.status(400).json({ error: error.code === '23505' ? 'Já existe um fluxo com esse nome.' : error.message });
+        await DocumentosGovernoService.auditar(empresaDe(req), utilizador(req), 'fluxo_criado', null, { fluxo: nome, etapas: v.etapas!.length });
+        res.json({ success: true, fluxo: data });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.put('/fluxos/:id', soAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+        const alt: any = {};
+        if (req.body.nome !== undefined) { alt.nome = String(req.body.nome).trim(); if (!alt.nome) return res.status(400).json({ error: 'Indique o nome do fluxo.' }); }
+        if (req.body.descricao !== undefined) alt.descricao = req.body.descricao || null;
+        if (req.body.tipo_id !== undefined) alt.tipo_id = req.body.tipo_id ? Number(req.body.tipo_id) : null;
+        if (req.body.ativar_ao_aprovar !== undefined) alt.ativar_ao_aprovar = !!req.body.ativar_ao_aprovar;
+        if (req.body.ativo !== undefined) alt.ativo = !!req.body.ativo;
+        if (req.body.etapas !== undefined) {
+            const v = await DocumentosFluxoService.validarEtapas(empresaDe(req), req.body.etapas);
+            if (v.erro) return res.status(400).json({ error: v.erro });
+            alt.etapas = v.etapas;
+        }
+        const { data, error } = await supabase.from('documento_fluxos').update(alt).eq('id', Number(req.params.id)).eq('empresa_id', empresaDe(req)).select('id').maybeSingle();
+        if (error) return res.status(400).json({ error: error.code === '23505' ? 'Já existe um fluxo com esse nome.' : error.message });
+        if (!data) return res.status(404).json({ error: 'Fluxo não encontrado.' });
+        await DocumentosGovernoService.auditar(empresaDe(req), utilizador(req), 'fluxo_editado', null, { fluxo_id: data.id, campos: Object.keys(alt) });
+        res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+// ============================================================
+// AS MINHAS APROVAÇÕES E NOTIFICAÇÕES
+// ============================================================
+router.get('/aprovacoes/minhas', async (req: AuthRequest, res: Response) => {
+    try { res.json({ success: true, tarefas: await DocumentosFluxoService.minhasTarefas(empresaDe(req), req.user!.id) }); }
+    catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.post('/aprovacoes/:tarefaId/decidir', async (req: AuthRequest, res: Response) => {
+    try {
+        const decisao = req.body.decisao === 'aprovar' ? 'aprovada' : req.body.decisao === 'rejeitar' ? 'rejeitada' : null;
+        if (!decisao) return res.status(400).json({ error: 'Decisão inválida (aprovar / rejeitar).' });
+        const r = await DocumentosFluxoService.decidir(Number(req.params.tarefaId), utilizador(req), decisao, req.body.comentario);
+        if (!r.ok) return res.status(400).json({ error: r.erro });
+        res.json({ success: true, estado: r.estado });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.post('/aprovacoes/:tarefaId/delegar', async (req: AuthRequest, res: Response) => {
+    try {
+        if (!req.body.para) return res.status(400).json({ error: 'Indique a quem delegar.' });
+        const r = await DocumentosFluxoService.delegar(Number(req.params.tarefaId), utilizador(req), String(req.body.para), req.body.comentario);
+        if (!r.ok) return res.status(400).json({ error: r.erro });
+        res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/notificacoes/minhas', async (req: AuthRequest, res: Response) => {
+    try { res.json({ success: true, ...(await DocumentosFluxoService.notificacoes(empresaDe(req), req.user!.id)) }); }
+    catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.post('/notificacoes/lidas', async (req: AuthRequest, res: Response) => {
+    try {
+        const ids = Array.isArray(req.body.ids) ? req.body.ids.map(Number).filter(Number.isFinite) : undefined;
+        await DocumentosFluxoService.marcarLidas(empresaDe(req), req.user!.id, ids);
+        res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+// ============================================================
+// CHECKLISTS DE PROCESSO
+// ============================================================
+const ENTIDADES_CHECKLIST = ['cliente', 'colaborador', 'ativo', 'negocio'];
+
+router.get('/checklists', async (req: AuthRequest, res: Response) => {
+    try {
+        const lista = await DocumentosFluxoService.checklists(empresaDe(req));
+        res.json({ success: true, checklists: ehAdmin(req) ? lista : lista.filter((c: any) => c.ativo) });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.post('/checklists', soAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+        const nome = String(req.body.nome || '').trim();
+        if (!nome) return res.status(400).json({ error: 'Indique o nome da checklist.' });
+        if (!ENTIDADES_CHECKLIST.includes(req.body.entidade_tipo)) return res.status(400).json({ error: 'Tipo de entidade inválido.' });
+        const v = await DocumentosFluxoService.validarItens(empresaDe(req), req.body.itens);
+        if (v.erro) return res.status(400).json({ error: v.erro });
+        const { data, error } = await supabase.from('documento_checklists').insert({ empresa_id: empresaDe(req), nome, entidade_tipo: req.body.entidade_tipo, itens: v.itens }).select('*').single();
+        if (error) return res.status(400).json({ error: error.code === '23505' ? 'Já existe uma checklist com esse nome.' : error.message });
+        res.json({ success: true, checklist: data });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.put('/checklists/:id', soAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+        const alt: any = {};
+        if (req.body.nome !== undefined) { alt.nome = String(req.body.nome).trim(); if (!alt.nome) return res.status(400).json({ error: 'Indique o nome da checklist.' }); }
+        if (req.body.entidade_tipo !== undefined) { if (!ENTIDADES_CHECKLIST.includes(req.body.entidade_tipo)) return res.status(400).json({ error: 'Tipo de entidade inválido.' }); alt.entidade_tipo = req.body.entidade_tipo; }
+        if (req.body.ativo !== undefined) alt.ativo = !!req.body.ativo;
+        if (req.body.itens !== undefined) { const v = await DocumentosFluxoService.validarItens(empresaDe(req), req.body.itens); if (v.erro) return res.status(400).json({ error: v.erro }); alt.itens = v.itens; }
+        const { data, error } = await supabase.from('documento_checklists').update(alt).eq('id', Number(req.params.id)).eq('empresa_id', empresaDe(req)).select('id').maybeSingle();
+        if (error) return res.status(400).json({ error: error.code === '23505' ? 'Já existe uma checklist com esse nome.' : error.message });
+        if (!data) return res.status(404).json({ error: 'Checklist não encontrada.' });
+        res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.delete('/checklists/:id', soAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+        const { data } = await supabase.from('documento_checklists').delete().eq('id', Number(req.params.id)).eq('empresa_id', empresaDe(req)).select('id').maybeSingle();
+        if (!data) return res.status(404).json({ error: 'Checklist não encontrada.' });
+        res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+// Panorama: que entidades ainda têm documentos obrigatórios em falta.
+router.get('/checklists/:id/panorama', async (req: AuthRequest, res: Response) => {
+    try {
+        const { data: cl } = await supabase.from('documento_checklists').select('*').eq('id', Number(req.params.id)).eq('empresa_id', empresaDe(req)).maybeSingle();
+        if (!cl) return res.status(404).json({ error: 'Checklist não encontrada.' });
+        res.json({ success: true, checklist: { id: cl.id, nome: cl.nome, entidade_tipo: cl.entidade_tipo }, entidades: await DocumentosFluxoService.panoramaChecklist(cl) });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/checklists/:id/estado/:entidadeId', async (req: AuthRequest, res: Response) => {
+    try {
+        const { data: cl } = await supabase.from('documento_checklists').select('*').eq('id', Number(req.params.id)).eq('empresa_id', empresaDe(req)).maybeSingle();
+        if (!cl) return res.status(404).json({ error: 'Checklist não encontrada.' });
+        res.json({ success: true, ...(await DocumentosFluxoService.estadoChecklist(cl, req.params.entidadeId, utilizador(req))) });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+// ============================================================
 // UM DOCUMENTO
 // ============================================================
 router.get('/:id', async (req: AuthRequest, res: Response) => {
@@ -554,6 +711,39 @@ router.delete('/:id/acessos/:userId', async (req: AuthRequest, res: Response) =>
 });
 
 // ---------- histórico ----------
+// ============================================================
+// APROVAÇÃO DE UM DOCUMENTO
+// ============================================================
+router.get('/:id/processos', async (req: AuthRequest, res: Response) => {
+    try {
+        const doc = await carregarComAcesso(req, res, 'ver'); if (!doc) return;
+        const processos = await DocumentosFluxoService.processosDoDocumento(doc.id);
+        const fluxos = (await DocumentosFluxoService.fluxos(empresaDe(req))).filter((f: any) => f.ativo).map((f: any) => ({ id: f.id, nome: f.nome, descricao: f.descricao, tipo_id: f.tipo_id, etapas: (f.etapas || []).length }));
+        const podeSubmeter = doc.nivel_acesso !== 'ver' && ['DRAFT', 'IN_REVIEW', 'ACTIVE', 'APPROVED'].includes(doc.ciclo) && !processos.some((p: any) => p.estado === 'em_curso');
+        res.json({ success: true, processos, fluxos, podeSubmeter, nivel: doc.nivel_acesso });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.post('/:id/processos', async (req: AuthRequest, res: Response) => {
+    try {
+        const doc = await carregarComAcesso(req, res, 'editar'); if (!doc) return;
+        const fluxoId = Number(req.body.fluxo_id);
+        if (!fluxoId) return res.status(400).json({ error: 'Escolha o fluxo de aprovação.' });
+        const r = await DocumentosFluxoService.iniciar(doc, fluxoId, utilizador(req), req.body.comentario);
+        if (!r.ok) return res.status(400).json({ error: r.erro });
+        res.json({ success: true, processo: r.processo });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.post('/:id/processos/:processoId/cancelar', async (req: AuthRequest, res: Response) => {
+    try {
+        const doc = await carregarComAcesso(req, res, 'ver'); if (!doc) return;
+        const r = await DocumentosFluxoService.cancelar(Number(req.params.processoId), utilizador(req), String(req.body.motivo || ''), doc.nivel_acesso === 'gerir');
+        if (!r.ok) return res.status(400).json({ error: r.erro });
+        res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
 router.get('/:id/historico', async (req: AuthRequest, res: Response) => {
     try {
         const doc = await carregarComAcesso(req, res, 'ver'); if (!doc) return;

@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Download, Check, Trash2, RefreshCw, FileText, FileImage, FileSpreadsheet, Upload, History, Users, Lock, Shield, RotateCcw, Loader2, Mail, MessageSquare, Cpu } from 'lucide-react';
+import { X, Download, Check, Trash2, RefreshCw, FileText, FileImage, FileSpreadsheet, Upload, History, Users, Lock, Shield, RotateCcw, Loader2, Mail, MessageSquare, Cpu, CheckSquare } from 'lucide-react';
 import { API, authFetch, AREAS, COR, ROTULO_CICLO, COR_CICLO, fmtData, fmtDataHora, fmtTam, btn, input, label, ROTULO_ACAO } from './comum';
 import type { Doc, TipoDoc } from './comum';
+import Aprovacao from './Aprovacao';
 
 function IconeDoc({ doc, size = 18 }: { doc: Doc; size?: number }) {
     const m = doc.mime_type || '';
@@ -29,7 +30,7 @@ interface Props {
 export default function DocumentoDetalhe({ doc: docInicial, tipos, pastas, onFechar, onMudou }: Props) {
     const [doc, setDoc] = useState<Doc>(docInicial);
     const [transicoes, setTransicoes] = useState<any[]>([]);
-    const [aba, setAba] = useState<'dados' | 'versoes' | 'historico' | 'acesso'>('dados');
+    const [aba, setAba] = useState<'dados' | 'aprovacao' | 'versoes' | 'historico' | 'acesso'>(docInicial.ciclo === 'PENDING_APPROVAL' ? 'aprovacao' : 'dados');
     const [f, setF] = useState<any>({});
     const [opcoes, setOpcoes] = useState<any>(null);
     const [aGuardar, setAGuardar] = useState(false);
@@ -122,7 +123,7 @@ export default function DocumentoDetalhe({ doc: docInicial, tipos, pastas, onFec
             </div>
 
             <div style={{ display: 'flex', borderBottom: `1px solid ${COR.border}`, background: COR.canvas }}>
-                {abaBtn('dados', FileText, 'Dados')}{abaBtn('versoes', History, 'Versões')}{abaBtn('historico', RefreshCw, 'Histórico')}
+                {abaBtn('dados', FileText, 'Dados')}{abaBtn('aprovacao', CheckSquare, 'Aprovação')}{abaBtn('versoes', History, 'Versões')}{abaBtn('historico', RefreshCw, 'Histórico')}
                 {podeGerir && abaBtn('acesso', Users, 'Acesso')}
             </div>
 
@@ -164,7 +165,8 @@ export default function DocumentoDetalhe({ doc: docInicial, tipos, pastas, onFec
                                         </button>
                                     ))}
                                 </div>
-                                {transicoes.some(t => !t.disponivel) && <div style={{ fontSize: '11px', color: COR.faint, marginTop: '5px' }}>* passa a estar disponível com as aprovações/assinaturas/retenção (fases seguintes).</div>}
+                                {transicoes.some(t => !t.disponivel) && <div style={{ fontSize: '11px', color: COR.faint, marginTop: '5px' }}>* passa a estar disponível com as assinaturas eletrónicas / retenção (fase seguinte).</div>}
+                                {doc.ciclo === 'PENDING_APPROVAL' && <div style={{ fontSize: '11.5px', color: COR.accent, marginTop: '5px' }}>Em aprovação — acompanhe e decida no separador "Aprovação".</div>}
                             </div>
 
                             <div><label style={label}>Título</label><input value={f.titulo || ''} disabled={!podeEditar} onChange={e => setF({ ...f, titulo: e.target.value })} style={input} /></div>
@@ -265,6 +267,7 @@ export default function DocumentoDetalhe({ doc: docInicial, tipos, pastas, onFec
                     </>
                 )}
 
+                {aba === 'aprovacao' && <Aprovacao doc={doc} utilizadores={opcoes?.utilizadores || []} podeEditar={podeEditar} onMudou={async () => { await recarregar(); onMudou(); }} setErro={setErro} />}
                 {aba === 'versoes' && <Versoes doc={doc} podeEditar={podeEditar} onMudou={async () => { await recarregar(); onMudou(); }} setErro={setErro} />}
                 {aba === 'historico' && <Historico docId={doc.id} />}
                 {aba === 'acesso' && podeGerir && <Acesso doc={doc} utilizadores={opcoes?.utilizadores || []} setErro={setErro} />}

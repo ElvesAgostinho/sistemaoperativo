@@ -277,10 +277,13 @@ export class DocumentosGovernoService {
         if (explicito) return explicito;
 
         const areaOk = !areasPermitidas || areasPermitidas.includes(doc.area);
-        if (!areaOk) return null;
-        if (doc.confidencialidade === 'Restrito') return null;
-        if (doc.confidencialidade === 'Confidencial') return null;
-        return 'editar'; // Normal + área permitida: pode ver e corrigir metadados
+        const normal = areaOk && doc.confidencialidade !== 'Restrito' && doc.confidencialidade !== 'Confidencial';
+        if (normal) return 'editar'; // Normal + área permitida: pode ver e corrigir metadados
+
+        // Quem foi chamado a aprovar tem de conseguir ler o que aprova, mesmo fora da sua área ou confidencial.
+        const { DocumentosFluxoService } = require('./DocumentosFluxoService');
+        if (await DocumentosFluxoService.temTarefaNoDocumento(doc.id, user.id)) return 'ver';
+        return null;
     }
 
     public static async acessos(documentoId: string): Promise<any[]> {

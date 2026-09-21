@@ -6,9 +6,10 @@
  * confirmou. O ciclo diz em que ponto da vida útil o documento está.
  *
  * Só se listam aqui transições que têm uma ação real por trás. As de
- * aprovação e assinatura ficam ativas quando o motor de workflow (Fase C) e
- * as assinaturas (Fase D) existirem — até lá são recusadas com um motivo
- * claro, em vez de aparecerem como botões que não fazem nada.
+ * aprovação pertencem ao motor de fluxos (DocumentosFluxoService) e só ele
+ * as executa (ator 'workflow'); as de assinatura ficam ativas quando as
+ * assinaturas (Fase D) existirem — até lá são recusadas com um motivo claro,
+ * em vez de aparecerem como botões que não fazem nada.
  */
 export type Ciclo =
     | 'DRAFT' | 'PENDING_REVIEW' | 'IN_REVIEW' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED'
@@ -31,14 +32,13 @@ type Ator = 'utilizador' | 'sistema' | 'workflow';
 
 interface Regra { para: Ciclo; atores: Ator[]; disponivel: boolean; motivoIndisponivel?: string; exigeMotivo?: boolean }
 
-const AGUARDA_WORKFLOW = 'Disponível quando o motor de aprovações (Fase C) estiver ativo.';
 const AGUARDA_ASSINATURA = 'Disponível quando as assinaturas eletrónicas (Fase D) estiverem ativas.';
 const AGUARDA_RETENCAO = 'Disponível quando as políticas de retenção (Fase D) estiverem ativas.';
 
 const REGRAS: Record<Ciclo, Regra[]> = {
     DRAFT: [
         { para: 'ACTIVE', atores: ['utilizador', 'sistema'], disponivel: true },
-        { para: 'PENDING_APPROVAL', atores: ['utilizador', 'workflow'], disponivel: false, motivoIndisponivel: AGUARDA_WORKFLOW },
+        { para: 'PENDING_APPROVAL', atores: ['workflow'], disponivel: true },
         { para: 'DELETED', atores: ['utilizador'], disponivel: true, exigeMotivo: true },
     ],
     PENDING_REVIEW: [
@@ -49,15 +49,20 @@ const REGRAS: Record<Ciclo, Regra[]> = {
     IN_REVIEW: [
         { para: 'ACTIVE', atores: ['utilizador'], disponivel: true },
         { para: 'DRAFT', atores: ['utilizador'], disponivel: true, exigeMotivo: true },
-        { para: 'PENDING_APPROVAL', atores: ['utilizador', 'workflow'], disponivel: false, motivoIndisponivel: AGUARDA_WORKFLOW },
+        { para: 'PENDING_APPROVAL', atores: ['workflow'], disponivel: true },
     ],
     PENDING_APPROVAL: [
-        { para: 'APPROVED', atores: ['workflow'], disponivel: false, motivoIndisponivel: AGUARDA_WORKFLOW },
-        { para: 'REJECTED', atores: ['workflow'], disponivel: false, motivoIndisponivel: AGUARDA_WORKFLOW, exigeMotivo: true },
+        { para: 'APPROVED', atores: ['workflow'], disponivel: true },   // aprovação final, ou cancelamento de uma resubmissão
+        { para: 'REJECTED', atores: ['workflow'], disponivel: true, exigeMotivo: true },
+        // cancelamento do processo: volta ao estado em que estava
+        { para: 'DRAFT', atores: ['workflow'], disponivel: true, exigeMotivo: true },
+        { para: 'IN_REVIEW', atores: ['workflow'], disponivel: true, exigeMotivo: true },
+        { para: 'ACTIVE', atores: ['workflow'], disponivel: true, exigeMotivo: true },
     ],
     APPROVED: [
         { para: 'PENDING_SIGNATURE', atores: ['workflow'], disponivel: false, motivoIndisponivel: AGUARDA_ASSINATURA },
-        { para: 'ACTIVE', atores: ['workflow', 'utilizador'], disponivel: false, motivoIndisponivel: AGUARDA_WORKFLOW },
+        { para: 'ACTIVE', atores: ['workflow', 'utilizador'], disponivel: true },
+        { para: 'PENDING_APPROVAL', atores: ['workflow'], disponivel: true },
     ],
     REJECTED: [
         { para: 'DRAFT', atores: ['utilizador'], disponivel: true },
@@ -70,6 +75,7 @@ const REGRAS: Record<Ciclo, Regra[]> = {
         { para: 'ACTIVE', atores: ['workflow', 'sistema'], disponivel: false, motivoIndisponivel: AGUARDA_ASSINATURA },
     ],
     ACTIVE: [
+        { para: 'PENDING_APPROVAL', atores: ['workflow'], disponivel: true },   // ex.: renovação de contrato submetida a aprovação
         { para: 'EXPIRED', atores: ['sistema'], disponivel: true },
         { para: 'ARCHIVED', atores: ['utilizador'], disponivel: true },
         { para: 'RETENTION_PENDING', atores: ['sistema'], disponivel: false, motivoIndisponivel: AGUARDA_RETENCAO },

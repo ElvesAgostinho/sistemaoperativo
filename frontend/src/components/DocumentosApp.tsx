@@ -1,14 +1,17 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
     FolderOpen, Folder, FolderPlus, Search, Upload, Inbox, ShieldAlert, Wrench, Settings, FileText, FileImage, FileSpreadsheet, ArrowLeft,
-    Mail, MessageSquare, Cpu, User, Briefcase, Users, ChevronRight, ChevronDown, X, Check, Trash2, AlertTriangle, Clock, CheckCircle2, Plus, Sparkles, Loader2, ScrollText, Pencil
+    Mail, MessageSquare, Cpu, User, Briefcase, Users, ChevronRight, ChevronDown, X, Check, Trash2, AlertTriangle, Clock, CheckCircle2, Plus, Sparkles, Loader2, ScrollText, Pencil, CheckSquare, ClipboardCheck
 } from 'lucide-react';
 import { API, authFetch, AREAS, COR, diasAte, fmtData, fmtDataHora, btn, input, label, ROTULO_ACAO } from './documentos/comum';
 import type { Doc, TipoDoc } from './documentos/comum';
 import DocumentoDetalhe, { BadgeCiclo, IconeConfidencialidade } from './documentos/DocumentoDetalhe';
 import DocumentosTipos from './documentos/DocumentosTipos';
+import DocumentosFluxos from './documentos/DocumentosFluxos';
+import Aprovacoes, { Notificacoes } from './documentos/Aprovacoes';
+import Checklists from './documentos/Checklists';
 
-type Vista = 'todos' | 'area' | 'pasta' | 'por_rever' | 'conformidade' | 'ativos' | 'definicoes' | 'pesquisa' | 'auditoria';
+type Vista = 'todos' | 'area' | 'pasta' | 'por_rever' | 'conformidade' | 'ativos' | 'definicoes' | 'pesquisa' | 'auditoria' | 'aprovacoes' | 'checklists';
 
 function IconeDoc({ doc, size = 18 }: { doc: Doc; size?: number }) {
     const m = doc.mime_type || '';
@@ -64,6 +67,11 @@ export default function DocumentosApp({ onVoltar }: { onVoltar?: () => void }) {
     const user = (() => { try { return JSON.parse(localStorage.getItem('os_auth_user') || '{}'); } catch { return {}; } })();
     const ehAdmin = ['admin', 'superadmin'].includes(user?.role);
 
+    const abrirPorId = useCallback(async (id: string) => {
+        const r = await authFetch(`${API}/api/documentos/${id}`); const d = await r.json();
+        if (d.success) setDocAberto(d.documento); else setAvisoUpload(d.error || 'Não foi possível abrir o documento.');
+    }, []);
+
     const fetchResumo = useCallback(async () => {
         const res = await authFetch(`${API}/api/documentos/resumo`); const data = await res.json();
         if (res.status === 403) { setErroModulo(data.error || 'Módulo não disponível.'); return; }
@@ -86,6 +94,7 @@ export default function DocumentosApp({ onVoltar }: { onVoltar?: () => void }) {
     }, [vista, areaSel, pastaSel, filtroTexto]);
 
     useEffect(() => { fetchResumo(); fetchTiposEPastas(); }, [fetchResumo, fetchTiposEPastas]);
+    useEffect(() => { const t = setInterval(fetchResumo, 60000); return () => clearInterval(t); }, [fetchResumo]);
     useEffect(() => { fetchResumo(); if (['todos', 'area', 'pasta', 'por_rever'].includes(vista)) { setLoading(true); fetchDocs(); } }, [vista, areaSel, pastaSel, fetchDocs, fetchResumo]);
     useEffect(() => {
         if (!resumo || (resumo.aProcessar || 0) === 0) return;
@@ -157,12 +166,15 @@ export default function DocumentosApp({ onVoltar }: { onVoltar?: () => void }) {
                         </button>
                     )}
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 700, color: COR.ink, fontSize: '14px', marginLeft: 'auto' }}><FolderOpen size={17} color={COR.accent} /> Documentos</span>
+                    <Notificacoes naoLidas={resumo?.notificacoesNaoLidas || 0} onAbrirDoc={abrirPorId} onLidas={fetchResumo} />
                 </div>
                 <div style={{ padding: '8px', display: 'flex', flexDirection: 'column', gap: '1px', overflowY: 'auto', flex: 1, minHeight: 0 }}>
                     {navItem(vista === 'todos', () => { setVista('todos'); setAreaSel(null); }, <FolderOpen size={15} />, 'Todos os documentos')}
                     {navItem(vista === 'pesquisa', () => setVista('pesquisa'), <Sparkles size={15} />, 'Perguntar ao arquivo')}
+                    {navItem(vista === 'aprovacoes', () => setVista('aprovacoes'), <CheckSquare size={15} />, 'As minhas aprovações', resumo?.tarefasPendentes, COR.accent)}
                     {navItem(vista === 'por_rever', () => setVista('por_rever'), <Inbox size={15} />, 'Por rever', resumo?.porRever, COR.warn)}
                     {navItem(vista === 'conformidade', () => setVista('conformidade'), <ShieldAlert size={15} />, 'Conformidade', (resumo?.vencidos || 0) + (resumo?.aVencer || 0), resumo?.vencidos > 0 ? COR.bad : COR.warn)}
+                    {navItem(vista === 'checklists', () => setVista('checklists'), <ClipboardCheck size={15} />, 'Checklists')}
                     {navItem(vista === 'ativos', () => setVista('ativos'), <Wrench size={15} />, 'Ativos')}
 
                     <div style={{ ...label, margin: '10px 10px 4px' }}>Áreas</div>
@@ -207,8 +219,10 @@ export default function DocumentosApp({ onVoltar }: { onVoltar?: () => void }) {
                 {vista === 'pesquisa' && <Pesquisa onAbrir={setDocAberto} />}
                 {vista === 'conformidade' && <Conformidade onAbrir={setDocAberto} />}
                 {vista === 'ativos' && <Ativos onAbrirDoc={setDocAberto} />}
+                {vista === 'aprovacoes' && <Aprovacoes onAbrir={setDocAberto} onMudou={tudoMudou} />}
+                {vista === 'checklists' && <Checklists tipos={tipos} ehAdmin={ehAdmin} onAbrirDoc={abrirPorId} />}
                 {vista === 'auditoria' && ehAdmin && <Auditoria />}
-                {vista === 'definicoes' && ehAdmin && <Definicoes />}
+                {vista === 'definicoes' && ehAdmin && <Definicoes tipos={tipos} />}
 
                 <input ref={fileRef} type="file" multiple style={{ display: 'none' }} accept=".pdf,.png,.jpg,.jpeg,.webp,.tiff,.txt,.md,.csv,.xlsx,.xls,.docx"
                     onChange={e => { enviarFicheiros(Array.from(e.target.files || [])); e.target.value = ''; }} />
@@ -579,7 +593,7 @@ function Auditoria() {
 // ============================================================
 // DEFINIÇÕES (admin)
 // ============================================================
-function Definicoes() {
+function Definicoes({ tipos }: { tipos: TipoDoc[] }) {
     const [est, setEst] = useState<any>(null); const [aGuardar, setAGuardar] = useState<string | null>(null);
     const carregar = useCallback(async () => { const r = await authFetch(`${API}/api/documentos/definicoes/estado`); const d = await r.json(); if (d.success) setEst(d); }, []);
     useEffect(() => { carregar(); }, [carregar]);
@@ -614,6 +628,8 @@ function Definicoes() {
                 </div>
 
                 <DocumentosTipos />
+
+                <DocumentosFluxos tipos={tipos} />
 
                 <div style={{ background: 'white', border: `1px solid ${COR.border}`, borderRadius: '2px', padding: '16px' }}>
                     <div style={{ fontWeight: 700, color: COR.ink, marginBottom: '4px' }}>Quem vê que áreas</div>

@@ -46,9 +46,16 @@ test('eliminar exige motivo; com motivo passa', () => {
     assert(validar('ACTIVE', 'DELETED', 'utilizador', 'documento duplicado') === null, 'com motivo devia passar');
 });
 
-test('aprovações e assinaturas existem no mapa mas estão indisponíveis com o motivo certo', () => {
+test('aprovações são só do motor de fluxos; assinaturas continuam indisponíveis (Fase D)', () => {
     const e = validar('DRAFT', 'PENDING_APPROVAL', 'utilizador');
-    assert(!!e && /Fase C/.test(e), `devia apontar para a Fase C, veio: ${e}`);
+    assert(!!e && /manualmente/.test(e), `submeter à mão devia ser recusado por ator, veio: ${e}`);
+    assert(validar('DRAFT', 'PENDING_APPROVAL', 'workflow') === null, 'o fluxo devia poder submeter um rascunho');
+    assert(validar('ACTIVE', 'PENDING_APPROVAL', 'workflow') === null, 'o fluxo devia poder submeter um ativo (renovação)');
+    assert(validar('PENDING_APPROVAL', 'APPROVED', 'workflow') === null, 'aprovar pelo fluxo');
+    assert(/motivo/i.test(validar('PENDING_APPROVAL', 'REJECTED', 'workflow') || ''), 'rejeitar exige motivo');
+    assert(validar('PENDING_APPROVAL', 'ACTIVE', 'workflow', 'cancelado') === null, 'cancelar repõe o estado anterior');
+    assert(validar('APPROVED', 'ACTIVE', 'utilizador') === null, 'um aprovado pode ser posto em vigor à mão');
+    assert(DocumentosCicloService.opcoes('DRAFT', 'utilizador').every(o => o.para !== 'PENDING_APPROVAL'), 'PENDING_APPROVAL não deve aparecer como botão manual');
     const opcoes = DocumentosCicloService.opcoes('APPROVED', 'workflow');
     assert(opcoes.some(o => o.para === 'PENDING_SIGNATURE' && !o.disponivel), 'PENDING_SIGNATURE devia estar listada como indisponível');
 });

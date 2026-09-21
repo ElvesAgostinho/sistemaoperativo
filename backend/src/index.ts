@@ -122,4 +122,10 @@ app.listen(port, () => {
   setInterval(() => {
     DocumentosGovernoService.caducarVencidos().catch(console.error);
   }, 60 * 60 * 1000);
+
+  // Aprovações com prazo ultrapassado: escala ou avisa (a cada 10 minutos).
+  const { DocumentosFluxoService } = require('./services/DocumentosFluxoService');
+  setInterval(() => {
+    DocumentosFluxoService.escalarAtrasadas().catch(console.error);
+  }, 10 * 60 * 1000);
 });

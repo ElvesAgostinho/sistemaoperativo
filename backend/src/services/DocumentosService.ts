@@ -231,7 +231,9 @@ export class DocumentosService {
         if (sensiveis.length === 0) return docs;
         const { data } = await supabase.from('documento_acessos').select('documento_id, expira_em').eq('user_id', user.id).in('documento_id', sensiveis.map(d => d.id));
         const comAcesso = new Set((data || []).filter((a: any) => !a.expira_em || new Date(a.expira_em) > new Date()).map((a: any) => a.documento_id));
-        return docs.filter(d => !d.confidencialidade || d.confidencialidade === 'Normal' || d.responsavel_id === user.id || d.criado_por === user.id || comAcesso.has(d.id));
+        const { DocumentosFluxoService } = require('./DocumentosFluxoService');
+        const comTarefa: Set<string> = await DocumentosFluxoService.documentosComTarefaDe(user.id, sensiveis.map(d => d.id));
+        return docs.filter(d => !d.confidencialidade || d.confidencialidade === 'Normal' || d.responsavel_id === user.id || d.criado_por === user.id || comAcesso.has(d.id) || comTarefa.has(d.id));
     }
 
     public static async pesquisar(empresaId: string, pergunta: string, areasPermitidas: string[] | null, user?: { id: string; role: string }) {

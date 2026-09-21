@@ -58,5 +58,23 @@ export const ROTULO_ACAO: Record<string, string> = {
     upload: 'Carregado', classificado: 'Classificado pela IA', confirmado: 'Confirmado', ver: 'Consultado', descarregar: 'Descarregado', editar: 'Alterado',
     transicao: 'Mudança de estado', nova_versao: 'Nova versão', restaurar_versao: 'Versão restaurada', apagar_definitivo: 'Apagado definitivamente',
     acesso_concedido: 'Acesso concedido', acesso_revogado: 'Acesso revogado', acesso_negado: 'Acesso negado', reprocessar: 'Reprocessado',
-    pesquisa: 'Pesquisa', tipo_criado: 'Tipo criado', tipo_alterado: 'Tipo alterado', definicoes_captura: 'Captura alterada', permissoes_area: 'Permissões de área alteradas'
+    pesquisa: 'Pesquisa', tipo_criado: 'Tipo criado', tipo_alterado: 'Tipo alterado', definicoes_captura: 'Captura alterada', permissoes_area: 'Permissões de área alteradas',
+    fluxo_iniciado: 'Submetido a aprovação', aprovou: 'Aprovou', rejeitou: 'Rejeitou', delegou: 'Delegou', escalado: 'Escalado por prazo', fluxo_cancelado: 'Aprovação cancelada',
+    fluxo_criado: 'Fluxo criado', fluxo_editado: 'Fluxo alterado'
+};
+
+export const ROTULO_TAREFA: Record<string, string> = { pendente: 'Pendente', aprovada: 'Aprovada', rejeitada: 'Rejeitada', delegada: 'Delegada', cancelada: 'Cancelada', escalada: 'Escalada' };
+export const COR_TAREFA: Record<string, { c: string; bg: string }> = {
+    pendente: { c: COR.accent, bg: '#E4EDF7' }, aprovada: { c: COR.good, bg: '#DCEEE2' }, rejeitada: { c: COR.bad, bg: '#F6DEDE' },
+    delegada: { c: COR.muted, bg: COR.borderSoft }, cancelada: { c: COR.faint, bg: COR.borderSoft }, escalada: { c: COR.warn, bg: '#FCEFDD' }
+};
+export const ROTULO_ENTIDADE: Record<string, string> = { cliente: 'Cliente', colaborador: 'Colaborador', ativo: 'Ativo', negocio: 'Negócio' };
+
+export const usuarioAtual = (): { id?: string; role?: string; nome?: string } => { try { return JSON.parse(localStorage.getItem('os_auth_user') || '{}'); } catch { return {}; } };
+export const horasRestantes = (prazo: string | null): string | null => {
+    if (!prazo) return null;
+    const ms = new Date(prazo).getTime() - Date.now();
+    const h = Math.round(Math.abs(ms) / 3600000);
+    const txt = h < 48 ? `${h} h` : `${Math.round(h / 24)} dia${Math.round(h / 24) === 1 ? '' : 's'}`;
+    return ms < 0 ? `atrasada ${txt}` : `faltam ${txt}`;
 };
