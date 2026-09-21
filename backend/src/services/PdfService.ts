@@ -10,6 +10,13 @@ import { supabase } from '../lib/supabaseClient';
 // OUTRA empresa de adivinhar o nome do ficheiro (ex: nome do funcionário +
 // mês, para um recibo de salário) — por isso cada nome inclui também este
 // componente aleatório e imprevisível.
+// PDF 1.4 sem compressão de objetos: é o único formato do pdfkit que o
+// pdf-parse (usado pelo módulo de Documentos para indexar o conteúdo) lê.
+// Com as opções por defeito, cada proforma/recibo/ata entrava no arquivo sem
+// texto pesquisável. Custa uns KB a mais por ficheiro; as imagens continuam
+// comprimidas dentro do próprio objeto de imagem.
+const OPCOES_PDF = { margin: 50, pdfVersion: '1.4' as const, compress: false };
+
 const tokenAleatorio = () => crypto.randomBytes(8).toString('hex');
 
 export class PdfService {
@@ -56,6 +63,22 @@ export class PdfService {
         return (configs || []).reduce((acc: any, c: any) => ({...acc, [c.chave]: c.valor}), {});
     }
 
+
+    // Cada PDF gerado fica também no módulo de Documentos (se a empresa o tiver),
+    // ligado ao cliente/colaborador/reunião a que diz respeito. Nunca atrasa nem
+    // faz falhar a geração: corre depois de o ficheiro estar escrito.
+    private static registarNoArquivo(filePath: string, info: { empresaId?: number; titulo: string; area: string; tipo: string; entidade?: { tipo?: string; id?: string | number; nome: string }; resumo?: string; origemRef?: string }) {
+        setImmediate(async () => {
+            try {
+                const { DocumentosService } = require('./DocumentosService');
+                const buffer = fs.readFileSync(filePath);
+                await DocumentosService.registarGerado({ empresaId: info.empresaId, buffer, nomeFicheiro: path.basename(filePath), ...info } as any);
+            } catch (e: any) {
+                console.error('[PdfService] Não foi possível registar no arquivo:', e?.message);
+            }
+        });
+    }
+
     public static async gerarReciboVencimento(
         nomeFuncionario: string,
         nif: string,
@@ -67,7 +90,7 @@ export class PdfService {
 
         return new Promise((resolve, reject) => {
             try {
-                const doc = new PDFDocument({ margin: 50 });
+                const doc = new PDFDocument(OPCOES_PDF);
                 const fileName = `Recibo_${nomeFuncionario.replace(/\s+/g, '_')}_${mesAno.replace('/', '_')}_${tokenAleatorio()}.pdf`;
                 const filePath = path.join(__dirname, '..', '..', 'tmp', fileName);
                 
@@ -150,7 +173,7 @@ export class PdfService {
 
                 doc.end();
 
-                stream.on('finish', () => resolve(filePath));
+                stream.on('finish', () => { PdfService.registarNoArquivo(filePath, { empresaId, titulo: `Recibo de vencimento — ${nomeFuncionario} (${mesAno})`, area: 'RH', tipo: 'Recibo', entidade: { tipo: 'colaborador', nome: nomeFuncionario }, resumo: `Recibo de vencimento de ${mesAno}.` }); resolve(filePath); });
                 stream.on('error', (err) => reject(err));
 
             } catch (error) {
@@ -170,7 +193,7 @@ export class PdfService {
 
         return new Promise((resolve, reject) => {
             try {
-                const doc = new PDFDocument({ margin: 50 });
+                const doc = new PDFDocument(OPCOES_PDF);
                 const fileName = `Relatorio_Negocio_${Date.now()}_${tokenAleatorio()}.pdf`;
                 const filePath = path.join(__dirname, '..', '..', 'tmp', fileName);
 
@@ -275,7 +298,7 @@ export class PdfService {
 
                 doc.end();
 
-                stream.on('finish', () => resolve(filePath));
+                stream.on('finish', () => { PdfService.registarNoArquivo(filePath, { empresaId, titulo: `Relatório de negócio — ${new Date().toLocaleDateString('pt-PT')}`, area: 'Financeiro', tipo: 'Relatório', resumo: 'Relatório de indicadores de RH e vendas gerado pelo sistema.' }); resolve(filePath); });
                 stream.on('error', (err) => reject(err));
 
             } catch (error) {
@@ -292,7 +315,7 @@ export class PdfService {
 
         return new Promise((resolve, reject) => {
             try {
-                const doc = new PDFDocument({ margin: 50 });
+                const doc = new PDFDocument(OPCOES_PDF);
                 const fileName = `Declaracao_${colaborador.nome.replace(/\s+/g, '_')}_${tokenAleatorio()}.pdf`;
                 const filePath = path.join(__dirname, '..', '..', 'tmp', fileName);
 
@@ -342,7 +365,7 @@ Esta declaração é emitida a pedido do(a) interessado(a) para os fins que se m
 
                 doc.end();
 
-                stream.on('finish', () => resolve(filePath));
+                stream.on('finish', () => { PdfService.registarNoArquivo(filePath, { empresaId, titulo: `Declaração de serviço — ${colaborador.nome}`, area: 'RH', tipo: 'Declaração', entidade: { tipo: 'colaborador', nome: colaborador.nome }, resumo: `Declaração de vínculo laboral de ${colaborador.nome}.` }); resolve(filePath); });
                 stream.on('error', (err) => reject(err));
 
             } catch (error) {
@@ -365,7 +388,7 @@ Esta declaração é emitida a pedido do(a) interessado(a) para os fins que se m
 
         return new Promise((resolve, reject) => {
             try {
-                const doc = new PDFDocument({ margin: 50 });
+                const doc = new PDFDocument(OPCOES_PDF);
                 const fileName = `Proforma_${negocio.id}_${tokenAleatorio()}.pdf`;
                 const filePath = path.join(__dirname, '..', '..', 'tmp', fileName);
 
@@ -458,7 +481,10 @@ Esta declaração é emitida a pedido do(a) interessado(a) para os fins que se m
 
                 doc.end();
 
-                stream.on('finish', () => resolve({ filePath, totalGeral }));
+                stream.on('finish', () => {
+                    PdfService.registarNoArquivo(filePath, { empresaId, titulo: `Proforma nº ${negocio.id} — ${negocio.clientes?.nome || negocio.clientes?.empresa || 'cliente'}`, area: 'Clientes', tipo: 'Proforma', entidade: { tipo: 'negocio', id: negocio.id, nome: negocio.clientes?.nome || negocio.clientes?.empresa || `Negócio ${negocio.id}` }, resumo: `Proforma no valor de ${totalGeral.toLocaleString('pt-PT')} Kz.`, origemRef: String(negocio.id) });
+                    resolve({ filePath, totalGeral });
+                });
                 stream.on('error', reject);
             } catch (error) {
                 reject(error);
@@ -485,7 +511,7 @@ Esta declaração é emitida a pedido do(a) interessado(a) para os fins que se m
 
         return new Promise((resolve, reject) => {
             try {
-                const doc = new PDFDocument({ margin: 50 });
+                const doc = new PDFDocument(OPCOES_PDF);
                 const fileName = `Ata_${reuniao.id}_${tokenAleatorio()}.pdf`;
                 const filePath = path.join(__dirname, '..', '..', 'tmp', fileName);
 
@@ -591,7 +617,10 @@ Esta declaração é emitida a pedido do(a) interessado(a) para os fins que se m
 
                 doc.end();
 
-                stream.on('finish', () => resolve(filePath));
+                stream.on('finish', () => {
+                    PdfService.registarNoArquivo(filePath, { empresaId, titulo: `Ata — ${reuniao.titulo}`, area: 'Operações', tipo: 'Ata', entidade: { tipo: 'reuniao', id: reuniao.id, nome: reuniao.titulo }, resumo: (reuniao.resumo_ia || '').slice(0, 300) || `Ata da reunião de ${new Date(reuniao.data_hora).toLocaleDateString('pt-PT')}.`, origemRef: String(reuniao.id) });
+                    resolve(filePath);
+                });
                 stream.on('error', reject);
             } catch (error) {
                 reject(error);

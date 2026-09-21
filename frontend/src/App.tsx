@@ -15,6 +15,7 @@ import DataApp from './components/DataApp';
 import AfiliadosApp from './components/AfiliadosApp';
 import FinanceiroApp from './components/FinanceiroApp';
 import AgendamentoApp from './components/AgendamentoApp';
+import DocumentosApp from './components/DocumentosApp';
 import PortalAfiliado from './components/PortalAfiliado';
 import PortalCarreiras from './pages/public/PortalCarreiras';
 import CandidaturaForm from './pages/public/CandidaturaForm';
@@ -25,7 +26,7 @@ import PoliticaPrivacidade from './pages/public/PoliticaPrivacidade';
 import PoliticaCookies from './pages/public/PoliticaCookies';
 import CookieBanner from './components/CookieBanner';
 import ErrorBoundary from './components/ErrorBoundary';
-import { Users, Briefcase, PieChart, Bot, Zap, LogOut, MessageSquare, BookOpen, Mail, Settings, Clock, Globe, Video, Share2, Calculator, Shield, CalendarClock } from 'lucide-react';
+import { Users, Briefcase, PieChart, Bot, Zap, LogOut, MessageSquare, BookOpen, Mail, Settings, Clock, Globe, Video, Share2, Calculator, Shield, CalendarClock, FolderOpen } from 'lucide-react';
 import { LogoMark } from './components/BrandLogo';
 
 const IS_AFFILIATE_PORTAL = window.location.pathname === '/portal-afiliado';
@@ -36,6 +37,7 @@ const MODULOS: { key: string; label: string; icon: any }[] = [
   { key: 'contabilidade', label: 'Financeiro', icon: Calculator },
   { key: 'reunioes', label: 'Reuniões IA', icon: Video },
   { key: 'agendamento', label: 'Agendamento', icon: CalendarClock },
+  { key: 'documentos', label: 'Documentos', icon: FolderOpen },
   { key: 'wa', label: 'WhatsApp', icon: MessageSquare },
   { key: 'auto', label: 'Autopilot', icon: Zap },
   { key: 'afiliados', label: 'Parcerias', icon: Share2 },
@@ -48,17 +50,17 @@ const MODULOS: { key: string; label: string; icon: any }[] = [
 ];
 
 const ROLE_PERMISSIONS: Record<string, string[]> = {
-  superadmin: ['home', 'superadmin', 'hr', 'crm', 'data', 'chat', 'auto', 'wa', 'kb', 'email', 'settings', 'reunioes', 'afiliados', 'contabilidade', 'agendamento'],
-  admin: ['home', 'hr', 'crm', 'data', 'chat', 'auto', 'wa', 'kb', 'email', 'settings', 'reunioes', 'afiliados', 'contabilidade', 'agendamento'],
-  hr_manager: ['home', 'hr', 'chat', 'kb', 'email', 'reunioes'],
+  superadmin: ['home', 'superadmin', 'hr', 'crm', 'data', 'chat', 'auto', 'wa', 'kb', 'email', 'settings', 'reunioes', 'afiliados', 'contabilidade', 'agendamento', 'documentos'],
+  admin: ['home', 'hr', 'crm', 'data', 'chat', 'auto', 'wa', 'kb', 'email', 'settings', 'reunioes', 'afiliados', 'contabilidade', 'agendamento', 'documentos'],
+  hr_manager: ['home', 'hr', 'chat', 'kb', 'email', 'reunioes', 'documentos'],
   rh_user: ['home', 'hr', 'chat', 'kb', 'reunioes'],
-  sales_manager: ['home', 'crm', 'wa', 'email', 'data', 'chat', 'kb', 'reunioes', 'afiliados', 'agendamento'],
+  sales_manager: ['home', 'crm', 'wa', 'email', 'data', 'chat', 'kb', 'reunioes', 'afiliados', 'agendamento', 'documentos'],
   agente: ['home', 'wa', 'chat', 'kb', 'email', 'reunioes', 'agendamento'],
   pending: [] // Bloqueado
 };
 
 function App() {
-  const [activeModule, setActiveModule] = useState<'home' | 'hr' | 'crm' | 'data' | 'chat' | 'auto' | 'wa' | 'kb' | 'email' | 'settings' | 'superadmin' | 'reunioes' | 'afiliados' | 'contabilidade' | 'agendamento'>('home');
+  const [activeModule, setActiveModule] = useState<'home' | 'hr' | 'crm' | 'data' | 'chat' | 'auto' | 'wa' | 'kb' | 'email' | 'settings' | 'superadmin' | 'reunioes' | 'afiliados' | 'contabilidade' | 'agendamento' | 'documentos'>('home');
   const [user, setUser] = useState<any>(null);
   const [token, setToken] = useState<string | null>(null);
   const [showLanding, setShowLanding] = useState<boolean>(true);
@@ -294,7 +296,7 @@ function App() {
     return <><AuthScreen onLogin={handleLogin} onBack={() => setShowLanding(true)} /><CookieBanner /></>;
   }
 
-  const navigateTo = (module: 'home' | 'hr' | 'crm' | 'data' | 'chat' | 'auto' | 'wa' | 'kb' | 'email' | 'settings' | 'superadmin' | 'reunioes' | 'afiliados' | 'contabilidade' | 'agendamento') => {
+  const navigateTo = (module: 'home' | 'hr' | 'crm' | 'data' | 'chat' | 'auto' | 'wa' | 'kb' | 'email' | 'settings' | 'superadmin' | 'reunioes' | 'afiliados' | 'contabilidade' | 'agendamento' | 'documentos') => {
     if (hasAccess(module)) {
       setActiveModule(module);
     }
@@ -373,6 +375,7 @@ function App() {
             {activeModule === 'afiliados' && 'Programa de Afiliados'}
             {activeModule === 'contabilidade' && 'Financeiro'}
             {activeModule === 'agendamento' && 'Agendamento'}
+            {activeModule === 'documentos' && 'Documentos'}
           </div>
         )}
 
@@ -495,6 +498,7 @@ function App() {
                 {activeModule === 'afiliados' && <AfiliadosApp />}
                 {activeModule === 'contabilidade' && <FinanceiroApp />}
                 {activeModule === 'agendamento' && <AgendamentoApp />}
+                {activeModule === 'documentos' && <DocumentosApp />}
 
                 {activeModule === 'chat' && (
                    <div className="odoo-content-area" style={{ padding: 0 }}>

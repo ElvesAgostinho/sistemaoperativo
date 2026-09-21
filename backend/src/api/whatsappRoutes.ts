@@ -33,6 +33,28 @@ async function uploadMediaToStorage(base64Data: string, fileName: string, mimeTy
     }
 }
 
+// HELPER: entrada opcional do módulo de Documentos a partir do WhatsApp
+async function capturarMediaParaDocumentos(channelId: string, mediaUrl: string, nomeFicheiro: string, msgId: string, contacto: string, telefone: string) {
+    const { data: canal } = await supabase.from('wa_channels').select('empresa_id').eq('id', channelId).maybeSingle();
+    const empresaId = canal?.empresa_id;
+    if (!empresaId) return;
+
+    const { DocumentosService } = require('../services/DocumentosService');
+    if (!(await DocumentosService.empresaTemModulo(String(empresaId)))) return;
+    if (!(await DocumentosService.capturaAtiva(String(empresaId), 'whatsapp'))) return;
+
+    const res = await fetch(mediaUrl);
+    if (!res.ok) return;
+    const buffer = Buffer.from(await res.arrayBuffer());
+    const mime = res.headers.get('content-type') || 'application/octet-stream';
+    const nome = /\.[a-z0-9]{2,5}$/i.test(nomeFicheiro) ? nomeFicheiro : `${nomeFicheiro}.${mime.startsWith('image/') ? 'jpg' : 'bin'}`;
+
+    await DocumentosService.receber({
+        empresaId: String(empresaId), buffer, nomeFicheiro: nome, mimeType: mime,
+        origem: 'whatsapp', origemRef: msgId, origemDetalhe: `${contacto} (${telefone})`.slice(0, 300)
+    });
+}
+
 // HELPER: Download de mídia da Evolution API
 // Áudios (PTT) em particular falham com frequência à primeira tentativa: a
 // Evolution/Baileys às vezes ainda não tem a mídia pronta a decifrar no
@@ -320,6 +342,15 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                     direction: 'inbound',
                     id: msg.key.id
                 }).catch(err => console.error('[Webhook Evolution] Erro no processamento assíncrono do Automation Engine:', err));
+
+                // Porta opcional do módulo de Documentos: uma foto de um papel ou um
+                // PDF enviado para o WhatsApp da empresa vai para a fila de arquivo.
+                // Só imagens e documentos (não áudio/vídeo/stickers), e só para
+                // empresas com o módulo e com a captura por WhatsApp ligada.
+                if (mediaUrl && (mediaType === 'image' || mediaType === 'document') && !msg.message?.stickerMessage) {
+                    capturarMediaParaDocumentos(channelId, mediaUrl, mediaFilename || 'ficheiro', msg.key.id, contactName, phoneNumber)
+                        .catch(err => console.error('[Webhook Evolution] Falha a capturar para Documentos:', err?.message));
+                }
             }
         }
         res.status(200).send('OK');

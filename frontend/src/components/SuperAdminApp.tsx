@@ -46,6 +46,7 @@ const SuperAdminApp = () => {
     { id: 'afiliados', name: 'Parcerias' },
     { id: 'contabilidade', name: 'Financeiro' },
     { id: 'agendamento', name: 'Agendamento' },
+    { id: 'documentos', name: 'Documentos e Informação' },
   ];
 
   useEffect(() => {

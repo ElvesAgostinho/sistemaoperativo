@@ -82,6 +82,8 @@ export class EmailSyncService {
                         data_envio: parsed.date ? parsed.date.toISOString() : new Date().toISOString()
                     });
                     addedCount++;
+
+                    await this.capturarAnexosParaDocumentos(empresaId, messageId, from, parsed.subject || '', parsed.attachments || []);
                 } catch (err) {
                     console.error('[EmailSync] Erro a processar mensagem', err);
                 }
@@ -93,6 +95,42 @@ export class EmailSyncService {
             console.error(`[EmailSync] Erro a sincronizar empresa ${empresaId}:`, error.message);
             return 0;
         }
+    }
+
+    /**
+     * Porta de entrada automática do módulo de Documentos: cada anexo que chega
+     * na caixa de entrada vai para a fila de leitura por IA. Só para empresas
+     * com o módulo contratado e com a captura por email ligada. Nunca faz
+     * falhar a sincronização do email em si.
+     */
+    private static async capturarAnexosParaDocumentos(empresaId: string, messageId: string, remetente: string, assunto: string, anexos: any[]) {
+        try {
+            const uteis = anexos.filter(a => a?.content && a.content.length > 0 && a.contentDisposition !== 'inline' && !this.ehAnexoIrrelevante(a));
+            if (uteis.length === 0) return;
+
+            const { DocumentosService } = require('./DocumentosService');
+            if (!(await DocumentosService.empresaTemModulo(empresaId))) return;
+            if (!(await DocumentosService.capturaAtiva(empresaId, 'email'))) return;
+
+            for (const a of uteis) {
+                await DocumentosService.receber({
+                    empresaId, buffer: a.content, nomeFicheiro: a.filename || 'anexo', mimeType: a.contentType || 'application/octet-stream',
+                    origem: 'email', origemRef: messageId, origemDetalhe: `${remetente}${assunto ? ` — ${assunto}` : ''}`.slice(0, 300)
+                }).catch((e: any) => console.error('[EmailSync] Anexo não arquivado:', a.filename, e.message));
+            }
+        } catch (e: any) {
+            console.error('[EmailSync] Falha a capturar anexos para Documentos:', e.message);
+        }
+    }
+
+    // Imagens embutidas na assinatura, ícones e afins: nunca são documentos.
+    private static ehAnexoIrrelevante(a: any): boolean {
+        const nome = String(a.filename || '').toLowerCase();
+        const tipo = String(a.contentType || '').toLowerCase();
+        if (a.related || (a.cid && tipo.startsWith('image/'))) return true; // referenciado no HTML (assinatura/logótipo)
+        if (tipo.startsWith('image/') && (a.size || a.content?.length || 0) < 25 * 1024) return true;
+        if (/\.(ics|vcf|p7s|asc|sig)$/.test(nome) || tipo.includes('calendar') || tipo.includes('pkcs7')) return true;
+        return false;
     }
 
     /**

@@ -23,6 +23,8 @@ import emailRoutes from './api/emailRoutes';
 import publicRoutes from './api/publicRoutes';
 import { EmailSyncService } from './services/EmailSyncService';
 import { CampaignService } from './services/CampaignService';
+import documentosRoutes from './api/documentosRoutes';
+import { DocumentosService } from './services/DocumentosService';
 import { requireAuth } from './middleware/authMiddleware';
 import path from 'path';
 
@@ -77,6 +79,7 @@ app.use('/api/financeiro', requireAuth, financeiroRoutes);
 app.use('/api/agendamento', requireAuth, agendamentoRoutes);
 app.use('/api/campanhas', requireAuth, campanhasRoutes);
 app.use('/api/email', requireAuth, emailRoutes);
+app.use('/api/documentos', documentosRoutes); // valida sessao e licenca do modulo internamente
 app.use('/api/public', publicRoutes);
 
 // Basic health check route
@@ -104,4 +107,12 @@ app.listen(port, () => {
   setInterval(() => {
     CampaignService.processarFila().catch(console.error);
   }, 20 * 1000);
+
+  // Documentos que ficaram a meio (ex: o servidor reiniciou durante a leitura
+  // por IA) retomam sozinhos; o intervalo apanha tambem os que entram por
+  // email fora de um pedido HTTP.
+  DocumentosService.processarFila().catch(console.error);
+  setInterval(() => {
+    DocumentosService.processarFila().catch(console.error);
+  }, 30 * 1000);
 });
