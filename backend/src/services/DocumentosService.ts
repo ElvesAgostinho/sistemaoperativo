@@ -130,7 +130,9 @@ export class DocumentosService {
             }
 
             const ligacao = await this.ligarEntidade(doc.empresa_id, analise.entidade);
-            const arquivaSozinho = analise.confianca >= CONFIANCA_MINIMA;
+            // Validação humana: por omissão TUDO passa por "Por rever" — a IA propõe, uma
+            // pessoa confirma. Só com "auto" ligado é que a IA arquiva sozinha o que lê com confiança.
+            const arquivaSozinho = (await this.validacaoAutomatica(doc.empresa_id)) && analise.confianca >= CONFIANCA_MINIMA;
             const tipoDoc = await DocumentosGovernoService.tipoPorNome(doc.empresa_id, analise.tipo);
 
             await supabase.from('documentos').update({
@@ -408,6 +410,14 @@ ${contexto}` },
             if (!row?.valor) return false;
             const modulos = JSON.parse(row.valor);
             return Array.isArray(modulos) && modulos.includes('documentos');
+        } catch { return false; }
+    }
+
+    /** true = a IA arquiva sozinha o que lê com confiança; false (omissão) = tudo passa por "Por rever". */
+    public static async validacaoAutomatica(empresaId: string): Promise<boolean> {
+        try {
+            const { data: row } = await supabase.from('configuracoes').select('valor').eq('empresa_id', empresaId).eq('chave', 'documentos_arquivo_automatico').maybeSingle();
+            return row?.valor === 'true';
         } catch { return false; }
     }
 

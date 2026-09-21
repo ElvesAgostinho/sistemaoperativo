@@ -33,6 +33,20 @@ export default class ErrorBoundary extends Component<Props, State> {
     componentDidCatch(error: Error, info: ErrorInfo) {
         console.error('[ErrorBoundary] Erro não tratado capturado:', error, info.componentStack);
         this.setState({ componentStack: info.componentStack || null });
+
+        // "removeChild/insertBefore ... não é filho deste nó" quer dizer que algo de
+        // fora (tradutor do browser, extensão) mexeu no DOM que o React gere. O
+        // estado da aplicação está bom; basta voltar a montar. Faz-se uma vez por
+        // minuto para não entrar em ciclo se o problema persistir.
+        if (/removeChild|insertBefore|não é filho|not a child/i.test(error?.message || '')) {
+            try {
+                const ultimo = Number(sessionStorage.getItem('os_recuperacao_dom') || 0);
+                if (Date.now() - ultimo > 60_000) {
+                    sessionStorage.setItem('os_recuperacao_dom', String(Date.now()));
+                    setTimeout(() => window.location.reload(), 300);
+                }
+            } catch { /* sem sessionStorage: fica o ecrã com o botão */ }
+        }
     }
 
     handleReload = () => {

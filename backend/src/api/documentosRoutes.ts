@@ -96,7 +96,8 @@ router.get('/', async (req: AuthRequest, res: Response) => {
             .eq('empresa_id', empresaDe(req)).order('criado_em', { ascending: false }).limit(300);
         if (areas) q = q.in('area', areas);
         if (area) q = q.eq('area', area);
-        q = estado ? q.eq('estado', estado) : q.neq('estado', 'descartado');
+        // "Por rever" é a caixa de entrada: o que está a ser lido, o que espera confirmação e o que falhou.
+        q = estado === 'por_rever' ? q.in('estado', ['a_processar', 'por_rever', 'erro']) : estado ? q.eq('estado', estado) : q.neq('estado', 'descartado');
         q = ciclo ? q.eq('ciclo', ciclo) : q.neq('ciclo', 'DELETED');
         if (tipo_id) q = q.eq('tipo_id', Number(tipo_id));
         if (pasta_id) q = pasta_id === 'raiz' ? q.is('pasta_id', null) : q.eq('pasta_id', Number(pasta_id));
@@ -359,21 +360,21 @@ router.get('/auditoria/global', soAdmin, async (req: AuthRequest, res: Response)
 router.get('/definicoes/estado', soAdmin, async (req: AuthRequest, res: Response) => {
     try {
         const e = empresaDe(req);
-        const [email, wa, perms, users] = await Promise.all([
-            DocumentosService.capturaAtiva(e, 'email'), DocumentosService.capturaAtiva(e, 'whatsapp'),
+        const [email, wa, auto, perms, users] = await Promise.all([
+            DocumentosService.capturaAtiva(e, 'email'), DocumentosService.capturaAtiva(e, 'whatsapp'), DocumentosService.validacaoAutomatica(e),
             supabase.from('documentos_permissoes').select('user_id, area').eq('empresa_id', e),
             getSupabase(req).from('perfis').select('id, nome, email, role').eq('empresa_id', e)
         ]);
-        res.json({ success: true, capturaEmail: email, capturaWhatsapp: wa, permissoes: perms.data || [], utilizadores: users.data || [], areas: DocumentosService.areas });
+        res.json({ success: true, capturaEmail: email, capturaWhatsapp: wa, arquivoAutomatico: auto, permissoes: perms.data || [], utilizadores: users.data || [], areas: DocumentosService.areas });
     } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 router.put('/definicoes/captura', soAdmin, async (req: AuthRequest, res: Response) => {
     try {
         const e = empresaDe(req);
-        for (const canal of ['email', 'whatsapp'] as const) {
+        for (const canal of ['email', 'whatsapp', 'arquivo_automatico'] as const) {
             if (typeof req.body[canal] !== 'boolean') continue;
-            const chave = `documentos_captura_${canal}`;
+            const chave = canal === 'arquivo_automatico' ? 'documentos_arquivo_automatico' : `documentos_captura_${canal}`;
             await supabase.from('configuracoes').delete().eq('empresa_id', e).eq('chave', chave);
             await supabase.from('configuracoes').insert({ empresa_id: e, chave, valor: String(req.body[canal]) });
         }

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
     FolderOpen, Folder, FolderPlus, Search, Upload, Inbox, ShieldAlert, Wrench, Settings, FileText, FileImage, FileSpreadsheet, ArrowLeft,
-    Mail, MessageSquare, Cpu, User, Briefcase, Users, ChevronRight, ChevronDown, X, Check, Trash2, AlertTriangle, Clock, CheckCircle2, Plus, Sparkles, Loader2, ScrollText, Pencil, CheckSquare, ClipboardCheck
+    Mail, MessageSquare, Cpu, User, Briefcase, Users, ChevronRight, ChevronDown, X, Check, Trash2, AlertTriangle, Clock, CheckCircle2, Plus, Sparkles, Loader2, ScrollText, Pencil, CheckSquare, ClipboardCheck, RefreshCw
 } from 'lucide-react';
 import { API, authFetch, AREAS, COR, diasAte, fmtData, fmtDataHora, btn, input, label, ROTULO_ACAO } from './documentos/comum';
 import type { Doc, TipoDoc } from './documentos/comum';
@@ -135,6 +135,8 @@ export default function DocumentosApp({ onVoltar }: { onVoltar?: () => void }) {
         if (duplicados.length) partes.push(`${duplicados.length} já existia${duplicados.length === 1 ? '' : 'm'} no arquivo (ignorado${duplicados.length === 1 ? '' : 's'})`);
         if (erros.length) partes.push(erros.join(' · '));
         setAvisoUpload(partes.join(' · '));
+        // O documento entra sempre pela caixa "Por rever": leva o utilizador para lá para o ver a ser lido e confirmar.
+        if (['todos', 'area', 'entidade'].includes(vista)) setVista('por_rever');
         fetchResumo(); fetchDocs();
     };
     const onDrop = (e: React.DragEvent) => { e.preventDefault(); setArrastar(false); enviarFicheiros(Array.from(e.dataTransfer.files)); };
@@ -345,7 +347,7 @@ function ListaDocs({ vista, areaSel, pastaSel, entidadeSel, pastas, docs, loadin
                 <button onClick={onUpload} style={btn(true)}><Upload size={14} /> Carregar{vista === 'pasta' && pastaSel ? ' aqui' : ''}</button>
             </div>
 
-            {vista === 'por_rever' && <p style={{ margin: '0 20px 12px', fontSize: '12.5px', color: COR.muted, lineHeight: 1.5 }}>A IA não teve confiança suficiente para arquivar estes sozinha, ou não os reconheceu como documentos da empresa. Confirme a sugestão, corrija, ou descarte.</p>}
+            {vista === 'por_rever' && <p style={{ margin: '0 20px 12px', fontSize: '12.5px', color: COR.muted, lineHeight: 1.5 }}>Caixa de entrada do arquivo: tudo o que chega passa por aqui. A IA lê o documento e propõe tipo, área, entidade e dados; confirme com "Arquivar assim", corrija, ou descarte. Só depois de confirmado é que o documento fica em vigor na sua área.</p>}
             {comErro > 0 && vista === 'todos' && <p style={{ margin: '0 20px 12px', fontSize: '12.5px', color: COR.bad }}>{comErro} documento(s) falharam a leitura — abra-os para tentar de novo.</p>}
 
             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 20px 20px' }}>
@@ -358,7 +360,7 @@ function ListaDocs({ vista, areaSel, pastaSel, entidadeSel, pastas, docs, loadin
                 {!loading && docs.length === 0 && (
                     <div style={{ border: `2px dashed ${COR.border}`, borderRadius: '2px', padding: '48px 20px', textAlign: 'center', color: COR.muted, fontSize: '13.5px', lineHeight: 1.6, cursor: 'pointer' }} onClick={onUpload}>
                         <Upload size={32} color={COR.border} style={{ marginBottom: '10px' }} />
-                        <div style={{ fontWeight: 700, color: COR.ink }}>{vista === 'por_rever' ? 'Nada por rever.' : 'Ainda não há documentos aqui.'}</div>
+                        <div style={{ fontWeight: 700, color: COR.ink }}>{vista === 'por_rever' ? 'Caixa de entrada vazia — nada por rever.' : 'Ainda não há documentos aqui.'}</div>
                         {vista !== 'por_rever' && <div>Arraste ficheiros para esta janela ou clique para carregar. A IA lê, classifica e arruma por si.</div>}
                     </div>
                 )}
@@ -393,7 +395,13 @@ function CartaoDoc({ doc, porRever, onAbrir, onAtualizar }: { doc: Doc; porRever
                 {doc.entidade_nome && <span style={{ fontSize: '11.5px', color: COR.muted, display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconeEntidade tipo={doc.entidade_tipo} /> {doc.entidade_nome}{!doc.entidade_id && <span style={{ color: COR.faint }}> (não ligado)</span>}</span>}
                 <span style={{ marginLeft: 'auto' }}><BadgeValidade validade={doc.validade} /></span>
             </div>
-            {porRever && (
+            {porRever && emErro && (
+                <div style={{ display: 'flex', gap: '6px', marginTop: '4px', paddingTop: '8px', borderTop: `1px solid ${COR.borderSoft}` }} onClick={e => e.stopPropagation()}>
+                    <button style={{ ...btn(true), padding: '5px 10px', marginLeft: 'auto' }} onClick={async () => { await authFetch(`${API}/api/documentos/${doc.id}/reprocessar`, { method: 'POST' }); onAtualizar(doc.id, {}); }}><RefreshCw size={12} /> Tentar ler de novo</button>
+                    <button style={{ ...btn(false, true), padding: '5px 8px' }} onClick={() => onAtualizar(doc.id, { estado: 'descartado' })} title="Descartar"><Trash2 size={12} /></button>
+                </div>
+            )}
+            {porRever && doc.estado === 'por_rever' && (
                 <div style={{ display: 'flex', gap: '6px', marginTop: '4px', paddingTop: '8px', borderTop: `1px solid ${COR.borderSoft}` }} onClick={e => e.stopPropagation()}>
                     <span style={{ fontSize: '11px', color: COR.faint, alignSelf: 'center', marginRight: 'auto' }}>confiança {Math.round((doc.confianca || 0) * 100)}%</span>
                     <button style={{ ...btn(true), padding: '5px 10px' }} onClick={() => onAtualizar(doc.id, { estado: 'arquivado' })}><Check size={12} /> Arquivar assim</button>
@@ -608,7 +616,7 @@ function Definicoes({ tipos }: { tipos: TipoDoc[] }) {
     const [est, setEst] = useState<any>(null); const [aGuardar, setAGuardar] = useState<string | null>(null);
     const carregar = useCallback(async () => { const r = await authFetch(`${API}/api/documentos/definicoes/estado`); const d = await r.json(); if (d.success) setEst(d); }, []);
     useEffect(() => { carregar(); }, [carregar]);
-    const captura = async (canal: 'email' | 'whatsapp', valor: boolean) => {
+    const captura = async (canal: 'email' | 'whatsapp' | 'arquivo_automatico', valor: boolean) => {
         setAGuardar(canal);
         const res = await authFetch(`${API}/api/documentos/definicoes/captura`, { method: 'PUT', body: JSON.stringify({ [canal]: valor }) }); const data = await res.json();
         if (!res.ok || !data.success) alert('Erro: ' + (data.error || 'não foi possível guardar.')); else carregar();
@@ -636,6 +644,11 @@ function Definicoes({ tipos }: { tipos: TipoDoc[] }) {
                     <div style={{ fontWeight: 700, color: COR.ink, marginBottom: '12px' }}>Portas de entrada automáticas</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '10px 0', borderBottom: `1px solid ${COR.borderSoft}` }}><Mail size={18} color={COR.muted} /><div style={{ flex: 1 }}><div style={{ fontSize: '13.5px', fontWeight: 600, color: COR.ink }}>Anexos de email</div><div style={{ fontSize: '12.5px', color: COR.muted }}>Todo o anexo que chegar à caixa de entrada da empresa (Email → Definições) é lido e arquivado automaticamente. Reencaminhe um email para lá e fica feito.</div></div><Toggle ligado={est.capturaEmail} aGuardarEste={aGuardar === 'email'} onClick={() => captura('email', !est.capturaEmail)} /></div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '10px 0' }}><MessageSquare size={18} color={COR.muted} /><div style={{ flex: 1 }}><div style={{ fontSize: '13.5px', fontWeight: 600, color: COR.ink }}>Fotos e ficheiros pelo WhatsApp</div><div style={{ fontSize: '12.5px', color: COR.muted }}>Uma foto de um papel ou um PDF enviado para o WhatsApp da empresa vai para o arquivo. Desligado por omissão.</div></div><Toggle ligado={est.capturaWhatsapp} aGuardarEste={aGuardar === 'whatsapp'} onClick={() => captura('whatsapp', !est.capturaWhatsapp)} /></div>
+                </div>
+
+                <div style={{ background: 'white', border: `1px solid ${COR.border}`, borderRadius: '2px', padding: '16px', marginBottom: '16px' }}>
+                    <div style={{ fontWeight: 700, color: COR.ink, marginBottom: '12px' }}>Validação humana</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '10px 0' }}><Sparkles size={18} color={COR.muted} /><div style={{ flex: 1 }}><div style={{ fontSize: '13.5px', fontWeight: 600, color: COR.ink }}>Arquivar automaticamente quando a IA tem confiança</div><div style={{ fontSize: '12.5px', color: COR.muted }}>Desligado (recomendado): todos os documentos entram por "Por rever" e uma pessoa confirma a proposta da IA antes de ficarem em vigor. Ligado: o que a IA lê com confiança alta (≥ 70%) é arquivado sozinho; só os duvidosos ficam por rever.</div></div><Toggle ligado={!!est.arquivoAutomatico} aGuardarEste={aGuardar === 'arquivo_automatico'} onClick={() => captura('arquivo_automatico', !est.arquivoAutomatico)} /></div>
                 </div>
 
                 <DocumentosTipos />
