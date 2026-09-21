@@ -66,7 +66,9 @@ export const ROTULO_ACAO: Record<string, string> = {
     fluxo_criado: 'Fluxo criado', fluxo_editado: 'Fluxo alterado', fluxo_apagado: 'Fluxo apagado', enviado_email: 'Enviado por email',
     retencao_decidida: 'Retenção decidida', etiqueta_gerada: 'Etiqueta QR gerada', fisico_alterado: 'Localização física alterada',
     assinatura_pedida: 'Assinatura pedida', assinou: 'Assinou', recusou_assinar: 'Recusou assinar', assinatura_cancelada: 'Pedido de assinatura cancelado',
-    partilha_criada: 'Link de partilha criado', partilha_revogada: 'Link de partilha revogado', partilha_acedida: 'Link de partilha acedido'
+    partilha_criada: 'Link de partilha criado', partilha_revogada: 'Link de partilha revogado', partilha_acedida: 'Link de partilha acedido',
+    responsavel_atribuido: 'Responsável atribuído', responsavel_regra: 'Regra de responsável', tarefa_criada: 'Tarefa criada', tarefa_alterada: 'Tarefa alterada', tarefa_concluida: 'Tarefa concluída',
+    comentou: 'Comentou', ausencia_registada: 'Ausência registada', retencao_verificada: 'Retenção verificada'
 };
 
 export const ROTULO_TAREFA: Record<string, string> = { pendente: 'Pendente', aprovada: 'Aprovada', rejeitada: 'Rejeitada', delegada: 'Delegada', cancelada: 'Cancelada', escalada: 'Escalada' };

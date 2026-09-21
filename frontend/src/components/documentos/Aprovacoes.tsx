@@ -4,6 +4,7 @@ import { API, authFetch, COR, fmtDataHora, horasRestantes, btn } from './comum';
 import type { Doc } from './comum';
 import { AcoesTarefa } from './Aprovacao';
 import { BadgeCiclo, IconeConfidencialidade } from './DocumentoDetalhe';
+import { Tarefas, Ausencias } from './Trabalho';
 
 /** Caixa "As minhas aprovações": tudo o que espera pela decisão de quem está autenticado. */
 export default function Aprovacoes({ onAbrir, onMudou }: { onAbrir: (d: Doc) => void; onMudou: () => void }) {
@@ -33,8 +34,11 @@ export default function Aprovacoes({ onAbrir, onMudou }: { onAbrir: (d: Doc) => 
     return (
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '20px' }}>
             <div style={{ maxWidth: '900px' }}>
-                <h2 style={{ margin: '0 0 4px', fontSize: '18px', fontWeight: 700, color: COR.ink, display: 'flex', alignItems: 'center', gap: '8px' }}><CheckSquare size={18} color={COR.accent} /> As minhas aprovações</h2>
-                <p style={{ margin: '0 0 16px', fontSize: '12.5px', color: COR.muted }}>Documentos que esperam pela sua decisão. Pode aprovar aqui mesmo, ou abrir o documento para o ler primeiro.{atrasadas.length > 0 && <strong style={{ color: COR.bad }}> {atrasadas.length} fora de prazo.</strong>}</p>
+                <h2 style={{ margin: '0 0 4px', fontSize: '18px', fontWeight: 700, color: COR.ink, display: 'flex', alignItems: 'center', gap: '8px' }}><CheckSquare size={18} color={COR.accent} /> O meu trabalho</h2>
+                <p style={{ margin: '0 0 16px', fontSize: '12.5px', color: COR.muted }}>Tudo o que espera por si: tarefas, aprovações e assinaturas. Pode decidir aqui mesmo, ou abrir o documento para o ler primeiro.{atrasadas.length > 0 && <strong style={{ color: COR.bad }}> {atrasadas.length} aprovação(ões) fora de prazo.</strong>}</p>
+                <div style={{ background: 'white', border: `1px solid ${COR.border}`, borderRadius: '2px', padding: '14px 16px', marginBottom: '16px' }}>
+                    <Tarefas utilizadores={utilizadores} onAbrirDoc={abrir} titulo="As minhas tarefas" />
+                </div>
                 {erro && <div style={{ marginBottom: '12px', padding: '8px 12px', background: '#F6DEDE', border: '1px solid #fecaca', borderRadius: '2px', fontSize: '12.5px', color: COR.bad, display: 'flex', justifyContent: 'space-between' }}><span>{erro}</span><X size={14} style={{ cursor: 'pointer' }} onClick={() => setErro('')} /></div>}
 
                 {assinaturas.length > 0 && (
@@ -56,10 +60,14 @@ export default function Aprovacoes({ onAbrir, onMudou }: { onAbrir: (d: Doc) => 
                 {tarefas && tarefas.length === 0 && assinaturas.length === 0 && (
                     <div style={{ background: 'white', border: `1px solid ${COR.border}`, borderRadius: '2px', padding: '40px', textAlign: 'center' }}>
                         <CheckSquare size={32} color={COR.good} style={{ marginBottom: '8px' }} />
-                        <div style={{ fontWeight: 700, color: COR.ink }}>Nada à sua espera.</div>
+                        <div style={{ fontWeight: 700, color: COR.ink }}>Nenhuma aprovação ou assinatura à sua espera.</div>
                         <div style={{ fontSize: '12.5px', color: COR.muted }}>Quando alguém submeter um documento para a sua aprovação, aparece aqui e recebe uma notificação.</div>
                     </div>
                 )}
+                <div style={{ background: 'white', border: `1px solid ${COR.border}`, borderRadius: '2px', padding: '14px 16px', marginTop: '16px' }}>
+                    <Ausencias utilizadores={utilizadores} />
+                </div>
+                {tarefas && tarefas.length > 0 && <div style={{ fontWeight: 700, color: COR.ink, fontSize: '13px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}><CheckSquare size={14} color={COR.accent} /> Aprovações pedidas a si ({tarefas.length})</div>}
                 {(tarefas || []).map(t => (
                     <div key={t.id} style={{ background: 'white', border: `1px solid ${t.atrasada ? COR.bad : COR.border}`, borderRadius: '2px', padding: '14px 16px', marginBottom: '10px' }}>
                         <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>

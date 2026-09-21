@@ -129,6 +129,13 @@ app.listen(port, () => {
     DocumentosArquivoService.aplicarRetencao().catch(console.error);
   }, 60 * 60 * 1000);
 
+  // Trabalho por pessoa: tarefas automáticas de validade, lembretes e ausências (de hora a hora).
+  const { DocumentosEquipaService } = require('./services/DocumentosEquipaService');
+  setInterval(() => {
+    DocumentosEquipaService.tarefasAutomaticas().catch(console.error);
+    DocumentosEquipaService.aplicarAusencias().catch(console.error);
+  }, 60 * 60 * 1000);
+
   // Aprovações com prazo ultrapassado: escala ou avisa (a cada 10 minutos).
   const { DocumentosFluxoService } = require('./services/DocumentosFluxoService');
   setInterval(() => {

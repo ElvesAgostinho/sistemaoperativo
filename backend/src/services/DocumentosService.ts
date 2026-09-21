@@ -160,6 +160,9 @@ export class DocumentosService {
             }).eq('id', doc.id);
 
             await DocumentosGovernoService.atribuirCodigo(doc.empresa_id, doc.id, tipoDoc?.prefixo || 'DOC');
+            // Responsável por área/tipo: o documento fica logo atribuído a alguém.
+            const { DocumentosEquipaService } = require('./DocumentosEquipaService');
+            await DocumentosEquipaService.atribuirAutomaticamente({ ...doc, titulo: analise.titulo, area: analise.area, tipo_id: tipoDoc?.id || null, estado: arquivaSozinho ? 'arquivado' : 'por_rever' }).catch(() => null);
             await DocumentosGovernoService.auditar(doc.empresa_id, null, 'classificado', { id: doc.id, titulo: analise.titulo },
                 { area: analise.area, tipo: tipoDoc?.nome || analise.tipo, confianca: analise.confianca, estado: arquivaSozinho ? 'arquivado' : 'por_rever' });
             await this.indexarChunks(doc.empresa_id, doc.id, analise.texto);

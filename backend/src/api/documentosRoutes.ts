@@ -9,6 +9,7 @@ import { DocumentosCicloService, Ciclo, CICLOS, ROTULO_CICLO } from '../services
 import { MediaUploadService } from '../services/MediaUploadService';
 import { DocumentosFluxoService } from '../services/DocumentosFluxoService';
 import { DocumentosArquivoService } from '../services/DocumentosArquivoService';
+import { DocumentosEquipaService } from '../services/DocumentosEquipaService';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 30 * 1024 * 1024, files: 20 } });
@@ -74,15 +75,19 @@ router.get('/resumo', async (req: AuthRequest, res: Response) => {
             if (d.estado === 'erro') comErro++;
         }
         const conf = await DocumentosService.conformidade(empresaDe(req), areas, utilizador(req));
-        const [{ count: tarefasPendentes }, { count: notificacoesNaoLidas }] = await Promise.all([
+        const [{ count: tarefasPendentes }, { count: notificacoesNaoLidas }, { count: assinaturasPendentes }, { count: tarefasGerais }] = await Promise.all([
             supabase.from('documento_tarefas').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaDe(req)).eq('aprovador_id', req.user!.id).eq('estado', 'pendente'),
-            supabase.from('documento_notificacoes').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaDe(req)).eq('user_id', req.user!.id).eq('lida', false)
+            supabase.from('documento_notificacoes').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaDe(req)).eq('user_id', req.user!.id).eq('lida', false),
+            supabase.from('documento_assinaturas').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaDe(req)).eq('signatario_user_id', req.user!.id).eq('estado', 'pendente'),
+            supabase.from('documento_tarefas_gerais').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaDe(req)).eq('responsavel_id', req.user!.id).in('estado', ['aberta', 'em_curso'])
         ]);
+        const meusPorRever = data.filter(d => d.responsavel_id === req.user!.id && d.estado === 'por_rever').length;
         res.json({
             success: true,
             areas: DocumentosService.areas.map(a => ({ nome: a, total: porArea[a] || 0 })),
             porRever, aProcessar, comErro,
-            tarefasPendentes: tarefasPendentes || 0, notificacoesNaoLidas: notificacoesNaoLidas || 0, emRetencao,
+            tarefasPendentes: (tarefasPendentes || 0) + (assinaturasPendentes || 0), notificacoesNaoLidas: notificacoesNaoLidas || 0, emRetencao,
+            tarefasGerais: tarefasGerais || 0, meusPorRever,
             vencidos: conf.vencidos.length, aVencer: conf.aVencer.length,
             areasPermitidas: areas, ehAdmin: ehAdmin(req)
         });
@@ -112,6 +117,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         if (origem_ref) q = q.eq('origem_ref', origem_ref);   // ex.: os anexos arquivados de um email
         if (idsOrdenados) q = q.in('id', idsOrdenados);
         if (lista === 'retencao') q = q.eq('ciclo', 'RETENTION_PENDING');
+        if (lista === 'meus' || req.query.so_meus === '1') q = q.eq('responsavel_id', req.user!.id);
         if (lista === 'fisico') q = q.not('localizacao_fisica', 'is', null);
         if (texto) {
             const t = texto.replace(/[%,()]/g, ' ').trim();
@@ -618,6 +624,101 @@ router.get('/checklists/:id/estado/:entidadeId', async (req: AuthRequest, res: R
 });
 
 // ============================================================
+// EQUIPA: responsáveis por área/tipo, ausências, tarefas, carga
+// ============================================================
+router.get('/equipa/responsaveis', async (req: AuthRequest, res: Response) => {
+    try { res.json({ success: true, regras: await DocumentosEquipaService.regras(empresaDe(req)) }); }
+    catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+router.put('/equipa/responsaveis', soAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+        const { area, tipo_id, user_id } = req.body;
+        if (!user_id) return res.status(400).json({ error: 'Indique o responsável.' });
+        if (!area && !tipo_id) return res.status(400).json({ error: 'Indique a área ou o tipo.' });
+        if (area && !DocumentosService.areas.includes(area)) return res.status(400).json({ error: 'Área inválida.' });
+        const { data: p } = await supabase.from('perfis').select('id').eq('id', user_id).eq('empresa_id', empresaDe(req)).maybeSingle();
+        if (!p) return res.status(400).json({ error: 'Utilizador não pertence à empresa.' });
+        const e = empresaDe(req);
+        if (tipo_id) await supabase.from('documento_responsaveis').delete().eq('empresa_id', e).eq('tipo_id', Number(tipo_id));
+        else await supabase.from('documento_responsaveis').delete().eq('empresa_id', e).eq('area', area).is('tipo_id', null);
+        const { error } = await supabase.from('documento_responsaveis').insert({ empresa_id: e, area: tipo_id ? null : area, tipo_id: tipo_id ? Number(tipo_id) : null, user_id });
+        if (error) return res.status(400).json({ error: error.message });
+        await DocumentosGovernoService.auditar(e, utilizador(req), 'responsavel_regra', null, { area: area || null, tipo_id: tipo_id || null, user_id });
+        res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+router.delete('/equipa/responsaveis/:id', soAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+        const { data } = await supabase.from('documento_responsaveis').delete().eq('id', Number(req.params.id)).eq('empresa_id', empresaDe(req)).select('id').maybeSingle();
+        if (!data) return res.status(404).json({ error: 'Regra não encontrada.' });
+        res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/equipa/ausencias', async (req: AuthRequest, res: Response) => {
+    try { res.json({ success: true, ausencias: await DocumentosEquipaService.ausencias(empresaDe(req), ehAdmin(req) ? undefined : req.user!.id) }); }
+    catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+router.post('/equipa/ausencias', async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = ehAdmin(req) && req.body.user_id ? String(req.body.user_id) : req.user!.id;
+        const { substituto_id, inicio, fim, motivo } = req.body;
+        if (!substituto_id || substituto_id === userId) return res.status(400).json({ error: 'Indique quem substitui (outra pessoa).' });
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(inicio || '') || !/^\d{4}-\d{2}-\d{2}$/.test(fim || '') || fim < inicio) return res.status(400).json({ error: 'Datas inválidas.' });
+        const { data: p } = await supabase.from('perfis').select('id').eq('id', substituto_id).eq('empresa_id', empresaDe(req)).maybeSingle();
+        if (!p) return res.status(400).json({ error: 'Substituto não pertence à empresa.' });
+        const { data, error } = await supabase.from('documento_ausencias').insert({ empresa_id: empresaDe(req), user_id: userId, substituto_id, inicio, fim, motivo: motivo || null }).select('*').single();
+        if (error) return res.status(400).json({ error: error.message });
+        await DocumentosGovernoService.auditar(empresaDe(req), utilizador(req), 'ausencia_registada', null, { user_id: userId, substituto_id, inicio, fim });
+        res.json({ success: true, ausencia: data });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+router.delete('/equipa/ausencias/:id', async (req: AuthRequest, res: Response) => {
+    try {
+        let q = supabase.from('documento_ausencias').delete().eq('id', Number(req.params.id)).eq('empresa_id', empresaDe(req));
+        if (!ehAdmin(req)) q = q.eq('user_id', req.user!.id);
+        const { data } = await q.select('id').maybeSingle();
+        if (!data) return res.status(404).json({ error: 'Ausência não encontrada.' });
+        res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/equipa/tarefas', async (req: AuthRequest, res: Response) => {
+    try {
+        const { documento_id, estado, todas, responsavel_id } = req.query as Record<string, string>;
+        const filtro: any = { documento_id, estado, todas: todas === '1' };
+        // não-admin: só as suas (ou as de um documento a que tem acesso, tratado na rota do documento)
+        filtro.responsavel_id = ehAdmin(req) ? (responsavel_id || undefined) : req.user!.id;
+        if (documento_id && !ehAdmin(req)) delete filtro.responsavel_id;
+        res.json({ success: true, tarefas: await DocumentosEquipaService.tarefas(empresaDe(req), filtro) });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+router.post('/equipa/tarefas', async (req: AuthRequest, res: Response) => {
+    try {
+        if (req.body.documento_id) { req.params.id = String(req.body.documento_id); const doc = await carregarComAcesso(req, res, 'ver'); if (!doc) return; }
+        const r = await DocumentosEquipaService.criarTarefa(empresaDe(req), { ...req.body, responsavel_id: String(req.body.responsavel_id || req.user!.id) }, utilizador(req));
+        if (!r.ok) return res.status(400).json({ error: r.erro });
+        res.json({ success: true, tarefa: r.tarefa });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+router.put('/equipa/tarefas/:id', async (req: AuthRequest, res: Response) => {
+    try {
+        const r = await DocumentosEquipaService.atualizarTarefa(empresaDe(req), Number(req.params.id), req.body, utilizador(req));
+        if (!r.ok) return res.status(400).json({ error: r.erro });
+        res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+router.get('/equipa/carga', soAdmin, async (req: AuthRequest, res: Response) => {
+    try { res.json({ success: true, pessoas: await DocumentosEquipaService.cargaPorPessoa(empresaDe(req)) }); }
+    catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+// Correr já as rotinas de hora a hora (tarefas automáticas de validade, ausências).
+router.post('/equipa/rotinas', soAdmin, async (_req: AuthRequest, res: Response) => {
+    try { res.json({ success: true, tarefasCriadas: await DocumentosEquipaService.tarefasAutomaticas(), delegadas: await DocumentosEquipaService.aplicarAusencias() }); }
+    catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+// ============================================================
 // UM DOCUMENTO
 // ============================================================
 router.get('/:id', async (req: AuthRequest, res: Response) => {
@@ -938,6 +1039,22 @@ router.delete('/:id/partilhas/:partilhaId', async (req: AuthRequest, res: Respon
         const doc = await carregarComAcesso(req, res, 'editar'); if (!doc) return;
         if (!(await DocumentosArquivoService.revogarPartilha(doc.id, Number(req.params.partilhaId), utilizador(req)))) return res.status(404).json({ error: 'Partilha não encontrada.' });
         res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/:id/comentarios', async (req: AuthRequest, res: Response) => {
+    try {
+        const doc = await carregarComAcesso(req, res, 'ver'); if (!doc) return;
+        const [comentarios, tarefas] = await Promise.all([DocumentosEquipaService.comentarios(doc.id), DocumentosEquipaService.tarefas(empresaDe(req), { documento_id: doc.id, todas: true })]);
+        res.json({ success: true, comentarios, tarefas });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+router.post('/:id/comentarios', async (req: AuthRequest, res: Response) => {
+    try {
+        const doc = await carregarComAcesso(req, res, 'ver'); if (!doc) return;
+        const r = await DocumentosEquipaService.comentar(doc, utilizador(req), String(req.body.texto || ''), Array.isArray(req.body.mencoes) ? req.body.mencoes : []);
+        if (!r.ok) return res.status(400).json({ error: r.erro });
+        res.json({ success: true, comentario: r.comentario });
     } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 

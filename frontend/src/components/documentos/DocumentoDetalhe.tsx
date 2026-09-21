@@ -5,6 +5,7 @@ import type { Doc, TipoDoc } from './comum';
 import Aprovacao from './Aprovacao';
 import { irPara } from '../../lib/navegacao';
 import { Assinaturas, Partilha, ArquivoFisico, Visualizador } from './Arquivo';
+import { Conversa } from './Equipa';
 
 function IconeDoc({ doc, size = 18 }: { doc: Doc; size?: number }) {
     const m = doc.mime_type || '';
@@ -32,7 +33,7 @@ interface Props {
 export default function DocumentoDetalhe({ doc: docInicial, tipos, pastas, onFechar, onMudou }: Props) {
     const [doc, setDoc] = useState<Doc>(docInicial);
     const [transicoes, setTransicoes] = useState<any[]>([]);
-    const [aba, setAba] = useState<'dados' | 'aprovacao' | 'assinaturas' | 'versoes' | 'historico' | 'acesso'>(docInicial.ciclo === 'PENDING_APPROVAL' ? 'aprovacao' : docInicial.ciclo === 'PENDING_SIGNATURE' ? 'assinaturas' : 'dados');
+    const [aba, setAba] = useState<'dados' | 'conversa' | 'aprovacao' | 'assinaturas' | 'versoes' | 'historico' | 'acesso'>(docInicial.ciclo === 'PENDING_APPROVAL' ? 'aprovacao' : docInicial.ciclo === 'PENDING_SIGNATURE' ? 'assinaturas' : 'dados');
     const [partilhar, setPartilhar] = useState(false);
     const [ecraInteiro, setEcraInteiro] = useState(false);
     const favorito = async () => { const r = await authFetch(`${API}/api/documentos/${doc.id}/favorito`, { method: 'POST' }); const d = await r.json(); if (d.success) { setDoc({ ...doc, favorito: d.favorito }); onMudou(); } };
@@ -143,7 +144,7 @@ export default function DocumentoDetalhe({ doc: docInicial, tipos, pastas, onFec
             </div>
 
             <div style={{ display: 'flex', borderBottom: `1px solid ${COR.border}`, background: COR.canvas }}>
-                {abaBtn('dados', FileText, 'Dados')}{abaBtn('aprovacao', CheckSquare, 'Aprovação')}{abaBtn('assinaturas', PenLine, 'Assinaturas')}{abaBtn('versoes', History, 'Versões')}{abaBtn('historico', RefreshCw, 'Histórico')}
+                {abaBtn('dados', FileText, 'Dados')}{abaBtn('conversa', MessageSquare, 'Conversa')}{abaBtn('aprovacao', CheckSquare, 'Aprovação')}{abaBtn('assinaturas', PenLine, 'Assinaturas')}{abaBtn('versoes', History, 'Versões')}{abaBtn('historico', RefreshCw, 'Histórico')}
                 {podeGerir && abaBtn('acesso', Users, 'Acesso')}
             </div>
 
@@ -311,6 +312,7 @@ export default function DocumentoDetalhe({ doc: docInicial, tipos, pastas, onFec
                     </>
                 )}
 
+                {aba === 'conversa' && <Conversa doc={doc} utilizadores={opcoes?.utilizadores || []} setErro={setErro} />}
                 {aba === 'assinaturas' && <Assinaturas doc={doc} utilizadores={opcoes?.utilizadores || []} podeEditar={podeEditar} onMudou={async () => { await recarregar(); onMudou(); }} setErro={setErro} />}
                 {aba === 'aprovacao' && <Aprovacao doc={doc} utilizadores={opcoes?.utilizadores || []} podeEditar={podeEditar} onMudou={async () => { await recarregar(); onMudou(); }} setErro={setErro} />}
                 {aba === 'versoes' && <Versoes doc={doc} podeEditar={podeEditar} onMudou={async () => { await recarregar(); onMudou(); }} setErro={setErro} />}
