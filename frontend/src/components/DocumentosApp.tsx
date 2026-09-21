@@ -250,7 +250,7 @@ export default function DocumentosApp({ onVoltar }: { onVoltar?: () => void }) {
                 {VISTAS_LISTA.includes(vista) && (
                     <ListaDocs vista={vista} areaSel={areaSel} pastaSel={pastaSel} entidadeSel={entidadeSel} pastas={pastas} docs={docs} loading={loading} filtroTexto={filtroTexto} setFiltroTexto={setFiltroTexto}
                         onAbrir={setDocAberto} onUpload={() => fileRef.current?.click()} onAtualizar={atualizarDoc} comErro={resumo?.comErro || 0}
-                        onAbrirPasta={(p: any) => { setVista('pasta'); setPastaSel(p); }} onNovaSubpasta={() => criarSubpasta(pastaSel)} />
+                        onAbrirPasta={(p: any) => { setVista('pasta'); setPastaSel(p); }} onNovaSubpasta={() => criarSubpasta(pastaSel)} onRefrescar={() => { fetchResumo(); fetchDocs(); }} />
                 )}
                 {vista === 'pesquisa' && <Pesquisa onAbrir={setDocAberto} />}
                 {vista === 'conformidade' && <Conformidade onAbrir={setDocAberto} />}
@@ -360,7 +360,7 @@ function FormNova({ nivel, nome, setNome, onOk, onCancelar }: any) {
 // ============================================================
 // LISTA
 // ============================================================
-function ListaDocs({ vista, areaSel, pastaSel, entidadeSel, pastas, docs, loading, filtroTexto, setFiltroTexto, onAbrir, onUpload, onAtualizar, comErro, onAbrirPasta, onNovaSubpasta }: any) {
+function ListaDocs({ vista, areaSel, pastaSel, entidadeSel, pastas, docs, loading, filtroTexto, setFiltroTexto, onAbrir, onUpload, onAtualizar, comErro, onAbrirPasta, onNovaSubpasta, onRefrescar }: any) {
     const titulo = vista === 'por_rever' ? 'Por rever' : vista === 'area' ? areaSel : vista === 'pasta' ? (pastaSel ? pastaSel.caminho || pastaSel.nome : 'Sem pasta') : vista === 'entidade' ? `Documentos de ${entidadeSel?.nome || 'registo'}`
         : vista === 'favoritos' ? 'Favoritos' : vista === 'recentes' ? 'Consultados recentemente' : vista === 'retencao' ? 'Em retenção' : vista === 'fisico' ? 'Arquivo físico' : 'Todos os documentos';
     const [rascunho, setRascunho] = useState(filtroTexto);
@@ -382,7 +382,7 @@ function ListaDocs({ vista, areaSel, pastaSel, entidadeSel, pastas, docs, loadin
 
             {vista === 'por_rever' && <p style={{ margin: '0 20px 12px', fontSize: '12.5px', color: COR.muted, lineHeight: 1.5 }}>Caixa de entrada do arquivo: tudo o que chega passa por aqui. A IA lê o documento e propõe tipo, área, entidade e dados; confirme com "Arquivar assim", corrija, ou descarte. Só depois de confirmado é que o documento fica em vigor na sua área.</p>}
             {comErro > 0 && vista === 'todos' && <p style={{ margin: '0 20px 12px', fontSize: '12.5px', color: COR.bad }}>{comErro} documento(s) falharam a leitura — abra-os para tentar de novo.</p>}
-            {vista === 'retencao' && <p style={{ margin: '0 20px 12px', fontSize: '12.5px', color: COR.muted, lineHeight: 1.5 }}>Documentos cujo prazo de guarda (política do tipo) venceu. Abra cada um e decida: manter em arquivo por mais um período, ou eliminar.</p>}
+            {vista === 'retencao' && <p style={{ margin: '0 20px 12px', fontSize: '12.5px', color: COR.muted, lineHeight: 1.5 }}>Documentos cujo prazo de guarda (política do tipo) venceu. Abra cada um e decida: manter em arquivo por mais um período, ou eliminar. A verificação corre de hora a hora — <span onClick={async () => { const r = await authFetch(`${API}/api/documentos/definicoes/retencao/aplicar`, { method: 'POST' }); const d = await r.json(); alert(d.success ? `${d.movidos} documento(s) passaram a "Em retenção".` : 'Erro: ' + (d.error || '')); onRefrescar(); }} style={{ color: COR.accent, cursor: 'pointer', fontWeight: 600 }}>verificar agora</span>.</p>}
             {vista === 'fisico' && <p style={{ margin: '0 20px 12px', fontSize: '12.5px', color: COR.muted, lineHeight: 1.5 }}>Documentos com localização no arquivo em papel. Em cada documento pode imprimir a etiqueta com QR — ao ler o código, o documento abre aqui.</p>}
 
             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 20px 20px' }}>

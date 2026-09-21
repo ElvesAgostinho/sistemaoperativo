@@ -417,6 +417,15 @@ router.get('/definicoes/estado', soAdmin, async (req: AuthRequest, res: Response
     } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
+// Correr já a verificação de retenção (normalmente é de hora a hora).
+router.post('/definicoes/retencao/aplicar', soAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+        const n = await DocumentosArquivoService.aplicarRetencao();
+        await DocumentosGovernoService.auditar(empresaDe(req), utilizador(req), 'retencao_verificada', null, { movidos: n });
+        res.json({ success: true, movidos: n });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
 router.put('/definicoes/captura', soAdmin, async (req: AuthRequest, res: Response) => {
     try {
         const e = empresaDe(req);
