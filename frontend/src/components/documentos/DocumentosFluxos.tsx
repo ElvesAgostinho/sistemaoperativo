@@ -60,7 +60,7 @@ export default function DocumentosFluxos({ tipos }: { tipos: TipoDoc[] }) {
                 <button style={btn(true)} onClick={novo}><Plus size={13} /> Novo fluxo</button>
             </div>
             <p style={{ margin: '0 0 12px', fontSize: '12.5px', color: COR.muted, lineHeight: 1.5 }}>
-                Um fluxo é uma sequência de etapas. Em cada etapa escolhe quem aprova, se basta um ou têm de ser todos, o prazo, e para quem escalar se o prazo passar. Quem submete um documento escolhe o fluxo; os aprovadores recebem a tarefa em "As minhas aprovações" e por email.
+                Um fluxo é uma sequência de etapas. Em cada etapa escolhe quem aprova, se basta um ou têm de ser todos, o prazo, e para quem escalar se o prazo passar. Quem submete um documento escolhe o fluxo; os aprovadores recebem a tarefa em "O meu trabalho" e por email.
             </p>
 
             {edit && (

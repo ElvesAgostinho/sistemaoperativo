@@ -10,7 +10,7 @@ export function BadgeTarefa({ estado }: { estado: string }) {
 
 /**
  * Botões de decisão de uma tarefa (usados no separador do documento e na
- * caixa "As minhas aprovações"). Rejeitar e delegar pedem um texto.
+ * caixa "O meu trabalho"). Rejeitar e delegar pedem um texto.
  */
 export function AcoesTarefa({ tarefa, utilizadores, onFeito, setErro, compacto }: { tarefa: any; utilizadores: any[]; onFeito: () => void; setErro: (s: string) => void; compacto?: boolean }) {
     const [modo, setModo] = useState<'' | 'rejeitar' | 'delegar'>('');

@@ -6,7 +6,7 @@ import { AcoesTarefa } from './Aprovacao';
 import { BadgeCiclo, IconeConfidencialidade } from './DocumentoDetalhe';
 import { Tarefas, Ausencias } from './Trabalho';
 
-/** Caixa "As minhas aprovações": tudo o que espera pela decisão de quem está autenticado. */
+/** Caixa "O meu trabalho": tudo o que espera pela decisão de quem está autenticado. */
 export default function Aprovacoes({ onAbrir, onMudou }: { onAbrir: (d: Doc) => void; onMudou: () => void }) {
     const [tarefas, setTarefas] = useState<any[] | null>(null);
     const [assinaturas, setAssinaturas] = useState<any[]>([]);
