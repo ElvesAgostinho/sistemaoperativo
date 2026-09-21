@@ -20,6 +20,7 @@ import DocumentosApp from './components/DocumentosApp';
 import PortalAfiliado from './components/PortalAfiliado';
 import PortalCarreiras from './pages/public/PortalCarreiras';
 import CandidaturaForm from './pages/public/CandidaturaForm';
+import PartilhaDocumento from './pages/public/PartilhaDocumento';
 import ReuniaoConvidado from './pages/public/ReuniaoConvidado';
 import PortalAgendamento from './pages/public/PortalAgendamento';
 import TermosServico from './pages/public/TermosServico';
@@ -280,6 +281,9 @@ function App() {
   }
 
   const pathname = window.location.pathname;
+  if (pathname.startsWith('/partilha/')) {
+    return <PartilhaDocumento />;
+  }
   if (pathname.startsWith('/carreiras')) {
     if (pathname.includes('/vaga/')) {
         return <CandidaturaForm />;

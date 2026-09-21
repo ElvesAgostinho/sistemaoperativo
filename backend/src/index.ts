@@ -123,6 +123,12 @@ app.listen(port, () => {
     DocumentosGovernoService.caducarVencidos().catch(console.error);
   }, 60 * 60 * 1000);
 
+  // Retenção: documentos cujo prazo de guarda venceu (de hora a hora).
+  const { DocumentosArquivoService } = require('./services/DocumentosArquivoService');
+  setInterval(() => {
+    DocumentosArquivoService.aplicarRetencao().catch(console.error);
+  }, 60 * 60 * 1000);
+
   // Aprovações com prazo ultrapassado: escala ou avisa (a cada 10 minutos).
   const { DocumentosFluxoService } = require('./services/DocumentosFluxoService');
   setInterval(() => {

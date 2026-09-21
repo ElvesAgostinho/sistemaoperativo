@@ -46,7 +46,7 @@ test('eliminar exige motivo; com motivo passa', () => {
     assert(validar('ACTIVE', 'DELETED', 'utilizador', 'documento duplicado') === null, 'com motivo devia passar');
 });
 
-test('aprovações são só do motor de fluxos; assinaturas continuam indisponíveis (Fase D)', () => {
+test('aprovações são só do motor de fluxos; assinaturas e retenção pelo motor/sistema', () => {
     const e = validar('DRAFT', 'PENDING_APPROVAL', 'utilizador');
     assert(!!e && /manualmente/.test(e), `submeter à mão devia ser recusado por ator, veio: ${e}`);
     assert(validar('DRAFT', 'PENDING_APPROVAL', 'workflow') === null, 'o fluxo devia poder submeter um rascunho');
@@ -56,8 +56,14 @@ test('aprovações são só do motor de fluxos; assinaturas continuam indisponí
     assert(validar('PENDING_APPROVAL', 'ACTIVE', 'workflow', 'cancelado') === null, 'cancelar repõe o estado anterior');
     assert(validar('APPROVED', 'ACTIVE', 'utilizador') === null, 'um aprovado pode ser posto em vigor à mão');
     assert(DocumentosCicloService.opcoes('DRAFT', 'utilizador').every(o => o.para !== 'PENDING_APPROVAL'), 'PENDING_APPROVAL não deve aparecer como botão manual');
-    const opcoes = DocumentosCicloService.opcoes('APPROVED', 'workflow');
-    assert(opcoes.some(o => o.para === 'PENDING_SIGNATURE' && !o.disponivel), 'PENDING_SIGNATURE devia estar listada como indisponível');
+    assert(validar('ACTIVE', 'PENDING_SIGNATURE', 'workflow') === null, 'pedir assinatura a um ativo');
+    assert(validar('PENDING_SIGNATURE', 'SIGNED', 'workflow') === null, 'assinado pelo motor');
+    assert(validar('SIGNED', 'ACTIVE', 'sistema') === null, 'em vigor após assinatura');
+    assert(/manualmente/.test(validar('ACTIVE', 'PENDING_SIGNATURE', 'utilizador') || ''), 'não se pede assinatura à mão pela máquina de estados');
+    assert(validar('ARCHIVED', 'RETENTION_PENDING', 'sistema') === null, 'retenção vencida pelo sistema');
+    assert(/motivo/i.test(validar('RETENTION_PENDING', 'ARCHIVED', 'utilizador') || ''), 'manter em arquivo exige motivo');
+    assert(validar('RETENTION_PENDING', 'DELETED', 'sistema', 'política') === null, 'política de eliminação automática');
+    assert(DocumentosCicloService.opcoes('DRAFT', 'utilizador').concat(DocumentosCicloService.opcoes('ACTIVE', 'utilizador')).every(o => o.disponivel), 'já não há transições "indisponíveis" para o utilizador');
 });
 
 test('restaurar um eliminado volta a ACTIVE (nunca se perde)', () => {

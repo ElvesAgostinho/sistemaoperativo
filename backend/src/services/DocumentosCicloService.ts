@@ -32,8 +32,6 @@ type Ator = 'utilizador' | 'sistema' | 'workflow';
 
 interface Regra { para: Ciclo; atores: Ator[]; disponivel: boolean; motivoIndisponivel?: string; exigeMotivo?: boolean }
 
-const AGUARDA_ASSINATURA = 'Disponível quando as assinaturas eletrónicas (Fase D) estiverem ativas.';
-const AGUARDA_RETENCAO = 'Disponível quando as políticas de retenção (Fase D) estiverem ativas.';
 
 const REGRAS: Record<Ciclo, Regra[]> = {
     DRAFT: [
@@ -60,7 +58,7 @@ const REGRAS: Record<Ciclo, Regra[]> = {
         { para: 'ACTIVE', atores: ['workflow'], disponivel: true, exigeMotivo: true },
     ],
     APPROVED: [
-        { para: 'PENDING_SIGNATURE', atores: ['workflow'], disponivel: false, motivoIndisponivel: AGUARDA_ASSINATURA },
+        { para: 'PENDING_SIGNATURE', atores: ['workflow'], disponivel: true },
         { para: 'ACTIVE', atores: ['workflow', 'utilizador'], disponivel: true },
         { para: 'PENDING_APPROVAL', atores: ['workflow'], disponivel: true },
     ],
@@ -69,31 +67,39 @@ const REGRAS: Record<Ciclo, Regra[]> = {
         { para: 'DELETED', atores: ['utilizador'], disponivel: true, exigeMotivo: true },
     ],
     PENDING_SIGNATURE: [
-        { para: 'SIGNED', atores: ['workflow'], disponivel: false, motivoIndisponivel: AGUARDA_ASSINATURA },
+        { para: 'SIGNED', atores: ['workflow'], disponivel: true },
+        // cancelar/recusar o pedido de assinatura: volta ao que estava
+        { para: 'ACTIVE', atores: ['workflow'], disponivel: true, exigeMotivo: true },
+        { para: 'APPROVED', atores: ['workflow'], disponivel: true, exigeMotivo: true },
+        { para: 'DRAFT', atores: ['workflow'], disponivel: true, exigeMotivo: true },
     ],
     SIGNED: [
-        { para: 'ACTIVE', atores: ['workflow', 'sistema'], disponivel: false, motivoIndisponivel: AGUARDA_ASSINATURA },
+        { para: 'ACTIVE', atores: ['workflow', 'sistema', 'utilizador'], disponivel: true },
+        { para: 'ARCHIVED', atores: ['utilizador'], disponivel: true },
     ],
     ACTIVE: [
         { para: 'PENDING_APPROVAL', atores: ['workflow'], disponivel: true },   // ex.: renovação de contrato submetida a aprovação
+        { para: 'PENDING_SIGNATURE', atores: ['workflow'], disponivel: true },
         { para: 'EXPIRED', atores: ['sistema'], disponivel: true },
         { para: 'ARCHIVED', atores: ['utilizador'], disponivel: true },
-        { para: 'RETENTION_PENDING', atores: ['sistema'], disponivel: false, motivoIndisponivel: AGUARDA_RETENCAO },
+        { para: 'RETENTION_PENDING', atores: ['sistema'], disponivel: true },
         { para: 'DELETED', atores: ['utilizador'], disponivel: true, exigeMotivo: true },
     ],
     EXPIRED: [
         { para: 'ACTIVE', atores: ['utilizador'], disponivel: true, exigeMotivo: true },   // renovado: nova versão/validade
         { para: 'ARCHIVED', atores: ['utilizador'], disponivel: true },
+        { para: 'RETENTION_PENDING', atores: ['sistema'], disponivel: true },
         { para: 'DELETED', atores: ['utilizador'], disponivel: true, exigeMotivo: true },
     ],
     ARCHIVED: [
         { para: 'ACTIVE', atores: ['utilizador'], disponivel: true, exigeMotivo: true },
-        { para: 'RETENTION_PENDING', atores: ['sistema'], disponivel: false, motivoIndisponivel: AGUARDA_RETENCAO },
+        { para: 'RETENTION_PENDING', atores: ['sistema'], disponivel: true },
         { para: 'DELETED', atores: ['utilizador'], disponivel: true, exigeMotivo: true },
     ],
     RETENTION_PENDING: [
-        { para: 'ARCHIVED', atores: ['utilizador'], disponivel: false, motivoIndisponivel: AGUARDA_RETENCAO },
-        { para: 'DELETED', atores: ['utilizador'], disponivel: false, motivoIndisponivel: AGUARDA_RETENCAO, exigeMotivo: true },
+        // decisão humana: manter (mais um período) ou eliminar; ou o sistema elimina se a política o disser
+        { para: 'ARCHIVED', atores: ['utilizador'], disponivel: true, exigeMotivo: true },
+        { para: 'DELETED', atores: ['utilizador', 'sistema'], disponivel: true, exigeMotivo: true },
     ],
     DELETED: [
         { para: 'ACTIVE', atores: ['utilizador'], disponivel: true, exigeMotivo: true },   // restauro

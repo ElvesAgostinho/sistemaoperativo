@@ -166,6 +166,11 @@ export class DocumentosGovernoService {
         const { error } = await supabase.from('documentos').update(alt).eq('id', doc.id).eq('empresa_id', doc.empresa_id);
         if (error) return { ok: false, erro: error.message };
         await this.auditar(doc.empresa_id, user, 'transicao', doc, { de: doc.ciclo, para, motivo: motivo || null, ator });
+        // O relógio da retenção começa quando o documento é arquivado ou caduca.
+        if (para === 'ARCHIVED' || para === 'EXPIRED') {
+            const { DocumentosArquivoService } = require('./DocumentosArquivoService');
+            await DocumentosArquivoService.atualizarRetencao({ ...doc, ...alt }).catch(() => null);
+        }
         return { ok: true };
     }
 

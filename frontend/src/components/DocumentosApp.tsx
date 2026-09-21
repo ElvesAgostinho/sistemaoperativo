@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
     FolderOpen, Folder, FolderPlus, Search, Upload, Inbox, ShieldAlert, Wrench, Settings, FileText, FileImage, FileSpreadsheet, ArrowLeft,
-    Mail, MessageSquare, Cpu, User, Briefcase, Users, ChevronRight, ChevronDown, X, Check, Trash2, AlertTriangle, Clock, CheckCircle2, Plus, Sparkles, Loader2, ScrollText, Pencil, CheckSquare, ClipboardCheck, RefreshCw
+    Mail, MessageSquare, Cpu, User, Briefcase, Users, ChevronRight, ChevronDown, X, Check, Trash2, AlertTriangle, Clock, CheckCircle2, Plus, Sparkles, Loader2, ScrollText, Pencil, CheckSquare, ClipboardCheck, RefreshCw, LayoutDashboard, Star, History, Archive, MapPin, PenLine
 } from 'lucide-react';
 import { API, authFetch, AREAS, COR, diasAte, fmtData, fmtDataHora, btn, input, label, ROTULO_ACAO } from './documentos/comum';
 import type { Doc, TipoDoc } from './documentos/comum';
@@ -11,8 +11,10 @@ import DocumentosFluxos from './documentos/DocumentosFluxos';
 import Aprovacoes, { Notificacoes } from './documentos/Aprovacoes';
 import Checklists from './documentos/Checklists';
 import { consumirAlvo } from '../lib/navegacao';
+import Painel from './documentos/Painel';
 
-type Vista = 'todos' | 'area' | 'pasta' | 'por_rever' | 'conformidade' | 'ativos' | 'definicoes' | 'pesquisa' | 'auditoria' | 'aprovacoes' | 'checklists' | 'entidade';
+type Vista = 'todos' | 'area' | 'pasta' | 'por_rever' | 'conformidade' | 'ativos' | 'definicoes' | 'pesquisa' | 'auditoria' | 'aprovacoes' | 'checklists' | 'entidade' | 'painel' | 'favoritos' | 'recentes' | 'retencao' | 'fisico';
+const VISTAS_LISTA: Vista[] = ['todos', 'area', 'pasta', 'por_rever', 'entidade', 'favoritos', 'recentes', 'retencao', 'fisico'];
 
 function IconeDoc({ doc, size = 18 }: { doc: Doc; size?: number }) {
     const m = doc.mime_type || '';
@@ -90,6 +92,8 @@ export default function DocumentosApp({ onVoltar }: { onVoltar?: () => void }) {
         if (vista === 'pasta') params.set('pasta_id', pastaSel ? String(pastaSel.id) : 'raiz');
         if (vista === 'por_rever') params.set('estado', 'por_rever');
         if (vista === 'entidade' && entidadeSel) { params.set('entidade_tipo', entidadeSel.tipo); params.set('entidade_id', entidadeSel.id); }
+        if (['favoritos', 'recentes', 'retencao', 'fisico'].includes(vista)) params.set('lista', vista);
+        if (vista === 'retencao') params.set('ciclo', 'RETENTION_PENDING');
         if (filtroTexto.trim()) params.set('texto', filtroTexto.trim());
         const res = await authFetch(`${API}/api/documentos?${params}`); const data = await res.json();
         if (data.success) setDocs(data.documentos || []);
@@ -98,14 +102,14 @@ export default function DocumentosApp({ onVoltar }: { onVoltar?: () => void }) {
 
     useEffect(() => { fetchResumo(); fetchTiposEPastas(); }, [fetchResumo, fetchTiposEPastas]);
     useEffect(() => { const t = setInterval(fetchResumo, 60000); return () => clearInterval(t); }, [fetchResumo]);
-    useEffect(() => { fetchResumo(); if (['todos', 'area', 'pasta', 'por_rever', 'entidade'].includes(vista)) { setLoading(true); setDocs([]); fetchDocs(); } }, [vista, areaSel, pastaSel, entidadeSel, fetchDocs, fetchResumo]);
+    useEffect(() => { fetchResumo(); if (VISTAS_LISTA.includes(vista)) { setLoading(true); setDocs([]); fetchDocs(); } }, [vista, areaSel, pastaSel, entidadeSel, fetchDocs, fetchResumo]);
     // Chegámos aqui vindos de outro módulo (ficha de cliente, email, notificação)?
     useEffect(() => {
         const alvo = consumirAlvo('documentos');
         if (!alvo) return;
         if (alvo.doc) abrirPorId(alvo.doc);
         else if (alvo.entidade_tipo && alvo.entidade_id) { setEntidadeSel({ tipo: alvo.entidade_tipo, id: alvo.entidade_id, nome: alvo.entidade_nome || '' }); setVista('entidade'); }
-        else if (alvo.vista === 'aprovacoes') setVista('aprovacoes');
+        else if (alvo.vista) setVista(alvo.vista as Vista);
     }, [abrirPorId]);
     useEffect(() => {
         if (!resumo || (resumo.aProcessar || 0) === 0) return;
@@ -140,6 +144,14 @@ export default function DocumentosApp({ onVoltar }: { onVoltar?: () => void }) {
         fetchResumo(); fetchDocs();
     };
     const onDrop = (e: React.DragEvent) => { e.preventDefault(); setArrastar(false); enviarFicheiros(Array.from(e.dataTransfer.files)); };
+
+    // Criar pasta/subpasta a partir da vista da pasta (o mesmo que o "+" da árvore).
+    const criarSubpasta = async (mae: any | null) => {
+        const nome = window.prompt(mae ? `Nome da nova subpasta dentro de "${mae.nome}":` : 'Nome da nova pasta:'); if (!nome?.trim()) return;
+        const res = await authFetch(`${API}/api/documentos/pastas`, { method: 'POST', body: JSON.stringify({ nome: nome.trim(), parent_id: mae ? mae.id : null }) }); const d = await res.json();
+        if (!res.ok || !d.success) { alert('Erro: ' + (d.error || 'não foi possível criar.')); return; }
+        await fetchTiposEPastas();
+    };
 
     const atualizarDoc = async (id: string, alteracoes: Partial<Doc>) => {
         const res = await authFetch(`${API}/api/documentos/${id}`, { method: 'PUT', body: JSON.stringify(alteracoes) }); const data = await res.json();
@@ -182,6 +194,7 @@ export default function DocumentosApp({ onVoltar }: { onVoltar?: () => void }) {
                     <Notificacoes naoLidas={resumo?.notificacoesNaoLidas || 0} onAbrirDoc={abrirPorId} onLidas={fetchResumo} />
                 </div>
                 <div style={{ padding: '8px', display: 'flex', flexDirection: 'column', gap: '1px', overflowY: 'auto', flex: 1, minHeight: 0 }}>
+                    {navItem(vista === 'painel', () => setVista('painel'), <LayoutDashboard size={15} />, 'Painel')}
                     {navItem(vista === 'todos', () => { setVista('todos'); setAreaSel(null); }, <FolderOpen size={15} />, 'Todos os documentos')}
                     {navItem(vista === 'pesquisa', () => setVista('pesquisa'), <Sparkles size={15} />, 'Perguntar ao arquivo')}
                     {navItem(vista === 'aprovacoes', () => setVista('aprovacoes'), <CheckSquare size={15} />, 'As minhas aprovações', resumo?.tarefasPendentes, COR.accent)}
@@ -189,6 +202,14 @@ export default function DocumentosApp({ onVoltar }: { onVoltar?: () => void }) {
                     {navItem(vista === 'conformidade', () => setVista('conformidade'), <ShieldAlert size={15} />, 'Conformidade', (resumo?.vencidos || 0) + (resumo?.aVencer || 0), resumo?.vencidos > 0 ? COR.bad : COR.warn)}
                     {navItem(vista === 'checklists', () => setVista('checklists'), <ClipboardCheck size={15} />, 'Checklists')}
                     {navItem(vista === 'ativos', () => setVista('ativos'), <Wrench size={15} />, 'Ativos')}
+
+                    <div style={{ ...label, margin: '10px 10px 4px' }}>Os meus</div>
+                    {navItem(vista === 'favoritos', () => setVista('favoritos'), <Star size={15} />, 'Favoritos')}
+                    {navItem(vista === 'recentes', () => setVista('recentes'), <History size={15} />, 'Recentes')}
+
+                    <div style={{ ...label, margin: '10px 10px 4px' }}>Arquivo</div>
+                    {navItem(vista === 'fisico', () => setVista('fisico'), <MapPin size={15} />, 'Arquivo físico')}
+                    {navItem(vista === 'retencao', () => setVista('retencao'), <Archive size={15} />, 'Em retenção', resumo?.emRetencao, COR.warn)}
 
                     <div style={{ ...label, margin: '10px 10px 4px' }}>Áreas</div>
                     {AREAS.filter(a => !resumo?.areasPermitidas || resumo.areasPermitidas.includes(a)).map(a => {
@@ -225,9 +246,11 @@ export default function DocumentosApp({ onVoltar }: { onVoltar?: () => void }) {
                     </div>
                 )}
 
-                {(vista === 'todos' || vista === 'area' || vista === 'pasta' || vista === 'por_rever' || vista === 'entidade') && (
+                {vista === 'painel' && <Painel irPara={v => setVista(v as Vista)} />}
+                {VISTAS_LISTA.includes(vista) && (
                     <ListaDocs vista={vista} areaSel={areaSel} pastaSel={pastaSel} entidadeSel={entidadeSel} pastas={pastas} docs={docs} loading={loading} filtroTexto={filtroTexto} setFiltroTexto={setFiltroTexto}
-                        onAbrir={setDocAberto} onUpload={() => fileRef.current?.click()} onAtualizar={atualizarDoc} comErro={resumo?.comErro || 0} />
+                        onAbrir={setDocAberto} onUpload={() => fileRef.current?.click()} onAtualizar={atualizarDoc} comErro={resumo?.comErro || 0}
+                        onAbrirPasta={(p: any) => { setVista('pasta'); setPastaSel(p); }} onNovaSubpasta={() => criarSubpasta(pastaSel)} />
                 )}
                 {vista === 'pesquisa' && <Pesquisa onAbrir={setDocAberto} />}
                 {vista === 'conformidade' && <Conformidade onAbrir={setDocAberto} />}
@@ -255,7 +278,15 @@ function ArvorePastas({ pastas, ativa, onEscolher, onMudou }: { pastas: any[]; a
     const [aCriarEm, setACriarEm] = useState<number | null | 'raiz'>(null);
     const [nome, setNome] = useState('');
 
+    // A pasta ativa e as suas mães ficam sempre abertas.
+    useEffect(() => {
+        if (!ativa?.id) return;
+        const porId = new Map(pastas.map(p => [p.id, p]));
+        setAbertas(s => { const n = new Set(s); let p = porId.get(ativa.id); while (p) { n.add(p.id); p = p.parent_id ? porId.get(p.parent_id) : undefined; } return n; });
+    }, [ativa?.id, pastas]);
+
     const filhos = (parentId: number | null) => pastas.filter(p => (p.parent_id || null) === parentId).sort((a, b) => a.nome.localeCompare(b.nome));
+    const alternar = (id: number) => setAbertas(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
     const criar = async () => {
         if (!nome.trim()) { setACriarEm(null); return; }
         const res = await authFetch(`${API}/api/documentos/pastas`, { method: 'POST', body: JSON.stringify({ nome: nome.trim(), parent_id: aCriarEm === 'raiz' ? null : aCriarEm }) });
@@ -278,25 +309,25 @@ function ArvorePastas({ pastas, ativa, onEscolher, onMudou }: { pastas: any[]; a
         onMudou();
     };
 
-    const No = ({ p, nivel }: { p: any; nivel: number }) => {
+    const renderNo = (p: any, nivel: number): any => {
         const sub = filhos(p.id); const aberta = abertas.has(p.id); const ehAtiva = ativa?.id === p.id;
         return (
-            <div>
-                <div className="pasta-linha" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '5px 8px 5px ' + (8 + nivel * 14) + 'px', borderRadius: '2px', cursor: 'pointer', fontSize: '12.5px', fontWeight: ehAtiva ? 700 : 500, color: ehAtiva ? COR.accent : COR.ink, background: ehAtiva ? '#E1EEF0' : 'transparent' }}>
-                    <span onClick={() => setAbertas(s => { const n = new Set(s); n.has(p.id) ? n.delete(p.id) : n.add(p.id); return n; })} style={{ width: '14px', display: 'inline-flex', color: COR.faint }}>
+            <div key={p.id}>
+                <div className="pasta-linha" title={`${p.nome} — clique no + para criar uma subpasta`} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '5px 8px 5px ' + (8 + nivel * 14) + 'px', borderRadius: '2px', cursor: 'pointer', fontSize: '12.5px', fontWeight: ehAtiva ? 700 : 500, color: ehAtiva ? COR.accent : COR.ink, background: ehAtiva ? '#E1EEF0' : 'transparent' }}>
+                    <span onClick={() => alternar(p.id)} style={{ width: '14px', display: 'inline-flex', color: COR.faint }}>
                         {sub.length > 0 ? (aberta ? <ChevronDown size={12} /> : <ChevronRight size={12} />) : null}
                     </span>
-                    <Folder size={13} color={ehAtiva ? COR.accent : COR.faint} />
+                    <Folder size={13} color={ehAtiva ? COR.accent : COR.faint} onClick={() => onEscolher(p)} />
                     <span onClick={() => onEscolher(p)} style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nome}</span>
                     {p.documentos > 0 && <span style={{ fontSize: '10.5px', color: COR.faint }}>{p.documentos}</span>}
-                    <span className="pasta-acoes" style={{ display: 'inline-flex', gap: '2px' }}>
-                        <FolderPlus size={12} color={COR.faint} onClick={() => { setACriarEm(p.id); setNome(''); }} />
-                        <Pencil size={12} color={COR.faint} onClick={() => renomear(p)} />
-                        <Trash2 size={12} color={COR.faint} onClick={() => apagar(p)} />
+                    <span className="pasta-acoes" style={{ display: 'inline-flex', gap: '3px' }}>
+                        <FolderPlus size={13} color={COR.accent} onClick={e => { e.stopPropagation(); setACriarEm(p.id); setNome(''); setAbertas(s => new Set(s).add(p.id)); }} />
+                        <Pencil size={12} color={COR.faint} onClick={e => { e.stopPropagation(); renomear(p); }} />
+                        <Trash2 size={12} color={COR.faint} onClick={e => { e.stopPropagation(); apagar(p); }} />
                     </span>
                 </div>
                 {aCriarEm === p.id && <FormNova nivel={nivel + 1} nome={nome} setNome={setNome} onOk={criar} onCancelar={() => setACriarEm(null)} />}
-                {aberta && sub.map(s => <No key={s.id} p={s} nivel={nivel + 1} />)}
+                {aberta && sub.map(s2 => renderNo(s2, nivel + 1))}
             </div>
         );
     };
@@ -305,14 +336,15 @@ function ArvorePastas({ pastas, ativa, onEscolher, onMudou }: { pastas: any[]; a
         <div>
             <div style={{ ...label, margin: '14px 12px 6px', display: 'flex', alignItems: 'center' }}>
                 <span style={{ flex: 1 }}>Pastas</span>
-                <FolderPlus size={13} color={COR.accent} style={{ cursor: 'pointer' }} onClick={() => { setACriarEm('raiz'); setNome(''); }} />
+                <span title="Nova pasta" onClick={() => { setACriarEm('raiz'); setNome(''); }} style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '3px', color: COR.accent, textTransform: 'none', letterSpacing: 0, fontSize: '11px' }}><FolderPlus size={13} /> Nova</span>
             </div>
             <div onClick={() => onEscolher(null)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 8px', borderRadius: '2px', cursor: 'pointer', fontSize: '12.5px', fontWeight: ativa === null ? 700 : 500, color: ativa === null ? COR.accent : COR.ink, background: ativa === null ? '#E1EEF0' : 'transparent' }}>
                 <Folder size={13} color={COR.faint} /> Sem pasta
             </div>
             {aCriarEm === 'raiz' && <FormNova nivel={0} nome={nome} setNome={setNome} onOk={criar} onCancelar={() => setACriarEm(null)} />}
-            {filhos(null).map(p => <No key={p.id} p={p} nivel={0} />)}
-            <style>{`.pasta-linha .pasta-acoes { visibility: hidden; } .pasta-linha:hover .pasta-acoes { visibility: visible; } .pasta-acoes svg { cursor: pointer; }`}</style>
+            {filhos(null).map(p => renderNo(p, 0))}
+            {pastas.length === 0 && aCriarEm !== 'raiz' && <div style={{ fontSize: '11.5px', color: COR.faint, padding: '2px 8px 6px' }}>Crie pastas e subpastas (ex.: RH → Contratos → 2026). O "+" ao lado de cada pasta cria uma subpasta.</div>}
+            <style>{`.pasta-linha .pasta-acoes { opacity: 0.35; } .pasta-linha:hover .pasta-acoes { opacity: 1; } .pasta-acoes svg { cursor: pointer; }`}</style>
         </div>
     );
 }
@@ -328,8 +360,9 @@ function FormNova({ nivel, nome, setNome, onOk, onCancelar }: any) {
 // ============================================================
 // LISTA
 // ============================================================
-function ListaDocs({ vista, areaSel, pastaSel, entidadeSel, pastas, docs, loading, filtroTexto, setFiltroTexto, onAbrir, onUpload, onAtualizar, comErro }: any) {
-    const titulo = vista === 'por_rever' ? 'Por rever' : vista === 'area' ? areaSel : vista === 'pasta' ? (pastaSel ? pastaSel.caminho || pastaSel.nome : 'Sem pasta') : vista === 'entidade' ? `Documentos de ${entidadeSel?.nome || 'registo'}` : 'Todos os documentos';
+function ListaDocs({ vista, areaSel, pastaSel, entidadeSel, pastas, docs, loading, filtroTexto, setFiltroTexto, onAbrir, onUpload, onAtualizar, comErro, onAbrirPasta, onNovaSubpasta }: any) {
+    const titulo = vista === 'por_rever' ? 'Por rever' : vista === 'area' ? areaSel : vista === 'pasta' ? (pastaSel ? pastaSel.caminho || pastaSel.nome : 'Sem pasta') : vista === 'entidade' ? `Documentos de ${entidadeSel?.nome || 'registo'}`
+        : vista === 'favoritos' ? 'Favoritos' : vista === 'recentes' ? 'Consultados recentemente' : vista === 'retencao' ? 'Em retenção' : vista === 'fisico' ? 'Arquivo físico' : 'Todos os documentos';
     const [rascunho, setRascunho] = useState(filtroTexto);
     useEffect(() => { const t = setTimeout(() => setFiltroTexto(rascunho), 350); return () => clearTimeout(t); }, [rascunho, setFiltroTexto]);
     const subpastas = vista === 'pasta' ? pastas.filter((p: any) => (p.parent_id || null) === (pastaSel?.id || null)) : [];
@@ -349,11 +382,14 @@ function ListaDocs({ vista, areaSel, pastaSel, entidadeSel, pastas, docs, loadin
 
             {vista === 'por_rever' && <p style={{ margin: '0 20px 12px', fontSize: '12.5px', color: COR.muted, lineHeight: 1.5 }}>Caixa de entrada do arquivo: tudo o que chega passa por aqui. A IA lê o documento e propõe tipo, área, entidade e dados; confirme com "Arquivar assim", corrija, ou descarte. Só depois de confirmado é que o documento fica em vigor na sua área.</p>}
             {comErro > 0 && vista === 'todos' && <p style={{ margin: '0 20px 12px', fontSize: '12.5px', color: COR.bad }}>{comErro} documento(s) falharam a leitura — abra-os para tentar de novo.</p>}
+            {vista === 'retencao' && <p style={{ margin: '0 20px 12px', fontSize: '12.5px', color: COR.muted, lineHeight: 1.5 }}>Documentos cujo prazo de guarda (política do tipo) venceu. Abra cada um e decida: manter em arquivo por mais um período, ou eliminar.</p>}
+            {vista === 'fisico' && <p style={{ margin: '0 20px 12px', fontSize: '12.5px', color: COR.muted, lineHeight: 1.5 }}>Documentos com localização no arquivo em papel. Em cada documento pode imprimir a etiqueta com QR — ao ler o código, o documento abre aqui.</p>}
 
             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 20px 20px' }}>
-                {subpastas.length > 0 && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
-                        {subpastas.map((p: any) => <span key={p.id} style={{ fontSize: '12px', color: COR.muted, background: 'white', border: `1px solid ${COR.border}`, borderRadius: '2px', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}><Folder size={12} /> {p.nome} <span style={{ color: COR.faint }}>{p.documentos}</span></span>)}
+                {vista === 'pasta' && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px', alignItems: 'center' }}>
+                        {subpastas.map((p: any) => <button key={p.id} onClick={() => onAbrirPasta(p)} style={{ fontSize: '12px', color: COR.ink, background: 'white', border: `1px solid ${COR.border}`, borderRadius: '2px', padding: '5px 10px', display: 'inline-flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}><Folder size={12} color={COR.accent} /> {p.nome} <span style={{ color: COR.faint }}>{p.documentos}</span></button>)}
+                        <button onClick={onNovaSubpasta} style={{ fontSize: '12px', color: COR.accent, background: 'transparent', border: `1px dashed ${COR.accent}`, borderRadius: '2px', padding: '5px 10px', display: 'inline-flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}><FolderPlus size={12} /> Nova subpasta{pastaSel ? ` em "${pastaSel.nome}"` : ''}</button>
                     </div>
                 )}
                 {loading && <div style={{ color: COR.muted, fontSize: '13px', padding: '20px 0' }}>A carregar...</div>}

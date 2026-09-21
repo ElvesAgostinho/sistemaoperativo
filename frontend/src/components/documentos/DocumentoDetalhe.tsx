@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Download, Check, Trash2, RefreshCw, FileText, FileImage, FileSpreadsheet, Upload, History, Users, Lock, Shield, RotateCcw, Loader2, Mail, MessageSquare, Cpu, CheckSquare, Send, ExternalLink } from 'lucide-react';
+import { X, Download, Check, Trash2, RefreshCw, FileText, FileImage, FileSpreadsheet, Upload, History, Users, Lock, Shield, RotateCcw, Loader2, Mail, MessageSquare, Cpu, CheckSquare, Send, ExternalLink, Star, Link2, PenLine, Maximize2 } from 'lucide-react';
 import { API, authFetch, AREAS, COR, ROTULO_CICLO, COR_CICLO, fmtData, fmtDataHora, fmtTam, btn, input, label, ROTULO_ACAO } from './comum';
 import type { Doc, TipoDoc } from './comum';
 import Aprovacao from './Aprovacao';
 import { irPara } from '../../lib/navegacao';
+import { Assinaturas, Partilha, ArquivoFisico, Visualizador } from './Arquivo';
 
 function IconeDoc({ doc, size = 18 }: { doc: Doc; size?: number }) {
     const m = doc.mime_type || '';
@@ -31,7 +32,10 @@ interface Props {
 export default function DocumentoDetalhe({ doc: docInicial, tipos, pastas, onFechar, onMudou }: Props) {
     const [doc, setDoc] = useState<Doc>(docInicial);
     const [transicoes, setTransicoes] = useState<any[]>([]);
-    const [aba, setAba] = useState<'dados' | 'aprovacao' | 'versoes' | 'historico' | 'acesso'>(docInicial.ciclo === 'PENDING_APPROVAL' ? 'aprovacao' : 'dados');
+    const [aba, setAba] = useState<'dados' | 'aprovacao' | 'assinaturas' | 'versoes' | 'historico' | 'acesso'>(docInicial.ciclo === 'PENDING_APPROVAL' ? 'aprovacao' : docInicial.ciclo === 'PENDING_SIGNATURE' ? 'assinaturas' : 'dados');
+    const [partilhar, setPartilhar] = useState(false);
+    const [ecraInteiro, setEcraInteiro] = useState(false);
+    const favorito = async () => { const r = await authFetch(`${API}/api/documentos/${doc.id}/favorito`, { method: 'POST' }); const d = await r.json(); if (d.success) { setDoc({ ...doc, favorito: d.favorito }); onMudou(); } };
     const [f, setF] = useState<any>({});
     const [opcoes, setOpcoes] = useState<any>(null);
     const [aGuardar, setAGuardar] = useState(false);
@@ -130,17 +134,22 @@ export default function DocumentoDetalhe({ doc: docInicial, tipos, pastas, onFec
                     </div>
                     <div style={{ fontSize: '11.5px', color: COR.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.nome_ficheiro} · {fmtTam(doc.tamanho || 0)}</div>
                 </div>
+                <button onClick={favorito} title={doc.favorito ? 'Tirar dos favoritos' : 'Marcar como favorito'} style={{ background: 'none', border: 'none', cursor: 'pointer', color: doc.favorito ? '#DF6E0C' : COR.faint }}><Star size={16} fill={doc.favorito ? '#DF6E0C' : 'none'} /></button>
+                <button onClick={() => setEcraInteiro(true)} title="Ver em ecrã inteiro" style={{ background: 'none', border: 'none', cursor: 'pointer', color: COR.accent }}><Maximize2 size={15} /></button>
+                {podeEditar && <button onClick={() => setPartilhar(!partilhar)} title="Partilhar por link temporário" style={{ background: 'none', border: 'none', cursor: 'pointer', color: COR.accent }}><Link2 size={16} /></button>}
                 <button onClick={() => setEnvio(envio ? null : { para: '', assunto: `${doc.codigo ? doc.codigo + ' — ' : ''}${doc.titulo}`, mensagem: '' })} title="Enviar por email (fica registado)" style={{ background: 'none', border: 'none', cursor: 'pointer', color: COR.accent }}><Send size={16} /></button>
                 <button onClick={descarregar} title="Descarregar (fica registado)" style={{ background: 'none', border: 'none', cursor: 'pointer', color: COR.accent }}><Download size={17} /></button>
                 <X size={18} style={{ cursor: 'pointer', color: COR.muted }} onClick={onFechar} />
             </div>
 
             <div style={{ display: 'flex', borderBottom: `1px solid ${COR.border}`, background: COR.canvas }}>
-                {abaBtn('dados', FileText, 'Dados')}{abaBtn('aprovacao', CheckSquare, 'Aprovação')}{abaBtn('versoes', History, 'Versões')}{abaBtn('historico', RefreshCw, 'Histórico')}
+                {abaBtn('dados', FileText, 'Dados')}{abaBtn('aprovacao', CheckSquare, 'Aprovação')}{abaBtn('assinaturas', PenLine, 'Assinaturas')}{abaBtn('versoes', History, 'Versões')}{abaBtn('historico', RefreshCw, 'Histórico')}
                 {podeGerir && abaBtn('acesso', Users, 'Acesso')}
             </div>
 
             {erro && <div style={{ margin: '10px 16px 0', padding: '8px 12px', background: '#F6DEDE', border: '1px solid #fecaca', borderRadius: '2px', fontSize: '12.5px', color: COR.bad, display: 'flex', justifyContent: 'space-between' }}><span>{erro}</span><X size={14} style={{ cursor: 'pointer' }} onClick={() => setErro('')} /></div>}
+            {partilhar && <Partilha doc={doc} setErro={setErro} onFechar={() => setPartilhar(false)} />}
+            {ecraInteiro && <Visualizador doc={doc} onFechar={() => setEcraInteiro(false)} />}
             {envio && (
                 <div style={{ margin: '10px 16px 0', padding: '12px', border: `1px solid ${COR.accent}`, borderRadius: '2px', background: COR.canvas }}>
                     <div style={{ fontWeight: 700, fontSize: '13px', color: COR.ink, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}><Mail size={14} /> Enviar por email (pelo email da empresa)</div>
@@ -160,6 +169,7 @@ export default function DocumentoDetalhe({ doc: docInicial, tipos, pastas, onFec
                         <div style={{ height: '210px', background: COR.canvas, borderBottom: `1px solid ${COR.borderSoft}`, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                             {doc.url && ehPdf ? <iframe src={doc.url} title="pré-visualização" style={{ width: '100%', height: '100%', border: 'none' }} />
                                 : doc.url && ehImg ? <img src={doc.url} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                                : doc.texto ? <pre style={{ margin: 0, padding: '12px 16px', width: '100%', height: '100%', boxSizing: 'border-box', overflow: 'auto', whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '12px', color: COR.muted, lineHeight: 1.5, textAlign: 'left' }}>{doc.texto.slice(0, 4000)}</pre>
                                 : <div style={{ color: COR.faint, fontSize: '13px' }}>Sem pré-visualização para este formato.</div>}
                         </div>
 
@@ -281,6 +291,8 @@ export default function DocumentoDetalhe({ doc: docInicial, tipos, pastas, onFec
                                 </div>
                             )}
 
+                            <ArquivoFisico doc={doc} podeEditar={podeEditar} podeGerir={podeGerir} onMudou={async () => { await recarregar(); onMudou(); }} setErro={setErro} />
+
                             <div style={{ fontSize: '11.5px', color: COR.faint, display: 'flex', flexDirection: 'column', gap: '3px' }}>
                                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                                     {doc.origem === 'email' ? <Mail size={12} /> : doc.origem === 'whatsapp' ? <MessageSquare size={12} /> : doc.origem === 'sistema' ? <Cpu size={12} /> : <Upload size={12} />}
@@ -299,6 +311,7 @@ export default function DocumentoDetalhe({ doc: docInicial, tipos, pastas, onFec
                     </>
                 )}
 
+                {aba === 'assinaturas' && <Assinaturas doc={doc} utilizadores={opcoes?.utilizadores || []} podeEditar={podeEditar} onMudou={async () => { await recarregar(); onMudou(); }} setErro={setErro} />}
                 {aba === 'aprovacao' && <Aprovacao doc={doc} utilizadores={opcoes?.utilizadores || []} podeEditar={podeEditar} onMudou={async () => { await recarregar(); onMudou(); }} setErro={setErro} />}
                 {aba === 'versoes' && <Versoes doc={doc} podeEditar={podeEditar} onMudou={async () => { await recarregar(); onMudou(); }} setErro={setErro} />}
                 {aba === 'historico' && <Historico docId={doc.id} />}

@@ -17,11 +17,11 @@ export default function DocumentosTipos() {
     const carregar = useCallback(async () => { const r = await authFetch(`${API}/api/documentos/tipos`); const d = await r.json(); if (d.success) setTipos(d.tipos); }, []);
     useEffect(() => { carregar(); }, [carregar]);
 
-    const novo = () => setEdit({ nome: '', prefixo: '', area_padrao: 'Outros', confidencialidade_padrao: 'Normal', tem_validade: false, campos: [], ativo: true });
+    const novo = () => setEdit({ nome: '', prefixo: '', area_padrao: 'Outros', confidencialidade_padrao: 'Normal', tem_validade: false, campos: [], ativo: true, retencao_anos: '', retencao_acao: 'rever', retencao_base: 'arquivo' });
 
     const guardar = async () => {
         setErro(''); setAGuardar(true);
-        const res = await authFetch(`${API}/api/documentos/tipos${edit.id ? '/' + edit.id : ''}`, { method: edit.id ? 'PUT' : 'POST', body: JSON.stringify(edit) });
+        const res = await authFetch(`${API}/api/documentos/tipos${edit.id ? '/' + edit.id : ''}`, { method: edit.id ? 'PUT' : 'POST', body: JSON.stringify({ ...edit, retencao_anos: edit.retencao_anos === '' ? null : edit.retencao_anos }) });
         const d = await res.json();
         setAGuardar(false);
         if (!res.ok || !d.success) { setErro(d.error || 'Não foi possível guardar.'); return; }
@@ -62,6 +62,12 @@ export default function DocumentosTipos() {
                         <div><label style={label}>Tem validade</label><select value={edit.tem_validade ? 'sim' : 'nao'} onChange={e => setEdit({ ...edit, tem_validade: e.target.value === 'sim' })} style={input}><option value="nao">Não</option><option value="sim">Sim</option></select></div>
                     </div>
 
+                    <div style={{ display: 'grid', gridTemplateColumns: '120px 1.4fr 1.4fr 2fr', gap: '10px', marginBottom: '12px', alignItems: 'end' }}>
+                        <div><label style={label}>Guardar (anos)</label><input type="number" min={1} max={100} value={edit.retencao_anos ?? ''} onChange={e => setEdit({ ...edit, retencao_anos: e.target.value })} placeholder="sem política" style={input} /></div>
+                        <div><label style={label}>A contar de</label><select value={edit.retencao_base || 'arquivo'} disabled={!edit.retencao_anos} onChange={e => setEdit({ ...edit, retencao_base: e.target.value })} style={input}><option value="arquivo">Data de arquivo</option><option value="validade">Fim da validade</option><option value="documento">Data do documento</option></select></div>
+                        <div><label style={label}>Ao vencer</label><select value={edit.retencao_acao || 'rever'} disabled={!edit.retencao_anos} onChange={e => setEdit({ ...edit, retencao_acao: e.target.value })} style={input}><option value="rever">Pedir decisão (manter / eliminar)</option><option value="eliminar">Eliminar automaticamente</option></select></div>
+                        <div style={{ fontSize: '11.5px', color: COR.faint, lineHeight: 1.4, paddingBottom: '8px' }}>Política de retenção: quando o prazo passa, o documento entra "Em retenção" e os administradores são avisados. A eliminação automática é sempre recuperável durante o período de segurança.</div>
+                    </div>
                     <label style={label}>Campos do tipo</label>
                     {edit.campos.length === 0 && <div style={{ fontSize: '12.5px', color: COR.faint, marginBottom: '8px' }}>Sem campos — só os dados comuns (título, datas, validade, entidade).</div>}
                     {edit.campos.map((c: any, i: number) => (
@@ -91,7 +97,7 @@ export default function DocumentosTipos() {
             )}
 
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px' }}>
-                <thead><tr style={{ background: COR.canvas }}>{['Tipo', 'Prefixo', 'Área', 'Confid.', 'Validade', 'Campos', 'Estado', ''].map(h => <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontSize: '10.5px', fontWeight: 700, color: COR.faint, textTransform: 'uppercase' }}>{h}</th>)}</tr></thead>
+                <thead><tr style={{ background: COR.canvas }}>{['Tipo', 'Prefixo', 'Área', 'Confid.', 'Validade', 'Retenção', 'Campos', 'Estado', ''].map(h => <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontSize: '10.5px', fontWeight: 700, color: COR.faint, textTransform: 'uppercase' }}>{h}</th>)}</tr></thead>
                 <tbody>
                     {tipos.map(t => (
                         <tr key={t.id} style={{ borderTop: `1px solid ${COR.borderSoft}`, opacity: t.ativo ? 1 : 0.5 }}>
@@ -100,6 +106,7 @@ export default function DocumentosTipos() {
                             <td style={{ padding: '8px 10px' }}>{t.area_padrao}</td>
                             <td style={{ padding: '8px 10px' }}>{t.confidencialidade_padrao}</td>
                             <td style={{ padding: '8px 10px' }}>{t.tem_validade ? 'Sim' : '—'}</td>
+                            <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>{t.retencao_anos ? `${t.retencao_anos} anos · ${t.retencao_acao === 'eliminar' ? 'elimina' : 'decide'}` : '—'}</td>
                             <td style={{ padding: '8px 10px', color: COR.muted }}>{t.campos.length === 0 ? '—' : t.campos.map(c => c.rotulo).join(', ')}</td>
                             <td style={{ padding: '8px 10px' }}>{t.ativo ? 'Ativo' : 'Desativado'}</td>
                             <td style={{ padding: '6px 10px', whiteSpace: 'nowrap' }}>

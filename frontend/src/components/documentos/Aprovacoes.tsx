@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { CheckSquare, Clock, AlertTriangle, FileText, ExternalLink, Bell, X } from 'lucide-react';
+import { CheckSquare, Clock, AlertTriangle, FileText, ExternalLink, Bell, X, PenLine } from 'lucide-react';
 import { API, authFetch, COR, fmtDataHora, horasRestantes, btn } from './comum';
 import type { Doc } from './comum';
 import { AcoesTarefa } from './Aprovacao';
@@ -8,12 +8,15 @@ import { BadgeCiclo, IconeConfidencialidade } from './DocumentoDetalhe';
 /** Caixa "As minhas aprovações": tudo o que espera pela decisão de quem está autenticado. */
 export default function Aprovacoes({ onAbrir, onMudou }: { onAbrir: (d: Doc) => void; onMudou: () => void }) {
     const [tarefas, setTarefas] = useState<any[] | null>(null);
+    const [assinaturas, setAssinaturas] = useState<any[]>([]);
     const [utilizadores, setUtilizadores] = useState<any[]>([]);
     const [erro, setErro] = useState('');
 
     const carregar = useCallback(async () => {
         const r = await authFetch(`${API}/api/documentos/aprovacoes/minhas`); const d = await r.json();
         if (d.success) setTarefas(d.tarefas); else { setTarefas([]); setErro(d.error || ''); }
+        const r2 = await authFetch(`${API}/api/documentos/assinaturas/minhas`); const d2 = await r2.json();
+        if (d2.success) setAssinaturas(d2.assinaturas || []);
     }, []);
     useEffect(() => {
         carregar();
@@ -34,8 +37,23 @@ export default function Aprovacoes({ onAbrir, onMudou }: { onAbrir: (d: Doc) => 
                 <p style={{ margin: '0 0 16px', fontSize: '12.5px', color: COR.muted }}>Documentos que esperam pela sua decisão. Pode aprovar aqui mesmo, ou abrir o documento para o ler primeiro.{atrasadas.length > 0 && <strong style={{ color: COR.bad }}> {atrasadas.length} fora de prazo.</strong>}</p>
                 {erro && <div style={{ marginBottom: '12px', padding: '8px 12px', background: '#F6DEDE', border: '1px solid #fecaca', borderRadius: '2px', fontSize: '12.5px', color: COR.bad, display: 'flex', justifyContent: 'space-between' }}><span>{erro}</span><X size={14} style={{ cursor: 'pointer' }} onClick={() => setErro('')} /></div>}
 
+                {assinaturas.length > 0 && (
+                    <div style={{ marginBottom: '16px' }}>
+                        <div style={{ fontWeight: 700, color: COR.ink, fontSize: '13px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}><PenLine size={14} color={COR.accent} /> Assinaturas pedidas a si ({assinaturas.length})</div>
+                        {assinaturas.map(a => (
+                            <div key={a.id} style={{ background: 'white', border: `1px solid ${COR.border}`, borderRadius: '2px', padding: '12px 16px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <FileText size={18} color={COR.muted} />
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontWeight: 700, color: COR.ink }}>{a.documento?.codigo && <span style={{ fontFamily: 'monospace', color: COR.accent, marginRight: '6px' }}>{a.documento.codigo}</span>}{a.documento?.titulo || '—'}</div>
+                                    <div style={{ fontSize: '12px', color: COR.muted }}>{a.documento?.tipo || 'Documento'} · versão {a.versao} · pedido {fmtDataHora(a.pedido_em)}</div>
+                                </div>
+                                <button style={{ ...btn(true), padding: '6px 12px', fontSize: '12px' }} onClick={() => abrir(a.documento_id)}><PenLine size={12} /> Ler e assinar</button>
+                            </div>
+                        ))}
+                    </div>
+                )}
                 {tarefas === null && <div style={{ color: COR.muted, fontSize: '13px' }}>A carregar...</div>}
-                {tarefas && tarefas.length === 0 && (
+                {tarefas && tarefas.length === 0 && assinaturas.length === 0 && (
                     <div style={{ background: 'white', border: `1px solid ${COR.border}`, borderRadius: '2px', padding: '40px', textAlign: 'center' }}>
                         <CheckSquare size={32} color={COR.good} style={{ marginBottom: '8px' }} />
                         <div style={{ fontWeight: 700, color: COR.ink }}>Nada à sua espera.</div>

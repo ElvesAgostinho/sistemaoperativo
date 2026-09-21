@@ -8,6 +8,7 @@ import { DocumentosGovernoService, Utilizador } from '../services/DocumentosGove
 import { DocumentosCicloService, Ciclo, CICLOS, ROTULO_CICLO } from '../services/DocumentosCicloService';
 import { MediaUploadService } from '../services/MediaUploadService';
 import { DocumentosFluxoService } from '../services/DocumentosFluxoService';
+import { DocumentosArquivoService } from '../services/DocumentosArquivoService';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 30 * 1024 * 1024, files: 20 } });
@@ -64,8 +65,9 @@ router.get('/resumo', async (req: AuthRequest, res: Response) => {
         const data = await DocumentosService.filtrarVisiveis(brutos || [], utilizador(req));
 
         const porArea: Record<string, number> = {};
-        let porRever = 0, aProcessar = 0, comErro = 0;
+        let porRever = 0, aProcessar = 0, comErro = 0, emRetencao = 0;
         for (const d of data) {
+            if (d.ciclo === 'RETENTION_PENDING') emRetencao++;
             if (d.estado === 'arquivado' && d.ciclo !== 'ARCHIVED') porArea[d.area] = (porArea[d.area] || 0) + 1;
             if (d.estado === 'por_rever') porRever++;
             if (d.estado === 'a_processar') aProcessar++;
@@ -80,7 +82,7 @@ router.get('/resumo', async (req: AuthRequest, res: Response) => {
             success: true,
             areas: DocumentosService.areas.map(a => ({ nome: a, total: porArea[a] || 0 })),
             porRever, aProcessar, comErro,
-            tarefasPendentes: tarefasPendentes || 0, notificacoesNaoLidas: notificacoesNaoLidas || 0,
+            tarefasPendentes: tarefasPendentes || 0, notificacoesNaoLidas: notificacoesNaoLidas || 0, emRetencao,
             vencidos: conf.vencidos.length, aVencer: conf.aVencer.length,
             areasPermitidas: areas, ehAdmin: ehAdmin(req)
         });
@@ -90,9 +92,14 @@ router.get('/resumo', async (req: AuthRequest, res: Response) => {
 router.get('/', async (req: AuthRequest, res: Response) => {
     try {
         const areas = await filtroAreas(req);
-        const { area, estado, ciclo, entidade_tipo, entidade_id, texto, pasta_id, tipo_id, origem_ref } = req.query as Record<string, string>;
+        const { area, estado, ciclo, entidade_tipo, entidade_id, texto, pasta_id, tipo_id, origem_ref, lista } = req.query as Record<string, string>;
+        // listas pessoais: favoritos e recentes (por ordem)
+        let idsOrdenados: string[] | null = null;
+        if (lista === 'favoritos') idsOrdenados = await DocumentosArquivoService.favoritosIds(req.user!.id);
+        if (lista === 'recentes') idsOrdenados = await DocumentosArquivoService.recentesIds(empresaDe(req), req.user!.id);
+        if (idsOrdenados && idsOrdenados.length === 0) return res.json({ success: true, documentos: [] });
         let q = supabase.from('documentos')
-            .select('id, codigo, titulo, nome_ficheiro, storage_path, mime_type, tamanho, area, tipo, tipo_id, resumo, campos, metadados, data_documento, validade, entidade_tipo, entidade_id, entidade_nome, origem, origem_ref, origem_detalhe, estado, ciclo, confidencialidade, versao_atual, pasta_id, responsavel_id, criado_por, confianca, erro, criado_em')
+            .select('id, codigo, titulo, nome_ficheiro, storage_path, mime_type, tamanho, area, tipo, tipo_id, resumo, campos, metadados, data_documento, validade, entidade_tipo, entidade_id, entidade_nome, origem, origem_ref, origem_detalhe, estado, ciclo, confidencialidade, versao_atual, pasta_id, responsavel_id, criado_por, confianca, erro, criado_em, retencao_ate, localizacao_fisica, codigo_fisico, emprestado_a')
             .eq('empresa_id', empresaDe(req)).order('criado_em', { ascending: false }).limit(300);
         if (areas) q = q.in('area', areas);
         if (area) q = q.eq('area', area);
@@ -103,14 +110,41 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         if (pasta_id) q = pasta_id === 'raiz' ? q.is('pasta_id', null) : q.eq('pasta_id', Number(pasta_id));
         if (entidade_tipo && entidade_id) q = q.eq('entidade_tipo', entidade_tipo).eq('entidade_id', entidade_id);
         if (origem_ref) q = q.eq('origem_ref', origem_ref);   // ex.: os anexos arquivados de um email
+        if (idsOrdenados) q = q.in('id', idsOrdenados);
+        if (lista === 'retencao') q = q.eq('ciclo', 'RETENTION_PENDING');
+        if (lista === 'fisico') q = q.not('localizacao_fisica', 'is', null);
         if (texto) {
             const t = texto.replace(/[%,()]/g, ' ').trim();
             q = q.or(`titulo.ilike.%${t}%,codigo.ilike.%${t}%,resumo.ilike.%${t}%,entidade_nome.ilike.%${t}%,nome_ficheiro.ilike.%${t}%`);
         }
         const { data, error } = await q;
         if (error) throw error;
-        const visiveis = await DocumentosService.filtrarVisiveis(data || [], utilizador(req));
-        res.json({ success: true, documentos: await DocumentosService.comLinks(visiveis) });
+        let visiveis = await DocumentosService.filtrarVisiveis(data || [], utilizador(req));
+        if (idsOrdenados) { const ordem = new Map(idsOrdenados.map((id, i) => [id, i])); visiveis = visiveis.sort((a: any, b: any) => (ordem.get(a.id) ?? 0) - (ordem.get(b.id) ?? 0)); }
+        const favoritos = new Set(await DocumentosArquivoService.favoritosIds(req.user!.id));
+        res.json({ success: true, documentos: (await DocumentosService.comLinks(visiveis)).map((d: any) => ({ ...d, favorito: favoritos.has(d.id) })) });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+// ============================================================
+// PAINEL, ASSINATURAS PENDENTES, ADAPTADORES
+// ============================================================
+router.get('/painel', async (req: AuthRequest, res: Response) => {
+    try { res.json({ success: true, painel: await DocumentosArquivoService.painel(empresaDe(req), await filtroAreas(req), utilizador(req)) }); }
+    catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+router.get('/assinaturas/minhas', async (req: AuthRequest, res: Response) => {
+    try { res.json({ success: true, assinaturas: await DocumentosArquivoService.minhasAssinaturas(empresaDe(req), req.user!.id), adaptadores: DocumentosArquivoService.adaptadores() }); }
+    catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+router.post('/assinaturas/:id/responder', async (req: AuthRequest, res: Response) => {
+    try {
+        const decisao = req.body.decisao === 'assinar' ? 'assinada' : req.body.decisao === 'recusar' ? 'recusada' : null;
+        if (!decisao) return res.status(400).json({ error: 'Decisão inválida (assinar / recusar).' });
+        const u = utilizador(req);
+        const r = await DocumentosArquivoService.assinar(Number(req.params.id), u, decisao, req.body.motivo, { ip: u.ip, user_agent: String(req.headers['user-agent'] || '') });
+        if (!r.ok) return res.status(400).json({ error: r.erro });
+        res.json({ success: true, estado: r.estadoDoc });
     } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
@@ -189,9 +223,18 @@ const validarCamposTipo = (campos: any): string | null => {
     return null;
 };
 
+function validarRetencao(anos: any, acao: any, base: any): string | null {
+    if (anos !== undefined && anos !== null && anos !== '' && (!Number.isInteger(Number(anos)) || Number(anos) < 1 || Number(anos) > 100)) return 'Retenção: indique um número de anos entre 1 e 100 (ou deixe vazio).';
+    if (acao !== undefined && acao !== null && !['rever', 'eliminar'].includes(acao)) return 'Ação de retenção inválida.';
+    if (base !== undefined && base !== null && !['arquivo', 'validade', 'documento'].includes(base)) return 'Base de retenção inválida.';
+    return null;
+}
+
 router.post('/tipos', soAdmin, async (req: AuthRequest, res: Response) => {
     try {
-        const { nome, prefixo, area_padrao, confidencialidade_padrao, tem_validade, campos } = req.body;
+        const { nome, prefixo, area_padrao, confidencialidade_padrao, tem_validade, campos, retencao_anos, retencao_acao, retencao_base } = req.body;
+        const erroRet = validarRetencao(retencao_anos, retencao_acao, retencao_base);
+        if (erroRet) return res.status(400).json({ error: erroRet });
         if (!nome?.trim()) return res.status(400).json({ error: 'O nome é obrigatório.' });
         if (!/^[A-Za-z]{2,6}$/.test(prefixo || '')) return res.status(400).json({ error: 'Prefixo: 2 a 6 letras (ex: CTR).' });
         const erroCampos = validarCamposTipo(campos || []);
@@ -199,7 +242,8 @@ router.post('/tipos', soAdmin, async (req: AuthRequest, res: Response) => {
         const { data, error } = await supabase.from('documento_tipos').insert({
             empresa_id: empresaDe(req), nome: nome.trim(), prefixo: prefixo.toUpperCase(), area_padrao: area_padrao || 'Outros',
             confidencialidade_padrao: ['Normal', 'Confidencial', 'Restrito'].includes(confidencialidade_padrao) ? confidencialidade_padrao : 'Normal',
-            tem_validade: !!tem_validade, campos: campos || []
+            tem_validade: !!tem_validade, campos: campos || [],
+            retencao_anos: retencao_anos ? Number(retencao_anos) : null, retencao_acao: retencao_acao || 'rever', retencao_base: retencao_base || 'arquivo'
         }).select('id').single();
         if (error) return res.status(400).json({ error: /duplicate/i.test(error.message) ? 'Já existe um tipo com esse nome.' : error.message });
         await DocumentosGovernoService.auditar(empresaDe(req), utilizador(req), 'tipo_criado', null, { nome });
@@ -210,7 +254,11 @@ router.post('/tipos', soAdmin, async (req: AuthRequest, res: Response) => {
 router.put('/tipos/:id', soAdmin, async (req: AuthRequest, res: Response) => {
     try {
         const alt: any = {};
-        for (const k of ['nome', 'prefixo', 'area_padrao', 'confidencialidade_padrao', 'tem_validade', 'campos', 'ativo']) if (k in req.body) alt[k] = req.body[k];
+        for (const k of ['nome', 'prefixo', 'area_padrao', 'confidencialidade_padrao', 'tem_validade', 'campos', 'ativo', 'retencao_anos', 'retencao_acao', 'retencao_base']) if (k in req.body) alt[k] = req.body[k];
+        if ('retencao_anos' in alt || 'retencao_acao' in alt || 'retencao_base' in alt) {
+            const e = validarRetencao(alt.retencao_anos, alt.retencao_acao, alt.retencao_base); if (e) return res.status(400).json({ error: e });
+            if ('retencao_anos' in alt) alt.retencao_anos = alt.retencao_anos ? Number(alt.retencao_anos) : null;
+        }
         if (alt.prefixo && !/^[A-Za-z]{2,6}$/.test(alt.prefixo)) return res.status(400).json({ error: 'Prefixo: 2 a 6 letras.' });
         if (alt.prefixo) alt.prefixo = alt.prefixo.toUpperCase();
         if (alt.campos) { const e = validarCamposTipo(alt.campos); if (e) return res.status(400).json({ error: e }); }
@@ -569,7 +617,8 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
         const [documento] = await DocumentosService.comLinks([doc]);
         await DocumentosGovernoService.auditar(empresaDe(req), utilizador(req), 'ver', doc);
         const ciclo = DocumentosCicloService.opcoes(doc.ciclo as Ciclo, 'utilizador');
-        res.json({ success: true, documento, transicoes: ciclo, rotuloCiclo: ROTULO_CICLO[doc.ciclo as Ciclo] });
+        const favoritos = await DocumentosArquivoService.favoritosIds(req.user!.id);
+        res.json({ success: true, documento: { ...documento, favorito: favoritos.includes(doc.id) }, transicoes: ciclo, rotuloCiclo: ROTULO_CICLO[doc.ciclo as Ciclo] });
     } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
@@ -630,6 +679,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
 
         const { data, error } = await supabase.from('documentos').update(alt).eq('id', doc.id).eq('empresa_id', empresaDe(req)).select('id').single();
         if (error || !data) return res.status(404).json({ error: 'Documento não encontrado ou sem permissão.' });
+        if (alt.tipo_id !== undefined || alt.validade !== undefined || alt.data_documento !== undefined) await DocumentosArquivoService.atualizarRetencao({ ...doc, ...alt }).catch(() => null);
         const mudou = Object.keys(alt).filter(k => k !== 'atualizado_em');
         await DocumentosGovernoService.auditar(empresaDe(req), utilizador(req), alt.estado === 'arquivado' && doc.estado === 'por_rever' ? 'confirmado' : 'editar', doc, { campos: mudou });
         res.json({ success: true });
@@ -785,6 +835,99 @@ router.post('/:id/processos/:processoId/cancelar', async (req: AuthRequest, res:
         const doc = await carregarComAcesso(req, res, 'ver'); if (!doc) return;
         const r = await DocumentosFluxoService.cancelar(Number(req.params.processoId), utilizador(req), String(req.body.motivo || ''), doc.nivel_acesso === 'gerir');
         if (!r.ok) return res.status(400).json({ error: r.erro });
+        res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+// ============================================================
+// FASE D — por documento
+// ============================================================
+router.post('/:id/favorito', async (req: AuthRequest, res: Response) => {
+    try {
+        const doc = await carregarComAcesso(req, res, 'ver'); if (!doc) return;
+        res.json({ success: true, favorito: await DocumentosArquivoService.alternarFavorito(empresaDe(req), req.user!.id, doc.id) });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/:id/etiqueta', async (req: AuthRequest, res: Response) => {
+    try {
+        const doc = await carregarComAcesso(req, res, 'ver'); if (!doc) return;
+        const q = await DocumentosArquivoService.etiquetaQR(doc);
+        await DocumentosGovernoService.auditar(empresaDe(req), utilizador(req), 'etiqueta_gerada', doc, { codigo: q.codigo });
+        res.json({ success: true, ...q, titulo: doc.titulo, localizacao: DocumentosArquivoService.localizacaoLegivel(doc.localizacao_fisica) });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.put('/:id/fisico', async (req: AuthRequest, res: Response) => {
+    try {
+        const doc = await carregarComAcesso(req, res, 'editar'); if (!doc) return;
+        const alt: any = {};
+        if ('localizacao_fisica' in req.body) {
+            const l = req.body.localizacao_fisica;
+            if (l !== null && (typeof l !== 'object' || Array.isArray(l))) return res.status(400).json({ error: 'Localização inválida.' });
+            alt.localizacao_fisica = l ? Object.fromEntries(['edificio', 'sala', 'armario', 'prateleira', 'caixa', 'pasta', 'notas'].filter(k => l[k]).map(k => [k, String(l[k]).slice(0, 80)])) : null;
+            if (alt.localizacao_fisica && Object.keys(alt.localizacao_fisica).length === 0) alt.localizacao_fisica = null;
+        }
+        if ('codigo_fisico' in req.body) alt.codigo_fisico = req.body.codigo_fisico ? String(req.body.codigo_fisico).slice(0, 60) : null;
+        if ('emprestado_a' in req.body) { alt.emprestado_a = req.body.emprestado_a ? String(req.body.emprestado_a).slice(0, 120) : null; alt.emprestado_em = req.body.emprestado_a ? new Date().toISOString() : null; }
+        const { data } = await supabase.from('documentos').update(alt).eq('id', doc.id).eq('empresa_id', empresaDe(req)).select('id').maybeSingle();
+        if (!data) return res.status(404).json({ error: 'Documento não encontrado.' });
+        await DocumentosGovernoService.auditar(empresaDe(req), utilizador(req), 'fisico_alterado', doc, alt);
+        res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.post('/:id/retencao', async (req: AuthRequest, res: Response) => {
+    try {
+        const doc = await carregarComAcesso(req, res, 'gerir'); if (!doc) return;
+        if (!['manter', 'eliminar'].includes(req.body.decisao)) return res.status(400).json({ error: 'Decisão inválida (manter / eliminar).' });
+        const r = await DocumentosArquivoService.decidirRetencao(doc, req.body.decisao, utilizador(req), String(req.body.motivo || ''));
+        if (!r.ok) return res.status(400).json({ error: r.erro });
+        res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/:id/assinaturas', async (req: AuthRequest, res: Response) => {
+    try {
+        const doc = await carregarComAcesso(req, res, 'ver'); if (!doc) return;
+        res.json({ success: true, assinaturas: await DocumentosArquivoService.assinaturasDe(doc.id), adaptadores: DocumentosArquivoService.adaptadores(), podePedir: doc.nivel_acesso !== 'ver' && ['ACTIVE', 'APPROVED'].includes(doc.ciclo) });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+router.post('/:id/assinaturas', async (req: AuthRequest, res: Response) => {
+    try {
+        const doc = await carregarComAcesso(req, res, 'editar'); if (!doc) return;
+        const r = await DocumentosArquivoService.pedirAssinaturas(doc, req.body.signatarios || [], req.body.fornecedor === 'externa' ? 'externa' : 'interna', utilizador(req));
+        if (!r.ok) return res.status(400).json({ error: r.erro });
+        res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+router.post('/:id/assinaturas/cancelar', async (req: AuthRequest, res: Response) => {
+    try {
+        const doc = await carregarComAcesso(req, res, 'editar'); if (!doc) return;
+        const r = await DocumentosArquivoService.cancelarAssinaturas(doc, utilizador(req), String(req.body.motivo || ''));
+        if (!r.ok) return res.status(400).json({ error: r.erro });
+        res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/:id/partilhas', async (req: AuthRequest, res: Response) => {
+    try {
+        const doc = await carregarComAcesso(req, res, 'editar'); if (!doc) return;
+        res.json({ success: true, partilhas: await DocumentosArquivoService.partilhasDe(doc.id) });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+router.post('/:id/partilhas', async (req: AuthRequest, res: Response) => {
+    try {
+        const doc = await carregarComAcesso(req, res, 'editar'); if (!doc) return;
+        const r = await DocumentosArquivoService.criarPartilha(doc, utilizador(req), { horas: Number(req.body.horas) || 24, destinatario: req.body.destinatario, max_acessos: req.body.max_acessos ? Number(req.body.max_acessos) : null, senha: req.body.senha || undefined });
+        if (!r.ok) return res.status(400).json({ error: r.erro });
+        res.json({ success: true, url: r.url, expira_em: r.expira_em });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+router.delete('/:id/partilhas/:partilhaId', async (req: AuthRequest, res: Response) => {
+    try {
+        const doc = await carregarComAcesso(req, res, 'editar'); if (!doc) return;
+        if (!(await DocumentosArquivoService.revogarPartilha(doc.id, Number(req.params.partilhaId), utilizador(req)))) return res.status(404).json({ error: 'Partilha não encontrada.' });
         res.json({ success: true });
     } catch (err: any) { res.status(500).json({ error: err.message }); }
 });

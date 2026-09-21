@@ -8,6 +8,17 @@ import { AgendamentoService } from '../services/AgendamentoService';
 import { RecrutamentoService } from '../services/RecrutamentoService';
 
 const router = Router();
+
+// Partilha temporária de documentos (módulo Documentos): link com token, expira, pode ter senha e limite de acessos.
+router.post('/documentos/partilha/:token', async (req: Request, res: Response) => {
+    try {
+        const { DocumentosArquivoService } = require('../services/DocumentosArquivoService');
+        const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket?.remoteAddress;
+        const r = await DocumentosArquivoService.abrirPartilha(String(req.params.token || '').slice(0, 80), req.body?.senha ? String(req.body.senha) : undefined, ip);
+        if (!r.ok) return res.status(r.precisaSenha ? 401 : 404).json({ error: r.erro, precisaSenha: !!r.precisaSenha });
+        res.json({ success: true, documento: r.documento, url: r.url, expira_em_segundos: 300 });
+    } catch (e: any) { res.status(500).json({ error: 'Não foi possível abrir a partilha.' }); }
+});
 const uploadCv = multer({ dest: 'tmp/', limits: { fileSize: 10 * 1024 * 1024 } });
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
