@@ -220,6 +220,75 @@ export const HELP_ITEMS: HelpItem[] = [
     campos: [{ label: 'Nome do Campo', explicacao: 'Sem espaços, ex: "produto_interesse".' }, { label: 'Valor', explicacao: 'O que guardar — pode ser fixo ou {{mensagem}}.' }],
     exemplo: { cenario: 'Guardar qual produto o cliente perguntou, para usar depois numa mensagem de acompanhamento.', passos: ['Campo: produto_interesse', 'Valor: {{mensagem}}', 'Mais tarde: "Olá, ainda tem interesse em {{produto_interesse}}?"'] }
   },
+  // ---- AGENDAMENTO ----
+  {
+    id: 'check_slots',
+    titulo: 'Ver Horários Livres',
+    categoria: 'Agendamento',
+    cor: '#C9992E',
+    oQueFaz: 'Vai ao módulo Agendamento e devolve as horas que estão mesmo livres no dia que o cliente pediu. Não usa inteligência artificial: lê a data por regras (percebe "hoje", "amanhã", "sexta", "12/10", "12 de outubro", "dia 3") e, se não perceber, diz-lhe porquê em vez de inventar.',
+    quandoUsar: 'Logo depois de perguntar o dia ao cliente, antes de lhe mostrar as opções de hora.',
+    campos: [
+      { label: 'Serviço', explicacao: 'O que se vai marcar. Escolha da lista (vem do módulo Agendamento) ou use uma variável, ex: {{mensagem}} quando o cliente escolheu num menu.' },
+      { label: 'Data', explicacao: 'Normalmente {{data_pedida}} — a resposta que guardou no "Aguardar resposta" anterior.' },
+      { label: 'Guardar os horários em', explicacao: 'O nome da variável com a lista pronta a enviar. Por omissão: horarios_livres.' },
+      { label: 'Quantos horários mostrar', explicacao: 'Para não encher a mensagem. 6 a 8 costuma chegar.' }
+    ],
+    exemplo: {
+      cenario: 'O cliente diz "sexta" e quer saber as horas.',
+      passos: [
+        '"Aguardar resposta" → Pergunta: "Para que dia?" · Guardar em: data_pedida',
+        '"Ver horários livres" → Serviço: Quarto simples · Data: {{data_pedida}}',
+        'Se/Então: {{tem_vagas}} = sim',
+        'Ramo SIM → "Temos livre: {{horarios_livres}}. A que horas?"',
+        'Ramo NÃO → "Nesse dia não tenho nada. {{agendamento_erro}}" e voltar a perguntar'
+      ]
+    }
+  },
+  {
+    id: 'create_booking',
+    titulo: 'Criar Marcação',
+    categoria: 'Agendamento',
+    cor: '#C9992E',
+    oQueFaz: 'Grava mesmo a marcação no módulo Agendamento, com a origem "Fluxo do Autopilot". Verifica outra vez se a hora continua livre — se entretanto alguém a apanhou, não marca e explica porquê.',
+    quandoUsar: 'No fim, quando já tem o dia, a hora e o nome do cliente.',
+    campos: [
+      { label: 'Serviço / Data / Hora', explicacao: 'O mesmo serviço do "Ver horários livres", e as respostas que guardou: {{data_pedida}}, {{hora_pedida}}. Percebe "14h", "14:30", "2 da tarde", "meio-dia".' },
+      { label: 'Nome e Telefone', explicacao: '{{nome_cliente}} (o que o cliente escreveu) e {{telefone}} (o número de quem está a falar).' },
+      { label: 'Campos próprios da empresa', explicacao: 'Os campos que criou em Agendamento → Definições (nº de pessoas, matrícula, BI). Pode pôr um valor fixo ou uma variável.' }
+    ],
+    exemplo: {
+      cenario: 'Fechar a marcação e confirmar ao cliente.',
+      passos: [
+        '"Criar marcação" → Data: {{data_pedida}} · Hora: {{hora_pedida}} · Nome: {{nome_cliente}} · Telefone: {{telefone}}',
+        'Se/Então: {{agendamento_ok}} = sim',
+        'Ramo SIM → "Marcado, {{nome_cliente}}! {{agendamento_data_extenso}} às {{agendamento_hora}}."',
+        'Ramo NÃO → "Não consegui: {{agendamento_erro}}" e "Voltar ao menu"'
+      ]
+    }
+  },
+  {
+    id: 'list_bookings',
+    titulo: 'Marcações do Cliente',
+    categoria: 'Agendamento',
+    cor: '#C9992E',
+    oQueFaz: 'Traz as marcações futuras de quem está a escrever, já em texto pronto a enviar (uma por linha, com data por extenso e hora). As canceladas não aparecem.',
+    quandoUsar: 'Numa opção de menu do género "2 - As minhas marcações", ou antes de remarcar/cancelar.',
+    campos: [
+      { label: 'Telefone do cliente', explicacao: 'Deixe {{telefone}} — é o número de quem está na conversa.' },
+      { label: 'Guardar a lista em', explicacao: 'Por omissão: minhas_marcacoes. Use depois {{minhas_marcacoes}} numa mensagem.' }
+    ],
+    exemplo: {
+      cenario: 'O cliente escolhe a opção 2 do menu.',
+      passos: [
+        '"Marcações do cliente" → Telefone: {{telefone}}',
+        'Se/Então: {{tem_marcacoes}} = sim',
+        'Ramo SIM → "As suas marcações:\n{{minhas_marcacoes}}"',
+        'Ramo NÃO → "Ainda não tem nada marcado connosco."',
+        'Os dois ramos terminam em "Voltar ao menu"'
+      ]
+    }
+  },
   // ---- AVANÇADO ----
   {
     id: 'external_request',

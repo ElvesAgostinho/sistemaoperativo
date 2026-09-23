@@ -3,7 +3,7 @@
  * mesmas cores dos nós do construtor. Serve para mostrar "o fluxo fica assim"
  * sem obrigar a abrir o canvas.
  */
-export type TipoCaixa = 'gatilho' | 'acao' | 'espera' | 'menu' | 'condicao' | 'template' | 'humano' | 'fim';
+export type TipoCaixa = 'gatilho' | 'acao' | 'espera' | 'menu' | 'condicao' | 'template' | 'humano' | 'agenda' | 'fim';
 
 export interface Caixa { tipo: TipoCaixa; titulo: string; detalhe?: string }
 export interface Ramo { rotulo: string; caixas: Caixa[] }
@@ -17,6 +17,7 @@ const ESTILO: Record<TipoCaixa, { cor: string; fundo: string; etiqueta: string }
   condicao: { cor: '#6d28d9', fundo: '#f3e8ff', etiqueta: 'SE / ENTÃO' },
   template: { cor: '#0E5A6B', fundo: '#E1EEF0', etiqueta: 'TEMPLATE' },
   humano: { cor: '#be123c', fundo: '#ffe4e6', etiqueta: 'PESSOA' },
+  agenda: { cor: '#a16207', fundo: '#fef9c3', etiqueta: 'AGENDAMENTO' },
   fim: { cor: '#475569', fundo: '#f1f5f9', etiqueta: 'FIM' }
 };
 

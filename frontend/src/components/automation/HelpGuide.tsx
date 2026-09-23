@@ -8,7 +8,7 @@ interface HelpGuideProps {
   onClose: () => void;
 }
 
-const CATEGORY_ORDER = ['Conceitos', 'Início do Fluxo', 'Lógica', 'Mensagens', 'CRM', 'Avançado', 'Estrutura'];
+const CATEGORY_ORDER = ['Conceitos', 'Início do Fluxo', 'Lógica', 'Mensagens', 'CRM', 'Agendamento', 'Avançado', 'Estrutura'];
 
 export default function HelpGuide({ onClose }: HelpGuideProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null); // null = mostra a introdução

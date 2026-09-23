@@ -232,7 +232,10 @@ export class AutomationEngine {
                 sim.terminou = true;
                 return sim;
             }
-            await this.executeGraph(nodes, edges, estado.nodeId, contextoBase, null, [automation.id],
+            // A empresa vai a sério: os nós que só LEEM (horários livres, marcações
+            // do cliente) precisam dela para mostrar dados reais na simulação. Os que
+            // gravam ficam travados pelo `simulacao` no executeAction.
+            await this.executeGraph(nodes, edges, estado.nodeId, contextoBase, automation.empresa_id ?? null, [automation.id],
                 { mensagemDisponivel: true, tentativas: estado.tentativas || 0, simulacao: sim });
             return sim;
         }
@@ -254,7 +257,7 @@ export class AutomationEngine {
             sim.terminou = true;
             return sim;
         }
-        await this.executeGraph(nodes, edges, primeira.target, contextoBase, null, [automation.id],
+        await this.executeGraph(nodes, edges, primeira.target, contextoBase, automation.empresa_id ?? null, [automation.id],
             { mensagemDisponivel: false, simulacao: sim });
         return sim;
     }
@@ -684,8 +687,19 @@ export class AutomationEngine {
             }
             if (tipo === 'CREATE_BOOKING') {
                 // Na simulação não se cria nada: só se mostra o que seria criado.
-                context['agendamento_ok'] = 'sim';
+                // As variáveis são preenchidas na mesma (lendo a data e a hora pelas
+                // mesmas regras de sempre), para a mensagem de confirmação aparecer
+                // aqui exatamente como o cliente a receberia.
+                const { TextoDataHoraService } = require('./TextoDataHoraService');
+                const iso = TextoDataHoraService.data(this.parseString(config.data || '', context));
+                const hora = TextoDataHoraService.hora(this.parseString(config.hora || '', context));
+                context['agendamento_ok'] = iso && hora ? 'sim' : 'nao';
+                context['agendamento_erro'] = iso ? (hora ? '' : 'Não percebi a hora.') : 'Não percebi a data.';
                 context['agendamento_id'] = '(simulação)';
+                context['agendamento_data'] = iso || '';
+                context['agendamento_data_extenso'] = iso ? TextoDataHoraService.dataPorExtenso(iso) : '';
+                context['agendamento_hora'] = hora || '';
+                context['agendamento_servico'] = this.parseString(config.servico || '', context);
             }
             sim.passos.push({ nodeId: node.id, tipo: 'action', titulo: tipo, detalhe: resumo[tipo] ?? '' });
             if (['REPLY_MESSAGE', 'SEND_WHATSAPP'].includes(tipo) && texto) sim.mensagens.push({ de: 'bot', texto });

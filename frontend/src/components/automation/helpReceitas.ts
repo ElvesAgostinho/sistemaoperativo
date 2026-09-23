@@ -167,6 +167,87 @@ export const RECEITAS: Receita[] = [
       { de: 'cliente', texto: '12 de outubro' },
       { de: 'bot', texto: 'Obrigado Ana Paula! Reserva para 12 de outubro anotada.' }
     ]
+  },
+  {
+    id: 'r6',
+    titulo: '6. Marcar sozinho na agenda, pelo WhatsApp',
+    paraQue: 'O cliente escolhe o dia e a hora e a marcação fica no módulo Agendamento — sem ninguém mexer, e sem IA.',
+    dificuldade: 'médio',
+    diagrama: {
+      caixas: [
+        { tipo: 'gatilho', titulo: 'Mensagem no WhatsApp' },
+        { tipo: 'espera', titulo: 'Aguardar resposta', detalhe: '"Para que dia?" -> guardar em data_pedida' },
+        { tipo: 'agenda', titulo: 'Ver horários livres', detalhe: 'serviço + {{data_pedida}} -> {{horarios_livres}}, {{tem_vagas}}' },
+        { tipo: 'condicao', titulo: 'Se {{tem_vagas}} = sim' }
+      ],
+      ramos: [
+        { rotulo: 'SIM', caixas: [
+          { tipo: 'espera', titulo: 'Aguardar resposta', detalhe: '"Temos livre: {{horarios_livres}}. A que horas?" -> hora_pedida' },
+          { tipo: 'espera', titulo: 'Aguardar resposta', detalhe: '"Em que nome?" -> nome_cliente' },
+          { tipo: 'agenda', titulo: 'Criar marcação', detalhe: '{{data_pedida}} · {{hora_pedida}} · {{nome_cliente}}' },
+          { tipo: 'condicao', titulo: 'Se {{agendamento_ok}} = sim' },
+          { tipo: 'acao', titulo: 'Responder (ramo SIM)', detalhe: '"Marcado, {{nome_cliente}}! {{agendamento_data_extenso}} às {{agendamento_hora}}."' },
+          { tipo: 'acao', titulo: 'Responder (ramo NÃO)', detalhe: '"Não consegui: {{agendamento_erro}}" e Voltar ao menu' }
+        ] },
+        { rotulo: 'NÃO', caixas: [
+          { tipo: 'acao', titulo: 'Responder', detalhe: '"Nesse dia não tenho nada livre. {{agendamento_erro}}"' },
+          { tipo: 'espera', titulo: 'Aguardar resposta', detalhe: '"Quer tentar outro dia?" e volta a "Ver horários livres"' }
+        ] }
+      ]
+    },
+    comoMontar: [
+      'Primeiro, no módulo Agendamento: crie o que se marca (Serviços/Quartos/Consultas) e abra o Horário de funcionamento. Sem isso não há horas livres para mostrar.',
+      'No Autopilot arraste "Aguardar resposta", pergunte o dia e guarde em data_pedida.',
+      'Arraste "Ver horários livres" (secção AGENDAMENTO da lista da esquerda). Escolha o serviço e ponha {{data_pedida}} no campo Data.',
+      'Ligue a um Se/Então com {{tem_vagas}} = sim. O ramo NÃO responde com {{agendamento_erro}} e volta a perguntar.',
+      'No ramo SIM: um "Aguardar resposta" para a hora (guardar em hora_pedida) e outro para o nome (nome_cliente).',
+      'Arraste "Criar marcação": o mesmo serviço, Data {{data_pedida}}, Hora {{hora_pedida}}, Nome {{nome_cliente}}, Telefone {{telefone}}.',
+      'Ligue a outro Se/Então com {{agendamento_ok}} = sim: no SIM confirma ao cliente, no NÃO mostra {{agendamento_erro}} (ex: alguém apanhou a hora primeiro).',
+      'Guardar e Simular. Só depois ligue o interruptor do fluxo.'
+    ],
+    conversa: [
+      { de: 'cliente', texto: 'Boa tarde, queria marcar' },
+      { de: 'bot', texto: 'Para que dia?' },
+      { de: 'cliente', texto: 'sexta' },
+      { de: 'bot', texto: 'Temos livre: 08:00, 09:00, 10:00, 14:00, 15:00. A que horas?' },
+      { de: 'cliente', texto: '2 da tarde' },
+      { de: 'bot', texto: 'Em que nome?' },
+      { de: 'cliente', texto: 'Ana Paula' },
+      { de: 'bot', texto: 'Marcado, Ana Paula! 25 de setembro de 2026 às 14:00.' }
+    ]
+  },
+  {
+    id: 'r7',
+    titulo: '7. "As minhas marcações" dentro do menu',
+    paraQue: 'O cliente pergunta o que tem marcado e recebe a lista na hora, sem ligar para ninguém.',
+    dificuldade: 'fácil',
+    diagrama: {
+      caixas: [
+        { tipo: 'menu', titulo: 'MENU', detalhe: '"1 - Marcar | 2 - As minhas marcações"' }
+      ],
+      ramos: [
+        { rotulo: 'opção 1', caixas: [{ tipo: 'agenda', titulo: 'Ver horários livres', detalhe: 'segue a receita 6' }] },
+        { rotulo: 'opção 2', caixas: [
+          { tipo: 'agenda', titulo: 'Marcações do cliente', detalhe: '{{telefone}} -> {{minhas_marcacoes}}, {{tem_marcacoes}}' },
+          { tipo: 'condicao', titulo: 'Se {{tem_marcacoes}} = sim' },
+          { tipo: 'acao', titulo: 'Responder (ramo SIM)', detalhe: '"As suas marcações: {{minhas_marcacoes}}"' },
+          { tipo: 'acao', titulo: 'Responder (ramo NÃO)', detalhe: '"Ainda não tem nada marcado connosco."' },
+          { tipo: 'acao', titulo: 'Voltar ao menu', detalhe: 'volta ao MENU' }
+        ] }
+      ]
+    },
+    comoMontar: [
+      'Arraste "Marcações do cliente" (secção AGENDAMENTO) para o ramo da opção 2 do seu menu.',
+      'Deixe o Telefone como {{telefone}} — é o número de quem está a escrever.',
+      'Ligue a um Se/Então com {{tem_marcacoes}} = sim.',
+      'No SIM responda com {{minhas_marcacoes}} (já vem em texto, uma marcação por linha). No NÃO diga que não tem nada.',
+      'Junte um "Voltar ao menu" no fim dos dois ramos, para o cliente poder escolher outra coisa.'
+    ],
+    conversa: [
+      { de: 'cliente', texto: '2' },
+      { de: 'bot', texto: 'As suas marcações: 1 - Quarto simples · 25 de setembro de 2026 às 14:00' },
+      { de: 'bot', texto: 'MENU: 1 - Marcar | 2 - As minhas marcações' }
+    ]
   }
 ];
 
@@ -180,7 +261,13 @@ export const VARIAVEIS_AJUDA = {
     { nome: '{{nome_whatsapp}}', o_que: 'o nome do cliente no WhatsApp' },
     { nome: '{{telefone}}', o_que: 'o número do cliente' },
     { nome: '{{tags}}', o_que: 'as etiquetas do cliente no CRM' },
-    { nome: '{{o_que_voce_criar}}', o_que: 'qualquer resposta que tenha guardado no campo "Guardar a resposta em"' }
+    { nome: '{{o_que_voce_criar}}', o_que: 'qualquer resposta que tenha guardado no campo "Guardar a resposta em"' },
+    { nome: '{{horarios_livres}}', o_que: 'as horas livres do dia pedido, depois de "Ver horários livres"' },
+    { nome: '{{tem_vagas}}', o_que: '"sim" ou "nao" — para o Se/Então logo a seguir a "Ver horários livres"' },
+    { nome: '{{agendamento_ok}}', o_que: '"sim" ou "nao" — se a marcação foi mesmo criada' },
+    { nome: '{{agendamento_erro}}', o_que: 'o motivo, em português, quando não deu (ex: "Essa hora deixou de estar livre")' },
+    { nome: '{{agendamento_data_extenso}}', o_que: 'a data da marcação por extenso, para a mensagem de confirmação' },
+    { nome: '{{minhas_marcacoes}}', o_que: 'a lista das marcações do cliente, já em texto' }
   ],
   erradoDiagrama: {
     caixas: [
