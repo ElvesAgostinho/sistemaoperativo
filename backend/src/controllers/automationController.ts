@@ -18,7 +18,14 @@ function deriveTriggerType(nodes: any[]): string {
 export const getAutomations = async (req: Request, res: Response) => {
     try {
         const supabase = getSupabase(req);
-        const { data: automations, error } = await supabase.from('automations').select('*').order('criado_em', { ascending: false });
+        // O isolamento entre empresas nunca pode depender só do RLS: a política
+        // da tabela deixa o superadmin ver tudo (precisa disso no SaaS Global),
+        // e sem este filtro os fluxos de OUTRAS empresas apareciam no Autopilot
+        // de quem tem esse papel. Aqui dentro só se vê a empresa em que se está.
+        const empresa_id = (req as any).user?.empresa_id;
+        if (!empresa_id) return res.status(400).json({ error: 'Utilizador sem empresa associada.' });
+        const { data: automations, error } = await supabase.from('automations').select('*')
+            .eq('empresa_id', empresa_id).order('criado_em', { ascending: false });
         if (error) throw error;
         return res.json({ success: true, automations });
     } catch (error) {
@@ -149,6 +156,9 @@ export const processWebhook = async (req: Request, res: Response) => {
         const { source } = req.params; // ex: 'whatsapp'
         const payload = req.body;
         const empresaId = (req as any).user?.empresa_id;
+        // Sem empresa não se dispara nada: caso contrário o webhook corria as
+        // automações de TODAS as empresas.
+        if (!empresaId) return res.status(400).json({ error: 'Utilizador sem empresa associada.' });
 
         // Emite o evento assíncrono para o motor e devolve 200 rápido para a API cliente
         AutomationEngine.processWebhook(source, payload, empresaId).catch(err => {

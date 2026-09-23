@@ -61,6 +61,11 @@ export class AutomationEngine {
      * webhookSource bate com o :source da rota POST /api/automation/webhook/:source
      */
     public static async processWebhook(webhookSource: string, payload: any, empresaId?: number) {
+        // Nunca correr automações sem saber de que empresa são (ver nota no controller).
+        if (!empresaId) {
+            console.error('[AUTOPILOT] Webhook sem empresa_id — ignorado para não cruzar dados entre empresas.');
+            return;
+        }
         const phoneToCheck = payload.from || payload.telefone || payload.phone || payload.remoteJid;
         if (phoneToCheck && await this.isBotPausedForPhone(phoneToCheck, empresaId)) {
             console.log(`[Human Handover] Ignorando webhook de ${phoneToCheck} pois o bot está pausado para este cliente.`);

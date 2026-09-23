@@ -132,7 +132,10 @@ router.get('/report/pdf', requireAuth, async (req: Request, res: Response) => {
 router.get('/insights', requireAuth, async (req: Request, res: Response) => {
     try {
         const supabase = getSupabase(req);
-        const { data: insights, error } = await supabase.from('datainsights').select('*').order('criado_em', { ascending: false }).limit(10);
+        const empresa_id = (req as any).user?.empresa_id;
+        if (!empresa_id) return res.status(400).json({ error: 'Utilizador sem empresa associada.' });
+        const { data: insights, error } = await supabase.from('datainsights').select('*')
+            .eq('empresa_id', empresa_id).order('criado_em', { ascending: false }).limit(10);
         
         if (error) throw error;
 
