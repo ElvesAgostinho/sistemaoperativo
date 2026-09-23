@@ -3,7 +3,7 @@ export type AutomationNodeKind = 'trigger' | 'condition' | 'action' | 'menu' | '
 export type ActionType =
   | 'SEND_EMAIL' | 'REPLY_MESSAGE'
   | 'SEND_IMAGE' | 'SEND_VIDEO' | 'SEND_AUDIO' | 'SEND_DOCUMENT'
-  | 'DELAY' | 'WAIT_REPLY' | 'GOTO_MENU' | 'JUMP_TO_WORKFLOW' | 'LOG_MESSAGE'
+  | 'DELAY' | 'WAIT_REPLY' | 'GOTO_MENU' | 'JUMP_TO_WORKFLOW' | 'LOG_MESSAGE' | 'SEND_TEMPLATE'
   | 'ADD_TAG' | 'REMOVE_TAG' | 'SET_CUSTOM_FIELD' | 'EXTERNAL_REQUEST' | 'NOTIFY_TEAM' | 'HANDOFF_HUMAN' | 'AI_REPLY';
 
 export interface TriggerNodeData {
@@ -86,6 +86,7 @@ export const ACTION_LABELS: Record<ActionType, string> = {
   DELAY: 'Aguardar',
   WAIT_REPLY: 'Aguardar resposta do cliente',
   GOTO_MENU: 'Voltar ao menu',
+  SEND_TEMPLATE: 'Enviar template',
   JUMP_TO_WORKFLOW: 'Saltar para Outro Fluxo',
   LOG_MESSAGE: 'Registar Log',
   ADD_TAG: 'Adicionar Tag ao Cliente',

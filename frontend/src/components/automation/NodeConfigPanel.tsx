@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Trash2, Loader2, Plus, Upload } from 'lucide-react';
 import type { ActionNodeData, ActionType, Automation, AutomationNode, ConditionNodeData, MenuNodeData, TriggerNodeData } from './types';
 import { ACTION_LABELS, createDefaultMenuOption, VARIAVEIS_CONVERSA } from './types';
@@ -24,6 +24,20 @@ const labelStyle: React.CSSProperties = {
 
 export default function NodeConfigPanel({ node, todosOsNos = [], automations, currentAutomationId, onChangeData, onDelete, onClose }: NodeConfigPanelProps) {
   const menusDoFluxo = todosOsNos.filter(n => n.type === 'menu');
+  // Templates criados em WhatsApp → Templates (para o nó "Enviar template").
+  const [templates, setTemplates] = useState<any[]>([]);
+  useEffect(() => {
+    if ((node.data as any)?.actionType !== 'SEND_TEMPLATE') return;
+    (async () => {
+      try {
+        const token = localStorage.getItem('os_auth_token') || '';
+        const r = await fetch(`${import.meta.env.VITE_API_URL}/api/whatsapp/templates`, { headers: { Authorization: `Bearer ${token}` } });
+        const d = await r.json();
+        if (d.success) setTemplates(d.templates || []);
+      } catch { /* sem templates disponíveis */ }
+    })();
+  }, [node.id, (node.data as any)?.actionType]);
+  const corpoDoTemplate = (t: any) => (t?.components || []).find((c: any) => String(c.type).toUpperCase() === 'BODY')?.text || '';
   const nomeDoMenu = (n: any, i: number) => (n.data?.pergunta ? String(n.data.pergunta).slice(0, 40) : `Menu ${i + 1}`);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -322,6 +336,44 @@ export default function NodeConfigPanel({ node, todosOsNos = [], automations, cu
               </details>
             </>
           )}
+
+          {d.actionType === 'SEND_TEMPLATE' && (() => {
+            const escolhido = templates.find((t: any) => String(t.id) === String(config.template_id));
+            const nVars = escolhido ? new Set([...String(corpoDoTemplate(escolhido)).matchAll(/{{\s*(\d+)\s*}}/g)].map(m => m[1])).size : 0;
+            const params: string[] = config.params || [];
+            return (
+              <>
+                <label style={labelStyle}>Template</label>
+                <select style={fieldStyle} value={config.template_id || ''}
+                  onChange={e => {
+                    const t = templates.find((x: any) => String(x.id) === e.target.value);
+                    updateConfig({ template_id: e.target.value, template_nome: t?.name || '', params: [] });
+                  }}>
+                  <option value="">Selecione um template…</option>
+                  {templates.map((t: any) => <option key={t.id} value={t.id}>{t.name} ({t.language}){t.status && t.status !== 'APPROVED' && t.status !== 'LOCAL' ? ` — ${t.status}` : ''}</option>)}
+                </select>
+                {templates.length === 0 && <div style={{ fontSize: '11px', color: '#b45309', marginTop: '6px' }}>Ainda não há templates. Crie em WhatsApp → Templates.</div>}
+                {escolhido && (
+                  <div style={{ marginTop: '10px', padding: '9px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '12px', color: '#475569', whiteSpace: 'pre-wrap' }}>
+                    {corpoDoTemplate(escolhido)}
+                  </div>
+                )}
+                {nVars > 0 && (
+                  <>
+                    <label style={labelStyle}>Valores das variáveis</label>
+                    {Array.from({ length: nVars }, (_, i) => (
+                      <input key={i} style={{ ...fieldStyle, marginBottom: '6px' }} value={params[i] || ''}
+                        placeholder={`valor de {{${i + 1}}} — pode usar {{nome_whatsapp}}`}
+                        onChange={e => { const p = [...params]; p[i] = e.target.value; updateConfig({ params: p }); }} />
+                    ))}
+                    <div style={{ fontSize: '11px', color: '#666', lineHeight: 1.5 }}>
+                      Pode escrever texto fixo ou uma variável do fluxo (ex: <code>{'{{nome_whatsapp}}'}</code>, <code>{'{{resposta}}'}</code>).
+                    </div>
+                  </>
+                )}
+              </>
+            );
+          })()}
 
           {d.actionType === 'GOTO_MENU' && (
             <>

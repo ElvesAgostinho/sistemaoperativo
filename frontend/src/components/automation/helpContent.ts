@@ -276,6 +276,22 @@ export const HELP_ITEMS: HelpItem[] = [
     exemplo: { cenario: 'Esperar 15 segundos entre a saudação e o menu de opções.', passos: ['Nó "Aguardar" → 15 segundos, entre a mensagem de boas-vindas e o Menu'] }
   },
   {
+    id: 'send_template',
+    titulo: 'Enviar template',
+    categoria: 'Mensagens',
+    cor: '#0E5A6B',
+    oQueFaz: 'Envia um dos modelos criados em WhatsApp → Templates, com as variáveis preenchidas a partir do fluxo.',
+    quandoUsar: 'Mensagens que se repetem sempre iguais (confirmação de reserva, lembrete de pagamento, boas-vindas) e, no número oficial da Meta, sempre que precisar de escrever primeiro a um cliente que não fala consigo há mais de 24 horas — fora dessa janela a Meta só deixa enviar templates aprovados.',
+    campos: [
+      { label: 'Template', explicacao: 'Os modelos criados em WhatsApp → Templates. No número oficial só os aprovados pela Meta são enviados; no número por QR vai como mensagem normal com o mesmo conteúdo.' },
+      { label: 'Valores das variáveis', explicacao: 'O que entra em {{1}}, {{2}}… Pode ser texto fixo ou uma variável do fluxo, como {{nome_whatsapp}} ou {{resposta}}.' }
+    ],
+    exemplo: {
+      cenario: 'Confirmar uma reserva com o nome que o cliente acabou de dar.',
+      passos: ['"Aguardar resposta" → "Qual é o seu nome?" · guardar em nome_cliente', '"Enviar template" → confirmacao_reserva · {{1}} = {{nome_cliente}}']
+    }
+  },
+  {
     id: 'goto_menu',
     titulo: 'Voltar ao menu',
     categoria: 'Conversa',

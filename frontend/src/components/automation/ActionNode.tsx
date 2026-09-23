@@ -1,5 +1,5 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react';
-import { Database, MessageCircle, FileText, Image, Play, Send, Mail, Clock, ArrowRightLeft, GitCommit, Tag, TagX, ListPlus, Globe, BellRing, Headset, Bot, MessageCircleQuestion, CornerUpLeft } from 'lucide-react';
+import { Database, MessageCircle, FileText, Image, Play, Send, Mail, Clock, ArrowRightLeft, GitCommit, Tag, TagX, ListPlus, Globe, BellRing, Headset, Bot, MessageCircleQuestion, CornerUpLeft, LayoutTemplate } from 'lucide-react';
 import { ACTION_LABELS, type ActionNodeData } from './types';
 import NodeDeleteButton from './NodeDeleteButton';
 import NodeDuplicateButton from './NodeDuplicateButton';
@@ -14,6 +14,7 @@ function renderIcon(actionType: string) {
   if (actionType === 'DELAY') return <Clock size={15} color="#64748b" />;
   if (actionType === 'WAIT_REPLY') return <MessageCircleQuestion size={15} color="#0891b2" />;
   if (actionType === 'GOTO_MENU') return <CornerUpLeft size={15} color="#0891b2" />;
+  if (actionType === 'SEND_TEMPLATE') return <LayoutTemplate size={15} color="#0E5A6B" />;
   if (actionType === 'JUMP_TO_WORKFLOW') return <ArrowRightLeft size={15} color="#8b5cf6" />;
   if (actionType === 'ADD_TAG') return <Tag size={15} color="#16a34a" />;
   if (actionType === 'REMOVE_TAG') return <TagX size={15} color="#dc2626" />;
@@ -45,6 +46,7 @@ function summarize(d: ActionNodeData): string {
     case 'NOTIFY_TEAM': return c.destinatario || '(sem destinatário)';
     case 'WAIT_REPLY': return c.mensagem ? `Pergunta: ${c.mensagem}` : 'Espera pela próxima mensagem do cliente';
     case 'GOTO_MENU': return c.menuNodeNome ? `→ ${c.menuNodeNome}` : '(escolher menu)';
+    case 'SEND_TEMPLATE': return c.template_nome || '(escolher template)';
     case 'HANDOFF_HUMAN': return 'Pausa o bot para este cliente';
     case 'AI_REPLY': return c.prompt || '(sem prompt)';
     default: return '';

@@ -649,6 +649,7 @@ export class AutomationEngine {
                 REPLY_MESSAGE: texto, SEND_WHATSAPP: texto, AI_REPLY: '(resposta gerada pela IA a partir da Base de Conhecimento)',
                 SEND_IMAGE: `imagem: ${config.ficheiro || '(sem ficheiro)'}`, SEND_VIDEO: `vídeo: ${config.ficheiro || '(sem ficheiro)'}`,
                 SEND_AUDIO: `áudio: ${config.ficheiro || '(sem ficheiro)'}`, SEND_DOCUMENT: `documento: ${config.ficheiro || '(sem ficheiro)'}`,
+                SEND_TEMPLATE: `template "${config.template_nome || config.template_id || ''}"${(config.params || []).length ? ` com ${(config.params || []).map((v: any) => this.parseString(String(v ?? ''), context)).join(', ')}` : ''}`,
                 SEND_EMAIL: `email para ${this.parseString(config.para || '', context)}: ${this.parseString(config.assunto || '', context)}`,
                 ADD_TAG: `etiqueta +${config.tag || ''}`, REMOVE_TAG: `etiqueta -${config.tag || ''}`,
                 SET_CUSTOM_FIELD: `${config.campo || ''} = ${this.parseString(config.valor || '', context)}`,
@@ -660,6 +661,7 @@ export class AutomationEngine {
             };
             sim.passos.push({ nodeId: node.id, tipo: 'action', titulo: tipo, detalhe: resumo[tipo] ?? '' });
             if (['REPLY_MESSAGE', 'SEND_WHATSAPP'].includes(tipo) && texto) sim.mensagens.push({ de: 'bot', texto });
+            if (tipo === 'SEND_TEMPLATE') sim.mensagens.push({ de: 'bot', texto: resumo.SEND_TEMPLATE, tipo: 'template' });
             if (['SEND_IMAGE', 'SEND_VIDEO', 'SEND_AUDIO', 'SEND_DOCUMENT'].includes(tipo)) sim.mensagens.push({ de: 'bot', texto: resumo[tipo], tipo: tipo.replace('SEND_', '').toLowerCase() });
             if (tipo === 'AI_REPLY') sim.mensagens.push({ de: 'bot', texto: resumo[tipo] });
             // Efeitos só no contexto (não saem para fora) continuam a valer, para as
@@ -931,6 +933,44 @@ export class AutomationEngine {
                     } catch (e) {
                         console.error('[AUTOPILOT] Erro ao enviar email:', e);
                     }
+                }
+                break;
+            }
+
+            // Envia um template criado em WhatsApp → Templates. No número oficial
+            // sai como template da Meta (só se aprovado); no número por QR sai como
+            // mensagem normal com o mesmo conteúdo.
+            case 'SEND_TEMPLATE': {
+                const templateId = config.template_id;
+                const telefoneAlvo = this.parseString(config.telefone || '{{telefone}}', context);
+                if (!templateId || !telefoneAlvo) { console.warn('[AUTOPILOT] Nó de template sem template escolhido ou sem telefone.'); break; }
+                try {
+                    const { data: template } = await supabase.from('wa_templates').select('*').eq('id', templateId).maybeSingle();
+                    if (!template || (empresa_id && String(template.empresa_id) !== String(empresa_id))) {
+                        console.error('[AUTOPILOT] Template não encontrado nesta empresa:', templateId);
+                        break;
+                    }
+                    let canalId = config.channel_id || context['channel_id'];
+                    if (!canalId && empresa_id) {
+                        const { data: c } = await supabase.from('wa_channels').select('id').eq('empresa_id', empresa_id).limit(1).maybeSingle();
+                        canalId = c?.id;
+                    }
+                    const { data: canal } = await supabase.from('wa_channels').select('*').eq('id', canalId).maybeSingle();
+                    if (!canal) { console.error('[AUTOPILOT] Canal não encontrado para enviar o template.'); break; }
+
+                    const params = (Array.isArray(config.params) ? config.params : []).map((v: any) => this.parseString(String(v ?? ''), context));
+                    const { WhatsAppTemplateService } = require('./WhatsAppTemplateService');
+                    const r = await WhatsAppTemplateService.enviar(supabase, canal, telefoneAlvo, template, params);
+                    if (!r.ok) { console.error('[AUTOPILOT] Template não enviado:', r.erro); break; }
+                    console.log(`[AUTOPILOT] Template "${template.name}" enviado para ${telefoneAlvo}`);
+                    if (context['conversation_id']) {
+                        await this.saveMessage(context['conversation_id'], {
+                            id: r.id, channel_id: canal.id, phone_number: telefoneAlvo,
+                            contact_name: 'Autopilot', content: r.textoEnviado, direction: 'outbound'
+                        });
+                    }
+                } catch (e: any) {
+                    console.error('[AUTOPILOT] Erro ao enviar template:', e.message);
                 }
                 break;
             }
