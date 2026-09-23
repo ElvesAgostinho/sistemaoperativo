@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import WhatsAppGruposApp from './WhatsAppGruposApp';
 import CampanhasApp from './CampanhasApp';
 import TemplatesApp from './whatsapp/TemplatesApp';
+import SeletorTemplate from './whatsapp/SeletorTemplate';
 
 // FIX #5 — Supabase client para Realtime (usa as mesmas variáveis de ambiente)
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://lmxuixmmrglrqxjrhpgn.supabase.co';
@@ -1298,15 +1299,13 @@ export default function WhatsAppChatApp() {
                                         </div>
                                         <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleSendMedia} accept="image/*,video/*,audio/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
                                         <Paperclip size={24} color="#5B738B" style={{ cursor: 'pointer' }} onClick={() => fileInputRef.current?.click()} />
-                                        {activeConv?.wa_channels?.provider === 'meta' && (
-                                            <button 
-                                                onClick={() => setShowTemplateModal(true)}
-                                                style={{ padding: '6px 12px', background: '#D5D7DA', color: '#5B738B', border: 'none', borderRadius: '2px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}
-                                                title="Enviar Template"
-                                            >
-                                                Template
-                                            </button>
-                                        )}
+                                        <button
+                                            onClick={() => setShowTemplateModal(true)}
+                                            style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '7px 12px', background: 'white', color: '#0E5A6B', border: '1px solid #0E5A6B', borderRadius: '2px', cursor: 'pointer', fontSize: '12.5px', fontWeight: 600 }}
+                                            title="Usar um template criado em WhatsApp -> Templates"
+                                        >
+                                            <LayoutTemplate size={14} /> Template
+                                        </button>
                                         <input 
                                             type="text" 
                                             value={inputText}
@@ -1347,54 +1346,17 @@ export default function WhatsAppChatApp() {
                     </div>
                 )}
             </div>
-            {/* Modal de Templates */}
-            {showTemplateModal && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-                    <div style={{ backgroundColor: 'white', width: '500px', borderRadius: '2px', padding: '24px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                            <h3 style={{ margin: 0 }}>Enviar Template Meta</h3>
-                            <button onClick={() => setShowTemplateModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px' }}>&times;</button>
-                        </div>
-                        
-                        {templates.length === 0 ? (
-                            <div style={{ textAlign: 'center', padding: '40px 20px', color: '#5B738B' }}>
-                                Nenhum template encontrado. Aceda às Definições para sincronizar os templates da sua conta Meta.
-                            </div>
-                        ) : (
-                            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                {templates.map(tpl => (
-                                    <div key={tpl.id} style={{ border: '1px solid #D5D7DA', borderRadius: '2px', padding: '16px' }}>
-                                        <div style={{ fontWeight: 600, color: '#1D2D3E', marginBottom: '8px' }}>{tpl.name} <span style={{ fontSize: '11px', backgroundColor: '#E7E9EB', padding: '2px 6px', borderRadius: '2px', color: '#5B738B', marginLeft: '8px' }}>{tpl.language}</span></div>
-                                        <div style={{ fontSize: '13px', color: '#5B738B', marginBottom: '12px' }}>
-                                            {tpl.components?.find((c:any) => c.type === 'BODY')?.text || 'Template sem corpo de texto'}
-                                        </div>
-                                        <button
-                                            onClick={async () => {
-                                                if (!activeConv) return;
-                                                try {
-                                                    const token = localStorage.getItem('os_auth_token');
-                                                    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/whatsapp/templates/send`, {
-                                                        method: 'POST',
-                                                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                                                        body: JSON.stringify({ conversation_id: activeConv.id, template_name: tpl.name, language_code: tpl.language })
-                                                    });
-                                                    const data = await res.json();
-                                                    if (data.success) { fetchMessages(); setShowTemplateModal(false); }
-                                                    else alert(data.error || 'Erro ao enviar o template.');
-                                                } catch {
-                                                    alert('Erro de comunicação com o servidor.');
-                                                }
-                                            }}
-                                            style={{ width: '100%', padding: '8px', backgroundColor: '#0E5A6B', color: 'white', border: 'none', borderRadius: '2px', cursor: 'pointer' }}
-                                        >
-                                            Selecionar e Enviar
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </div>
+            {/* Seletor de templates: escrever à mão ou usar um modelo já criado */}
+            {showTemplateModal && activeConv && (
+                <SeletorTemplate
+                    conversaId={activeConv.id}
+                    canalProvider={activeConv?.wa_channels?.provider}
+                    nomeContacto={activeConv.contact_name}
+                    telefone={activeConv.phone_number}
+                    onFechar={() => setShowTemplateModal(false)}
+                    onEnviado={() => { fetchMessages(); fetchConversations(); }}
+                    onInserirTexto={(texto: string) => setInputText(texto)}
+                />
             )}
 
             {/* Modal Atribuir Agente */}
