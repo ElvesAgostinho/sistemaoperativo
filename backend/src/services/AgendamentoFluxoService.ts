@@ -124,7 +124,7 @@ export class AgendamentoFluxoService {
 
         const data = TextoDataHoraService.data(dataTexto);
         if (!data) return { ok: false, erro: 'Não percebi a data.', horarios: [], texto: '' };
-        if (data < new Date().toISOString().slice(0, 10)) return { ok: false, erro: 'Essa data já passou.', data, horarios: [], texto: '' };
+        if (data < TextoDataHoraService.hoje()) return { ok: false, erro: 'Essa data já passou.', data, horarios: [], texto: '' };
 
         const { horarios, motivo } = await AgendamentoService.getDisponibilidade(empresaId, servico.id, data);
         const escolhidos = horarios.slice(0, maximo);
@@ -150,7 +150,7 @@ export class AgendamentoFluxoService {
         if (!data) return { ok: false, erro: 'Não consegui perceber a data.' };
         const hora = TextoDataHoraService.hora(entrada.hora);
         if (!hora) return { ok: false, erro: 'Não consegui perceber a hora.' };
-        if (data < new Date().toISOString().slice(0, 10)) return { ok: false, erro: 'Essa data já passou.' };
+        if (data < TextoDataHoraService.hoje()) return { ok: false, erro: 'Essa data já passou.' };
 
         const nome = String(entrada.nome || '').trim();
         const telefone = String(entrada.telefone || '').replace(/\D/g, '');

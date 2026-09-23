@@ -1,4 +1,5 @@
 import { Request } from 'express';
+import { TextoDataHoraService } from './TextoDataHoraService';
 import { getSupabase, supabase } from '../lib/supabaseClient';
 import { WhatsAppChannelManager } from './WhatsAppChannelManager';
 
@@ -64,7 +65,7 @@ export class AgendamentoService {
 
         const horarios: string[] = [];
         const agora = new Date();
-        const isHoje = data === agora.toISOString().slice(0, 10);
+        const isHoje = data === TextoDataHoraService.hoje(agora);
         const minutosAgora = agora.getHours() * 60 + agora.getMinutes();
 
         for (let inicio = inicioExpediente; inicio + duracao <= fimExpediente; inicio += passo) {
@@ -188,7 +189,7 @@ export class AgendamentoService {
     // caso contrário um cliente poderia cancelar a marcação de outro.
     // ============================================================
     public static async listarAgendamentosPorTelefone(empresaId: string, telefone: string, client: any = supabase) {
-        const hoje = new Date().toISOString().slice(0, 10);
+        const hoje = TextoDataHoraService.hoje();
         const { data, error } = await client.from('agendamentos')
             .select('id, data, hora_inicio, estado, agendamento_servicos(nome), agendamento_profissionais(nome)')
             .eq('empresa_id', empresaId).eq('cliente_telefone', telefone)
@@ -286,8 +287,8 @@ export class AgendamentoService {
     public static async getResumo(req: Request) {
         const client = getSupabase(req);
         const empresaId = (req as any).user?.empresa_id;
-        const hoje = new Date().toISOString().slice(0, 10);
-        const em7dias = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+        const hoje = TextoDataHoraService.hoje();
+        const em7dias = TextoDataHoraService.hoje(new Date(Date.now() + 7 * 86400000));
 
         const { data: hojeRows } = await client.from('agendamentos').select('estado').eq('data', hoje).neq('estado', 'Cancelado').eq('empresa_id', empresaId);
         const { count: totalProximos } = await client.from('agendamentos').select('*', { count: 'exact', head: true })

@@ -33,6 +33,19 @@ const iso = (d: Date) => `${d.getFullYear()}-${doisDigitos(d.getMonth() + 1)}-${
 
 export class TextoDataHoraService {
     /**
+     * A data de hoje como o pais a ve (AAAA-MM-DD).
+     *
+     * Nao usar `new Date().toISOString().slice(0, 10)` para isto: o toISOString
+     * devolve UTC, e Angola esta uma hora a frente. Entre a meia-noite e a uma da
+     * manha o UTC ainda esta no dia anterior — e o sistema passava a ter duas
+     * ideias diferentes de que dia e hoje, aceitando marcacoes para um dia que ja
+     * passou e mostrando marcacoes de ontem como se fossem futuras.
+     */
+    public static hoje(base: Date = new Date()): string {
+        return iso(base);
+    }
+
+    /**
      * Converte texto em data (AAAA-MM-DD). Devolve null se não perceber.
      * `hoje` permite testar com uma data fixa.
      */

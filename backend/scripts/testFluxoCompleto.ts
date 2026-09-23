@@ -238,7 +238,11 @@ const receber = (content: string) => Engine.processIncomingWhatsAppMessage({
     content, direction: 'inbound', id: `m-${++n}-${Date.now()}`
 });
 const limpar = () => { enviadas.length = 0; };
-const amanha = () => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10); };
+// A data local, como o TextoDataHoraService a calcula. O toISOString devolve UTC
+// e, com Angola uma hora a frente, entre a meia-noite e a uma da manha dava o dia
+// anterior — a suite falhava todas as noites nessa janela por causa do teste, nao
+// do codigo.
+const amanha = () => { const d = new Date(); d.setDate(d.getDate() + 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
 (async () => {
     console.log('\n=== Conversa 1: reservar do inicio ao fim ===\n');

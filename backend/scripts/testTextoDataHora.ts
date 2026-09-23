@@ -98,5 +98,22 @@ test('data em português', () => {
     eq(S.dataPorExtenso('2026-10-12'), '12 de outubro de 2026', 'por extenso');
 });
 
+console.log('\n=== Que dia e hoje (UTC vs local) ===\n');
+test('hoje() segue o calendario local, nao o UTC', () => {
+    // 00:30 da manha em Luanda (UTC+1): o UTC ainda esta no dia anterior.
+    // Era aqui que o sistema passava a ter duas ideias de "hoje" — aceitava
+    // marcacoes para um dia ja passado e mostrava as de ontem como futuras.
+    const madrugada = new Date(2026, 8, 24, 0, 30, 0);   // 24/09/2026, hora local
+    eq(S.hoje(madrugada), '2026-09-24', 'devia dar o dia local');
+    eq(S.data('hoje', madrugada), S.hoje(madrugada), '"hoje" e hoje() tem de concordar');
+    eq(S.data('amanha', madrugada), '2026-09-25', '"amanha" a partir da madrugada');
+});
+
+test('hoje() e o mesmo dia que o utilizador ve no relogio', () => {
+    const agora = new Date();
+    const local = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}-${String(agora.getDate()).padStart(2, '0')}`;
+    eq(S.hoje(), local, 'tem de bater certo com o relogio da maquina');
+});
+
 console.log(`\n=== Resultado: ${passed} passaram, ${failed} falharam ===`);
 if (failed) { falhas.forEach(f => console.log('  - ' + f)); process.exit(1); }
