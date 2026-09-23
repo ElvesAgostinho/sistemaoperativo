@@ -47,10 +47,11 @@ router.post('/anexos', requireAuth, upload.single('file'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ success: false, error: 'Nenhum ficheiro recebido.' });
         const empresaId = (req as any).user?.empresa_id;
-        const r = await MediaUploadService.upload(
-            req.file.buffer, req.file.originalname, req.file.mimetype, 'campanhas', empresaId
+        if (!empresaId) return res.status(400).json({ success: false, error: 'Utilizador sem empresa associada.' });
+        const caminho = await MediaUploadService.guardarAnexoEmail(
+            req.file.buffer, String(empresaId), req.file.originalname, req.file.mimetype
         );
-        res.json({ success: true, anexo: { nome: r.nome, url: r.url, tipo: req.file.mimetype, tamanho: req.file.size } });
+        res.json({ success: true, anexo: { nome: req.file.originalname, caminho, tipo: req.file.mimetype, tamanho: req.file.size } });
     } catch (err: any) {
         res.status(500).json({ success: false, error: err.message });
     }

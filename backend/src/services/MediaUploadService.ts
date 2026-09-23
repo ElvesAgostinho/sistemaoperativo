@@ -78,6 +78,21 @@ export class MediaUploadService {
         return caminho;
     }
 
+    /**
+     * Anexos de email. Vão para o bucket privado e não para o público por duas
+     * razões: o público só aceita imagens/vídeos/áudio (um .txt ou um .zip era
+     * recusado), e um anexo pode ser um contrato — com link público, qualquer
+     * pessoa que apanhasse o endereço abria-o.
+     */
+    public static async guardarAnexoEmail(buffer: Buffer, empresaId: string, nomeFicheiro: string, mimeType: string): Promise<string> {
+        await this.garantirBucketDocs();
+        const nomeSeguro = nomeFicheiro.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const caminho = `${empresaId}/email-anexos/${Date.now()}_${nomeSeguro}`;
+        const { error } = await supabase.storage.from(this.BUCKET_DOCS).upload(caminho, buffer, { contentType: mimeType || 'application/octet-stream', upsert: false });
+        if (error) throw new Error('Falha ao guardar o anexo: ' + error.message);
+        return caminho;
+    }
+
     /** Link temporário para ver/descarregar (expira). */
     public static async assinarDocumento(caminho: string, segundos = 3600): Promise<string | null> {
         if (!caminho) return null;

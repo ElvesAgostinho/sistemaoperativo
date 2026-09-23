@@ -5,7 +5,8 @@ const API = import.meta.env.VITE_API_URL;
 
 export interface Anexo {
   nome: string;
-  url: string;
+  /** Onde o ficheiro esta guardado (bucket privado). Nao e um link publico. */
+  caminho: string;
   tipo?: string;
   tamanho?: number;
 }
@@ -88,7 +89,7 @@ export default function AnexosPicker({ anexos, onChange }: { anexos: Anexo[]; on
       {(anexos.length > 0 || aCarregar.length > 0) && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '10px' }}>
           {anexos.map((a, i) => (
-            <div key={a.url + i} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 10px', background: '#F5F6F7', border: '1px solid #E7E9EB', borderRadius: '2px', maxWidth: '100%' }}>
+            <div key={a.caminho + i} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 10px', background: '#F5F6F7', border: '1px solid #E7E9EB', borderRadius: '2px', maxWidth: '100%' }}>
               {a.tipo?.startsWith('image/') ? <ImagemIcon size={14} color="#0E5A6B" /> : <FileText size={14} color="#5B738B" />}
               <span style={{ fontSize: '12.5px', color: '#1D2D3E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '220px' }}>{a.nome}</span>
               {!!a.tamanho && <span style={{ fontSize: '11px', color: '#8996A3' }}>{legivel(a.tamanho)}</span>}

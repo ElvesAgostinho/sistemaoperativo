@@ -149,15 +149,46 @@ export class EmailService {
      * campanhas e do "Compor" com ficheiros: o ficheiro e carregado uma vez e
      * depois so se passa o link, em vez de arrastar o conteudo a cada envio.
      */
+    /**
+     * Cache do conteudo dos anexos enquanto uma campanha esta a correr. Sem isto,
+     * uma campanha com um PDF de 5 MB para 2000 pessoas descarregava o mesmo
+     * ficheiro 2000 vezes do Storage.
+     */
+    private static readonly cacheAnexos = new Map<string, { buffer: Buffer; ate: number }>();
+
+    private static async conteudoDoAnexo(caminho: string): Promise<Buffer> {
+        const agora = Date.now();
+        const guardado = this.cacheAnexos.get(caminho);
+        if (guardado && guardado.ate > agora) return guardado.buffer;
+
+        const { MediaUploadService } = require('./MediaUploadService');
+        const buffer = await MediaUploadService.descarregarDocumento(caminho);
+        this.cacheAnexos.set(caminho, { buffer, ate: agora + 10 * 60 * 1000 });
+        // Limpeza simples: o que ja passou do prazo sai, para a memoria nao crescer
+        // indefinidamente num servidor que nunca reinicia.
+        for (const [k, v] of this.cacheAnexos) if (v.ate <= agora) this.cacheAnexos.delete(k);
+        return buffer;
+    }
+
     public static async enviarComAnexosDeLinks(
         para: string, assunto: string, corpoHtml: string,
-        anexos: { nome: string; url: string; tipo?: string }[],
+        anexos: { nome: string; caminho?: string; url?: string; tipo?: string }[],
         empresaId?: string | number,
         opcoes?: { cc?: string; bcc?: string; registarNaCaixa?: boolean; campanhaId?: string; userClient?: any }
     ): Promise<{ ok: boolean; erro?: string }> {
-        const anexosNodemailer = (anexos || [])
-            .filter(a => a?.url && a?.nome)
-            .map(a => ({ filename: a.nome, path: a.url, contentType: a.tipo || undefined }));
+        const anexosNodemailer: any[] = [];
+        for (const a of (anexos || [])) {
+            if (!a?.nome) continue;
+            try {
+                // Guardados no bucket privado: o conteudo e buscado aqui, porque um
+                // link assinado expirava a meio de uma campanha demorada.
+                if (a.caminho) anexosNodemailer.push({ filename: a.nome, content: await this.conteudoDoAnexo(a.caminho), contentType: a.tipo || undefined });
+                else if (a.url) anexosNodemailer.push({ filename: a.nome, path: a.url, contentType: a.tipo || undefined });
+            } catch (e: any) {
+                console.error(`[EmailService] Nao foi possivel ler o anexo "${a.nome}":`, e?.message || e);
+                return { ok: false, erro: `nao foi possivel ler o anexo "${a.nome}"` };
+            }
+        }
         const ok = await this.enviarEmailPersonalizado(para, assunto, corpoHtml, empresaId, opcoes?.userClient, {
             cc: opcoes?.cc, bcc: opcoes?.bcc,
             anexos: anexosNodemailer,

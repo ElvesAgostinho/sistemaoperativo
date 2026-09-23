@@ -89,6 +89,17 @@ EmailService.enviarEmailPersonalizado = async (para: string, assunto: string, co
     return true;
 };
 
+// O Storage e trocado por um mapa em memoria, para se poder contar quantas vezes
+// o mesmo anexo foi lido (uma campanha nao pode ir buscar o ficheiro por pessoa).
+const mediaPath = require.resolve(path.join(__dirname, '..', 'src', 'services', 'MediaUploadService'));
+const { MediaUploadService } = require(mediaPath);
+let leiturasDoAnexo = 0;
+MediaUploadService.descarregarDocumento = async (caminho: string) => {
+    leiturasDoAnexo++;
+    if (caminho.includes('desaparecido')) throw new Error('ficheiro apagado do Storage');
+    return Buffer.from('conteudo do anexo');
+};
+
 const { EmailCampaignService } = require(path.join(__dirname, '..', 'src', 'services', 'EmailCampaignService'));
 
 const EMPRESA = 'empresa-1';
@@ -97,7 +108,7 @@ const assert = (c: boolean, m: string) => { if (!c) throw new Error(m); };
 
 async function test(nome: string, fn: () => Promise<void>) {
     for (const t of Object.keys(db)) delete db[t];
-    enviados.length = 0; recusarEstes = []; seq = 1;
+    enviados.length = 0; recusarEstes = []; seq = 1; leiturasDoAnexo = 0;
     tabela('clientes').push(
         { id: 1, empresa_id: EMPRESA, nome: 'Ana Paula', email: 'ana@exemplo.ao', empresa: 'Padaria Sol', tags: ['cliente'], custom_fields: { cidade: 'Luanda' } },
         { id: 2, empresa_id: EMPRESA, nome: 'Carlos', email: 'carlos@exemplo.ao', empresa: null, tags: ['lead'], custom_fields: null },
@@ -248,6 +259,37 @@ const base = {
         await EmailCampaignService.iniciar(EMPRESA, r.id);
         await EmailCampaignService.processarFila();
         assert(tabela('emails').length === 0, `a campanha não devia gravar cópias na caixa, gravou ${tabela('emails').length}`);
+    });
+
+    console.log('\n=== Anexos ===\n');
+
+    const ANEXO = { nome: 'catalogo.pdf', caminho: 'empresa-1/email-anexos/123_catalogo.pdf', tipo: 'application/pdf', tamanho: 1024 };
+
+    await test('o anexo segue com a mensagem', async () => {
+        const r = await EmailCampaignService.criar(EMPRESA, { ...base, anexos: [ANEXO] }, 'user-1');
+        await EmailCampaignService.iniciar(EMPRESA, r.id);
+        await EmailCampaignService.processarFila();
+        assert(enviados.length === 2, `deviam sair 2 emails, sairam ${enviados.length}`);
+        assert(enviados.every(e => e.anexos?.length === 1), `todos deviam levar o anexo: ${JSON.stringify(enviados.map(e => e.anexos))}`);
+    });
+
+    await test('o ficheiro so e lido uma vez, nao uma vez por pessoa', async () => {
+        const r = await EmailCampaignService.criar(EMPRESA, { ...base, publico_tipo: 'lista', lista: 'a@x.ao, b@x.ao, c@x.ao', anexos: [{ ...ANEXO, caminho: 'empresa-1/email-anexos/so-deste-teste.pdf' }] }, 'user-1');
+        await EmailCampaignService.iniciar(EMPRESA, r.id);
+        for (let i = 0; i < 4; i++) await EmailCampaignService.processarFila();
+        assert(enviados.length === 3, `deviam sair 3 emails, sairam ${enviados.length}`);
+        assert(leiturasDoAnexo === 1, `o anexo devia ser lido 1 vez, foi ${leiturasDoAnexo}`);
+    });
+
+    await test('anexo que desapareceu do Storage marca como falhado, sem mentir que enviou', async () => {
+        const perdido = { nome: 'perdido.pdf', caminho: 'empresa-1/email-anexos/desaparecido.pdf', tipo: 'application/pdf' };
+        const r = await EmailCampaignService.criar(EMPRESA, { ...base, publico_tipo: 'lista', lista: 'a@x.ao', anexos: [perdido] }, 'user-1');
+        await EmailCampaignService.iniciar(EMPRESA, r.id);
+        await EmailCampaignService.processarFila();
+        assert(enviados.length === 0, 'nao devia enviar nada');
+        const d = tabela('email_campanha_destinatarios')[0];
+        assert(d.estado === 'Falhou', `devia ficar Falhou, esta ${d.estado}`);
+        assert(/anexo/i.test(d.erro || ''), `o motivo devia falar do anexo: ${d.erro}`);
     });
 
     console.log(`\n=== Resultado: ${passed} passaram, ${failed} falharam ===`);
