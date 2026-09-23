@@ -24,7 +24,7 @@ export const HELP_INTRO = {
     { titulo: '5. Configure cada nó e Guarde', texto: 'Clique num nó para abrir o painel de configuração à direita. Preencha os campos (pode usar {{variáveis}} como {{nome_whatsapp}} ou {{mensagem}} para personalizar). No fim, clique em "Guardar".' }
   ],
   dicas: [
-    'Use o botão "Organizar" (ícone de grade, no canto inferior esquerdo do canvas) para arrumar automaticamente os nós em colunas, como um fluxograma.',
+    'Use o botão "Organizar", na barra do zoom no topo do canvas, para arrumar automaticamente os blocos em colunas — e o "Ver tudo" ao lado para caber o fluxo inteiro no ecrã.',
     'Use o controlo de zoom no topo do canvas para ver o fluxo inteiro de uma vez ou aproximar um nó específico.',
     'Passe o rato sobre um nó para ver dois ícones no canto: um "×" vermelho para apagar, e um ícone azul de cópia para duplicar o nó (atalho: selecionar o nó e premir Ctrl+D).',
     'Uma automação só funciona depois de estar Ativa (o círculo verde ao lado do nome, na lista à esquerda) — clique nele para ligar/desligar.'
