@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { WhatsAppTemplateService } from '../services/WhatsAppTemplateService';
 import { supabase, getSupabase } from '../lib/supabaseClient';
 import { requireAuth, AuthRequest } from '../middleware/authMiddleware';
 import { AutomationEngine } from '../services/AutomationEngine';
@@ -1112,50 +1113,13 @@ router.post('/evolution/instance', requireAuth, async (req: AuthRequest, res: Re
 
 router.post('/templates/sync', requireAuth, async (req: AuthRequest, res: Response) => {
     try {
-        const { data: channel } = await getSupabase(req).from('wa_channels').select('*').eq('provider', 'meta').eq('empresa_id', req.user!.empresa_id).single();
-        if (!channel) return res.status(404).json({ error: 'Canal Meta não encontrado' });
+        const { data: channel } = await getSupabase(req).from('wa_channels').select('*')
+            .eq('provider', 'meta').eq('empresa_id', req.user!.empresa_id).maybeSingle();
+        if (!channel) return res.status(404).json({ error: 'Não há nenhum número ligado pela API oficial da Meta — só esses têm templates.' });
 
-        const { phoneNumberId, accessToken } = channel.credentials as any;
-
-        // Para obter os templates, precisamos do WABA_ID. 
-        // 1. Obter WABA ID a partir do Phone Number ID
-        const phoneRes = await fetch(`https://graph.facebook.com/v20.0/${phoneNumberId}?fields=whatsapp_business_api_data`, {
-            headers: { 'Authorization': `Bearer ${accessToken}` }
-        });
-        const phoneData = await phoneRes.json();
-        const wabaId = phoneData.whatsapp_business_api_data?.link?.id;
-
-        if (!wabaId) return res.status(400).json({ error: 'Não foi possível encontrar o WABA ID associado a este número.' });
-
-        // 2. Buscar templates
-        const tplRes = await fetch(`https://graph.facebook.com/v20.0/${wabaId}/message_templates?limit=1000`, {
-            headers: { 'Authorization': `Bearer ${accessToken}` }
-        });
-        const tplData = await tplRes.json();
-
-        if (tplData.error) return res.status(400).json({ error: tplData.error.message });
-
-        // Filtrar apenas templates aprovados
-        const approvedTemplates = tplData.data.filter((t: any) => t.status === 'APPROVED');
-
-        // Limpar antigos deste canal
-        await getSupabase(req).from('wa_templates').delete().eq('channel_id', channel.id);
-
-        // Inserir os novos
-        const inserts = approvedTemplates.map((t: any) => ({
-            channel_id: channel.id,
-            name: t.name,
-            language: t.language,
-            category: t.category,
-            status: t.status,
-            components: t.components
-        }));
-
-        if (inserts.length > 0) {
-            await getSupabase(req).from('wa_templates').insert(inserts);
-        }
-
-        res.json({ success: true, count: inserts.length });
+        const r = await WhatsAppTemplateService.sincronizar(channel, String(req.user!.empresa_id));
+        if (!r.ok) return res.status(400).json({ error: r.erro });
+        res.json({ success: true, count: r.total });
     } catch (err: any) {
         res.status(500).json({ error: err.message });
     }
@@ -1163,38 +1127,133 @@ router.post('/templates/sync', requireAuth, async (req: AuthRequest, res: Respon
 
 router.post('/templates/send', requireAuth, async (req: AuthRequest, res: Response) => {
     try {
-        const { conversation_id, template_name, language_code } = req.body;
-        const { data: convData } = await getSupabase(req).from('wa_conversations').select('*').eq('id', conversation_id).eq('empresa_id', req.user!.empresa_id).single();
-        if (!convData) return res.status(404).json({ error: 'Conversa não encontrada' });
+        const { conversation_id, template_id, template_name, language_code, params } = req.body;
+        const { data: conv } = await getSupabase(req).from('wa_conversations').select('*')
+            .eq('id', conversation_id).eq('empresa_id', req.user!.empresa_id).maybeSingle();
+        if (!conv) return res.status(404).json({ error: 'Conversa não encontrada' });
 
-        const conv = convData;
-        const { WhatsAppChannelManager } = require('../services/WhatsAppChannelManager');
-        const sent = await WhatsAppChannelManager.sendTemplateMessage(getSupabase(req), conv.channel_id, conv.phone_number, template_name, language_code);
-        const enviouComSucesso = sent === true || (typeof sent === 'string' && !sent.startsWith('ERROR:'));
+        let q = getSupabase(req).from('wa_templates').select('*').eq('empresa_id', req.user!.empresa_id);
+        q = template_id ? q.eq('id', template_id) : q.eq('name', template_name).eq('language', language_code);
+        const { data: template } = await q.maybeSingle();
+        if (!template) return res.status(404).json({ error: 'Template não encontrado.' });
 
-        if (enviouComSucesso) {
-            // Guardar mensagem na BD
-            await getSupabase(req).from('wa_messages').insert({
-                conversation_id,
-                direction: 'outbound',
-                content: `[TEMPLATE ENVIADO]: ${template_name}`,
-                status: 'delivered',
-                message_id: typeof sent === 'string' ? sent : null,
-                agent_id: req.user!.id
-            });
-            await getSupabase(req).from('wa_conversations').update({ last_message_at: new Date().toISOString() }).eq('id', conversation_id);
-            res.json({ success: true });
-        } else {
-            res.status(500).json({ error: typeof sent === 'string' ? sent.replace(/^ERROR: /, '') : 'Falha ao enviar o template pela API' });
-        }
+        const { data: channel } = await getSupabase(req).from('wa_channels').select('*').eq('id', conv.channel_id).maybeSingle();
+        if (!channel) return res.status(404).json({ error: 'Canal da conversa não encontrado.' });
+
+        const r = await WhatsAppTemplateService.enviar(getSupabase(req), channel, conv.phone_number, template, Array.isArray(params) ? params : []);
+        if (!r.ok) return res.status(400).json({ error: r.erro });
+
+        await getSupabase(req).from('wa_messages').insert({
+            conversation_id, direction: 'outbound', content: r.textoEnviado,
+            status: 'delivered', message_id: r.id || null, agent_id: req.user!.id
+        });
+        await getSupabase(req).from('wa_conversations').update({ last_message_at: new Date().toISOString() }).eq('id', conversation_id);
+        res.json({ success: true, texto: r.textoEnviado });
     } catch (err: any) {
         res.status(500).json({ error: err.message });
     }
 });
 
+/** O canal a usar para templates: Meta se existir (é lá que vivem), senão o Evolution. */
+async function canalParaTemplates(req: AuthRequest) {
+    const { data: canais } = await getSupabase(req).from('wa_channels').select('*').eq('empresa_id', req.user!.empresa_id);
+    const lista = canais || [];
+    return lista.find((c: any) => c.provider === 'meta') || lista[0] || null;
+}
+
 router.get('/templates', requireAuth, async (req: AuthRequest, res: Response) => {
-    const { data } = await getSupabase(req).from('wa_templates').select('*').eq('empresa_id', req.user!.empresa_id);
-    res.json({ success: true, templates: data });
+    try {
+        const { data } = await getSupabase(req).from('wa_templates').select('*')
+            .eq('empresa_id', req.user!.empresa_id).order('name');
+        const canal = await canalParaTemplates(req);
+        res.json({
+            success: true,
+            templates: (data || []).map((t: any) => ({ ...t, previsualizacao: WhatsAppTemplateService.renderizarTexto(t.components || []).texto })),
+            canal: canal ? { id: canal.id, provider: canal.provider } : null
+        });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/** Cria o template e, se a empresa tiver canal Meta, submete-o logo para aprovação. */
+router.post('/templates', requireAuth, async (req: AuthRequest, res: Response) => {
+    try {
+        const entrada = {
+            name: String(req.body.name || '').trim().toLowerCase().replace(/\s+/g, '_'),
+            language: String(req.body.language || 'pt_PT'),
+            category: String(req.body.category || 'MARKETING').toUpperCase(),
+            header: req.body.header || { format: 'NONE' },
+            body: String(req.body.body || ''),
+            footer: req.body.footer ? String(req.body.footer) : undefined,
+            buttons: Array.isArray(req.body.buttons) ? req.body.buttons : [],
+            exemplos: Array.isArray(req.body.exemplos) ? req.body.exemplos : []
+        } as any;
+
+        const erro = WhatsAppTemplateService.validar(entrada);
+        if (erro) return res.status(400).json({ error: erro });
+
+        const canal = await canalParaTemplates(req);
+        if (!canal) return res.status(400).json({ error: 'Ligue primeiro um número de WhatsApp (Definições → WhatsApp).' });
+
+        const components = WhatsAppTemplateService.componentesDe(entrada);
+        let status = 'LOCAL', metaId: string | null = null, avisoMeta: string | null = null;
+
+        if (canal.provider === 'meta' && req.body.submeter !== false) {
+            const r = await WhatsAppTemplateService.submeterNaMeta(canal, entrada);
+            if (!r.ok) return res.status(400).json({ error: r.erro });
+            status = r.status || 'PENDING';
+            metaId = r.id || null;
+        } else if (canal.provider !== 'meta') {
+            avisoMeta = 'Este número está ligado pela API não oficial (QR), onde a Meta não tem templates. O modelo fica guardado e é enviado como mensagem normal, com o mesmo conteúdo.';
+        }
+
+        const { data, error } = await getSupabase(req).from('wa_templates').insert({
+            empresa_id: req.user!.empresa_id, channel_id: canal.id, name: entrada.name, language: entrada.language,
+            category: entrada.category, status, components, meta_id: metaId,
+            origem: canal.provider === 'meta' ? 'meta' : 'local', criado_por: req.user!.id
+        }).select('*').single();
+        if (error) {
+            if (String(error.code) === '23505') return res.status(400).json({ error: 'Já existe um template com esse nome e idioma.' });
+            throw error;
+        }
+        res.json({ success: true, template: data, aviso: avisoMeta });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.delete('/templates/:id', requireAuth, async (req: AuthRequest, res: Response) => {
+    try {
+        const { data: tpl } = await getSupabase(req).from('wa_templates').select('*')
+            .eq('id', req.params.id).eq('empresa_id', req.user!.empresa_id).maybeSingle();
+        if (!tpl) return res.status(404).json({ error: 'Template não encontrado.' });
+
+        if (tpl.origem === 'meta') {
+            const { data: canal } = await getSupabase(req).from('wa_channels').select('*').eq('id', tpl.channel_id).maybeSingle();
+            if (canal?.provider === 'meta') {
+                const r = await WhatsAppTemplateService.apagarNaMeta(canal, tpl.name);
+                if (!r.ok) return res.status(400).json({ error: `A Meta não deixou apagar: ${r.erro}` });
+            }
+        }
+        await getSupabase(req).from('wa_templates').delete().eq('id', tpl.id).eq('empresa_id', req.user!.empresa_id);
+        res.json({ success: true });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/** Pré-visualização: como fica com os valores das variáveis preenchidos. */
+router.post('/templates/previsualizar', requireAuth, async (req: AuthRequest, res: Response) => {
+    try {
+        const components = Array.isArray(req.body.components)
+            ? req.body.components
+            : WhatsAppTemplateService.componentesDe(req.body as any);
+        const r = WhatsAppTemplateService.renderizarTexto(components, req.body.params || []);
+        res.json({ success: true, ...r });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Rota para o Operador Humano (RH) responder manualmente

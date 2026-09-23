@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { MessageSquare, Phone, MoreVertical, Search, Paperclip, Smile, Send, Bot, Settings, QrCode, Key, Plus, UserPlus, ClipboardList, Filter, Check, CheckCheck, Clock, AlertCircle, Users, Megaphone, Play, Pause } from 'lucide-react';
+import { MessageSquare, Phone, MoreVertical, Search, Paperclip, Smile, Send, Bot, Settings, QrCode, Key, Plus, UserPlus, ClipboardList, Filter, Check, CheckCheck, Clock, AlertCircle, Users, Megaphone, Play, Pause, LayoutTemplate } from 'lucide-react';
 import EmojiPicker from 'emoji-picker-react';
 import { createClient } from '@supabase/supabase-js';
 import WhatsAppGruposApp from './WhatsAppGruposApp';
 import CampanhasApp from './CampanhasApp';
+import TemplatesApp from './whatsapp/TemplatesApp';
 
 // FIX #5 — Supabase client para Realtime (usa as mesmas variáveis de ambiente)
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://lmxuixmmrglrqxjrhpgn.supabase.co';
@@ -177,7 +178,7 @@ export default function WhatsAppChatApp() {
     const fileInputRef = useRef<HTMLInputElement>(null);
     
     // View state: 'chats', 'groups', 'campaigns' ou 'settings'
-    const [currentView, setCurrentView] = useState<'chats' | 'settings' | 'groups' | 'campaigns'>('chats');
+    const [currentView, setCurrentView] = useState<'chats' | 'settings' | 'groups' | 'campaigns' | 'templates'>('chats');
     
     // Evolution API Settings
     const [showQr, setShowQr] = useState(false);
@@ -818,6 +819,18 @@ export default function WhatsAppChatApp() {
         return <CampanhasApp onNavigate={setCurrentView} />;
     }
 
+    if (currentView === 'templates') {
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '12px 16px', borderBottom: '1px solid #D5D7DA', background: 'white' }}>
+                    <button onClick={() => setCurrentView('chats')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 12px', border: '1px solid #D5D7DA', background: 'white', borderRadius: '2px', cursor: 'pointer', fontSize: '12.5px', fontWeight: 600, color: '#1D2D3E' }}>← Conversas</button>
+                    <span style={{ fontWeight: 700, color: '#1D2D3E' }}>Templates de mensagem</span>
+                </div>
+                <TemplatesApp />
+            </div>
+        );
+    }
+
     return (
         <div style={{ display: 'flex', height: '100%', width: '100%', backgroundColor: '#F5F6F7' }}>
 
@@ -830,6 +843,7 @@ export default function WhatsAppChatApp() {
                         <span title="Conversas"><MessageSquare size={20} style={{ cursor: 'pointer', color: currentView === 'chats' ? '#0E5A6B' : '#5B738B' }} onClick={() => setCurrentView('chats')} /></span>
                         <span title="Grupos"><Users size={20} style={{ cursor: 'pointer', color: currentView === 'groups' ? '#0E5A6B' : '#5B738B' }} onClick={() => setCurrentView('groups')} /></span>
                         <span title="Campanhas"><Megaphone size={20} style={{ cursor: 'pointer', color: currentView === 'campaigns' ? '#0E5A6B' : '#5B738B' }} onClick={() => setCurrentView('campaigns')} /></span>
+                        <span title="Templates de mensagem"><LayoutTemplate size={20} style={{ cursor: 'pointer', color: currentView === 'templates' ? '#0E5A6B' : '#5B738B' }} onClick={() => setCurrentView('templates')} /></span>
                         <span title="Configurações de Canais"><Settings size={20} style={{ cursor: 'pointer', color: currentView === 'settings' ? '#0E5A6B' : '#5B738B' }} onClick={() => setCurrentView('settings')} /></span>
                     </div>
                 </div>
