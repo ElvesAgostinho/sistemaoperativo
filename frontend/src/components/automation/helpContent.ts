@@ -109,10 +109,10 @@ export const HELP_ITEMS: HelpItem[] = [
     titulo: 'Menu (Respostas Rápidas)',
     categoria: 'Lógica',
     cor: '#0891b2',
-    oQueFaz: 'Como a Condição, mas com várias opções ao mesmo tempo em vez de só Sim/Não. Cada opção tem a sua própria saída, ligável a um caminho diferente.',
+    oQueFaz: 'Como a Condição, mas com várias opções ao mesmo tempo em vez de só Sim/Não. Cada opção tem a sua própria saída, ligável a um caminho diferente. O menu é uma PERGUNTA: o fluxo pára aqui e continua na mensagem seguinte do cliente, sem repetir a saudação. Se a resposta não for nenhuma das opções, o menu repete-se.',
     quandoUsar: 'Para menus de atendimento tipo "escolha uma opção": vendas, suporte, financeiro — o clássico menu de WhatsApp Business.',
     campos: [
-      { label: 'Variável avaliada', explicacao: 'Normalmente {{mensagem}} — o texto que o cliente escreveu.' },
+      { label: 'Variável avaliada', explicacao: 'Normalmente {{mensagem}} — a resposta que o cliente der a seguir (não a mensagem que iniciou o fluxo).' },
       { label: 'Opções', explicacao: 'Cada opção tem um Rótulo (só para você identificar no canvas) e um valor de correspondência (a palavra que, se estiver na mensagem, escolhe esse caminho). A primeira opção que corresponder é usada.' }
     ],
     exemplo: {
@@ -274,6 +274,22 @@ export const HELP_ITEMS: HelpItem[] = [
     quandoUsar: 'Pequenos intervalos entre mensagens, para não parecer um robô a disparar tudo de uma vez — varia o tempo consoante a resposta (uma confirmação rápida não precisa da mesma espera que uma explicação longa).',
     campos: [{ label: 'Tempo de espera', explicacao: 'De 1 segundo a 15 minutos (900 segundos), com atalhos rápidos para os valores mais comuns.' }],
     exemplo: { cenario: 'Esperar 15 segundos entre a saudação e o menu de opções.', passos: ['Nó "Aguardar" → 15 segundos, entre a mensagem de boas-vindas e o Menu'] }
+  },
+  {
+    id: 'wait_reply',
+    titulo: 'Aguardar resposta do cliente',
+    categoria: 'Conversa',
+    cor: '#0891b2',
+    oQueFaz: 'Faz uma pergunta (se preencher o texto) e pára o fluxo até o cliente responder. Quando a resposta chega, o fluxo continua no nó seguinte — sem repetir nada do que já foi enviado.',
+    quandoUsar: 'Sempre que precisar do que o cliente escreve: pedir o nome, o NIF, a data da reserva, ou antes de uma Condição que compare {{mensagem}}. Sem este nó, a Condição é avaliada com a mensagem que iniciou o fluxo (normalmente "Olá"), e por isso dava sempre o caminho NÃO.',
+    campos: [
+      { label: 'Pergunta a enviar', explicacao: 'Opcional. Se deixar vazio, o fluxo apenas espera (útil quando a pergunta já foi enviada num nó anterior).' },
+      { label: 'Guardar a resposta em', explicacao: 'Opcional. Nome da variável onde a resposta fica guardada para usar mais à frente, ex: nome_cliente → {{nome_cliente}}. A resposta fica sempre também em {{mensagem}} e {{resposta}}.' }
+    ],
+    exemplo: {
+      cenario: 'Perguntar o nome e usá-lo na mensagem seguinte.',
+      passos: ['"Aguardar resposta" → Pergunta: "Como se chama?" · Guardar em: nome_cliente', '"Responder no WhatsApp" → "Muito prazer, {{nome_cliente}}!"']
+    }
   },
   {
     id: 'jump',

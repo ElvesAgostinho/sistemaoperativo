@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { X, Trash2, Loader2, Plus, Upload } from 'lucide-react';
 import type { ActionNodeData, ActionType, Automation, AutomationNode, ConditionNodeData, MenuNodeData, TriggerNodeData } from './types';
-import { ACTION_LABELS, createDefaultMenuOption } from './types';
+import { ACTION_LABELS, createDefaultMenuOption, VARIAVEIS_CONVERSA } from './types';
 
 interface NodeConfigPanelProps {
   node: AutomationNode;
@@ -113,22 +113,46 @@ export default function NodeConfigPanel({ node, automations, currentAutomationId
       return (
         <>
           <label style={labelStyle}>Variável</label>
-          <input style={fieldStyle} type="text" value={d.variable || ''} onChange={e => updateData({ variable: e.target.value })} placeholder="{{mensagem}}" />
+          <select style={fieldStyle} value={VARIAVEIS_CONVERSA.some(v => v.chave === (d.variable || '')) ? d.variable : '__outra__'}
+            onChange={e => updateData({ variable: e.target.value === '__outra__' ? '' : e.target.value })}>
+            {VARIAVEIS_CONVERSA.map(v => <option key={v.chave} value={v.chave}>{v.chave} — {v.descricao}</option>)}
+            <option value="__outra__">outra variável…</option>
+          </select>
+          {!VARIAVEIS_CONVERSA.some(v => v.chave === (d.variable || '')) && (
+            <input style={fieldStyle} type="text" value={d.variable || ''}
+              onChange={e => updateData({ variable: e.target.value })}
+              onBlur={e => { const v = e.target.value.trim(); if (v && !v.includes('{{')) updateData({ variable: `{{${v}}}` }); }}
+              placeholder="{{campo_personalizado}}" />
+          )}
 
           <label style={labelStyle}>Operador</label>
           <select style={fieldStyle} value={d.operator || '=='} onChange={e => updateData({ operator: e.target.value })}>
             <option value="==">é igual a</option>
             <option value="!=">é diferente de</option>
-            <option value=">">maior que</option>
-            <option value="<">menor que</option>
             <option value="contains">contém</option>
+            <option value="not_contains">não contém</option>
+            <option value="starts_with">começa por</option>
+            <option value="ends_with">termina em</option>
+            <option value=">">maior que (número)</option>
+            <option value=">=">maior ou igual (número)</option>
+            <option value="<">menor que (número)</option>
+            <option value="<=">menor ou igual (número)</option>
+            <option value="empty">está vazio</option>
+            <option value="not_empty">não está vazio</option>
+            <option value="regex">corresponde à expressão</option>
           </select>
 
-          <label style={labelStyle}>Valor</label>
-          <input style={fieldStyle} type="text" value={d.value || ''} onChange={e => updateData({ value: e.target.value })} placeholder="urgente" />
+          {!['empty', 'not_empty'].includes(d.operator || '==') && (
+            <>
+              <label style={labelStyle}>Valor</label>
+              <input style={fieldStyle} type="text" value={d.value || ''} onChange={e => updateData({ value: e.target.value })} placeholder="urgente" />
+            </>
+          )}
 
-          <div style={{ marginTop: '12px', fontSize: '11px', color: '#666' }}>
+          <div style={{ marginTop: '12px', fontSize: '11px', color: '#666', lineHeight: 1.5 }}>
             Ligue a saída <b style={{ color: '#16a34a' }}>SIM</b> ao caminho quando a condição for verdadeira, e a saída <b style={{ color: '#dc2626' }}>NÃO</b> ao caminho alternativo (pode deixar sem ligação para encerrar o fluxo nesse caso).
+            <br /><br />
+            A comparação de texto ignora maiúsculas, acentos e espaços a mais ("Não" = "nao"). Para comparar com o que o cliente <b>responde a uma pergunta</b>, ponha antes um nó <b>"Aguardar resposta"</b> — senão a condição é avaliada com a mensagem que <i>iniciou</i> o fluxo.
           </div>
         </>
       );
@@ -278,6 +302,20 @@ export default function NodeConfigPanel({ node, automations, currentAutomationId
                 <summary style={{ fontSize: '11px', color: '#94a3b8', cursor: 'pointer' }}>Avançado: indicar caminho manualmente</summary>
                 <input style={{ ...fieldStyle, marginTop: '8px' }} type="text" value={config.ficheiro || ''} onChange={e => updateConfig({ ficheiro: e.target.value })} placeholder="C:\Caminho\para\ficheiro..." />
               </details>
+            </>
+          )}
+
+          {d.actionType === 'WAIT_REPLY' && (
+            <>
+              <label style={labelStyle}>Pergunta a enviar (opcional)</label>
+              <textarea style={{ ...fieldStyle, minHeight: '70px' }} value={config.mensagem || ''} onChange={e => updateConfig({ mensagem: e.target.value })} placeholder="Qual é o seu nome?" />
+
+              <label style={labelStyle}>Guardar a resposta em (opcional)</label>
+              <input style={fieldStyle} type="text" value={config.guardarEm || ''} onChange={e => updateConfig({ guardarEm: e.target.value.replace(/[^a-zA-Z0-9_]/g, '') })} placeholder="nome_cliente" />
+
+              <div style={{ marginTop: '10px', fontSize: '11px', color: '#666', lineHeight: 1.5 }}>
+                O fluxo pára aqui e continua quando o cliente responder — sem repetir as mensagens anteriores. A resposta fica em <code>{'{{mensagem}}'}</code> e em <code>{'{{resposta}}'}</code>; se preencher o campo acima, fica também em <code>{'{{nome_do_campo}}'}</code>.
+              </div>
             </>
           )}
 

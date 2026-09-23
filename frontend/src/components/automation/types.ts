@@ -3,7 +3,7 @@ export type AutomationNodeKind = 'trigger' | 'condition' | 'action' | 'menu' | '
 export type ActionType =
   | 'SEND_EMAIL' | 'REPLY_MESSAGE'
   | 'SEND_IMAGE' | 'SEND_VIDEO' | 'SEND_AUDIO' | 'SEND_DOCUMENT'
-  | 'DELAY' | 'JUMP_TO_WORKFLOW' | 'LOG_MESSAGE'
+  | 'DELAY' | 'WAIT_REPLY' | 'JUMP_TO_WORKFLOW' | 'LOG_MESSAGE'
   | 'ADD_TAG' | 'REMOVE_TAG' | 'SET_CUSTOM_FIELD' | 'EXTERNAL_REQUEST' | 'NOTIFY_TEAM' | 'HANDOFF_HUMAN' | 'AI_REPLY';
 
 export interface TriggerNodeData {
@@ -15,9 +15,18 @@ export interface TriggerNodeData {
 
 export interface ConditionNodeData {
   variable: string;
-  operator: '==' | '!=' | '>' | '<' | 'contains';
+  operator: '==' | '!=' | '>' | '>=' | '<' | '<=' | 'contains' | 'not_contains' | 'starts_with' | 'ends_with' | 'empty' | 'not_empty' | 'regex';
   value: string;
 }
+
+/** Variáveis que o motor põe sempre no contexto de uma conversa de WhatsApp. */
+export const VARIAVEIS_CONVERSA: { chave: string; descricao: string }[] = [
+  { chave: '{{mensagem}}', descricao: 'o que o cliente escreveu agora' },
+  { chave: '{{resposta}}', descricao: 'a resposta ao último "Aguardar resposta"' },
+  { chave: '{{telefone}}', descricao: 'número do cliente' },
+  { chave: '{{nome_whatsapp}}', descricao: 'nome no WhatsApp' },
+  { chave: '{{tags}}', descricao: 'etiquetas do cliente no CRM' }
+];
 
 export interface ActionNodeData {
   actionType: ActionType;
@@ -66,6 +75,7 @@ export const ACTION_LABELS: Record<ActionType, string> = {
   SEND_AUDIO: 'Enviar Áudio',
   SEND_DOCUMENT: 'Enviar Documento',
   DELAY: 'Aguardar',
+  WAIT_REPLY: 'Aguardar resposta do cliente',
   JUMP_TO_WORKFLOW: 'Saltar para Outro Fluxo',
   LOG_MESSAGE: 'Registar Log',
   ADD_TAG: 'Adicionar Tag ao Cliente',

@@ -1,5 +1,5 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react';
-import { Database, MessageCircle, FileText, Image, Play, Send, Mail, Clock, ArrowRightLeft, GitCommit, Tag, TagX, ListPlus, Globe, BellRing, Headset, Bot } from 'lucide-react';
+import { Database, MessageCircle, FileText, Image, Play, Send, Mail, Clock, ArrowRightLeft, GitCommit, Tag, TagX, ListPlus, Globe, BellRing, Headset, Bot, MessageCircleQuestion } from 'lucide-react';
 import { ACTION_LABELS, type ActionNodeData } from './types';
 import NodeDeleteButton from './NodeDeleteButton';
 import NodeDuplicateButton from './NodeDuplicateButton';
@@ -12,6 +12,7 @@ function renderIcon(actionType: string) {
   if (actionType === 'SEND_EMAIL') return <Mail size={15} color="#3b82f6" />;
   if (actionType === 'REPLY_MESSAGE') return <Send size={15} color="#0ea5e9" />;
   if (actionType === 'DELAY') return <Clock size={15} color="#64748b" />;
+  if (actionType === 'WAIT_REPLY') return <MessageCircleQuestion size={15} color="#0891b2" />;
   if (actionType === 'JUMP_TO_WORKFLOW') return <ArrowRightLeft size={15} color="#8b5cf6" />;
   if (actionType === 'ADD_TAG') return <Tag size={15} color="#16a34a" />;
   if (actionType === 'REMOVE_TAG') return <TagX size={15} color="#dc2626" />;
@@ -41,6 +42,7 @@ function summarize(d: ActionNodeData): string {
     case 'SET_CUSTOM_FIELD': return c.campo ? `${c.campo} = ${c.valor || ''}` : '(sem campo)';
     case 'EXTERNAL_REQUEST': return c.url ? `${c.method || 'GET'} ${c.url}` : '(sem URL)';
     case 'NOTIFY_TEAM': return c.destinatario || '(sem destinatário)';
+    case 'WAIT_REPLY': return c.mensagem ? `Pergunta: ${c.mensagem}` : 'Espera pela próxima mensagem do cliente';
     case 'HANDOFF_HUMAN': return 'Pausa o bot para este cliente';
     case 'AI_REPLY': return c.prompt || '(sem prompt)';
     default: return '';

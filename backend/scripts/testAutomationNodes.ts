@@ -160,9 +160,13 @@ async function test(name: string, fn: () => Promise<void>) {
     }
 }
 
-async function runGraph(nodes: any[], edges: any[], startId: string, context: any, empresaId: any = 'empresa-mock-1') {
-    return await Engine.executeGraph(nodes, edges, startId, context, empresaId);
+async function runGraph(nodes: any[], edges: any[], startId: string, context: any, empresaId: any = 'empresa-mock-1', opts: any = {}) {
+    return await Engine.executeGraph(nodes, edges, startId, context, empresaId, [], opts);
 }
+
+// Um menu é uma pergunta: só avança quando a mensagem do cliente é a RESPOSTA
+// (fluxo retomado). Nos testes de nós isolados simulamos essa retoma.
+const COMO_RESPOSTA = { mensagemDisponivel: true };
 
 // ============================================================
 // TESTES — funções puras (parseString, evaluateCondition, evaluateMenu, evaluateWhatsAppTrigger)
@@ -248,19 +252,21 @@ async function testGraphNodes() {
             { id: 'e2', source: 'm1', target: 'reply_b', sourceHandle: 'optB' }
         ];
         activeResponses['wa_channels:select'] = { data: { id: 'chan-1' }, error: null };
-        await runGraph(nodes, edges, 'm1', { mensagem: 'quero comprar', telefone: '244900000000', channel_id: 'chan-1' });
+        await runGraph(nodes, edges, 'm1', { mensagem: 'quero comprar', telefone: '244900000000', channel_id: 'chan-1' }, 'empresa-mock-1', COMO_RESPOSTA);
         assert(sentWhatsApp.length === 1, `esperado 1 mensagem enviada, veio ${sentWhatsApp.length}`);
         assert(sentWhatsApp[0].content === 'Vamos comprar!', `conteúdo errado: ${sentWhatsApp[0].content}`);
     });
 
-    await test('MENU sem correspondência termina o fluxo sem erro', async () => {
+    await test('MENU sem correspondência repete a pergunta em vez de seguir um ramo', async () => {
         const nodes = [
             { id: 'm1', type: 'menu', data: { variable: '{{mensagem}}', options: [{ id: 'optA', label: 'Comprar', matchValue: 'comprar' }] } },
             { id: 'reply_a', type: 'action', data: { actionType: 'REPLY_MESSAGE', config: { mensagem: 'X' } } }
         ];
         const edges = [{ id: 'e1', source: 'm1', target: 'reply_a', sourceHandle: 'optA' }];
-        await runGraph(nodes, edges, 'm1', { mensagem: 'bom dia' });
-        assert(sentWhatsApp.length === 0, 'não devia ter enviado nada');
+        await runGraph(nodes, edges, 'm1', { mensagem: 'bom dia', telefone: '244900000000', channel_id: 'chan-1' }, 'empresa-mock-1', COMO_RESPOSTA);
+        assert(sentWhatsApp.length === 1, `devia ter repetido a pergunta, enviou ${sentWhatsApp.length}`);
+        assert(/não percebi/i.test(sentWhatsApp[0].content), `mensagem inesperada: ${sentWhatsApp[0].content}`);
+        assert(!sentWhatsApp.some(m => m.content === 'X'), 'não devia ter seguido o ramo da opção');
     });
 
     await test('ADD_TAG / REMOVE_TAG lê e junta tags corretamente', async () => {
