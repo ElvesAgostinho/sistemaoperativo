@@ -650,6 +650,9 @@ export class AutomationEngine {
                 SEND_IMAGE: `imagem: ${config.ficheiro || '(sem ficheiro)'}`, SEND_VIDEO: `vídeo: ${config.ficheiro || '(sem ficheiro)'}`,
                 SEND_AUDIO: `áudio: ${config.ficheiro || '(sem ficheiro)'}`, SEND_DOCUMENT: `documento: ${config.ficheiro || '(sem ficheiro)'}`,
                 SEND_TEMPLATE: `template "${config.template_nome || config.template_id || ''}"${(config.params || []).length ? ` com ${(config.params || []).map((v: any) => this.parseString(String(v ?? ''), context)).join(', ')}` : ''}`,
+                CHECK_SLOTS: `ver horários livres de "${this.parseString(config.servico || '', context)}" em "${this.parseString(config.data || '{{mensagem}}', context)}"`,
+                CREATE_BOOKING: `marcar "${this.parseString(config.servico || '', context)}" para ${this.parseString(config.data || '', context)} às ${this.parseString(config.hora || '', context)} (${this.parseString(config.nome || '{{nome_whatsapp}}', context)})`,
+                LIST_BOOKINGS: 'listar as marcações do cliente',
                 SEND_EMAIL: `email para ${this.parseString(config.para || '', context)}: ${this.parseString(config.assunto || '', context)}`,
                 ADD_TAG: `etiqueta +${config.tag || ''}`, REMOVE_TAG: `etiqueta -${config.tag || ''}`,
                 SET_CUSTOM_FIELD: `${config.campo || ''} = ${this.parseString(config.valor || '', context)}`,
@@ -659,6 +662,31 @@ export class AutomationEngine {
                 DELAY: `espera ${config.segundos ?? (config.minutos ? Number(config.minutos) * 60 : 1)}s`,
                 LOG_MESSAGE: texto
             };
+            // Os nós de agendamento que só LEEM correm na mesma na simulação, para se
+            // ver os horários reais; o que grava (CREATE_BOOKING) fica só registado.
+            if ((tipo === 'CHECK_SLOTS' || tipo === 'LIST_BOOKINGS') && empresa_id) {
+                try {
+                    const { AgendamentoFluxoService } = require('./AgendamentoFluxoService');
+                    if (tipo === 'CHECK_SLOTS') {
+                        const r = await AgendamentoFluxoService.horariosLivres(String(empresa_id), this.parseString(config.servico || '', context), this.parseString(config.data || '{{mensagem}}', context), Number(config.maximo) || 8);
+                        context[config.guardarEm || 'horarios_livres'] = r.texto;
+                        context['tem_vagas'] = r.horarios?.length ? 'sim' : 'nao';
+                        context['agendamento_erro'] = r.erro || '';
+                        sim.passos.push({ nodeId: node.id, tipo: 'action', titulo: tipo, detalhe: r.texto || r.erro || '' });
+                        return;
+                    }
+                    const r = await AgendamentoFluxoService.minhasMarcacoes(String(empresa_id), this.parseString(config.telefone || '{{telefone}}', context));
+                    context[config.guardarEm || 'minhas_marcacoes'] = r.texto;
+                    context['tem_marcacoes'] = r.lista.length ? 'sim' : 'nao';
+                    sim.passos.push({ nodeId: node.id, tipo: 'action', titulo: tipo, detalhe: r.texto || 'sem marcações' });
+                    return;
+                } catch { /* segue para o registo normal */ }
+            }
+            if (tipo === 'CREATE_BOOKING') {
+                // Na simulação não se cria nada: só se mostra o que seria criado.
+                context['agendamento_ok'] = 'sim';
+                context['agendamento_id'] = '(simulação)';
+            }
             sim.passos.push({ nodeId: node.id, tipo: 'action', titulo: tipo, detalhe: resumo[tipo] ?? '' });
             if (['REPLY_MESSAGE', 'SEND_WHATSAPP'].includes(tipo) && texto) sim.mensagens.push({ de: 'bot', texto });
             if (tipo === 'SEND_TEMPLATE') sim.mensagens.push({ de: 'bot', texto: resumo.SEND_TEMPLATE, tipo: 'template' });
@@ -934,6 +962,65 @@ export class AutomationEngine {
                         console.error('[AUTOPILOT] Erro ao enviar email:', e);
                     }
                 }
+                break;
+            }
+
+            // ---------- AGENDAMENTO ----------
+            // Vê os horários livres e guarda-os em variáveis, para o fluxo os poder
+            // mostrar ao cliente e decidir com uma condição.
+            case 'CHECK_SLOTS': {
+                const { AgendamentoFluxoService } = require('./AgendamentoFluxoService');
+                const servico = this.parseString(config.servico || '', context);
+                const dataTexto = this.parseString(config.data || '{{mensagem}}', context);
+                const r = await AgendamentoFluxoService.horariosLivres(String(empresa_id), servico, dataTexto, Number(config.maximo) || 8);
+                context[config.guardarEm || 'horarios_livres'] = r.texto;
+                context['horarios_lista'] = (r.horarios || []).join(', ');
+                context['tem_vagas'] = r.horarios && r.horarios.length > 0 ? 'sim' : 'nao';
+                context['agendamento_data'] = r.data || '';
+                context['agendamento_data_extenso'] = r.dataPorExtenso || '';
+                context['agendamento_servico'] = r.servico?.nome || servico;
+                context['agendamento_erro'] = r.erro || '';
+                console.log(`[AUTOPILOT] Horários livres (${servico} · ${dataTexto}): ${r.texto || r.erro}`);
+                break;
+            }
+
+            // Cria mesmo a marcação no módulo de Agendamento, com o que o cliente
+            // escreveu. Nunca inventa: o que não perceber fica em {{agendamento_erro}}
+            // para o fluxo poder voltar a perguntar.
+            case 'CREATE_BOOKING': {
+                const { AgendamentoFluxoService } = require('./AgendamentoFluxoService');
+                const dadosExtra: Record<string, any> = {};
+                for (const [chave, valor] of Object.entries(config.campos || {})) {
+                    dadosExtra[chave] = this.parseString(String(valor ?? ''), context);
+                }
+                const r = await AgendamentoFluxoService.criarPeloFluxo(String(empresa_id), {
+                    servico: this.parseString(config.servico || '', context),
+                    data: this.parseString(config.data || '', context),
+                    hora: this.parseString(config.hora || '', context),
+                    nome: this.parseString(config.nome || '{{nome_whatsapp}}', context),
+                    telefone: this.parseString(config.telefone || '{{telefone}}', context),
+                    notas: this.parseString(config.notas || '', context),
+                    dados: dadosExtra,
+                    automationId: cadeiaFluxos[0] || null
+                });
+                context['agendamento_ok'] = r.ok ? 'sim' : 'nao';
+                context['agendamento_erro'] = r.erro || '';
+                context['agendamento_id'] = r.id ? String(r.id) : '';
+                context['agendamento_data'] = r.data || '';
+                context['agendamento_data_extenso'] = r.data ? require('./TextoDataHoraService').TextoDataHoraService.dataPorExtenso(r.data) : '';
+                context['agendamento_hora'] = r.hora || '';
+                context['agendamento_servico'] = r.servicoNome || '';
+                console.log(r.ok ? `[AUTOPILOT] Marcação #${r.id} criada pelo fluxo.` : `[AUTOPILOT] Marcação não criada: ${r.erro}`);
+                break;
+            }
+
+            // Lista as marcações futuras deste cliente (pelo telefone da conversa).
+            case 'LIST_BOOKINGS': {
+                const { AgendamentoFluxoService } = require('./AgendamentoFluxoService');
+                const tel = this.parseString(config.telefone || '{{telefone}}', context);
+                const r = await AgendamentoFluxoService.minhasMarcacoes(String(empresa_id), tel);
+                context[config.guardarEm || 'minhas_marcacoes'] = r.texto;
+                context['tem_marcacoes'] = r.lista.length > 0 ? 'sim' : 'nao';
                 break;
             }
 

@@ -1,6 +1,6 @@
 import {
   GitBranch, Database, Mail, Send, Image, Play, Volume2, FileText, Clock, ArrowRightLeft,
-  CheckCircle, ListChecks, GripVertical, Tag, TagX, ListPlus, Globe, BellRing, Headset, Bot, MessageCircleQuestion, CornerUpLeft, LayoutTemplate } from 'lucide-react';
+  CheckCircle, ListChecks, GripVertical, Tag, TagX, ListPlus, Globe, BellRing, Headset, Bot, MessageCircleQuestion, CornerUpLeft, LayoutTemplate, CalendarSearch, CalendarPlus, CalendarDays } from 'lucide-react';
 import { createDefaultMenuOption, type ActionType, type AutomationNode } from './types';
 
 interface PaletteItem {
@@ -69,6 +69,14 @@ const PALETTE_GROUPS: PaletteGroup[] = [
       actionItem('Adicionar Tag', <Tag size={14} />, 'ADD_TAG', '#16a34a'),
       actionItem('Remover Tag', <TagX size={14} />, 'REMOVE_TAG', '#dc2626'),
       actionItem('Campo Personalizado', <ListPlus size={14} />, 'SET_CUSTOM_FIELD', '#0891b2')
+    ]
+  },
+  {
+    title: 'AGENDAMENTO',
+    items: [
+      actionItem('Ver horários livres', <CalendarSearch size={14} />, 'CHECK_SLOTS', '#C9992E'),
+      actionItem('Criar marcação', <CalendarPlus size={14} />, 'CREATE_BOOKING', '#C9992E'),
+      actionItem('Marcações do cliente', <CalendarDays size={14} />, 'LIST_BOOKINGS', '#C9992E')
     ]
   },
   {

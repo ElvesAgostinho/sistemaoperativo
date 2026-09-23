@@ -1,8 +1,50 @@
 import { Router, Request, Response } from 'express';
 import { getSupabase } from '../lib/supabaseClient';
 import { AgendamentoService } from '../services/AgendamentoService';
+import { AgendamentoFluxoService, MODELOS_AGENDAMENTO } from '../services/AgendamentoFluxoService';
 
 const router = Router();
+
+// ---------- Configuração: como a empresa chama as coisas + campos extra ----------
+router.get('/config', async (req: Request, res: Response) => {
+    try {
+        const empresaId = (req as any).user?.empresa_id;
+        const config = await AgendamentoFluxoService.config(empresaId, getSupabase(req));
+        res.json({ success: true, config, modelos: MODELOS_AGENDAMENTO });
+    } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+router.put('/config', async (req: Request, res: Response) => {
+    try {
+        const empresaId = (req as any).user?.empresa_id;
+        if (!['admin', 'superadmin'].includes((req as any).user?.role)) return res.status(403).json({ error: 'Só administradores.' });
+
+        const corpo = req.body || {};
+        const alt: any = {};
+        // Escolher um modelo pronto traz os rótulos e os campos sugeridos.
+        if (corpo.modelo && MODELOS_AGENDAMENTO[corpo.modelo]) {
+            Object.assign(alt, MODELOS_AGENDAMENTO[corpo.modelo], { modelo: corpo.modelo });
+            delete (alt as any).nome; delete (alt as any).exemplos;
+        }
+        for (const k of ['rotulo_item', 'rotulo_item_plural', 'rotulo_recurso', 'rotulo_recurso_plural', 'rotulo_agendamento', 'rotulo_agendamento_plural']) {
+            if (typeof corpo[k] === 'string' && corpo[k].trim()) alt[k] = corpo[k].trim().slice(0, 40);
+        }
+        if (Array.isArray(corpo.campos)) {
+            const vistos = new Set<string>();
+            alt.campos = [];
+            for (const c of corpo.campos) {
+                const chave = String(c?.chave || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/^_+|_+$/g, '').slice(0, 30);
+                const rotulo = String(c?.rotulo || '').trim().slice(0, 60);
+                if (!chave || !rotulo || vistos.has(chave)) continue;
+                if (!['texto', 'numero', 'selecao'].includes(c?.tipo)) continue;
+                vistos.add(chave);
+                alt.campos.push({ chave, rotulo, tipo: c.tipo, obrigatorio: !!c.obrigatorio, opcoes: Array.isArray(c.opcoes) ? c.opcoes.map((o: any) => String(o).slice(0, 40)).filter(Boolean) : [] });
+            }
+        }
+        const config = await AgendamentoFluxoService.guardarConfig(empresaId, alt, getSupabase(req));
+        res.json({ success: true, config });
+    } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
+});
 
 // ---------- Dashboard ----------
 router.get('/resumo', async (req: Request, res: Response) => {

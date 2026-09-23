@@ -38,6 +38,28 @@ export default function NodeConfigPanel({ node, todosOsNos = [], automations, cu
     })();
   }, [node.id, (node.data as any)?.actionType]);
   const corpoDoTemplate = (t: any) => (t?.components || []).find((c: any) => String(c.type).toUpperCase() === 'BODY')?.text || '';
+
+  // Serviços e rótulos do módulo de Agendamento (para os nós de marcação).
+  const [servicos, setServicos] = useState<any[]>([]);
+  const [agendaConfig, setAgendaConfig] = useState<any>(null);
+  const ehNoDeAgenda = ['CHECK_SLOTS', 'CREATE_BOOKING', 'LIST_BOOKINGS'].includes((node.data as any)?.actionType);
+  useEffect(() => {
+    if (!ehNoDeAgenda) return;
+    (async () => {
+      try {
+        const token = localStorage.getItem('os_auth_token') || '';
+        const h = { Authorization: `Bearer ${token}` };
+        const [r1, r2] = await Promise.all([
+          fetch(`${import.meta.env.VITE_API_URL}/api/agendamento/servicos`, { headers: h }),
+          fetch(`${import.meta.env.VITE_API_URL}/api/agendamento/config`, { headers: h })
+        ]);
+        const d1 = await r1.json(); const d2 = await r2.json();
+        if (d1.success) setServicos(d1.servicos || []);
+        if (d2.success) setAgendaConfig(d2.config);
+      } catch { /* módulo não disponível */ }
+    })();
+  }, [node.id, ehNoDeAgenda]);
+  const rotuloItem = agendaConfig?.rotulo_item || 'Serviço';
   const nomeDoMenu = (n: any, i: number) => (n.data?.pergunta ? String(n.data.pergunta).slice(0, 40) : `Menu ${i + 1}`);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -334,6 +356,90 @@ export default function NodeConfigPanel({ node, todosOsNos = [], automations, cu
                 <summary style={{ fontSize: '11px', color: '#94a3b8', cursor: 'pointer' }}>Avançado: indicar caminho manualmente</summary>
                 <input style={{ ...fieldStyle, marginTop: '8px' }} type="text" value={config.ficheiro || ''} onChange={e => updateConfig({ ficheiro: e.target.value })} placeholder="C:\Caminho\para\ficheiro..." />
               </details>
+            </>
+          )}
+
+          {(d.actionType === 'CHECK_SLOTS' || d.actionType === 'CREATE_BOOKING') && (
+            <>
+              <label style={labelStyle}>{rotuloItem}</label>
+              <select style={fieldStyle} value={servicos.some((sv: any) => sv.nome === config.servico) ? config.servico : '__livre__'}
+                onChange={e => updateConfig({ servico: e.target.value === '__livre__' ? '' : e.target.value })}>
+                <option value="__livre__">— escrever / usar uma variável —</option>
+                {servicos.map((sv: any) => <option key={sv.id} value={sv.nome}>{sv.nome} ({sv.duracao_minutos} min)</option>)}
+              </select>
+              {!servicos.some((sv: any) => sv.nome === config.servico) && (
+                <input style={{ ...fieldStyle, marginTop: '6px' }} value={config.servico || ''} onChange={e => updateConfig({ servico: e.target.value })}
+                  placeholder={'ex: {{mensagem}} (o que o cliente escolheu no menu)'} />
+              )}
+              {servicos.length === 0 && <div style={{ fontSize: '11px', color: '#b45309', marginTop: '6px' }}>Ainda não há {String(agendaConfig?.rotulo_item_plural || 'serviços').toLowerCase()} criados no módulo Agendamento.</div>}
+
+              <label style={labelStyle}>Data</label>
+              <input style={fieldStyle} value={config.data || ''} onChange={e => updateConfig({ data: e.target.value })}
+                placeholder={'{{mensagem}} · ou {{data_reserva}}'} />
+              <div style={{ fontSize: '11px', color: '#666', marginTop: '4px', lineHeight: 1.5 }}>
+                O sistema percebe o que as pessoas escrevem: <b>hoje</b>, <b>amanhã</b>, <b>sexta</b>, <b>12/10</b>, <b>12 de outubro</b>, <b>dia 3</b>.
+              </div>
+            </>
+          )}
+
+          {d.actionType === 'CHECK_SLOTS' && (
+            <>
+              <label style={labelStyle}>Guardar os horários em</label>
+              <input style={fieldStyle} value={config.guardarEm || ''} onChange={e => updateConfig({ guardarEm: e.target.value.replace(/[^a-zA-Z0-9_]/g, '') })} placeholder="horarios_livres" />
+              <label style={labelStyle}>Quantos horários mostrar</label>
+              <input style={fieldStyle} type="number" min={1} max={20} value={config.maximo ?? 8} onChange={e => updateConfig({ maximo: Number(e.target.value) })} />
+              <div style={{ marginTop: '10px', fontSize: '11px', color: '#666', lineHeight: 1.6 }}>
+                Depois deste bloco pode usar <code>{'{{horarios_livres}}'}</code> numa mensagem e <code>{'{{tem_vagas}}'}</code> (vale "sim" ou "nao") numa condição. Se algo não for percebido, o motivo fica em <code>{'{{agendamento_erro}}'}</code>.
+              </div>
+            </>
+          )}
+
+          {d.actionType === 'CREATE_BOOKING' && (
+            <>
+              <label style={labelStyle}>Hora</label>
+              <input style={fieldStyle} value={config.hora || ''} onChange={e => updateConfig({ hora: e.target.value })} placeholder={'{{mensagem}} · ou {{hora_escolhida}}'} />
+              <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>Percebe <b>14h</b>, <b>14:30</b>, <b>2 da tarde</b>, <b>meio-dia</b>.</div>
+
+              <label style={labelStyle}>Nome do cliente</label>
+              <input style={fieldStyle} value={config.nome || ''} onChange={e => updateConfig({ nome: e.target.value })} placeholder={'{{nome_cliente}} ou {{nome_whatsapp}}'} />
+
+              <label style={labelStyle}>Telefone</label>
+              <input style={fieldStyle} value={config.telefone || ''} onChange={e => updateConfig({ telefone: e.target.value })} placeholder={'{{telefone}}'} />
+
+              <label style={labelStyle}>Notas (opcional)</label>
+              <input style={fieldStyle} value={config.notas || ''} onChange={e => updateConfig({ notas: e.target.value })} placeholder="ex: pedido feito pelo WhatsApp" />
+
+              {(agendaConfig?.campos || []).length > 0 && (
+                <>
+                  <label style={labelStyle}>Campos próprios da empresa</label>
+                  {(agendaConfig.campos || []).map((c: any) => (
+                    <div key={c.chave} style={{ marginBottom: '6px' }}>
+                      <div style={{ fontSize: '11px', color: '#475569' }}>{c.rotulo}{c.obrigatorio ? ' *' : ''}{c.tipo === 'selecao' && c.opcoes?.length ? ` (${c.opcoes.join(' / ')})` : ''}</div>
+                      <input style={fieldStyle} value={(config.campos || {})[c.chave] || ''}
+                        onChange={e => updateConfig({ campos: { ...(config.campos || {}), [c.chave]: e.target.value } })}
+                        placeholder={`valor ou variável, ex: {{${c.chave}}}`} />
+                    </div>
+                  ))}
+                </>
+              )}
+
+              <div style={{ marginTop: '10px', fontSize: '11px', color: '#666', lineHeight: 1.6 }}>
+                Depois deste bloco: <code>{'{{agendamento_ok}}'}</code> vale "sim" ou "nao" — ligue-o a uma condição para responder ao cliente.
+                Em caso de falha, <code>{'{{agendamento_erro}}'}</code> traz o motivo em português (ex: "Esse horário deixou de estar disponível").
+                Quando corre bem tem <code>{'{{agendamento_id}}'}</code>, <code>{'{{agendamento_data_extenso}}'}</code> e <code>{'{{agendamento_hora}}'}</code>.
+              </div>
+            </>
+          )}
+
+          {d.actionType === 'LIST_BOOKINGS' && (
+            <>
+              <label style={labelStyle}>Telefone do cliente</label>
+              <input style={fieldStyle} value={config.telefone || ''} onChange={e => updateConfig({ telefone: e.target.value })} placeholder={'{{telefone}}'} />
+              <label style={labelStyle}>Guardar a lista em</label>
+              <input style={fieldStyle} value={config.guardarEm || ''} onChange={e => updateConfig({ guardarEm: e.target.value.replace(/[^a-zA-Z0-9_]/g, '') })} placeholder="minhas_marcacoes" />
+              <div style={{ marginTop: '10px', fontSize: '11px', color: '#666', lineHeight: 1.6 }}>
+                Traz as marcações futuras deste número, já em texto para enviar. <code>{'{{tem_marcacoes}}'}</code> vale "sim" ou "nao".
+              </div>
             </>
           )}
 
