@@ -5,6 +5,8 @@ import { ACTION_LABELS, createDefaultMenuOption, VARIAVEIS_CONVERSA } from './ty
 
 interface NodeConfigPanelProps {
   node: AutomationNode;
+  /** Todos os nós do fluxo — necessário para escolher o menu de destino do "Voltar ao menu". */
+  todosOsNos?: AutomationNode[];
   automations: Automation[];
   currentAutomationId: number;
   onChangeData: (nodeId: string, data: any) => void;
@@ -20,7 +22,9 @@ const labelStyle: React.CSSProperties = {
   display: 'block', fontSize: '11px', fontWeight: 'bold', color: '#475569', marginBottom: '4px', marginTop: '12px'
 };
 
-export default function NodeConfigPanel({ node, automations, currentAutomationId, onChangeData, onDelete, onClose }: NodeConfigPanelProps) {
+export default function NodeConfigPanel({ node, todosOsNos = [], automations, currentAutomationId, onChangeData, onDelete, onClose }: NodeConfigPanelProps) {
+  const menusDoFluxo = todosOsNos.filter(n => n.type === 'menu');
+  const nomeDoMenu = (n: any, i: number) => (n.data?.pergunta ? String(n.data.pergunta).slice(0, 40) : `Menu ${i + 1}`);
   const [isUploading, setIsUploading] = useState(false);
 
   const updateData = (patch: any) => {
@@ -174,8 +178,22 @@ export default function NodeConfigPanel({ node, automations, currentAutomationId
 
       return (
         <>
+          <label style={labelStyle}>Pergunta a enviar</label>
+          <textarea style={{ ...fieldStyle, minHeight: '80px' }} value={d.pergunta || ''} onChange={e => updateData({ pergunta: e.target.value })}
+            placeholder={'Escolha uma opção:\n1 - Preços\n2 - Reservar\n3 - Falar com alguém'} />
+          <div style={{ fontSize: '11px', color: '#666', marginTop: '4px', lineHeight: 1.5 }}>
+            O menu envia este texto e fica à espera da resposta seguinte. É também o que volta a ser enviado quando alguém usa o nó <b>"Voltar ao menu"</b>.
+          </div>
+
           <label style={labelStyle}>Variável avaliada</label>
           <input style={fieldStyle} type="text" value={d.variable || '{{mensagem}}'} onChange={e => updateData({ variable: e.target.value })} />
+
+          <label style={labelStyle}>Se a resposta não for nenhuma das opções</label>
+          <input style={fieldStyle} type="text" value={d.mensagemInvalida || ''} onChange={e => updateData({ mensagemInvalida: e.target.value })}
+            placeholder="(por omissão repete a pergunta)" />
+
+          <label style={labelStyle}>Tentativas antes de desistir</label>
+          <input style={fieldStyle} type="number" min={1} max={10} value={d.maxTentativas ?? 3} onChange={e => updateData({ maxTentativas: Number(e.target.value) })} />
 
           <div style={{ marginTop: '16px', fontSize: '11px', fontWeight: 'bold', color: '#475569' }}>OPÇÕES</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
@@ -302,6 +320,27 @@ export default function NodeConfigPanel({ node, automations, currentAutomationId
                 <summary style={{ fontSize: '11px', color: '#94a3b8', cursor: 'pointer' }}>Avançado: indicar caminho manualmente</summary>
                 <input style={{ ...fieldStyle, marginTop: '8px' }} type="text" value={config.ficheiro || ''} onChange={e => updateConfig({ ficheiro: e.target.value })} placeholder="C:\Caminho\para\ficheiro..." />
               </details>
+            </>
+          )}
+
+          {d.actionType === 'GOTO_MENU' && (
+            <>
+              <label style={labelStyle}>Menu de destino</label>
+              <select style={fieldStyle} value={config.menuNodeId || ''}
+                onChange={e => {
+                  const alvo = menusDoFluxo.find(m => m.id === e.target.value);
+                  const i = menusDoFluxo.findIndex(m => m.id === e.target.value);
+                  updateConfig({ menuNodeId: e.target.value, menuNodeNome: alvo ? nomeDoMenu(alvo, i) : '' });
+                }}>
+                <option value="">Selecione um menu deste fluxo...</option>
+                {menusDoFluxo.map((m, i) => <option key={m.id} value={m.id}>{nomeDoMenu(m, i)}</option>)}
+              </select>
+              {menusDoFluxo.length === 0 && (
+                <div style={{ fontSize: '11px', color: '#b45309', marginTop: '6px' }}>Este fluxo ainda não tem nenhum nó Menu.</div>
+              )}
+              <div style={{ marginTop: '10px', fontSize: '11px', color: '#666', lineHeight: 1.5 }}>
+                Leva a conversa de volta a esse menu: a pergunta é enviada outra vez e o cliente pode escolher outra opção. É assim que se faz a opção "voltar ao menu anterior" dentro de um submenu — sem repetir a saudação nem duplicar nós.
+              </div>
             </>
           )}
 

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getAutomations, createAutomation, processWebhook, deleteAutomation, toggleAutomation, updateAutomation } from '../controllers/automationController';
+import { getAutomations, createAutomation, processWebhook, deleteAutomation, toggleAutomation, updateAutomation, simulateAutomation } from '../controllers/automationController';
 
 import multer from 'multer';
 import { MediaUploadService } from '../services/MediaUploadService';
@@ -14,6 +14,7 @@ router.post('/', createAutomation);
 router.delete('/:id', deleteAutomation);
 router.put('/:id/toggle', toggleAutomation);
 router.put('/:id', updateAutomation); // Nova Rota
+router.post('/:id/simular', simulateAutomation);
 
 // Upload Multimédia — vai para o Supabase Storage e o nó guarda o link.
 // (Antes era gravado num caminho de Windows fixo no código, que não existe

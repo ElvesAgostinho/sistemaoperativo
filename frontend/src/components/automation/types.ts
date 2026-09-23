@@ -3,7 +3,7 @@ export type AutomationNodeKind = 'trigger' | 'condition' | 'action' | 'menu' | '
 export type ActionType =
   | 'SEND_EMAIL' | 'REPLY_MESSAGE'
   | 'SEND_IMAGE' | 'SEND_VIDEO' | 'SEND_AUDIO' | 'SEND_DOCUMENT'
-  | 'DELAY' | 'WAIT_REPLY' | 'JUMP_TO_WORKFLOW' | 'LOG_MESSAGE'
+  | 'DELAY' | 'WAIT_REPLY' | 'GOTO_MENU' | 'JUMP_TO_WORKFLOW' | 'LOG_MESSAGE'
   | 'ADD_TAG' | 'REMOVE_TAG' | 'SET_CUSTOM_FIELD' | 'EXTERNAL_REQUEST' | 'NOTIFY_TEAM' | 'HANDOFF_HUMAN' | 'AI_REPLY';
 
 export interface TriggerNodeData {
@@ -33,13 +33,22 @@ export interface ActionNodeData {
   config: Record<string, any>;
 }
 
+export interface MenuNodeExtra {
+  /** Texto que o menu envia quando fica à espera da escolha (opcional). */
+  pergunta?: string;
+  /** O que dizer quando a resposta não é nenhuma das opções. */
+  mensagemInvalida?: string;
+  /** Respostas inválidas seguidas antes de seguir pela saída "sem resposta". */
+  maxTentativas?: number;
+}
+
 export interface MenuOption {
   id: string;
   label: string;
   matchValue: string;
 }
 
-export interface MenuNodeData {
+export interface MenuNodeData extends MenuNodeExtra {
   variable?: string;
   options: MenuOption[];
 }
@@ -76,6 +85,7 @@ export const ACTION_LABELS: Record<ActionType, string> = {
   SEND_DOCUMENT: 'Enviar Documento',
   DELAY: 'Aguardar',
   WAIT_REPLY: 'Aguardar resposta do cliente',
+  GOTO_MENU: 'Voltar ao menu',
   JUMP_TO_WORKFLOW: 'Saltar para Outro Fluxo',
   LOG_MESSAGE: 'Registar Log',
   ADD_TAG: 'Adicionar Tag ao Cliente',

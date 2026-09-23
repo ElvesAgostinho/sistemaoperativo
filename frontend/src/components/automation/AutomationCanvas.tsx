@@ -5,7 +5,7 @@ import {
   type Connection, type Node, type Edge
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Save, Loader2, LayoutGrid, Minus, Plus, RotateCcw } from 'lucide-react';
+import { Save, Loader2, LayoutGrid, Minus, Plus, RotateCcw, Play } from 'lucide-react';
 import TriggerNode from './TriggerNode';
 import ConditionNode from './ConditionNode';
 import ActionNode from './ActionNode';
@@ -13,6 +13,7 @@ import MenuNode from './MenuNode';
 import EndNode from './EndNode';
 import NodePalette, { AUTOMATION_DRAG_MIME } from './NodePalette';
 import NodeConfigPanel from './NodeConfigPanel';
+import SimuladorPanel from './SimuladorPanel';
 import { AutomationCanvasContext } from './AutomationCanvasContext';
 import { autoLayoutNodes } from './autoLayout';
 import { generateNodeId, type Automation, type AutomationEdge, type AutomationNode } from './types';
@@ -67,6 +68,8 @@ function CanvasInner({ automation, automations, onSave }: AutomationCanvasProps)
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>(automation.nodes as unknown as Node[]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(automation.edges as unknown as Edge[]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [simuladorAberto, setSimuladorAberto] = useState(false);
+  const [noDestacado, setNoDestacado] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition, fitView, zoomTo, setViewport } = useReactFlow();
@@ -215,11 +218,17 @@ function CanvasInner({ automation, automations, onSave }: AutomationCanvasProps)
     }
   };
 
+  // O simulador destaca o nó por onde a conversa está a passar.
+  const nosComDestaque = useMemo(
+    () => (noDestacado ? nodes.map(n => (n.id === noDestacado ? { ...n, className: `${n.className || ''} no-em-simulacao` } : n)) : nodes),
+    [nodes, noDestacado]
+  );
+
   return (
     <AutomationCanvasContext.Provider value={canvasContextValue}>
       <div ref={wrapperRef} style={{ position: 'relative', width: '100%', height: '100%' }} onDragOver={onDragOver} onDrop={onDrop}>
         <ReactFlow
-          nodes={nodes}
+          nodes={nosComDestaque}
           edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
@@ -242,6 +251,7 @@ function CanvasInner({ automation, automations, onSave }: AutomationCanvasProps)
           </Controls>
           <MiniMap pannable zoomable style={{ background: '#f8fafc' }} />
         </ReactFlow>
+        <style>{`.no-em-simulacao { outline: 3px solid #0E5A6B; outline-offset: 3px; border-radius: 12px; }`}</style>
 
         <NodePalette onAddNode={handleAddNode} />
 
@@ -286,6 +296,20 @@ function CanvasInner({ automation, automations, onSave }: AutomationCanvasProps)
         </div>
 
         <button
+          onClick={() => setSimuladorAberto(v => !v)}
+          title="Testar o fluxo sem enviar nada ao cliente"
+          style={{
+            position: 'absolute', top: 16, right: (selectedNode ? 336 : 16) + 108, zIndex: 10,
+            display: 'flex', alignItems: 'center', gap: '6px',
+            padding: '8px 14px', backgroundColor: simuladorAberto ? '#0E5A6B' : 'white',
+            color: simuladorAberto ? 'white' : '#0E5A6B', border: '1px solid #0E5A6B',
+            borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px', transition: 'right 0.15s'
+          }}
+        >
+          <Play size={14} /> Simular
+        </button>
+
+        <button
           onClick={handleSave}
           disabled={isSaving}
           style={{
@@ -300,9 +324,18 @@ function CanvasInner({ automation, automations, onSave }: AutomationCanvasProps)
           {isSaving ? 'A Guardar...' : 'Guardar'}
         </button>
 
+        {simuladorAberto && (
+          <SimuladorPanel
+            automationId={automation.id}
+            onFechar={() => { setSimuladorAberto(false); setNoDestacado(null); }}
+            onDestacarNo={setNoDestacado}
+          />
+        )}
+
         {selectedNode && (
           <NodeConfigPanel
             node={selectedNode}
+            todosOsNos={nodes as any}
             automations={automations}
             currentAutomationId={automation.id}
             onChangeData={handleChangeNodeData}

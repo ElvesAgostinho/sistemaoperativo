@@ -280,6 +280,124 @@ const receber = (content: string, id = `m-${Date.now()}-${Math.random()}`) =>
         assert(!tabela('wa_conversations')[0].fluxo_node_id, 'o estado pendente devia ter sido limpo');
     });
 
+    console.log(`\n=== Menus encadeados (submenu e voltar ao menu) ===\n`);
+
+    // Menu principal → opção 1 abre o submenu de preços → opção 2 do submenu volta
+    // ao menu principal. É o cenário que o cliente descreveu.
+    function fluxoMenusEncadeados() {
+        return {
+            id: 4, nome: 'Menus encadeados', ativo: true, empresa_id: EMPRESA,
+            nodes: [
+                { id: 't1', type: 'trigger', data: { triggerKind: 'whatsapp_message', matchMode: 'any' } },
+                { id: 'saudacao', type: 'action', data: { actionType: 'REPLY_MESSAGE', config: { mensagem: 'Bem-vindo à Residencial!' } } },
+                { id: 'principal', type: 'menu', data: {
+                    pergunta: 'MENU: 1 - Preços | 2 - Reservar',
+                    options: [{ id: 'p1', label: 'Preços', matchValue: '1' }, { id: 'p2', label: 'Reservar', matchValue: '2' }]
+                } },
+                { id: 'sub', type: 'menu', data: {
+                    pergunta: 'PREÇOS: 1 - Quarto simples | 2 - Voltar',
+                    options: [{ id: 's1', label: 'Simples', matchValue: '1' }, { id: 's2', label: 'Voltar', matchValue: '2' }]
+                } },
+                { id: 'preco_simples', type: 'action', data: { actionType: 'REPLY_MESSAGE', config: { mensagem: 'Quarto simples: 45.000 Kz' } } },
+                { id: 'voltar', type: 'action', data: { actionType: 'GOTO_MENU', config: { menuNodeId: 'principal' } } },
+                { id: 'reservar', type: 'action', data: { actionType: 'REPLY_MESSAGE', config: { mensagem: 'Vamos reservar!' } } }
+            ],
+            edges: [
+                { id: 'e0', source: 't1', target: 'saudacao' },
+                { id: 'e1', source: 'saudacao', target: 'principal' },
+                { id: 'e2', source: 'principal', target: 'sub', sourceHandle: 'p1' },
+                { id: 'e3', source: 'principal', target: 'reservar', sourceHandle: 'p2' },
+                { id: 'e4', source: 'sub', target: 'preco_simples', sourceHandle: 's1' },
+                { id: 'e5', source: 'sub', target: 'voltar', sourceHandle: 's2' },
+                { id: 'e6', source: 'preco_simples', target: 'voltar' }
+            ]
+        };
+    }
+
+    await test('o menu faz a sua própria pergunta e espera', async () => {
+        tabela('automations').push(fluxoMenusEncadeados());
+        await receber('Olá');
+        assert(enviadas.length === 2, `esperava saudação + pergunta do menu, veio ${enviadas.length}: ${enviadas.map(e => e.content).join(' | ')}`);
+        assert(enviadas[1].content.startsWith('MENU:'), `a segunda devia ser a pergunta do menu: ${enviadas[1].content}`);
+    });
+
+    await test('opção 1 abre o submenu; opção 2 do submenu volta ao menu principal', async () => {
+        tabela('automations').push(fluxoMenusEncadeados());
+        await receber('Olá');
+        enviadas.length = 0;
+
+        await receber('1');
+        assert(enviadas.length === 1 && enviadas[0].content.startsWith('PREÇOS:'), `devia abrir o submenu: ${enviadas.map(e => e.content).join(' | ')}`);
+        enviadas.length = 0;
+
+        await receber('2');   // "Voltar" dentro do submenu
+        assert(enviadas.length === 1 && enviadas[0].content.startsWith('MENU:'), `devia voltar ao menu principal: ${enviadas.map(e => e.content).join(' | ')}`);
+        assert(!enviadas.some(e => e.content.startsWith('Bem-vindo')), 'não devia repetir a saudação ao voltar');
+        enviadas.length = 0;
+
+        await receber('2');   // agora "Reservar" no menu principal
+        assert(enviadas.some(e => e.content === 'Vamos reservar!'), `devia reservar: ${enviadas.map(e => e.content).join(' | ')}`);
+    });
+
+    await test('depois de uma resposta do submenu, volta ao menu principal e aceita nova escolha', async () => {
+        tabela('automations').push(fluxoMenusEncadeados());
+        await receber('Olá');
+        await receber('1');
+        enviadas.length = 0;
+        await receber('1');   // quarto simples → responde e volta ao menu
+        assert(enviadas.some(e => e.content === 'Quarto simples: 45.000 Kz'), `devia dar o preço: ${enviadas.map(e => e.content).join(' | ')}`);
+        assert(enviadas.some(e => e.content.startsWith('MENU:')), 'depois do preço devia voltar ao menu principal');
+        enviadas.length = 0;
+        await receber('2');
+        assert(enviadas.some(e => e.content === 'Vamos reservar!'), `o menu principal devia continuar a funcionar: ${enviadas.map(e => e.content).join(' | ')}`);
+    });
+
+    await test('resposta inválida num menu com pergunta própria repete essa pergunta', async () => {
+        tabela('automations').push(fluxoMenusEncadeados());
+        await receber('Olá');
+        enviadas.length = 0;
+        await receber('xpto');
+        assert(enviadas.length === 1 && /não percebi/i.test(enviadas[0].content) && enviadas[0].content.includes('MENU:'),
+            `devia repetir a pergunta do menu: ${enviadas.map(e => e.content).join(' | ')}`);
+    });
+
+    console.log(`\n=== Simulador (execução a seco) ===\n`);
+
+    await test('simulação percorre o fluxo sem enviar nada para fora', async () => {
+        const fluxo = fluxoMenusEncadeados();
+        const r1 = await Engine.simular(fluxo, 'Olá', null);
+        assert(enviadas.length === 0, 'a simulação não pode enviar mensagens reais');
+        assert(r1.mensagens.map((m: any) => m.texto).some((t: string) => t.startsWith('Bem-vindo')), `devia mostrar a saudação: ${JSON.stringify(r1.mensagens)}`);
+        assert(r1.mensagens.some((m: any) => m.texto.startsWith('MENU:')), 'devia mostrar a pergunta do menu');
+        assert(r1.pendente?.nodeId === 'principal', `devia ficar à espera no menu principal: ${JSON.stringify(r1.pendente)}`);
+        assert(r1.passos[0].tipo === 'trigger' && r1.passos.some((p: any) => p.titulo.includes('à espera')), `passos inesperados: ${JSON.stringify(r1.passos)}`);
+
+        const r2 = await Engine.simular(fluxo, '1', r1.pendente);
+        assert(r2.mensagens.some((m: any) => m.texto.startsWith('PREÇOS:')), `opção 1 devia abrir o submenu: ${JSON.stringify(r2.mensagens)}`);
+        assert(r2.passos.some((p: any) => p.titulo.includes('opção "Preços"')), `devia registar a opção escolhida: ${JSON.stringify(r2.passos)}`);
+
+        const r3 = await Engine.simular(fluxo, '2', r2.pendente);
+        assert(r3.passos.some((p: any) => p.titulo === 'Voltar ao menu'), 'devia registar o "Voltar ao menu"');
+        assert(r3.mensagens.some((m: any) => m.texto.startsWith('MENU:')), 'devia voltar a mostrar o menu principal');
+        assert(enviadas.length === 0, 'continua sem enviar nada real');
+    });
+
+    await test('simulação avisa quando o gatilho não reage à mensagem', async () => {
+        const fluxo = fluxoCondicao('{{mensagem}}', 'sim');
+        (fluxo.nodes[0] as any).data = { triggerKind: 'whatsapp_message', matchMode: 'keyword', matchValue: 'orçamento' };
+        const r = await Engine.simular(fluxo, 'bom dia', null);
+        assert(r.terminou && r.passos[0].titulo.includes('não reage'), `devia explicar que o gatilho não reage: ${JSON.stringify(r.passos)}`);
+        assert(r.mensagens.length === 0, 'não devia haver respostas');
+    });
+
+    await test('simulação mostra o resultado da condição e o ramo seguido', async () => {
+        const fluxo = fluxoCondicao('{{mensagem}}', 'sim');
+        const r = await Engine.simular(fluxo, 'SIM', null);
+        const cond = r.passos.find((p: any) => p.tipo === 'condition');
+        assert(!!cond && cond.titulo === 'Condição: SIM', `devia registar a condição verdadeira: ${JSON.stringify(r.passos)}`);
+        assert(r.mensagens.some((m: any) => m.texto === 'RAMO-SIM'), 'devia seguir o ramo SIM');
+    });
+
     console.log(`\n=== Resultado: ${passed} passaram, ${failed} falharam ===`);
     if (failed) { falhas.forEach(f => console.log('  - ' + f)); process.exit(1); }
     process.exit(0);

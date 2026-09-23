@@ -33,6 +33,20 @@ const MAX_GRAPH_STEPS = 200;
 const ESTADO_FLUXO_VALIDADE_MS = 6 * 60 * 60 * 1000;
 // Respostas fora das opções seguidas antes de seguir pela saída "sem resposta".
 const MENU_MAX_TENTATIVAS = 3;
+// "Voltar ao menu" seguidos numa só passagem (proteção contra ciclos mal feitos).
+const MAX_SALTOS_DE_MENU = 10;
+
+/**
+ * Execução "a seco": corre a MESMA lógica do motor mas em vez de enviar
+ * mensagens, escrever na base de dados ou chamar APIs, regista o que teria
+ * acontecido. É o que alimenta o simulador do construtor de fluxos.
+ */
+export interface Simulacao {
+    passos: { nodeId: string; tipo: string; titulo: string; detalhe?: string }[];
+    mensagens: { de: 'bot'; texto: string; tipo?: string }[];
+    pendente: { nodeId: string; contexto: any; tentativas: number } | null;
+    terminou: boolean;
+}
 
 /** Como o grafo está a ser executado (arranque pelo gatilho ou retoma de uma resposta). */
 interface ExecOpcoes {
@@ -40,6 +54,7 @@ interface ExecOpcoes {
     conversationId?: string | null; // onde guardar o estado quando o fluxo espera
     automationId?: number | null;
     tentativas?: number;            // respostas inválidas já dadas no nó onde retomámos
+    simulacao?: Simulacao;          // execução a seco (nada sai para o mundo real)
 }
 // Profundidade máxima de "Saltar para Outro Fluxo" encadeados (A chama B, que
 // chama C, ...). Um fluxo que precise de mais do que isto está mal desenhado.
@@ -194,6 +209,54 @@ export class AutomationEngine {
         } catch (error) {
             console.error('Erro no Automation Engine (WhatsApp):', error);
         }
+    }
+
+    /**
+     * Corre o fluxo a seco com uma mensagem do "cliente" e devolve o que teria
+     * acontecido. `estado` é o ponto onde a simulação anterior ficou (null = começa
+     * do gatilho). Não toca na base de dados nem envia nada.
+     */
+    public static async simular(automation: any, mensagem: string, estado: { nodeId: string; contexto: any; tentativas: number } | null, contextoInicial: Record<string, any> = {}): Promise<Simulacao> {
+        const { nodes, edges } = this.parseGraph(automation);
+        const sim: Simulacao = { passos: [], mensagens: [], pendente: null, terminou: false };
+        const trigger = nodes.find((n: FlowNode) => n.type === 'trigger');
+
+        const contextoBase = {
+            telefone: '244900000000', nome_whatsapp: 'Cliente de teste', tags: '',
+            ...contextoInicial, ...(estado?.contexto || {}), mensagem, resposta: mensagem
+        };
+
+        if (estado?.nodeId) {
+            if (!nodes.some((n: FlowNode) => n.id === estado.nodeId)) {
+                sim.passos.push({ nodeId: estado.nodeId, tipo: 'erro', titulo: 'O nó onde a conversa estava já não existe no fluxo.' });
+                sim.terminou = true;
+                return sim;
+            }
+            await this.executeGraph(nodes, edges, estado.nodeId, contextoBase, null, [automation.id],
+                { mensagemDisponivel: true, tentativas: estado.tentativas || 0, simulacao: sim });
+            return sim;
+        }
+
+        if (!trigger) {
+            sim.passos.push({ nodeId: '', tipo: 'erro', titulo: 'O fluxo não tem nó de gatilho.' });
+            sim.terminou = true;
+            return sim;
+        }
+        if (trigger.data?.triggerKind === 'whatsapp_message' && !this.evaluateWhatsAppTrigger(trigger.data, mensagem)) {
+            sim.passos.push({ nodeId: trigger.id, tipo: 'trigger', titulo: 'O gatilho não reage a esta mensagem', detalhe: `modo: ${trigger.data?.matchMode || 'any'}${trigger.data?.matchValue ? ` · "${trigger.data.matchValue}"` : ''}` });
+            sim.terminou = true;
+            return sim;
+        }
+        sim.passos.push({ nodeId: trigger.id, tipo: 'trigger', titulo: 'Gatilho disparado' });
+        const primeira = edges.find((e: FlowEdge) => e.source === trigger.id);
+        if (!primeira) {
+            sim.passos.push({ nodeId: trigger.id, tipo: 'erro', titulo: 'O gatilho não está ligado a nenhum nó.' });
+            sim.terminou = true;
+            return sim;
+        }
+        await this.executeGraph(nodes, edges, primeira.target, contextoBase, null, [automation.id],
+            { mensagemDisponivel: false, simulacao: sim });
+        return sim;
     }
 
     // ============================================================
@@ -358,6 +421,11 @@ export class AutomationEngine {
         // A mensagem que chegou só serve de RESPOSTA quando o fluxo foi retomado;
         // no arranque foi consumida pelo gatilho. Cada nó de espera consome-a uma vez.
         let mensagemDisponivel = !!opts.mensagemDisponivel;
+        let saltosDeMenu = 0;   // "Voltar ao menu" encadeados na mesma passagem
+        const sim = opts.simulacao;
+        const registar = (node: FlowNode, titulo: string, detalhe?: string) => {
+            if (sim) sim.passos.push({ nodeId: node.id, tipo: node.type, titulo, detalhe });
+        };
         const { conversationId, automationId } = opts;
         const podeEsperar = !!conversationId;
 
@@ -371,6 +439,8 @@ export class AutomationEngine {
             if (node.type === 'condition') {
                 const conditionMet = this.evaluateCondition(node.data, context);
                 const handle = conditionMet ? 'yes' : 'no';
+                registar(node, `Condição: ${conditionMet ? 'SIM' : 'NÃO'}`,
+                    `${this.resolverVariavel(node.data?.variable, context)} ${node.data?.operator || '=='} ${this.parseString(String(node.data?.value ?? ''), context)}`);
                 const edge = edges.find(e => e.source === node.id && e.sourceHandle === handle);
                 if (!edge) {
                     console.log(`[AUTOPILOT] Condição no nó ${node.id}: resultado ${conditionMet ? 'SIM' : 'NÃO'} sem ligação — o fluxo termina aqui.`);
@@ -381,8 +451,12 @@ export class AutomationEngine {
             }
 
             if (node.type === 'menu') {
-                // Um menu é uma pergunta: espera pela mensagem seguinte do cliente.
+                // Um menu é uma pergunta: envia-a (se estiver configurada) e espera
+                // pela mensagem seguinte do cliente.
                 if (!mensagemDisponivel) {
+                    if (node.data?.pergunta) await this.responderNoWhatsApp(context, this.parseString(node.data.pergunta, context), sim);
+                    registar(node, 'Menu: à espera da resposta');
+                    if (sim) { sim.pendente = { nodeId: node.id, contexto: context, tentativas: 0 }; return context; }
                     if (podeEsperar) {
                         await this.guardarEstadoFluxo(conversationId!, automationId ?? null, node.id, context, 0);
                         console.log(`[AUTOPILOT] Menu ${node.id}: à espera da resposta do cliente.`);
@@ -402,11 +476,15 @@ export class AutomationEngine {
                         continue;
                     }
                     const aviso = node.data?.mensagemInvalida
+                        || (node.data?.pergunta ? `Não percebi essa resposta.\n\n${node.data.pergunta}` : null)
                         || `Não percebi essa resposta. ${(node.data?.options || []).map((o: any, i: number) => `${o.matchValue || i + 1} - ${o.label || ''}`).join(' | ')}`;
-                    await this.responderNoWhatsApp(context, this.parseString(aviso, context));
+                    await this.responderNoWhatsApp(context, this.parseString(aviso, context), sim);
+                    registar(node, 'Menu: resposta fora das opções', `tentativa ${tentativas}`);
+                    if (sim) { sim.pendente = { nodeId: node.id, contexto: context, tentativas }; return context; }
                     if (podeEsperar) await this.guardarEstadoFluxo(conversationId!, automationId ?? null, node.id, context, tentativas);
                     return context;
                 }
+                registar(node, `Menu: opção "${(matchedOption as any).label || matchedOption.id}"`);
                 const edge = edges.find(e => e.source === node.id && e.sourceHandle === matchedOption.id);
                 if (!edge) {
                     console.log(`[AUTOPILOT] Menu ${node.id}: opção "${matchedOption.id}" sem ligação — o fluxo termina aqui.`);
@@ -417,12 +495,34 @@ export class AutomationEngine {
             }
 
             if (node.type === 'action') {
+                // "Voltar ao menu": salta para um menu do mesmo fluxo, que volta a
+                // fazer a pergunta e fica à espera. É assim que se faz um submenu
+                // com a opção "voltar ao menu anterior".
+                if (node.data?.actionType === 'GOTO_MENU') {
+                    const alvoId = String(node.data?.config?.menuNodeId || '');
+                    const alvo = nodes.find(n => n.id === alvoId && n.type === 'menu');
+                    if (!alvo) {
+                        console.warn(`[AUTOPILOT] "Voltar ao menu" no nó ${node.id} sem menu válido escolhido — o fluxo termina aqui.`);
+                        break;
+                    }
+                    if (++saltosDeMenu > MAX_SALTOS_DE_MENU) {
+                        console.warn('[AUTOPILOT] Demasiados "Voltar ao menu" seguidos — a parar para não entrar em ciclo.');
+                        break;
+                    }
+                    registar(node, 'Voltar ao menu', (alvo.data as any)?.pergunta?.slice(0, 40));
+                    mensagemDisponivel = false;   // o menu volta a perguntar e espera
+                    currentNodeId = alvo.id;
+                    continue;
+                }
+
                 // "Aguardar resposta": pára aqui e continua na mensagem seguinte.
                 if (node.data?.actionType === 'WAIT_REPLY') {
                     const seguinte = edges.find(e => e.source === node.id)?.target;
                     if (!mensagemDisponivel) {
                         const pergunta = node.data?.config?.mensagem;
-                        if (pergunta) await this.responderNoWhatsApp(context, this.parseString(pergunta, context));
+                        if (pergunta) await this.responderNoWhatsApp(context, this.parseString(pergunta, context), sim);
+                        registar(node, 'Aguardar resposta do cliente');
+                        if (sim) { sim.pendente = { nodeId: node.id, contexto: context, tentativas: 0 }; return context; }
                         if (podeEsperar) {
                             await this.guardarEstadoFluxo(conversationId!, automationId ?? null, node.id, context, 0);
                             console.log(`[AUTOPILOT] Aguardar resposta no nó ${node.id}.`);
@@ -437,7 +537,7 @@ export class AutomationEngine {
                     continue;
                 }
 
-                await this.executeAction(node, context, empresa_id, nodes, edges, cadeiaFluxos);
+                await this.executeAction(node, context, empresa_id, nodes, edges, cadeiaFluxos, sim);
                 const edge = edges.find(e => e.source === node.id);
                 currentNodeId = edge?.target;
                 continue;
@@ -448,6 +548,7 @@ export class AutomationEngine {
         }
 
         // Chegou ao fim: já não há nada à espera de resposta nesta conversa.
+        if (sim) { sim.terminou = true; return context; }
         if (conversationId) await this.limparEstadoFluxo(conversationId);
         return context;
     }
@@ -536,8 +637,36 @@ export class AutomationEngine {
         return options.find(opt => opt.matchValue && mensagem.includes(this.normalizarTexto(opt.matchValue)));
     }
 
-    private static async executeAction(node: FlowNode, context: any, empresa_id: number | null, allNodes: FlowNode[], allEdges: FlowEdge[], cadeiaFluxos: number[] = []) {
+    private static async executeAction(node: FlowNode, context: any, empresa_id: number | null, allNodes: FlowNode[], allEdges: FlowEdge[], cadeiaFluxos: number[] = [], sim?: Simulacao) {
         const config = node.data?.config || {};
+
+        // Simulação: nada sai para o mundo real. Regista-se o que seria feito, com
+        // as variáveis já substituídas, para se ver exatamente o que o cliente receberia.
+        if (sim) {
+            const tipo = String(node.data?.actionType || '');
+            const texto = this.parseString(config.mensagem || config.message || '', context);
+            const resumo: Record<string, string> = {
+                REPLY_MESSAGE: texto, SEND_WHATSAPP: texto, AI_REPLY: '(resposta gerada pela IA a partir da Base de Conhecimento)',
+                SEND_IMAGE: `imagem: ${config.ficheiro || '(sem ficheiro)'}`, SEND_VIDEO: `vídeo: ${config.ficheiro || '(sem ficheiro)'}`,
+                SEND_AUDIO: `áudio: ${config.ficheiro || '(sem ficheiro)'}`, SEND_DOCUMENT: `documento: ${config.ficheiro || '(sem ficheiro)'}`,
+                SEND_EMAIL: `email para ${this.parseString(config.para || '', context)}: ${this.parseString(config.assunto || '', context)}`,
+                ADD_TAG: `etiqueta +${config.tag || ''}`, REMOVE_TAG: `etiqueta -${config.tag || ''}`,
+                SET_CUSTOM_FIELD: `${config.campo || ''} = ${this.parseString(config.valor || '', context)}`,
+                NOTIFY_TEAM: `notificar ${config.destinatario || ''}`, HANDOFF_HUMAN: 'passa a conversa para um humano (bot pausado)',
+                EXTERNAL_REQUEST: `${config.method || 'GET'} ${this.parseString(config.url || '', context)}`,
+                JUMP_TO_WORKFLOW: `salta para o fluxo "${config.target_workflow_nome || ''}"`,
+                DELAY: `espera ${config.segundos ?? (config.minutos ? Number(config.minutos) * 60 : 1)}s`,
+                LOG_MESSAGE: texto
+            };
+            sim.passos.push({ nodeId: node.id, tipo: 'action', titulo: tipo, detalhe: resumo[tipo] ?? '' });
+            if (['REPLY_MESSAGE', 'SEND_WHATSAPP'].includes(tipo) && texto) sim.mensagens.push({ de: 'bot', texto });
+            if (['SEND_IMAGE', 'SEND_VIDEO', 'SEND_AUDIO', 'SEND_DOCUMENT'].includes(tipo)) sim.mensagens.push({ de: 'bot', texto: resumo[tipo], tipo: tipo.replace('SEND_', '').toLowerCase() });
+            if (tipo === 'AI_REPLY') sim.mensagens.push({ de: 'bot', texto: resumo[tipo] });
+            // Efeitos só no contexto (não saem para fora) continuam a valer, para as
+            // condições seguintes serem avaliadas com os mesmos dados.
+            if (tipo === 'SET_CUSTOM_FIELD' && config.campo) context[config.campo] = this.parseString(config.valor || '', context);
+            return;
+        }
 
         switch (node.data?.actionType) {
             case 'LOG_MESSAGE': {
@@ -1089,8 +1218,10 @@ export class AutomationEngine {
      * Envia uma mensagem ao cliente e deixa-a visível na conversa do CRM.
      * Usado pelos nós de espera (repetir o menu, fazer a pergunta).
      */
-    private static async responderNoWhatsApp(context: any, texto: string): Promise<void> {
-        if (!texto || !context?.telefone || !context?.channel_id) return;
+    private static async responderNoWhatsApp(context: any, texto: string, sim?: Simulacao): Promise<void> {
+        if (!texto) return;
+        if (sim) { sim.mensagens.push({ de: 'bot', texto }); return; }
+        if (!context?.telefone || !context?.channel_id) return;
         try {
             const { WhatsAppChannelManager } = require('./WhatsAppChannelManager');
             const sentId = await WhatsAppChannelManager.sendMessage(supabase, context.channel_id, context.telefone, texto);

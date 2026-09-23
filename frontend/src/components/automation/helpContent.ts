@@ -276,6 +276,19 @@ export const HELP_ITEMS: HelpItem[] = [
     exemplo: { cenario: 'Esperar 15 segundos entre a saudação e o menu de opções.', passos: ['Nó "Aguardar" → 15 segundos, entre a mensagem de boas-vindas e o Menu'] }
   },
   {
+    id: 'goto_menu',
+    titulo: 'Voltar ao menu',
+    categoria: 'Conversa',
+    cor: '#0891b2',
+    oQueFaz: 'Manda a conversa de volta a um Menu do mesmo fluxo: a pergunta desse menu é enviada outra vez e o cliente escolhe de novo.',
+    quandoUsar: 'Menus encadeados. Ex: menu principal com 4 opções; a opção 1 abre um submenu (1-preços, 2-voltar); a opção "2 - voltar" é um nó "Voltar ao menu" apontado ao menu principal. Assim o cliente circula pelos menus sem nunca repetir a saudação.',
+    campos: [{ label: 'Menu de destino', explicacao: 'Qualquer nó Menu deste fluxo, incluindo o principal. Se o menu tiver "Pergunta a enviar" preenchida, é ela que o cliente volta a ver.' }],
+    exemplo: {
+      cenario: 'Submenu de Preços com opção de voltar ao menu principal.',
+      passos: ['Menu principal → opção 1 → Menu "Preços" (pergunta: "1 - Quarto simples · 2 - Voltar")', 'Menu "Preços" → opção 2 → "Voltar ao menu" → Menu principal']
+    }
+  },
+  {
     id: 'wait_reply',
     titulo: 'Aguardar resposta do cliente',
     categoria: 'Conversa',

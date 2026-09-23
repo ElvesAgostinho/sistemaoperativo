@@ -65,6 +65,31 @@ export const createAutomation = async (req: Request, res: Response) => {
     }
 };
 
+/**
+ * Simulador: corre o fluxo a seco com uma mensagem e devolve o que o cliente
+ * receberia e por que nós passou. Não envia nada nem grava nada.
+ */
+export const simulateAutomation = async (req: Request, res: Response) => {
+    try {
+        const supabase = getSupabase(req);
+        const empresa_id = (req as any).user?.empresa_id;
+        if (!empresa_id) return res.status(400).json({ error: 'Utilizador sem empresa associada.' });
+
+        const { data: automation, error } = await supabase.from('automations').select('*')
+            .eq('id', Number(req.params.id)).eq('empresa_id', empresa_id).maybeSingle();
+        if (error) throw error;
+        if (!automation) return res.status(404).json({ error: 'Fluxo não encontrado.' });
+
+        const mensagem = String(req.body?.mensagem ?? '');
+        const estado = req.body?.estado || null;
+        const resultado = await AutomationEngine.simular(automation, mensagem, estado, req.body?.contexto || {});
+        return res.json({ success: true, ...resultado });
+    } catch (error: any) {
+        console.error('Erro na simulação:', error);
+        return res.status(500).json({ error: error.message || 'Erro de servidor' });
+    }
+};
+
 export const deleteAutomation = async (req: Request, res: Response) => {
     try {
         const id = Number(req.params.id);
