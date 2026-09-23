@@ -23,6 +23,7 @@ import emailRoutes from './api/emailRoutes';
 import publicRoutes from './api/publicRoutes';
 import { EmailSyncService } from './services/EmailSyncService';
 import { CampaignService } from './services/CampaignService';
+import { EmailCampaignService } from './services/EmailCampaignService';
 import documentosRoutes from './api/documentosRoutes';
 import { DocumentosService } from './services/DocumentosService';
 import { requireAuth } from './middleware/authMiddleware';
@@ -106,6 +107,13 @@ app.listen(port, () => {
   // em vez de disparar tudo de uma vez.
   setInterval(() => {
     CampaignService.processarFila().catch(console.error);
+  }, 20 * 1000);
+
+  // Campanhas de email: o mesmo ritmo, pela mesma razao. Um servidor de correio
+  // que recebe 2000 mensagens de rajada fecha a porta e o dominio ganha fama de
+  // spam — com lotes pequenos as mensagens chegam mesmo.
+  setInterval(() => {
+    EmailCampaignService.processarFila().catch(console.error);
   }, 20 * 1000);
 
   // Documentos que ficaram a meio (ex: o servidor reiniciou durante a leitura

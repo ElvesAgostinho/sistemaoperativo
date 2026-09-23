@@ -82,43 +82,59 @@ export class EmailService {
         }
     }
 
-    public static async enviarEmailPersonalizado(para: string, assunto: string, corpo: string, empresaId?: string | number, userClient?: any): Promise<boolean> {
+    public static async enviarEmailPersonalizado(
+        para: string, assunto: string, corpo: string,
+        empresaId?: string | number, userClient?: any,
+        // Uma campanha manda milhares de emails: guardar cada um na caixa de
+        // "Enviados" enchia-a de copias da mesma mensagem. Por isso o registo e
+        // opcional — a campanha tem a sua propria lista de destinatarios.
+        opcoes?: { cc?: string; bcc?: string; anexos?: any[]; anexosGuardados?: any[]; registarNaCaixa?: boolean; campanhaId?: string }
+    ): Promise<boolean> {
         if (!para || para.trim() === '') return false;
-        
+
         const configOK = await this.isConfigured(empresaId, userClient);
         if (!configOK) {
-            console.error('[EmailService] SMTP não configurado.');
+            console.error('[EmailService] SMTP nao configurado.');
             return false;
         }
-        
+
         const { user, nome } = await this.getSmtpConfig(empresaId, userClient);
         try {
             const transporter = await this.createTransporter(empresaId, userClient);
             const info = await transporter.sendMail({
                 from: `"${nome}" <${user}>`,
                 to: para,
+                cc: opcoes?.cc || undefined,
+                bcc: opcoes?.bcc || undefined,
                 subject: assunto,
                 html: corpo,
-                text: corpo.replace(/<[^>]+>/g, '')
+                text: corpo.replace(/<[^>]+>/g, ''),
+                attachments: opcoes?.anexos?.length ? opcoes.anexos : undefined
             });
             console.log(`[EmailService] Email enviado para ${para}: ${info.messageId}`);
-            
-            try {
-                const client = userClient || supabase;
-                await client.from('emails').insert({
-                    empresa_id: empresaId || null,
-                    direcao: 'sent',
-                    message_id: info.messageId,
-                    de: `"${nome}" <${user}>`,
-                    para: para,
-                    assunto: assunto,
-                    corpo_html: corpo,
-                    corpo_texto: corpo.replace(/<[^>]+>/g, ''),
-                    lido: true,
-                    data_envio: new Date().toISOString()
-                });
-            } catch(e) {
-                console.error('[EmailService] Falha ao guardar na BD', e);
+
+            if (opcoes?.registarNaCaixa !== false) {
+                try {
+                    const client = userClient || supabase;
+                    await client.from('emails').insert({
+                        empresa_id: empresaId || null,
+                        direcao: 'sent',
+                        message_id: info.messageId,
+                        de: `"${nome}" <${user}>`,
+                        para: para,
+                        cc: opcoes?.cc || null,
+                        bcc: opcoes?.bcc || null,
+                        assunto: assunto,
+                        corpo_html: corpo,
+                        corpo_texto: corpo.replace(/<[^>]+>/g, ''),
+                        anexos: opcoes?.anexosGuardados || [],
+                        campanha_id: opcoes?.campanhaId || null,
+                        lido: true,
+                        data_envio: new Date().toISOString()
+                    });
+                } catch(e) {
+                    console.error('[EmailService] Falha ao guardar na BD', e);
+                }
             }
 
             return true;
@@ -126,6 +142,30 @@ export class EmailService {
             console.error(`[EmailService] Erro ao enviar email para ${para}:`, error);
             return false;
         }
+    }
+
+    /**
+     * Envia com anexos que ja estao guardados no Storage (links). E o caminho das
+     * campanhas e do "Compor" com ficheiros: o ficheiro e carregado uma vez e
+     * depois so se passa o link, em vez de arrastar o conteudo a cada envio.
+     */
+    public static async enviarComAnexosDeLinks(
+        para: string, assunto: string, corpoHtml: string,
+        anexos: { nome: string; url: string; tipo?: string }[],
+        empresaId?: string | number,
+        opcoes?: { cc?: string; bcc?: string; registarNaCaixa?: boolean; campanhaId?: string; userClient?: any }
+    ): Promise<{ ok: boolean; erro?: string }> {
+        const anexosNodemailer = (anexos || [])
+            .filter(a => a?.url && a?.nome)
+            .map(a => ({ filename: a.nome, path: a.url, contentType: a.tipo || undefined }));
+        const ok = await this.enviarEmailPersonalizado(para, assunto, corpoHtml, empresaId, opcoes?.userClient, {
+            cc: opcoes?.cc, bcc: opcoes?.bcc,
+            anexos: anexosNodemailer,
+            anexosGuardados: anexos,
+            registarNaCaixa: opcoes?.registarNaCaixa,
+            campanhaId: opcoes?.campanhaId
+        });
+        return ok ? { ok: true } : { ok: false, erro: 'o servidor de correio nao aceitou a mensagem' };
     }
 
     /** Envia um email com anexos em memória (usado pelo módulo de Documentos). */

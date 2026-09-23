@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Send, Inbox, User, Type, AlertCircle, Loader, RefreshCw, Trash2, MailOpen, Mail as MailIcon, FolderOpen, FileText } from 'lucide-react';
+import { Mail, Send, Inbox, User, Type, AlertCircle, Loader, RefreshCw, Trash2, MailOpen, Mail as MailIcon, FolderOpen, FileText, Megaphone } from 'lucide-react';
 import { irPara, consumirAlvo } from '../lib/navegacao';
+import AnexosPicker, { type Anexo } from './email/AnexosPicker';
+import CampanhasEmail from './email/CampanhasEmail';
 
 type SendStatus = 'idle' | 'sending' | 'success' | 'error';
-type ViewMode = 'inbox' | 'sent' | 'compose' | 'read';
+type ViewMode = 'inbox' | 'sent' | 'compose' | 'read' | 'campanhas';
 
 interface Email {
     id: string;
@@ -26,8 +28,12 @@ export default function EmailApp() {
 
     // Form states
     const [para, setPara] = useState('');
+    const [cc, setCc] = useState('');
+    const [bcc, setBcc] = useState('');
+    const [mostrarCopias, setMostrarCopias] = useState(false);
     const [assunto, setAssunto] = useState('');
     const [corpo, setCorpo] = useState('');
+    const [anexos, setAnexos] = useState<Anexo[]>([]);
     const [status, setStatus] = useState<SendStatus>('idle');
     const [errorMsg, setErrorMsg] = useState('');
 
@@ -120,13 +126,13 @@ export default function EmailApp() {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ para, assunto, corpo })
+                body: JSON.stringify({ para, assunto, corpo, cc: cc || undefined, bcc: bcc || undefined, anexos })
             });
             const data = await res.json();
             
             if (data.success) {
                 setStatus('success');
-                setPara(''); setAssunto(''); setCorpo('');
+                setPara(''); setCc(''); setBcc(''); setAssunto(''); setCorpo(''); setAnexos([]); setMostrarCopias(false);
                 loadEmails();
                 setTimeout(() => setStatus('idle'), 3000);
             } else {
@@ -184,6 +190,12 @@ export default function EmailApp() {
                         style={{ padding: '10px 12px', borderRadius: '2px', backgroundColor: view === 'sent' ? '#E1EEF0' : 'transparent', color: view === 'sent' ? '#0E5A6B' : '#5B738B', fontWeight: view === 'sent' ? '600' : '500', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
                     >
                         <Send size={16} /> Enviados
+                    </div>
+                    <div
+                        onClick={() => setView('campanhas')}
+                        style={{ padding: '10px 12px', borderRadius: '2px', backgroundColor: view === 'campanhas' ? '#E1EEF0' : 'transparent', color: view === 'campanhas' ? '#0E5A6B' : '#5B738B', fontWeight: view === 'campanhas' ? '600' : '500', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                    >
+                        <Megaphone size={16} /> Campanhas
                     </div>
                 </div>
             </div>
@@ -254,6 +266,8 @@ export default function EmailApp() {
                     </div>
                 )}
 
+                {view === 'campanhas' && <CampanhasEmail />}
+
                 {view === 'compose' && (
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '32px' }}>
                         <div style={{ backgroundColor: 'white', borderRadius: '2px', border: '1px solid #D5D7DA', display: 'flex', flexDirection: 'column', flex: 1 }}>
@@ -270,14 +284,35 @@ export default function EmailApp() {
                             <div style={{ padding: '0 24px', flex: 1, display: 'flex', flexDirection: 'column' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid #E7E9EB', padding: '14px 0' }}>
                                     <div style={{ width: '80px', color: '#8996A3', display: 'flex', alignItems: 'center', gap: '8px' }}><User size={16} /><span style={{fontSize:'14px', fontWeight:'600'}}>Para</span></div>
-                                    <input type="email" value={para} onChange={e => setPara(e.target.value)} placeholder="email@exemplo.com" style={{ flex: 1, border: 'none', outline: 'none', fontSize: '15px' }} />
+                                    <input type="text" value={para} onChange={e => setPara(e.target.value)} placeholder="email@exemplo.com" style={{ flex: 1, border: 'none', outline: 'none', fontSize: '15px' }} />
+                                    {!mostrarCopias && (
+                                        <button onClick={() => setMostrarCopias(true)} title="Enviar cópia a mais alguém"
+                                            style={{ background: 'none', border: 'none', color: '#0E5A6B', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+                                            Cc / Bcc
+                                        </button>
+                                    )}
                                 </div>
+                                {mostrarCopias && (
+                                    <>
+                                        <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid #E7E9EB', padding: '14px 0' }}>
+                                            <div style={{ width: '80px', color: '#8996A3', fontSize: '14px', fontWeight: 600 }}>Cc</div>
+                                            <input type="text" value={cc} onChange={e => setCc(e.target.value)} placeholder="quem também deve ver, separado por vírgulas" style={{ flex: 1, border: 'none', outline: 'none', fontSize: '15px' }} />
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid #E7E9EB', padding: '14px 0' }}>
+                                            <div style={{ width: '80px', color: '#8996A3', fontSize: '14px', fontWeight: 600 }}>Bcc</div>
+                                            <input type="text" value={bcc} onChange={e => setBcc(e.target.value)} placeholder="cópia escondida: os outros não veem estes" style={{ flex: 1, border: 'none', outline: 'none', fontSize: '15px' }} />
+                                        </div>
+                                    </>
+                                )}
                                 <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid #E7E9EB', padding: '14px 0' }}>
                                     <div style={{ width: '80px', color: '#8996A3', display: 'flex', alignItems: 'center', gap: '8px' }}><Type size={16} /><span style={{fontSize:'14px', fontWeight:'600'}}>Assunto</span></div>
                                     <input type="text" value={assunto} onChange={e => setAssunto(e.target.value)} placeholder="Assunto do email" style={{ flex: 1, border: 'none', outline: 'none', fontSize: '15px' }} />
                                 </div>
-                                <div style={{ flex: 1, padding: '16px 0', display: 'flex' }}>
+                                <div style={{ flex: 1, padding: '16px 0', display: 'flex', minHeight: '180px' }}>
                                     <textarea value={corpo} onChange={e => setCorpo(e.target.value)} placeholder="Escreva aqui..." style={{ flex: 1, border: 'none', outline: 'none', resize: 'none', fontSize: '15px', lineHeight: '1.7', fontFamily: 'inherit' }} />
+                                </div>
+                                <div style={{ paddingBottom: '20px' }}>
+                                    <AnexosPicker anexos={anexos} onChange={setAnexos} />
                                 </div>
                             </div>
                         </div>
