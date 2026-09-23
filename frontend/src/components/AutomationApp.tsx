@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { Zap, Plus, Trash2, PanelLeftClose, PanelLeftOpen, Pencil, Check, X, HelpCircle, AlertTriangle } from 'lucide-react';
+import { Zap, Plus, Trash2, PanelLeftClose, PanelLeftOpen, Pencil, Check, X, HelpCircle, AlertTriangle, ArrowLeft } from 'lucide-react';
 import AutomationCanvas from './automation/AutomationCanvas';
 import HelpGuide from './automation/HelpGuide';
 import { createBlankAutomationGraph, type Automation, type AutomationEdge, type AutomationNode } from './automation/types';
 
-export default function AutomationApp() {
+export default function AutomationApp({ onVoltar }: { onVoltar?: () => void }) {
   const [automations, setAutomations] = useState<Automation[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -216,7 +216,16 @@ export default function AutomationApp() {
         overflow: 'hidden',
         transition: 'width 0.18s ease'
       }}>
-        <div style={{ padding: '20px', borderBottom: '1px solid var(--odoo-border)', minWidth: '300px' }}>
+        <div style={{ padding: '14px 16px 16px', borderBottom: '1px solid var(--odoo-border)', minWidth: '300px' }}>
+          {onVoltar && (
+            <button
+              onClick={onVoltar}
+              title="Voltar ao menu principal"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 10px', marginBottom: '12px', borderRadius: '2px', border: '1px solid var(--odoo-border)', background: 'white', color: '#1D2D3E', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' }}
+            >
+              <ArrowLeft size={14} /> Voltar
+            </button>
+          )}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
             <h2 style={{ margin: 0, fontSize: '18px', color: '#1D2D3E', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Zap size={20} color="#0E5A6B" /> Autopilot

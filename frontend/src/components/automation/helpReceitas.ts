@@ -267,7 +267,9 @@ export const VARIAVEIS_AJUDA = {
     { nome: '{{agendamento_ok}}', o_que: '"sim" ou "nao" — se a marcação foi mesmo criada' },
     { nome: '{{agendamento_erro}}', o_que: 'o motivo, em português, quando não deu (ex: "Essa hora deixou de estar livre")' },
     { nome: '{{agendamento_data_extenso}}', o_que: 'a data da marcação por extenso, para a mensagem de confirmação' },
-    { nome: '{{minhas_marcacoes}}', o_que: 'a lista das marcações do cliente, já em texto' }
+    { nome: '{{minhas_marcacoes}}', o_que: 'a lista das marcações do cliente, já em texto' },
+    { nome: '{{notificacao_ok}}', o_que: '"sim" ou "nao" — se o aviso à equipa foi mesmo entregue' },
+    { nome: '{{notificacao_erro}}', o_que: 'o motivo, quando o aviso à equipa não chegou' }
   ],
   erradoDiagrama: {
     caixas: [

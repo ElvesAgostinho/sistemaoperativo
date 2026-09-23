@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { X, Search, BookOpen, Lightbulb, CheckCircle2, AlertTriangle, Play } from 'lucide-react';
 import { HELP_INTRO, HELP_ITEMS } from './helpContent';
 import { RECEITAS, VARIAVEIS_AJUDA } from './helpReceitas';
+import { GUIAS } from './helpGuias';
 import DiagramaFluxo, { ConversaExemplo } from './DiagramaFluxo';
 
 interface HelpGuideProps {
@@ -29,6 +30,7 @@ export default function HelpGuide({ onClose }: HelpGuideProps) {
   }, [search]);
 
   const selectedItem = HELP_ITEMS.find(i => i.id === selectedId);
+  const guiaSelecionado = GUIAS.find(g => `__guia_${g.id}__` === selectedId) || null;
 
   return (
     <div style={{
@@ -71,6 +73,26 @@ export default function HelpGuide({ onClose }: HelpGuideProps) {
             >
               👋 Como Construir um Fluxo
             </button>
+
+            <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#94a3b8', letterSpacing: '0.5px', padding: '4px 10px 2px' }}>
+              PASSO A PASSO
+            </div>
+            {GUIAS.map(g => (
+              <button
+                key={g.id}
+                onClick={() => setSelectedId(`__guia_${g.id}__`)}
+                style={{
+                  width: '100%', textAlign: 'left', padding: '9px 10px', borderRadius: '7px', border: 'none',
+                  cursor: 'pointer', fontSize: '12.5px', fontWeight: 'bold', marginBottom: '4px',
+                  backgroundColor: selectedId === `__guia_${g.id}__` ? '#e0f2fe' : 'transparent',
+                  color: selectedId === `__guia_${g.id}__` ? '#0369a1' : '#334155'
+                }}
+              >
+                {g.emoji} {g.titulo}
+              </button>
+            ))}
+
+            <div style={{ height: '8px' }} />
 
             <button
               onClick={() => setSelectedId('__receitas__')}
@@ -134,7 +156,72 @@ export default function HelpGuide({ onClose }: HelpGuideProps) {
           </div>
 
           <div style={{ flex: 1, overflowY: 'auto', padding: '8px 40px 40px' }}>
-            {selectedId === '__variaveis__' ? (
+            {guiaSelecionado ? (
+              <>
+                <h1 style={{ fontSize: '23px', color: '#0f172a', margin: '0 0 8px 0' }}>{guiaSelecionado.emoji} {guiaSelecionado.titulo}</h1>
+                <div style={{ fontSize: '14px', color: '#1e293b', lineHeight: 1.65, marginBottom: '16px' }}>{guiaSelecionado.paraQue}</div>
+
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 16px', marginBottom: '26px' }}>
+                  <div style={{ fontSize: '11.5px', fontWeight: 'bold', color: '#475569', marginBottom: '6px' }}>ANTES DE COMEÇAR</div>
+                  <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '13px', color: '#475569', lineHeight: 1.7 }}>
+                    {guiaSelecionado.antes.map((a, i) => <li key={i}>{a}</li>)}
+                  </ul>
+                </div>
+
+                {guiaSelecionado.passos.map((passo, i) => (
+                  <div key={i} style={{ display: 'flex', gap: '14px', marginBottom: '22px' }}>
+                    <div style={{
+                      flexShrink: 0, width: '26px', height: '26px', borderRadius: '50%', background: '#0E5A6B',
+                      color: 'white', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}>{i + 1}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'inline-block', fontSize: '10.5px', fontWeight: 'bold', color: '#0369a1', background: '#e0f2fe', borderRadius: '10px', padding: '2px 9px', marginBottom: '5px' }}>
+                        {passo.onde}
+                      </div>
+                      <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#0f172a', marginBottom: '4px' }}>{passo.titulo}</div>
+                      <div style={{ fontSize: '13.5px', color: '#475569', lineHeight: 1.65 }}>{passo.texto}</div>
+                      {passo.campos && (
+                        <div style={{ marginTop: '10px', border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
+                          {passo.campos.map((c, j) => (
+                            <div key={j} style={{ display: 'flex', fontSize: '12.5px', borderTop: j ? '1px solid #f1f5f9' : 'none' }}>
+                              <div style={{ width: '38%', padding: '7px 12px', background: '#f8fafc', color: '#475569', fontWeight: 600 }}>{c.campo}</div>
+                              <div style={{ flex: 1, padding: '7px 12px', color: '#0f172a', fontFamily: 'ui-monospace, monospace', wordBreak: 'break-word' }}>{c.valor}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {guiaSelecionado.diagrama && (
+                  <div style={{ marginTop: '26px' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569', marginBottom: '10px' }}>O FLUXO FICA ASSIM</div>
+                    <DiagramaFluxo d={guiaSelecionado.diagrama} />
+                  </div>
+                )}
+
+                {guiaSelecionado.conversa && (
+                  <div style={{ marginTop: '26px' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569', marginBottom: '10px' }}>O QUE O CLIENTE VÊ</div>
+                    <ConversaExemplo linhas={guiaSelecionado.conversa} />
+                  </div>
+                )}
+
+                <div style={{ marginTop: '30px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', fontSize: '14px', color: '#92400e', marginBottom: '10px' }}>
+                    <AlertTriangle size={16} /> Se alguma coisa correr mal
+                  </div>
+                  {guiaSelecionado.armadilhas.map((a, i) => (
+                    <div key={i} style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px', padding: '12px 16px', marginBottom: '10px' }}>
+                      <div style={{ fontSize: '13.5px', fontWeight: 'bold', color: '#92400e', marginBottom: '3px' }}>{a.problema}</div>
+                      <div style={{ fontSize: '13px', color: '#78350f', lineHeight: 1.6 }}><b>Porquê:</b> {a.porque}</div>
+                      <div style={{ fontSize: '13px', color: '#78350f', lineHeight: 1.6 }}><b>Resolve-se assim:</b> {a.solucao}</div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : selectedId === '__variaveis__' ? (
               <>
                 <h1 style={{ fontSize: '23px', color: '#0f172a', margin: '0 0 12px 0' }}>{VARIAVEIS_AJUDA.titulo}</h1>
                 <div style={{ fontSize: '14px', color: '#1e293b', lineHeight: 1.65, marginBottom: '20px' }}>{VARIAVEIS_AJUDA.intro}</div>

@@ -626,15 +626,25 @@ export default function NodeConfigPanel({ node, todosOsNos = [], automations, cu
 
           {d.actionType === 'NOTIFY_TEAM' && (
             <>
-              <label style={labelStyle}>Canal</label>
+              <label style={labelStyle}>Como avisar</label>
               <select style={fieldStyle} value={config.canal || 'email'} onChange={e => updateConfig({ canal: e.target.value })}>
                 <option value="email">Email</option>
                 <option value="whatsapp">WhatsApp</option>
+                <option value="ambos">Os dois (email e WhatsApp)</option>
               </select>
-              <label style={labelStyle}>Destinatário</label>
-              <input style={fieldStyle} type="text" value={config.destinatario || ''} onChange={e => updateConfig({ destinatario: e.target.value })} placeholder={config.canal === 'whatsapp' ? 'ex: 351912345678' : 'ex: equipa@empresa.com'} />
+              <label style={labelStyle}>Para quem</label>
+              <input style={fieldStyle} type="text" value={config.destinatario || ''} onChange={e => updateConfig({ destinatario: e.target.value })} placeholder="reservas@empresa.ao, 244923000111" />
+              <div style={{ fontSize: '11px', color: '#666', marginTop: '4px', lineHeight: 1.5 }}>
+                Pode pôr vários, separados por vírgula. O sistema percebe sozinho o que é email e o que é telemóvel — quem tem <b>@</b> recebe email, quem é número recebe WhatsApp.
+              </div>
               <label style={labelStyle}>Mensagem</label>
-              <textarea style={{ ...fieldStyle, resize: 'vertical' }} rows={3} value={config.mensagem || ''} onChange={e => updateConfig({ mensagem: e.target.value })} placeholder="Novo pedido de orçamento de {{nome_whatsapp}}" />
+              <textarea style={{ ...fieldStyle, resize: 'vertical' }} rows={3} value={config.mensagem || ''} onChange={e => updateConfig({ mensagem: e.target.value })} placeholder="Novo pedido de orçamento de {{nome_whatsapp}} ({{telefone}})" />
+              <label style={labelStyle}>Email de recurso (opcional)</label>
+              <input style={fieldStyle} type="text" value={config.emailAlternativo || ''} onChange={e => updateConfig({ emailAlternativo: e.target.value })} placeholder="dono@empresa.ao" />
+              <div style={{ marginTop: '6px', fontSize: '11px', color: '#666', lineHeight: 1.6 }}>
+                Se o WhatsApp estiver desligado e o aviso não sair, é enviado para aqui — para nunca perder um cliente por causa disso.
+                Depois deste bloco, <code>{'{{notificacao_ok}}'}</code> vale "sim" ou "nao" e <code>{'{{notificacao_erro}}'}</code> diz o que se passou.
+              </div>
             </>
           )}
 

@@ -51,7 +51,7 @@ const MODULOS: { key: string; label: string; icon: any }[] = [
   { key: 'superadmin', label: 'SaaS Global', icon: Globe },
 ];
 
-const MODULOS_ECRA_INTEIRO: string[] = ['documentos'];
+const MODULOS_ECRA_INTEIRO: string[] = ['documentos', 'auto'];
 
 const ROLE_PERMISSIONS: Record<string, string[]> = {
   superadmin: ['home', 'superadmin', 'hr', 'crm', 'data', 'chat', 'auto', 'wa', 'kb', 'email', 'settings', 'reunioes', 'afiliados', 'contabilidade', 'agendamento', 'documentos'],
@@ -505,7 +505,7 @@ function App() {
               <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', backgroundColor: '#ffffff' }}>
                 {activeModule === 'hr' && <HrApp />}
                 {activeModule === 'crm' && <CrmApp />}
-                {activeModule === 'auto' && <AutomationApp />}
+                {activeModule === 'auto' && <AutomationApp onVoltar={() => navigateTo('home')} />}
                 {activeModule === 'wa' && <WhatsAppChatApp />}
                 {activeModule === 'kb' && <KnowledgeBaseApp />}
                 {activeModule === 'email' && <EmailApp />}

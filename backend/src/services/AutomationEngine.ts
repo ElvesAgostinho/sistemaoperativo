@@ -640,6 +640,27 @@ export class AutomationEngine {
         return options.find(opt => opt.matchValue && mensagem.includes(this.normalizarTexto(opt.matchValue)));
     }
 
+    /**
+     * Separa a lista de destinatários (vírgulas, pontos e vírgulas ou linhas) e
+     * decide, para cada um, se é um email ou um telemóvel. O que a pessoa
+     * escreveu manda sobre o canal escolhido na caixa: um endereço com "@" vai
+     * sempre por email, um número vai sempre por WhatsApp. Assim o aviso chega
+     * mesmo quando o canal ficou mal escolhido no painel.
+     */
+    private static destinatariosDe(texto: string, preferencia: string): { valor: string; tipo: 'email' | 'whatsapp' }[] {
+        const partes = String(texto || '').split(/[,;\n]+/).map(t => t.trim()).filter(Boolean);
+        const alvos: { valor: string; tipo: 'email' | 'whatsapp' }[] = [];
+        for (const parte of partes) {
+            if (parte.includes('@')) { alvos.push({ valor: parte, tipo: 'email' }); continue; }
+            const digitos = parte.replace(/\D/g, '');
+            if (digitos.length >= 8) { alvos.push({ valor: digitos, tipo: 'whatsapp' }); continue; }
+            // Não se percebe o que é: segue a preferência da caixa, sem inventar.
+            if (preferencia === 'whatsapp') alvos.push({ valor: digitos || parte, tipo: 'whatsapp' });
+            else alvos.push({ valor: parte, tipo: 'email' });
+        }
+        return alvos;
+    }
+
     private static async executeAction(node: FlowNode, context: any, empresa_id: number | null, allNodes: FlowNode[], allEdges: FlowEdge[], cadeiaFluxos: number[] = [], sim?: Simulacao) {
         const config = node.data?.config || {};
 
@@ -796,31 +817,84 @@ export class AutomationEngine {
                 break;
             }
 
+            // Avisa quem trata do assunto. É o nó que traz dinheiro à porta, por
+            // isso nunca falha em silêncio: aceita vários destinatários, percebe
+            // sozinho se cada um é um email ou um telemóvel, escolhe um canal de
+            // WhatsApp que esteja mesmo LIGADO, e se não conseguir entregar pelo
+            // WhatsApp cai para o email alternativo. O resultado fica em
+            // {{notificacao_ok}} / {{notificacao_erro}} para o fluxo poder reagir.
             case 'NOTIFY_TEAM': {
-                const destinatario = this.parseString(config.destinatario, context);
                 const mensagem = this.parseString(config.mensagem, context);
-                const canal = config.canal === 'whatsapp' ? 'whatsapp' : 'email';
+                const preferencia = String(config.canal || 'email').toLowerCase();
+                const alvos = this.destinatariosDe(this.parseString(config.destinatario, context), preferencia);
 
-                if (!destinatario || !mensagem) {
-                    console.error('[AUTOPILOT] NOTIFY_TEAM falhou: falta destinatário ou mensagem.');
+                if (!alvos.length || !mensagem) {
+                    console.error('[AUTOPILOT] NOTIFY_TEAM: falta destinatário ou mensagem — nada enviado.');
+                    context['notificacao_ok'] = 'nao';
+                    context['notificacao_erro'] = !mensagem ? 'Falta a mensagem do aviso.' : 'Falta o destinatário do aviso.';
                     break;
                 }
 
-                try {
-                    if (canal === 'whatsapp') {
-                        const { WhatsAppChannelManager } = require('./WhatsAppChannelManager');
-                        const { data: channel } = empresa_id
-                            ? await supabase.from('wa_channels').select('id').eq('empresa_id', empresa_id).limit(1).single()
-                            : { data: null }; // sem empresa_id não há como escolher um canal em segurança — nunca usar "o primeiro canal da tabela toda" (vazamento cross-tenant)
-                        if (channel) await WhatsAppChannelManager.sendMessage(supabase, channel.id, destinatario, mensagem);
+                const { WhatsAppChannelManager } = require('./WhatsAppChannelManager');
+                const { EmailService } = require('./EmailService');
+                const emailAlternativo = this.parseString(config.emailAlternativo || '', context).trim();
+                const falhas: string[] = [];
+                let entregues = 0;
+
+                // O canal de WhatsApp é procurado uma só vez, e só dentro desta empresa
+                // (sem empresa não se escolhe canal nenhum — seria falar pelo número de outro cliente).
+                let canalWa: any = null;
+                if (alvos.some(a => a.tipo === 'whatsapp')) {
+                    if (!empresa_id) {
+                        falhas.push('sem empresa associada ao fluxo, não é possível escolher um canal de WhatsApp');
                     } else {
-                        const { EmailService } = require('./EmailService');
-                        await EmailService.enviarEmailPersonalizado(destinatario, 'Notificação do Autopilot', mensagem, empresa_id);
+                        const { data: canais } = await supabase.from('wa_channels')
+                            .select('id, status').eq('empresa_id', empresa_id);
+                        // Normaliza: conforme os cabeçalhos, o PostgREST tanto devolve
+                        // uma lista como um único objeto.
+                        const lista: any[] = Array.isArray(canais) ? canais : (canais ? [canais] : []);
+                        canalWa = lista.find((c: any) => c.status === 'connected')
+                            // Um canal sem estado registado ainda é melhor do que não tentar de todo.
+                            || lista.find((c: any) => !c.status) || null;
+                        if (!canalWa && lista.length) falhas.push('o canal de WhatsApp da empresa não está ligado');
+                        else if (!canalWa) falhas.push('a empresa não tem nenhum canal de WhatsApp');
                     }
-                    console.log(`[AUTOPILOT] NOTIFY_TEAM enviado para ${destinatario} via ${canal}`);
-                } catch (e) {
-                    console.error('[AUTOPILOT] Erro em NOTIFY_TEAM:', e);
                 }
+
+                for (const alvo of alvos) {
+                    try {
+                        if (alvo.tipo === 'whatsapp') {
+                            if (!canalWa) throw new Error('sem canal de WhatsApp ligado');
+                            await WhatsAppChannelManager.sendMessage(supabase, canalWa.id, alvo.valor, mensagem);
+                        } else {
+                            const enviado = await EmailService.enviarEmailPersonalizado(alvo.valor, 'Notificação do Autopilot', mensagem, empresa_id);
+                            if (enviado === false) throw new Error('o email não foi aceite (verifique o SMTP em Definições)');
+                        }
+                        entregues++;
+                        console.log(`[AUTOPILOT] NOTIFY_TEAM entregue a ${alvo.valor} por ${alvo.tipo}`);
+                    } catch (e: any) {
+                        falhas.push(`${alvo.valor}: ${e?.message || e}`);
+                        console.error(`[AUTOPILOT] NOTIFY_TEAM falhou para ${alvo.valor} (${alvo.tipo}):`, e?.message || e);
+                    }
+                }
+
+                // Rede de segurança: se nada chegou por WhatsApp mas há um email de
+                // recurso configurado, o dono é avisado na mesma.
+                if (!entregues && emailAlternativo && emailAlternativo.includes('@')) {
+                    try {
+                        const enviado = await EmailService.enviarEmailPersonalizado(
+                            emailAlternativo, 'Notificação do Autopilot',
+                            `${mensagem}\n\n(Este aviso ia por WhatsApp, mas não foi possível entregar: ${falhas.join('; ')})`,
+                            empresa_id);
+                        if (enviado !== false) { entregues++; console.log(`[AUTOPILOT] NOTIFY_TEAM: avisado por email de recurso (${emailAlternativo}).`); }
+                    } catch (e: any) {
+                        falhas.push(`email de recurso ${emailAlternativo}: ${e?.message || e}`);
+                    }
+                }
+
+                context['notificacao_ok'] = entregues > 0 ? 'sim' : 'nao';
+                context['notificacao_erro'] = entregues > 0 ? '' : (falhas.join('; ') || 'não foi possível entregar o aviso');
+                if (!entregues) console.error('[AUTOPILOT] NOTIFY_TEAM: NENHUM aviso foi entregue —', context['notificacao_erro']);
                 break;
             }
 

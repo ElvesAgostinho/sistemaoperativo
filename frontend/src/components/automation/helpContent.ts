@@ -312,14 +312,24 @@ export const HELP_ITEMS: HelpItem[] = [
     titulo: 'Notificar Equipa',
     categoria: 'Avançado',
     cor: '#f59e0b',
-    oQueFaz: 'Envia um aviso interno (por email ou WhatsApp) para um colaborador — sem interromper a conversa com o cliente.',
-    quandoUsar: 'Para avisar a equipa de vendas quando surge uma oportunidade quente, ou o financeiro quando alguém pergunta sobre pagamento.',
+    oQueFaz: 'Avisa quem trata do assunto — por email, por WhatsApp, ou pelos dois ao mesmo tempo — sem interromper a conversa com o cliente. Aceita vários destinatários e percebe sozinho quais são emails e quais são telemóveis.',
+    quandoUsar: 'Para avisar quem vende assim que surge um cliente a sério, ou quem trata de pagamentos quando alguém pergunta por dinheiro. Ponha-o depois da condição ou da opção de menu que interessa, nunca logo a seguir ao gatilho — senão toca a cada "Olá".',
     campos: [
-      { label: 'Canal', explicacao: 'Email ou WhatsApp.' },
-      { label: 'Destinatário', explicacao: 'Email ou número de telefone do colaborador.' },
-      { label: 'Mensagem', explicacao: 'O aviso interno.' }
+      { label: 'Como avisar', explicacao: 'Email, WhatsApp, ou os dois. Seja qual for a escolha, quem tiver "@" recebe email e quem for número recebe WhatsApp — o aviso chega na mesma se trocar o canal sem querer.' },
+      { label: 'Para quem', explicacao: 'Um ou vários, separados por vírgula. Ex: "reservas@empresa.ao, 244923000111". O número pode ser escrito com +, espaços ou traços.' },
+      { label: 'Mensagem', explicacao: 'O aviso interno. Use variáveis para saber logo de quem se trata, sem ter de abrir o sistema.' },
+      { label: 'Email de recurso', explicacao: 'Se o WhatsApp estiver desligado e o aviso não sair, é enviado para aqui, com a explicação do que falhou. É o campo que evita perder um cliente por causa de um canal em baixo.' }
     ],
-    exemplo: { cenario: 'Avisar o vendedor sempre que alguém pede um orçamento.', passos: ['Canal: WhatsApp', 'Destinatário: 2449XXXXXXXX (número do vendedor)', 'Mensagem: "Novo pedido de orçamento de {{nome_whatsapp}} ({{telefone}})"'] }
+    exemplo: {
+      cenario: 'Avisar o vendedor e a caixa de reservas sempre que alguém marca.',
+      passos: [
+        'Como avisar: Os dois (email e WhatsApp)',
+        'Para quem: reservas@empresa.ao, 244923000111',
+        'Mensagem: "Reserva: {{nome_cliente}} — {{agendamento_data_extenso}} às {{agendamento_hora}} — {{telefone}}"',
+        'Email de recurso: dono@empresa.ao',
+        'Depois do bloco: {{notificacao_ok}} vale "sim" ou "nao", e {{notificacao_erro}} diz o que se passou — dá para ligar a uma condição'
+      ]
+    }
   },
   {
     id: 'handoff_human',

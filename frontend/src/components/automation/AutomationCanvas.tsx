@@ -1,11 +1,11 @@
 import { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import {
-  ReactFlow, ReactFlowProvider, Background, Controls, ControlButton, MiniMap,
+  ReactFlow, ReactFlowProvider, Background, MiniMap,
   useNodesState, useEdgesState, addEdge, useReactFlow, useViewport, MarkerType,
   type Connection, type Node, type Edge
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Save, Loader2, LayoutGrid, Minus, Plus, RotateCcw, Play } from 'lucide-react';
+import { Save, Loader2, LayoutGrid, Minus, Plus, RotateCcw, Play, Maximize2 } from 'lucide-react';
 import TriggerNode from './TriggerNode';
 import ConditionNode from './ConditionNode';
 import ActionNode from './ActionNode';
@@ -244,11 +244,9 @@ function CanvasInner({ automation, automations, onSave }: AutomationCanvasProps)
           maxZoom={2}
         >
           <Background gap={18} color="#e2e8f0" />
-          <Controls showZoom showFitView showInteractive>
-            <ControlButton onClick={handleAutoLayout} title="Organizar automaticamente os nós em colunas a partir do gatilho (como o 'Tidy up' do n8n)">
-              <LayoutGrid />
-            </ControlButton>
-          </Controls>
+          {/* Os controlos de origem do React Flow ficavam minúsculos e os ícones
+              saíam como quadrados pretos (a folha de estilo dele pinta o interior
+              de qualquer SVG). Usamos os nossos, com nome à frente. */}
           <MiniMap pannable zoomable style={{ background: '#f8fafc' }} />
         </ReactFlow>
         <style>{`.no-em-simulacao { outline: 3px solid #0E5A6B; outline-offset: 3px; border-radius: 12px; }`}</style>
@@ -288,10 +286,24 @@ function CanvasInner({ automation, automations, onSave }: AutomationCanvasProps)
           <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#1a1a1a', width: '36px', textAlign: 'center' }}>{zoomPercent}%</span>
           <button
             onClick={() => zoomTo(1)}
-            title="Repor zoom a 100%"
+            title="Repor o zoom a 100%"
             style={{ display: 'flex', background: 'none', border: 'none', cursor: 'pointer', color: '#475569', padding: '2px', borderLeft: '1px solid var(--odoo-border)', paddingLeft: '8px' }}
           >
             <RotateCcw size={13} />
+          </button>
+          <button
+            onClick={() => fitView({ padding: 0.2, duration: 300 })}
+            title="Mostrar o fluxo inteiro no ecrã"
+            style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'none', border: 'none', cursor: 'pointer', color: '#0E5A6B', fontSize: '12px', fontWeight: 600, padding: '2px 4px', borderLeft: '1px solid var(--odoo-border)', paddingLeft: '8px' }}
+          >
+            <Maximize2 size={13} /> Ver tudo
+          </button>
+          <button
+            onClick={handleAutoLayout}
+            title="Arrumar os blocos em colunas, a partir do gatilho"
+            style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'none', border: 'none', cursor: 'pointer', color: '#0E5A6B', fontSize: '12px', fontWeight: 600, padding: '2px 4px', borderLeft: '1px solid var(--odoo-border)', paddingLeft: '8px' }}
+          >
+            <LayoutGrid size={13} /> Organizar
           </button>
         </div>
 
