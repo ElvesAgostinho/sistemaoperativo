@@ -40,7 +40,8 @@ export default function SettingsApp() {
         COMPANY_NIF: '',
         COMPANY_EMAIL: '',
         COMPANY_PHONE: '',
-        COMPANY_ADDRESS: ''
+        COMPANY_ADDRESS: '',
+        COMPANY_RESPONSAVEL: ''
     });
     const [savingEmpresa, setSavingEmpresa] = useState(false);
     const [savedEmpresa, setSavedEmpresa] = useState(false);
@@ -112,6 +113,7 @@ export default function SettingsApp() {
                         COMPANY_EMAIL: c.COMPANY_EMAIL || '',
                         COMPANY_PHONE: c.COMPANY_PHONE || '',
                         COMPANY_ADDRESS: c.COMPANY_ADDRESS || '',
+                        COMPANY_RESPONSAVEL: c.COMPANY_RESPONSAVEL || '',
                     });
                     if (c.COMPANY_LOGO_BASE64) setLogoBase64(c.COMPANY_LOGO_BASE64);
                     if (c.COMPANY_LOGO_POSITION) setLogoPosition(c.COMPANY_LOGO_POSITION);
@@ -495,6 +497,16 @@ export default function SettingsApp() {
                                         style={{ width: '100%', padding: '10px 12px', border: '1px solid #D5D7DA', borderRadius: '2px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
                                     />
                                 </div>
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#1D2D3E', marginBottom: '6px' }}>Responsável</label>
+                                <input
+                                    value={empresaConfig.COMPANY_RESPONSAVEL}
+                                    onChange={e => setEmpresaConfig(p => ({ ...p, COMPANY_RESPONSAVEL: e.target.value }))}
+                                    placeholder="Quem responde pela empresa"
+                                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #D5D7DA', borderRadius: '2px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
+                                />
                             </div>
 
                             <div>

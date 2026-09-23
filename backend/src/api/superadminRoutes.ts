@@ -43,6 +43,58 @@ router.get('/empresas', requireAuth, requireSuperAdmin, async (req: AuthRequest,
     return res.json({ success: true, empresas: data });
 });
 
+// Apagar uma empresa VAZIA. Existe por causa das empresas repetidas que o registo
+// criava: ficavam duas com o mesmo nome, uma delas sem utilizador nenhum. Só
+// apaga quando não há nada lá dentro — se houver, devolve o que encontrou e não
+// mexe. Não é um "apagar empresa" genérico, de propósito.
+router.delete('/empresas/:id', requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+    const db = getClientForUser(req);
+
+    const { data: empresa } = await db.from('empresas').select('id, nome').eq('id', id).maybeSingle();
+    if (!empresa) return res.status(404).json({ error: 'Empresa não encontrada.' });
+
+    const tabelas = ['perfis', 'clientes', 'agendamentos', 'automations', 'wa_channels', 'documentos'];
+    const conteudo: Record<string, number> = {};
+    for (const t of tabelas) {
+        const { count, error } = await db.from(t).select('id', { count: 'exact', head: true }).eq('empresa_id', id);
+        if (error) continue;                 // tabela que não existe nesta instalação — ignora
+        if (count && count > 0) conteudo[t] = count;
+    }
+
+    if (Object.keys(conteudo).length) {
+        return res.status(409).json({
+            error: `"${empresa.nome}" não está vazia e por isso não foi apagada.`,
+            conteudo
+        });
+    }
+
+    await db.from('configuracoes_sistema').delete().eq('empresa_id', id);
+    const { error } = await db.from('empresas').delete().eq('id', id);
+    if (error) return res.status(500).json({ error: error.message });
+
+    console.log(`[SuperAdmin] Empresa vazia "${empresa.nome}" (${id}) apagada.`);
+    return res.json({ success: true, message: `"${empresa.nome}" apagada.` });
+});
+
+// Empresas repetidas: mesmo nome, criadas com segundos de diferença, uma delas
+// sem utilizadores. Devolve a lista para o painel poder assinalá-las.
+router.get('/empresas/duplicadas', requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
+    const db = getClientForUser(req);
+    const { data: empresas } = await db.from('empresas').select('id, nome, status, criado_em');
+    const { data: perfis } = await db.from('perfis').select('empresa_id');
+
+    const comUtilizadores = new Set((perfis || []).map((p: any) => String(p.empresa_id)));
+    const porNome: Record<string, any[]> = {};
+    for (const e of (empresas || [])) (porNome[e.nome] = porNome[e.nome] || []).push(e);
+
+    const vazias = Object.values(porNome)
+        .filter(grupo => grupo.length > 1)
+        .flatMap(grupo => grupo.filter(e => !comUtilizadores.has(String(e.id))));
+
+    return res.json({ success: true, vazias });
+});
+
 // Aprovar/Suspender empresa
 router.put('/empresas/:id/status', requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
     const { id } = req.params;

@@ -31,9 +31,40 @@ const makeAuthClient = () => createClient(
     { auth: { persistSession: false, autoRefreshToken: false } }
 );
 
+/**
+ * Preenche os "Dados da Empresa" (Definições) com o que a pessoa escreveu no
+ * registo, para não ter de voltar a escrever tudo. São valores de partida: ficam
+ * editáveis como quaisquer outros, e nunca se sobrepõem ao que já lá esteja.
+ */
+async function semearDadosDaEmpresa(
+    adminClient: any,
+    empresaId: string,
+    dados: { empresaNome: string; nome: string; email: string; telefone?: string }
+) {
+    try {
+        const valores: Record<string, string> = {
+            COMPANY_NAME: dados.empresaNome || '',
+            COMPANY_EMAIL: dados.email || '',
+            COMPANY_PHONE: (dados.telefone || '').trim(),
+            COMPANY_RESPONSAVEL: dados.nome || ''
+        };
+        const { data: jaExistem } = await adminClient.from('configuracoes_sistema')
+            .select('chave').eq('empresa_id', empresaId);
+        const existentes = new Set((jaExistem || []).map((r: any) => r.chave));
+
+        const novos = Object.entries(valores)
+            .filter(([chave, valor]) => valor && !existentes.has(chave))
+            .map(([chave, valor]) => ({ empresa_id: empresaId, chave, valor }));
+
+        if (novos.length) await adminClient.from('configuracoes_sistema').insert(novos);
+    } catch (e) {
+        console.error('[Register] Não foi possível pré-preencher os dados da empresa:', e);
+    }
+}
+
 // ─── Auth: Registo ────────────────────────────────────────────────────────────
 router.post('/register', async (req: Request, res: Response) => {
-    const { email, password, nome, empresaNome, codigoConvite } = req.body;
+    const { email, password, nome, empresaNome, codigoConvite, telefone } = req.body;
 
     if (!email || !password || !nome) {
         return res.status(400).json({ error: 'Email, password e nome são obrigatórios.' });
@@ -75,54 +106,83 @@ router.post('/register', async (req: Request, res: Response) => {
         return res.status(400).json({ error: authError?.message || 'Erro ao criar utilizador.' });
     }
 
-    // Se for criação de empresa SaaS, criar a empresa e associar ao perfil imediatamente
-    // Isto evita o ecrã branco após confirmação de email
+    // O Supabase NÃO devolve erro quando o email já existe (é a proteção contra
+    // descobrir quem tem conta): devolve um utilizador sem identidades. Sem esta
+    // verificação, quem carregasse duas vezes em "Criar Conta" ficava com uma
+    // segunda empresa criada do nada.
+    if (Array.isArray((authData.user as any).identities) && (authData.user as any).identities.length === 0) {
+        return res.status(400).json({ error: 'Já existe uma conta com este email. Faça login, ou recupere a palavra-passe.' });
+    }
+
+    const adminClient = makeAdminClient();
+    const userId = authData.user.id;
+
+    /** Espera que o trigger da base de dados crie o perfil, em vez de adivinhar um tempo fixo. */
+    const esperarPerfil = async (): Promise<any | null> => {
+        for (let i = 0; i < 10; i++) {
+            const { data } = await adminClient.from('perfis').select('id, empresa_id').eq('id', userId).maybeSingle();
+            if (data) return data;
+            await new Promise(r => setTimeout(r, 300));
+        }
+        return null;
+    };
+
     if (empresaNome) {
         try {
-            const adminClient = makeAdminClient();
-            const codigoConviteEmpresa = 'EMP-' + crypto.randomBytes(3).toString('hex').toUpperCase();
+            const perfil = await esperarPerfil();
 
-            // 1. Criar a empresa
-            const { data: novaEmpresa, error: empErr } = await adminClient.from('empresas').insert({
-                nome: empresaNome,
-                status: 'pending',
-                codigo_convite: codigoConviteEmpresa
-            }).select('id').single();
+            // Se alguma coisa (o trigger da base de dados, ou um segundo pedido que
+            // chegou entretanto) já associou uma empresa a este utilizador, usamos
+            // ESSA — nunca se cria uma segunda. Era daqui que vinham as empresas
+            // repetidas na Gestão Global, uma delas sempre sem utilizadores nenhuns.
+            if (perfil?.empresa_id) {
+                await adminClient.from('empresas').update({ nome: empresaNome }).eq('id', perfil.empresa_id);
+                await adminClient.from('perfis').update({ role: 'admin' }).eq('id', userId);
+                await semearDadosDaEmpresa(adminClient, perfil.empresa_id, { empresaNome, nome, email, telefone });
+                console.log(`[Register] Empresa já existente (${perfil.empresa_id}) reutilizada para ${userId} — nada duplicado.`);
+            } else {
+                const codigoConviteEmpresa = 'EMP-' + crypto.randomBytes(3).toString('hex').toUpperCase();
+                const { data: novaEmpresa, error: empErr } = await adminClient.from('empresas').insert({
+                    nome: empresaNome,
+                    status: 'pending',
+                    codigo_convite: codigoConviteEmpresa
+                }).select('id').single();
 
-            if (empErr) {
-                console.error('[Register] Erro ao criar empresa:', empErr);
-            } else if (novaEmpresa) {
-                // 2. Associar perfil à empresa (o trigger handle_new_user já criou o perfil)
-                // Aguardar um momento para o trigger executar
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                await adminClient.from('perfis').update({
-                    empresa_id: novaEmpresa.id,
-                    role: 'admin'
-                }).eq('id', authData.user.id);
+                if (empErr || !novaEmpresa) {
+                    console.error('[Register] Erro ao criar empresa:', empErr);
+                } else {
+                    await adminClient.from('perfis').update({ empresa_id: novaEmpresa.id, role: 'admin' }).eq('id', userId);
 
-                console.log(`[Register] Empresa '${empresaNome}' criada (ID: ${novaEmpresa.id}) e associada ao user ${authData.user.id}`);
+                    // Última verificação: se entretanto o perfil ficou noutra empresa,
+                    // a que acabámos de criar fica órfã — apaga-se em vez de a deixar
+                    // a sujar a Gestão Global.
+                    const { data: confirmacao } = await adminClient.from('perfis').select('empresa_id').eq('id', userId).maybeSingle();
+                    if (confirmacao?.empresa_id && String(confirmacao.empresa_id) !== String(novaEmpresa.id)) {
+                        await adminClient.from('empresas').delete().eq('id', novaEmpresa.id);
+                        await semearDadosDaEmpresa(adminClient, confirmacao.empresa_id, { empresaNome, nome, email, telefone });
+                        console.warn(`[Register] Corrida detetada: empresa ${novaEmpresa.id} apagada, o perfil ficou em ${confirmacao.empresa_id}.`);
+                    } else {
+                        await semearDadosDaEmpresa(adminClient, novaEmpresa.id, { empresaNome, nome, email, telefone });
+                        console.log(`[Register] Empresa '${empresaNome}' criada (${novaEmpresa.id}) para ${userId}.`);
+                    }
+                }
             }
         } catch (e) {
             console.error('[Register] Erro ao criar empresa no registo:', e);
         }
     }
 
-    // Se for funcionário via código de convite, associar imediatamente à empresa do convite.
-    // Sem isto, o perfil ficava com empresa_id NULL e nunca aparecia na lista de aprovação do admin.
+    // Funcionário que entra por código de convite: associar à empresa do convite.
+    // Sem isto o perfil ficava com empresa_id a nulo e nunca aparecia na lista de
+    // aprovação do administrador.
     if (empresaIdConvite) {
         try {
-            const adminClient = makeAdminClient();
-            // Aguardar um momento para o trigger handle_new_user criar o perfil primeiro
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await esperarPerfil();
             const { error: linkErr } = await adminClient.from('perfis')
                 .update({ empresa_id: empresaIdConvite })
-                .eq('id', authData.user.id);
-
-            if (linkErr) {
-                console.error('[Register] Erro ao associar funcionário à empresa do convite:', linkErr);
-            } else {
-                console.log(`[Register] Funcionário ${authData.user.id} associado à empresa ${empresaIdConvite}`);
-            }
+                .eq('id', userId);
+            if (linkErr) console.error('[Register] Erro ao associar funcionário à empresa do convite:', linkErr);
+            else console.log(`[Register] Funcionário ${userId} associado à empresa ${empresaIdConvite}`);
         } catch (e) {
             console.error('[Register] Erro ao associar funcionário à empresa:', e);
         }

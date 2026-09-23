@@ -106,10 +106,11 @@ const templates: any[] = [];
 const supaPath = require.resolve(path.join(__dirname, '..', 'src', 'lib', 'supabaseClient'));
 require.cache[supaPath] = fake({ supabase: mockSupabase, supabaseAdmin: mockSupabase, getSupabase: () => mockSupabase }, supaPath);
 const waPath = require.resolve(path.join(__dirname, '..', 'src', 'services', 'WhatsAppChannelManager'));
-require.cache[waPath] = fake({ WhatsAppChannelManager: {
-    sendMessage: async (_s: any, _c: string, _p: string, content: string) => { enviadas.push({ content }); return 'mid'; },
-    sendMediaMessage: async (_s: any, _c: string, _p: string, url: string, legenda: string) => { midia.push({ url, legenda }); return true; }
-} }, waPath);
+// Usa a classe REAL do WhatsApp (para a escolha do canal ser mesmo testada) e
+// troca só o transporte, que é o que não pode sair para a Internet num teste.
+const { WhatsAppChannelManager: WaReal } = require(waPath);
+WaReal.sendMessage = async (_s: any, _c: string, _p: string, content: string) => { enviadas.push({ content }); return 'mid'; };
+WaReal.sendMediaMessage = async (_s: any, _c: string, _p: string, url: string, legenda: string) => { midia.push({ url, legenda }); return true; };
 const emailPath = require.resolve(path.join(__dirname, '..', 'src', 'services', 'EmailService'));
 require.cache[emailPath] = fake({ EmailService: { enviarEmailPersonalizado: async (...a: any[]) => { emails.push(a); return true; } } }, emailPath);
 const tplPath = require.resolve(path.join(__dirname, '..', 'src', 'services', 'WhatsAppTemplateService'));

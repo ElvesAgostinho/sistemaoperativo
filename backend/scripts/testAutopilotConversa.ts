@@ -110,7 +110,10 @@ class MockOpenAI {
 const supaPath = require.resolve(path.join(__dirname, '..', 'src', 'lib', 'supabaseClient'));
 require.cache[supaPath] = fake({ supabase: mockSupabase, supabaseAdmin: mockSupabase, getSupabase: () => mockSupabase }, supaPath);
 const waPath = require.resolve(path.join(__dirname, '..', 'src', 'services', 'WhatsAppChannelManager'));
-require.cache[waPath] = fake({ WhatsAppChannelManager: mockWa }, waPath);
+// Usa a classe REAL do WhatsApp (para a escolha do canal ser mesmo testada) e
+// troca só o transporte, que é o que não pode sair para a Internet num teste.
+const { WhatsAppChannelManager: WaReal } = require(waPath);
+for (const [nome, fn] of Object.entries(mockWa)) (WaReal as any)[nome] = fn;
 const emailPath = require.resolve(path.join(__dirname, '..', 'src', 'services', 'EmailService'));
 require.cache[emailPath] = fake({ EmailService: { enviarEmailPersonalizado: async () => true } }, emailPath);
 const openaiPath = require.resolve('openai');

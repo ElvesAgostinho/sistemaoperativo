@@ -117,7 +117,10 @@ const supaPath = require.resolve(path.join(__dirname, '..', 'src', 'lib', 'supab
 require.cache[supaPath] = fakeModule({ supabase: mockSupabase, supabaseAdmin: mockSupabase, getSupabase: () => mockSupabase }, supaPath);
 
 const waPath = require.resolve(path.join(__dirname, '..', 'src', 'services', 'WhatsAppChannelManager'));
-require.cache[waPath] = fakeModule({ WhatsAppChannelManager: mockWhatsAppChannelManager }, waPath);
+// Usa a classe REAL do WhatsApp (para a escolha do canal ser mesmo testada) e
+// troca só o transporte, que é o que não pode sair para a Internet num teste.
+const { WhatsAppChannelManager: WaReal } = require(waPath);
+for (const [nome, fn] of Object.entries(mockWhatsAppChannelManager)) (WaReal as any)[nome] = fn;
 
 const emailPath = require.resolve(path.join(__dirname, '..', 'src', 'services', 'EmailService'));
 require.cache[emailPath] = fakeModule({ EmailService: mockEmailService }, emailPath);

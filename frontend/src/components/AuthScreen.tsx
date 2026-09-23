@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Lock, ArrowRight, ArrowLeft, Loader2, Mail, ShieldCheck, Clock } from 'lucide-react';
+import { User, Lock, ArrowRight, ArrowLeft, Loader2, Mail, ShieldCheck, Clock, Phone } from 'lucide-react';
 import { LogoMark } from './BrandLogo';
 
 // Mensagens de bloqueio de login que significam "conta/empresa a aguardar
@@ -31,6 +31,7 @@ export default function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
   const [nome, setNome] = useState('');
   const [isCompany, setIsCompany] = useState(false);
   const [empresaNome, setEmpresaNome] = useState('');
+  const [telefone, setTelefone] = useState('');
   const [codigoConvite, setCodigoConvite] = useState(() => new URLSearchParams(window.location.search).get('code') || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -73,6 +74,7 @@ export default function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
             password,
             nome,
             empresaNome: isCompany ? empresaNome : undefined,
+            telefone: isCompany ? telefone : undefined,
             codigoConvite: !isCompany ? codigoConvite : undefined
           })
         });
@@ -207,17 +209,33 @@ export default function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
                 </div>
 
                 {isCompany && (
-                  <div>
-                    <label style={labelStyle}>Nome da sua Empresa</label>
-                    <div style={{ position: 'relative' }}>
-                      <div style={{ position: 'absolute', top: '50%', left: '16px', transform: 'translateY(-50%)', color: '#8996A3' }}><ShieldCheck size={17} /></div>
-                      <input
-                        type="text" required placeholder="Ex: Apple Angola"
-                        value={empresaNome} onChange={e => setEmpresaNome(e.target.value)}
-                        style={inputStyle} onFocus={focusIn} onBlur={focusOut}
-                      />
+                  <>
+                    <div>
+                      <label style={labelStyle}>Nome da sua Empresa</label>
+                      <div style={{ position: 'relative' }}>
+                        <div style={{ position: 'absolute', top: '50%', left: '16px', transform: 'translateY(-50%)', color: '#8996A3' }}><ShieldCheck size={17} /></div>
+                        <input
+                          type="text" required placeholder="Ex: Apple Angola"
+                          value={empresaNome} onChange={e => setEmpresaNome(e.target.value)}
+                          style={inputStyle} onFocus={focusIn} onBlur={focusOut}
+                        />
+                      </div>
                     </div>
-                  </div>
+                    <div>
+                      <label style={labelStyle}>Telefone da Empresa <span style={{ fontWeight: 400, color: '#8996A3' }}>(opcional)</span></label>
+                      <div style={{ position: 'relative' }}>
+                        <div style={{ position: 'absolute', top: '50%', left: '16px', transform: 'translateY(-50%)', color: '#8996A3' }}><Phone size={17} /></div>
+                        <input
+                          type="tel" placeholder="Ex: 244 923 000 000"
+                          value={telefone} onChange={e => setTelefone(e.target.value)}
+                          style={inputStyle} onFocus={focusIn} onBlur={focusOut}
+                        />
+                      </div>
+                      <div style={{ fontSize: '11.5px', color: '#8996A3', marginTop: '6px', lineHeight: 1.5 }}>
+                        Estes dados entram sozinhos em Definições &rarr; Dados da Empresa. Pode alterá-los lá quando quiser.
+                      </div>
+                    </div>
+                  </>
                 )}
 
                 {!isCompany && (

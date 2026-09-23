@@ -59,17 +59,18 @@ const emails: { para: string; assunto: string; corpo: string }[] = [];
 const supaPath = require.resolve(path.join(__dirname, '..', 'src', 'lib', 'supabaseClient'));
 require.cache[supaPath] = fake({ supabase: mockSupabase, supabaseAdmin: mockSupabase, getSupabase: () => mockSupabase }, supaPath);
 const waPath = require.resolve(path.join(__dirname, '..', 'src', 'services', 'WhatsAppChannelManager'));
-require.cache[waPath] = fake({ WhatsAppChannelManager: {
-    sendMessage: async (_s: any, channelId: string, phone: string, content: string) => {
-        const canal = tabela('wa_channels').find(c => c.id === channelId);
-        if (!canal) throw new Error('Canal não encontrado');
-        // Um canal desligado não entrega nada — é o que acontece na realidade.
-        if (canal.status && canal.status !== 'connected') throw new Error('Canal desligado');
-        whatsapps.push({ channelId, phone, content });
-        return 'mid';
-    },
-    sendMediaMessage: async () => true
-} }, waPath);
+// Usa a classe REAL do WhatsApp (para a escolha do canal ser mesmo testada) e
+// troca só o transporte, que é o que não pode sair para a Internet num teste.
+const { WhatsAppChannelManager: WaReal } = require(waPath);
+WaReal.sendMessage = async (_s: any, channelId: string, phone: string, content: string) => {
+    const canal = tabela('wa_channels').find(c => c.id === channelId);
+    if (!canal) throw new Error('Canal não encontrado');
+    // Um canal desligado não entrega nada — é o que acontece na realidade.
+    if (canal.status && canal.status !== 'connected') throw new Error('Canal desligado');
+    whatsapps.push({ channelId, phone, content });
+    return 'mid';
+};
+WaReal.sendMediaMessage = async () => true;
 const emailPath = require.resolve(path.join(__dirname, '..', 'src', 'services', 'EmailService'));
 require.cache[emailPath] = fake({ EmailService: {
     enviarEmailPersonalizado: async (para: string, assunto: string, corpo: string) => {
@@ -161,6 +162,19 @@ async function test(nome: string, fn: () => Promise<void>) {
         await notificar({ canal: 'whatsapp', destinatario: '244923111222', mensagem: 'aviso' });
         assert(whatsapps.length === 1, 'devia enviar pelo canal que está ligado, não pelo primeiro da lista');
         assert(whatsapps[0].channelId === 'chan-bom', `usou o canal errado: ${whatsapps[0].channelId}`);
+    });
+
+    await test('canal a funcionar mas marcado como desligado: envia e corrige o registo', async () => {
+        // A coluna status so e acertada quando alguem abre a pagina do WhatsApp.
+        // Um fluxo que corra de madrugada nao pode ficar mudo por causa disso.
+        db['wa_channels'] = [{ id: 'chan-1', empresa_id: EMPRESA, provider: 'evolution', status: 'disconnected' }];
+        // o transporte aceita (o telefone esta mesmo ligado)
+        const antes = WaReal.sendMessage;
+        WaReal.sendMessage = async (_s: any, channelId: string, phone: string, content: string) => { whatsapps.push({ channelId, phone, content }); return 'mid'; };
+        await notificar({ canal: 'whatsapp', destinatario: '244923111222', mensagem: 'aviso' });
+        WaReal.sendMessage = antes;
+        assert(whatsapps.length === 1, `devia enviar na mesma, enviou ${whatsapps.length}`);
+        assert(tabela('wa_channels')[0].status === 'connected', `devia corrigir o registo para connected, ficou ${tabela('wa_channels')[0].status}`);
     });
 
     await test('nunca usa o canal de outra empresa', async () => {

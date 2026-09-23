@@ -52,7 +52,10 @@ const supaPath = require.resolve(path.join(__dirname, '..', 'src', 'lib', 'supab
 require.cache[supaPath] = fake({ supabase: mockSupabase, supabaseAdmin: mockSupabase, getSupabase: () => mockSupabase }, supaPath);
 const waPath = require.resolve(path.join(__dirname, '..', 'src', 'services', 'WhatsAppChannelManager'));
 const enviadas: any[] = [];
-require.cache[waPath] = fake({ WhatsAppChannelManager: { sendMessage: async (_s: any, _c: string, _p: string, m: string) => { enviadas.push(m); return 'mid'; } } }, waPath);
+// Usa a classe REAL do WhatsApp (para a escolha do canal ser mesmo testada) e
+// troca só o transporte, que é o que não pode sair para a Internet num teste.
+const { WhatsAppChannelManager: WaReal } = require(waPath);
+WaReal.sendMessage = async (_s: any, _c: string, _p: string, m: string) => { enviadas.push(m); return 'mid'; };
 
 const { AgendamentoFluxoService } = require(path.join(__dirname, '..', 'src', 'services', 'AgendamentoFluxoService'));
 

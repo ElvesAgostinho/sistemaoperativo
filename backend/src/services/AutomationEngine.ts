@@ -843,29 +843,15 @@ export class AutomationEngine {
 
                 // O canal de WhatsApp é procurado uma só vez, e só dentro desta empresa
                 // (sem empresa não se escolhe canal nenhum — seria falar pelo número de outro cliente).
-                let canalWa: any = null;
-                if (alvos.some(a => a.tipo === 'whatsapp')) {
-                    if (!empresa_id) {
-                        falhas.push('sem empresa associada ao fluxo, não é possível escolher um canal de WhatsApp');
-                    } else {
-                        const { data: canais } = await supabase.from('wa_channels')
-                            .select('id, status').eq('empresa_id', empresa_id);
-                        // Normaliza: conforme os cabeçalhos, o PostgREST tanto devolve
-                        // uma lista como um único objeto.
-                        const lista: any[] = Array.isArray(canais) ? canais : (canais ? [canais] : []);
-                        canalWa = lista.find((c: any) => c.status === 'connected')
-                            // Um canal sem estado registado ainda é melhor do que não tentar de todo.
-                            || lista.find((c: any) => !c.status) || null;
-                        if (!canalWa && lista.length) falhas.push('o canal de WhatsApp da empresa não está ligado');
-                        else if (!canalWa) falhas.push('a empresa não tem nenhum canal de WhatsApp');
-                    }
+                if (alvos.some(a => a.tipo === 'whatsapp') && !empresa_id) {
+                    falhas.push('sem empresa associada ao fluxo, não é possível escolher um canal de WhatsApp');
                 }
 
                 for (const alvo of alvos) {
                     try {
                         if (alvo.tipo === 'whatsapp') {
-                            if (!canalWa) throw new Error('sem canal de WhatsApp ligado');
-                            await WhatsAppChannelManager.sendMessage(supabase, canalWa.id, alvo.valor, mensagem);
+                            const r = await WhatsAppChannelManager.enviarPelaEmpresa(supabase, empresa_id, alvo.valor, mensagem);
+                            if (!r.ok) throw new Error(r.erro || 'o WhatsApp não entregou');
                         } else {
                             const enviado = await EmailService.enviarEmailPersonalizado(alvo.valor, 'Notificação do Autopilot', mensagem, empresa_id);
                             if (enviado === false) throw new Error('o email não foi aceite (verifique o SMTP em Definições)');

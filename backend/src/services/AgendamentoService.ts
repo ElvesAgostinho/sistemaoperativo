@@ -309,9 +309,11 @@ export class AgendamentoService {
     private static async notificarCliente(empresaId: string | undefined, telefone: string, mensagem: string, client: any) {
         try {
             if (!empresaId) return;
-            const { data: channel } = await client.from('wa_channels').select('id').eq('empresa_id', empresaId).eq('status', 'connected').limit(1).maybeSingle();
-            if (!channel) return; // Sem WhatsApp ligado — a marcação continua válida, só não há notificação automática.
-            await WhatsAppChannelManager.sendMessage(client, channel.id, telefone, mensagem);
+            // Não filtrar por status: a coluna só é acertada quando alguém abre a
+            // página do WhatsApp, e uma coluna velha fazia a confirmação do cliente
+            // desaparecer em silêncio. Quem decide é a tentativa de envio.
+            const r = await WhatsAppChannelManager.enviarPelaEmpresa(client, empresaId, telefone, mensagem);
+            if (!r.ok) console.warn(`[AgendamentoService] Confirmação não enviada por WhatsApp (${r.erro}). A marcação continua válida.`);
         } catch (e) {
             console.error('[AgendamentoService] Falha ao notificar cliente via WhatsApp:', e);
         }

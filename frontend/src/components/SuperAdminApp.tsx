@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Building, Users, CheckCircle, XCircle, Clock, Loader2, AlertCircle, Settings, Save, X } from 'lucide-react';
+import { Shield, Building, Users, CheckCircle, XCircle, Clock, Loader2, AlertCircle, Settings, Save, X, Trash2 } from 'lucide-react';
 
 interface Empresa {
   id: string;
@@ -22,6 +22,9 @@ interface Utilizador {
 const SuperAdminApp = () => {
   const [activeTab, setActiveTab] = useState<'empresas' | 'users'>('empresas');
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
+  // Empresas repetidas (mesmo nome) que ficaram sem utilizador nenhum.
+  const [vazias, setVazias] = useState<Set<string>>(new Set());
+  const [aApagar, setAApagar] = useState<string | null>(null);
   const [users, setUsers] = useState<Utilizador[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -65,6 +68,13 @@ const SuperAdminApp = () => {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
         setEmpresas(data.empresas || []);
+        try {
+          const rv = await fetch(`${import.meta.env.VITE_API_URL}/api/superadmin/empresas/duplicadas`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const dv = await rv.json();
+          if (dv.success) setVazias(new Set((dv.vazias || []).map((e: any) => String(e.id))));
+        } catch { /* sem esta informação o painel funciona à mesma */ }
       } else {
         const res = await fetch(`${import.meta.env.VITE_API_URL}/api/superadmin/users`, {
           headers: { 'Authorization': `Bearer ${token}` }
@@ -77,6 +87,29 @@ const SuperAdminApp = () => {
       setError(err.message || 'Erro inesperado.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const apagarEmpresaVazia = async (empresa: Empresa) => {
+    const confirmado = window.confirm(
+      `Apagar "${empresa.nome}"?\n\n` +
+      `Esta é uma empresa repetida do registo: não tem nenhum utilizador nem dados. ` +
+      `Se tiver alguma coisa lá dentro, o servidor recusa e nada é apagado.`
+    );
+    if (!confirmado) return;
+    setAApagar(empresa.id);
+    try {
+      const token = localStorage.getItem('os_auth_token');
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/superadmin/empresas/${empresa.id}`, {
+        method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!res.ok || data.success === false) throw new Error(data.error || 'Não foi possível apagar.');
+      setEmpresas(prev => prev.filter(e => e.id !== empresa.id));
+    } catch (err: any) {
+      alert(err.message || 'Erro inesperado ao apagar.');
+    } finally {
+      setAApagar(null);
     }
   };
 
@@ -223,7 +256,15 @@ const SuperAdminApp = () => {
             <tbody>
               {empresas.map(empresa => (
                 <tr key={empresa.id} style={{ borderBottom: '1px solid #E7E9EB' }}>
-                  <td style={{ padding: '16px 24px', fontWeight: 500, color: '#1D2D3E' }}>{empresa.nome}</td>
+                  <td style={{ padding: '16px 24px', fontWeight: 500, color: '#1D2D3E' }}>
+                    {empresa.nome}
+                    {vazias.has(String(empresa.id)) && (
+                      <span title="Repetida do registo: não tem utilizadores nem dados"
+                        style={{ marginLeft: '8px', padding: '2px 8px', borderRadius: '2px', fontSize: '11px', fontWeight: 700, backgroundColor: '#FCEFDD', color: '#8A4B0B' }}>
+                        REPETIDA · SEM UTILIZADORES
+                      </span>
+                    )}
+                  </td>
                   <td style={{ padding: '16px 24px', color: '#5B738B' }}>{new Date(empresa.criado_em).toLocaleDateString()}</td>
                   <td style={{ padding: '16px 24px' }}>
                     <span style={{ 
@@ -249,6 +290,16 @@ const SuperAdminApp = () => {
                     {empresa.status !== 'suspended' && (
                       <button onClick={() => updateEmpresaStatus(empresa.id, 'suspended')} style={{ padding: '6px 12px', backgroundColor: '#BB0000', color: 'white', border: 'none', borderRadius: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <XCircle size={14} /> Suspender
+                      </button>
+                    )}
+                    {vazias.has(String(empresa.id)) && (
+                      <button
+                        onClick={() => apagarEmpresaVazia(empresa)}
+                        disabled={aApagar === empresa.id}
+                        title="Apagar esta empresa repetida (só funciona se estiver mesmo vazia)"
+                        style={{ padding: '6px 12px', backgroundColor: 'white', color: '#BB0000', border: '1px solid #BB0000', borderRadius: '2px', cursor: aApagar === empresa.id ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                      >
+                        <Trash2 size={14} /> {aApagar === empresa.id ? 'A apagar...' : 'Apagar'}
                       </button>
                     )}
                   </td>

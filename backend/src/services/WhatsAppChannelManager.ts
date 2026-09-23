@@ -11,6 +11,49 @@ const MIME_POR_EXTENSAO: Record<string, string> = {
 
 export class WhatsAppChannelManager {
 
+    /**
+     * O canal de WhatsApp desta empresa, para quem precisa de enviar sem ter um
+     * ecrã aberto (fluxos do Autopilot, confirmações de marcação, avisos).
+     *
+     * A coluna `status` só é acertada quando alguém abre a página do WhatsApp e o
+     * servidor vai perguntar à Evolution. Ou seja: o telefone pode estar ligado há
+     * dias e a coluna ainda dizer "disconnected" — e era por isso que avisos e
+     * confirmações desapareciam em silêncio, de madrugada, sem ninguém perceber.
+     * Por isso aqui a regra é: preferir um canal marcado como ligado, mas se não
+     * houver nenhum, tentar na mesma pelo canal que existe. Quem decide se dá ou
+     * não é a tentativa de envio, não uma coluna desatualizada.
+     */
+    public static async canalDaEmpresa(supabaseClient: any, empresaId: string | number | null): Promise<any | null> {
+        if (!empresaId) return null;   // sem empresa não se escolhe canal nenhum (seria falar pelo número de outro cliente)
+        const { data } = await supabaseClient.from('wa_channels')
+            .select('id, status, provider').eq('empresa_id', empresaId);
+        const canais: any[] = Array.isArray(data) ? data : (data ? [data] : []);
+        if (!canais.length) return null;
+        return canais.find(c => c.status === 'connected')
+            || canais.find(c => !c.status)
+            || canais[0];
+    }
+
+    /**
+     * Envia pelo canal da empresa e, se correr bem, acerta o `status` na base de
+     * dados — assim o registo aprende com a realidade em vez de ficar à espera
+     * que alguém abra a página.
+     */
+    public static async enviarPelaEmpresa(supabaseClient: any, empresaId: string | number | null, phone_number: string, content: string) {
+        const canal = await this.canalDaEmpresa(supabaseClient, empresaId);
+        if (!canal) return { ok: false, erro: 'a empresa não tem nenhum canal de WhatsApp' };
+        try {
+            const r = await this.sendMessage(supabaseClient, canal.id, phone_number, content);
+            if (r === false) return { ok: false, erro: 'o canal não aceitou a mensagem' };
+            if (canal.status !== 'connected') {
+                await supabaseClient.from('wa_channels').update({ status: 'connected' }).eq('id', canal.id);
+            }
+            return { ok: true, canalId: canal.id };
+        } catch (e: any) {
+            return { ok: false, erro: e?.message || String(e) };
+        }
+    }
+
     // Um link não traz o mimetype consigo — deduz-se pela extensão do próprio
     // link ou, se este não tiver extensão utilizável, pela do nome do ficheiro.
     private static mimeTypePorExtensao(url: string, fileName?: string): string {
