@@ -1,8 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, createContext, useContext } from 'react';
 import {
-  Calendar, LayoutGrid, Scissors, Users, Clock, Link as LinkIcon, Plus, Trash2, Check, X,
-  RotateCcw, Copy, CalendarClock, CheckCircle2
-} from 'lucide-react';
+  Calendar, LayoutGrid, Users, Clock, Link as LinkIcon, Plus, Trash2, Check, X,
+  RotateCcw, Copy, CalendarClock, CheckCircle2, Tag, Zap, Settings } from 'lucide-react';
 import './AgendamentoApp.css';
 
 const API = import.meta.env.VITE_API_URL;
@@ -13,6 +12,11 @@ const authFetch = (url: string, options: any = {}) => {
 
 const DIAS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 
+/** De onde veio a marcacao — mostrado na lista. */
+const ORIGEM_ROTULO: Record<string, string> = {
+  manual: 'Feita à mão', cliente: 'Link público', whatsapp: 'WhatsApp', fluxo: 'Fluxo do Autopilot'
+};
+
 const ESTADO_BADGE: Record<string, { cls: string; label: string }> = {
   Agendado: { cls: 'ag-badge-info', label: 'Agendado' },
   Confirmado: { cls: 'ag-badge-good', label: 'Confirmado' },
@@ -21,11 +25,40 @@ const ESTADO_BADGE: Record<string, { cls: string; label: string }> = {
   Nao_Compareceu: { cls: 'ag-badge-warn', label: 'Não Compareceu' },
 };
 
+/** Como esta empresa chama as coisas (Serviço/Quarto/Consulta…). */
+export interface RotulosAgendamento {
+  modelo: string;
+  rotulo_item: string; rotulo_item_plural: string;
+  rotulo_recurso: string; rotulo_recurso_plural: string;
+  rotulo_agendamento: string; rotulo_agendamento_plural: string;
+  campos: { chave: string; rotulo: string; tipo: string; obrigatorio?: boolean; opcoes?: string[] }[];
+}
+const ROTULOS_PADRAO: RotulosAgendamento = {
+  modelo: 'generico', rotulo_item: 'Serviço', rotulo_item_plural: 'Serviços',
+  rotulo_recurso: 'Responsável', rotulo_recurso_plural: 'Responsáveis',
+  rotulo_agendamento: 'Marcação', rotulo_agendamento_plural: 'Marcações', campos: []
+};
+export const RotulosContext = createContext<RotulosAgendamento>(ROTULOS_PADRAO);
+const useRotulos = () => useContext(RotulosContext);
+
 export default function AgendamentoApp() {
-  const [view, setView] = useState<'dashboard' | 'marcacoes' | 'servicos' | 'profissionais' | 'horarios' | 'link'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'marcacoes' | 'servicos' | 'profissionais' | 'horarios' | 'link' | 'definicoes'>('dashboard');
+  const [rotulos, setRotulos] = useState<RotulosAgendamento>(ROTULOS_PADRAO);
   const empresaId = (() => {
     try { return JSON.parse(localStorage.getItem('os_auth_user') || '{}')?.empresa_id; } catch { return null; }
   })();
+  const ehAdmin = (() => {
+    try { return ['admin', 'superadmin'].includes(JSON.parse(localStorage.getItem('os_auth_user') || '{}')?.role); } catch { return false; }
+  })();
+
+  const carregarRotulos = useCallback(async () => {
+    try {
+      const r = await authFetch(`${API}/api/agendamento/config`);
+      const d = await r.json();
+      if (d.success && d.config) setRotulos({ ...ROTULOS_PADRAO, ...d.config, campos: d.config.campos || [] });
+    } catch { /* fica o padrão */ }
+  }, []);
+  useEffect(() => { carregarRotulos(); }, [carregarRotulos]);
 
   return (
     <div className="ag-shell">
@@ -33,22 +66,26 @@ export default function AgendamentoApp() {
         <div className="ag-header-title"><CalendarClock size={19} /> Agendamento</div>
         <div className="ag-pillnav">
           <button className={view === 'dashboard' ? 'active' : ''} onClick={() => setView('dashboard')}><LayoutGrid size={14} /> Dashboard</button>
-          <button className={view === 'marcacoes' ? 'active' : ''} onClick={() => setView('marcacoes')}><Calendar size={14} /> Marcações</button>
-          <button className={view === 'servicos' ? 'active' : ''} onClick={() => setView('servicos')}><Scissors size={14} /> Serviços</button>
-          <button className={view === 'profissionais' ? 'active' : ''} onClick={() => setView('profissionais')}><Users size={14} /> Profissionais</button>
+          <button className={view === 'marcacoes' ? 'active' : ''} onClick={() => setView('marcacoes')}><Calendar size={14} /> {rotulos.rotulo_agendamento_plural}</button>
+          <button className={view === 'servicos' ? 'active' : ''} onClick={() => setView('servicos')}><Tag size={14} /> {rotulos.rotulo_item_plural}</button>
+          <button className={view === 'profissionais' ? 'active' : ''} onClick={() => setView('profissionais')}><Users size={14} /> {rotulos.rotulo_recurso_plural}</button>
           <button className={view === 'horarios' ? 'active' : ''} onClick={() => setView('horarios')}><Clock size={14} /> Horário</button>
-          <button className={view === 'link' ? 'active' : ''} onClick={() => setView('link')}><LinkIcon size={14} /> Link de Marcação</button>
+          <button className={view === 'link' ? 'active' : ''} onClick={() => setView('link')}><Zap size={14} /> Marcação automática</button>
+          {ehAdmin && <button className={view === 'definicoes' ? 'active' : ''} onClick={() => setView('definicoes')}><Settings size={14} /> Definições</button>}
         </div>
       </div>
 
-      <div className="ag-content">
-        {view === 'dashboard' && <DashboardView onIrParaMarcacoes={() => setView('marcacoes')} />}
-        {view === 'marcacoes' && <MarcacoesView />}
-        {view === 'servicos' && <ServicosView />}
-        {view === 'profissionais' && <ProfissionaisView />}
-        {view === 'horarios' && <HorariosView />}
-        {view === 'link' && <LinkView empresaId={empresaId} />}
-      </div>
+      <RotulosContext.Provider value={rotulos}>
+        <div className="ag-content">
+          {view === 'dashboard' && <DashboardView onIrParaMarcacoes={() => setView('marcacoes')} />}
+          {view === 'marcacoes' && <MarcacoesView />}
+          {view === 'servicos' && <ServicosView />}
+          {view === 'profissionais' && <ProfissionaisView />}
+          {view === 'horarios' && <HorariosView />}
+          {view === 'link' && <LinkView empresaId={empresaId} />}
+          {view === 'definicoes' && ehAdmin && <DefinicoesView onGuardado={carregarRotulos} />}
+        </div>
+      </RotulosContext.Provider>
     </div>
   );
 }
@@ -97,7 +134,7 @@ function DashboardView({ onIrParaMarcacoes }: { onIrParaMarcacoes: () => void })
           <div className="ag-kpi-label">Próximos 7 Dias</div>
         </div>
         <div className="ag-kpi-card">
-          <div className="ag-kpi-top"><div className="ag-kpi-icon"><Scissors size={17} /></div></div>
+          <div className="ag-kpi-top"><div className="ag-kpi-icon"><Tag size={17} /></div></div>
           <div className="ag-kpi-value">{resumo?.servicosAtivos ?? '—'}</div>
           <div className="ag-kpi-label">Serviços Ativos</div>
         </div>
@@ -132,6 +169,7 @@ function DashboardView({ onIrParaMarcacoes }: { onIrParaMarcacoes: () => void })
 // MARCAÇÕES
 // ============================================================
 function MarcacoesView() {
+  const rotulos = useRotulos();
   const [marcacoes, setMarcacoes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNovo, setShowNovo] = useState(false);
@@ -168,24 +206,36 @@ function MarcacoesView() {
   return (
     <>
       <div className="ag-content-head">
-        <div><h2>Marcações</h2><p>Todas as marcações, passadas e futuras.</p></div>
-        <button className="ag-btn ag-btn-primary" onClick={() => setShowNovo(true)}><Plus size={16} /> Nova Marcação</button>
+        <div><h2>{rotulos.rotulo_agendamento_plural}</h2><p>Tudo o que está marcado — feito à mão, pelo link, ou automaticamente por um fluxo do Autopilot.</p></div>
+        <button className="ag-btn ag-btn-primary" onClick={() => setShowNovo(true)}><Plus size={16} /> Nova {rotulos.rotulo_agendamento.toLowerCase()}</button>
       </div>
 
       <div className="ag-table-card">
         <table>
           <thead>
-            <tr><th>Cliente</th><th>Serviço</th><th>Data / Hora</th><th>Profissional</th><th>Estado</th><th style={{ textAlign: 'center' }}>Ações</th></tr>
+            <tr><th>Cliente</th><th>{rotulos.rotulo_item}</th><th>Data / Hora</th><th>{rotulos.rotulo_recurso}</th><th>Origem</th><th>Estado</th><th style={{ textAlign: 'center' }}>Ações</th></tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={6} className="ag-empty-row">A carregar...</td></tr>}
-            {!loading && marcacoes.length === 0 && <tr><td colSpan={6} className="ag-empty-row">Nenhuma marcação ainda. Clique em "Nova Marcação" para começar.</td></tr>}
+            {loading && <tr><td colSpan={7} className="ag-empty-row">A carregar...</td></tr>}
+            {!loading && marcacoes.length === 0 && <tr><td colSpan={7} className="ag-empty-row">Ainda não há nada marcado. Crie à mão aqui, ou deixe um fluxo do Autopilot marcar pelo WhatsApp.</td></tr>}
             {!loading && marcacoes.map((a: any) => (
               <tr key={a.id}>
-                <td><div style={{ fontWeight: 700 }}>{a.cliente_nome}</div><div style={{ fontSize: '12px', color: 'var(--ag-ink-muted)' }}>{a.cliente_telefone}</div></td>
+                <td>
+                  <div style={{ fontWeight: 700 }}>{a.cliente_nome}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--ag-ink-muted)' }}>{a.cliente_telefone}</div>
+                  {a.dados && Object.keys(a.dados).length > 0 && (
+                    <div style={{ fontSize: '11.5px', color: 'var(--ag-ink-muted)', marginTop: '3px' }}>
+                      {(rotulos.campos.length ? rotulos.campos : Object.keys(a.dados).map(k => ({ chave: k, rotulo: k })))
+                        .filter((c: any) => a.dados[c.chave] !== undefined && a.dados[c.chave] !== '')
+                        .map((c: any) => `${c.rotulo}: ${a.dados[c.chave]}`).join(' · ')}
+                    </div>
+                  )}
+                  {a.notas && <div style={{ fontSize: '11.5px', color: 'var(--ag-ink-muted)', fontStyle: 'italic', marginTop: '2px' }}>{a.notas}</div>}
+                </td>
                 <td>{a.servico_nome}</td>
                 <td>{new Date(a.data).toLocaleDateString('pt-PT')} · {a.hora_inicio.slice(0, 5)}</td>
                 <td>{a.profissional_nome || '—'}</td>
+                <td><span className="ag-badge ag-badge-info" style={{ whiteSpace: 'nowrap' }}>{ORIGEM_ROTULO[a.origem] || a.origem || 'manual'}</span></td>
                 <td><span className={`ag-badge ${ESTADO_BADGE[a.estado]?.cls || 'ag-badge-info'}`}>{ESTADO_BADGE[a.estado]?.label || a.estado}</span></td>
                 <td>
                   <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
@@ -214,6 +264,8 @@ function MarcacoesView() {
 }
 
 function NovaMarcacaoModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const rotulos = useRotulos();
+  const [extra, setExtra] = useState<Record<string, string>>({});
   const [servicos, setServicos] = useState<any[]>([]);
   const [profissionais, setProfissionais] = useState<any[]>([]);
   const [servicoId, setServicoId] = useState('');
@@ -257,7 +309,7 @@ function NovaMarcacaoModal({ onClose, onCreated }: { onClose: () => void; onCrea
     setSaving(true);
     const res = await authFetch(`${API}/api/agendamento/marcacoes`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ servico_id: Number(servicoId), profissional_id: profissionalId ? Number(profissionalId) : undefined, cliente_nome: nome, cliente_telefone: telefone, data, hora_inicio: hora })
+      body: JSON.stringify({ servico_id: Number(servicoId), profissional_id: profissionalId ? Number(profissionalId) : undefined, cliente_nome: nome, cliente_telefone: telefone, data, hora_inicio: hora, dados: extra })
     });
     const d = await res.json();
     setSaving(false);
@@ -267,17 +319,17 @@ function NovaMarcacaoModal({ onClose, onCreated }: { onClose: () => void; onCrea
   return (
     <div className="ag-modal-overlay">
       <div className="ag-modal-card">
-        <h3>Nova Marcação</h3>
+        <h3>Nova {rotulos.rotulo_agendamento.toLowerCase()}</h3>
         <form onSubmit={handleSave}>
           <div className="ag-field"><label>Cliente</label><input required value={nome} onChange={e => setNome(e.target.value)} placeholder="Nome do cliente" /></div>
           <div className="ag-field"><label>Telefone (WhatsApp)</label><input required value={telefone} onChange={e => setTelefone(e.target.value)} placeholder="9XX XXX XXX" /></div>
           <div className="ag-field-row">
-            <div className="ag-field"><label>Serviço</label>
+            <div className="ag-field"><label>{rotulos.rotulo_item}</label>
               <select value={servicoId} onChange={e => setServicoId(e.target.value)}>
                 {servicos.map(s => <option key={s.id} value={s.id}>{s.nome} ({s.duracao_minutos}min)</option>)}
               </select>
             </div>
-            <div className="ag-field"><label>Profissional</label>
+            <div className="ag-field"><label>{rotulos.rotulo_recurso}</label>
               <select value={profissionalId} onChange={e => setProfissionalId(e.target.value)}>
                 <option value="">Qualquer um</option>
                 {profissionais.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
@@ -297,6 +349,20 @@ function NovaMarcacaoModal({ onClose, onCreated }: { onClose: () => void; onCrea
               </div>
             )}
           </div>
+          {rotulos.campos.map(c => (
+            <div className="ag-field" key={c.chave}>
+              <label>{c.rotulo}{c.obrigatorio ? ' *' : ''}</label>
+              {c.tipo === 'selecao' ? (
+                <select required={c.obrigatorio} value={extra[c.chave] || ''} onChange={e => setExtra({ ...extra, [c.chave]: e.target.value })}>
+                  <option value="">—</option>
+                  {(c.opcoes || []).map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              ) : (
+                <input required={c.obrigatorio} type={c.tipo === 'numero' ? 'number' : 'text'}
+                  value={extra[c.chave] || ''} onChange={e => setExtra({ ...extra, [c.chave]: e.target.value })} />
+              )}
+            </div>
+          ))}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '14px' }}>
             <button type="button" className="ag-btn" onClick={onClose}>Cancelar</button>
             <button type="submit" className="ag-btn ag-btn-primary" disabled={saving || !hora}>{saving ? 'A Gravar...' : 'Marcar'}</button>
@@ -367,6 +433,7 @@ function RemarcarModal({ marcacao, onClose, onSaved }: { marcacao: any; onClose:
 // SERVIÇOS
 // ============================================================
 function ServicosView() {
+  const rotulos = useRotulos();
   const [servicos, setServicos] = useState<any[]>([]);
   const [showNovo, setShowNovo] = useState(false);
   const [nome, setNome] = useState('');
@@ -398,7 +465,7 @@ function ServicosView() {
   return (
     <>
       <div className="ag-content-head">
-        <div><h2>Serviços</h2><p>O que os seus clientes podem marcar.</p></div>
+        <div><h2>{rotulos.rotulo_item_plural}</h2><p>O que os seus clientes podem marcar, e quanto tempo ocupa.</p></div>
         <button className="ag-btn ag-btn-primary" onClick={() => setShowNovo(true)}><Plus size={16} /> Novo Serviço</button>
       </div>
       <div className="ag-table-card">
@@ -443,6 +510,7 @@ function ServicosView() {
 // PROFISSIONAIS
 // ============================================================
 function ProfissionaisView() {
+  const rotulos = useRotulos();
   const [lista, setLista] = useState<any[]>([]);
   const [nome, setNome] = useState('');
 
@@ -473,7 +541,7 @@ function ProfissionaisView() {
 
   return (
     <>
-      <div className="ag-content-head"><div><h2>Profissionais</h2><p>Quem atende as marcações (opcional).</p></div></div>
+      <div className="ag-content-head"><div><h2>{rotulos.rotulo_recurso_plural}</h2><p>Quem (ou o quê) fica ocupado com cada {rotulos.rotulo_agendamento.toLowerCase()} — opcional.</p></div></div>
       <div className="ag-panel">
         <form onSubmit={criar} style={{ display: 'flex', gap: '10px' }}>
           <input value={nome} onChange={e => setNome(e.target.value)} placeholder="Nome do profissional" style={{ flex: 1, padding: '10px 12px', borderRadius: '9px', border: '1px solid var(--ag-border)', fontFamily: 'var(--ag-font-body)' }} />
@@ -549,43 +617,166 @@ function HorariosView() {
 // LINK DE MARCAÇÃO
 // ============================================================
 function LinkView({ empresaId }: { empresaId: string | null }) {
+  const rotulos = useRotulos();
   const [copiado, setCopiado] = useState(false);
   const link = empresaId ? `${window.location.origin}/agendar/${empresaId}` : '';
 
+  const passos = [
+    { n: '1', t: 'Ver horários livres', d: `O fluxo pergunta a data ao cliente e o bloco "Ver horários livres" devolve as horas realmente livres desse dia.` },
+    { n: '2', t: 'Aguardar resposta', d: 'O cliente escolhe a hora e escreve o nome. Cada resposta fica guardada numa variável.' },
+    { n: '3', t: 'Criar marcação', d: `O bloco "Criar marcação" grava aqui no módulo, com a origem "fluxo". Se entretanto a hora ficou ocupada, o fluxo avisa o cliente e pergunta outra.` }
+  ];
+
   return (
     <>
-      <div className="ag-content-head"><div><h2>Link de Marcação</h2><p>Um extra opcional — a marcação automática já funciona sem link, diretamente pelo WhatsApp.</p></div></div>
+      <div className="ag-content-head">
+        <div>
+          <h2>Marcação automática</h2>
+          <p>Como as {rotulos.rotulo_agendamento_plural.toLowerCase()} entram aqui sozinhas, a partir do WhatsApp.</p>
+        </div>
+      </div>
 
       <div className="ag-panel" style={{ background: 'var(--ag-accent-soft)', borderColor: 'var(--ag-accent)' }}>
-        <div className="ag-panel-title" style={{ marginBottom: '8px' }}>Como a marcação automática funciona hoje</div>
-        <p style={{ fontSize: '13px', color: 'var(--ag-ink)', lineHeight: 1.7, margin: 0 }}>
-          Quando um cliente escreve para o seu número de WhatsApp a pedir para marcar, o Assistente IA conduz a
-          conversa sozinho — mostra os serviços, verifica os horários realmente livres, confirma o nome e cria a
-          marcação ali mesmo no chat. O mesmo cliente também pode pedir para ver, remarcar ou cancelar as suas
-          marcações, sempre pela conversa. Não é enviado nenhum link a ninguém neste processo.
-          <br /><br />
-          Além disso, você (dono) pode sempre criar, cancelar ou remarcar marcações manualmente em "Marcações".
+        <div className="ag-panel-title" style={{ marginBottom: '10px' }}>Feito por regras, não por inteligência artificial</div>
+        <p style={{ fontSize: '13px', color: 'var(--ag-ink)', lineHeight: 1.7, margin: '0 0 14px' }}>
+          Você monta a conversa no <b>Autopilot</b>, bloco a bloco, e decide exatamente o que é perguntado e por que ordem.
+          O sistema percebe o que o cliente escreve — <b>hoje</b>, <b>amanhã</b>, <b>sexta</b>, <b>12/10</b>, <b>14h30</b>, <b>2 da tarde</b> —
+          e quando não percebe, volta a perguntar em vez de inventar. Nada é adivinhado e o resultado é sempre o mesmo.
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '10px' }}>
+          {passos.map(p => (
+            <div key={p.n} style={{ background: 'white', border: '1px solid var(--ag-border)', borderRadius: '10px', padding: '12px 14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <span style={{ width: '20px', height: '20px', borderRadius: '50%', background: 'var(--ag-accent)', color: 'white', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{p.n}</span>
+                <span style={{ fontWeight: 700, fontSize: '13px', color: 'var(--ag-ink)' }}>{p.t}</span>
+              </div>
+              <div style={{ fontSize: '12.5px', color: 'var(--ag-ink-muted)', lineHeight: 1.55 }}>{p.d}</div>
+            </div>
+          ))}
+        </div>
+        <p style={{ fontSize: '12.5px', color: 'var(--ag-ink-muted)', margin: '14px 0 0', lineHeight: 1.6 }}>
+          Os três blocos estão no Autopilot, na secção <b>AGENDAMENTO</b> da lista da esquerda. Antes de ligar o fluxo,
+          use o botão <b>Simular</b> para experimentar a conversa sem enviar nada a ninguém.
+          Também pode sempre criar, confirmar, remarcar ou cancelar à mão em <b>{rotulos.rotulo_agendamento_plural}</b>.
         </p>
       </div>
 
       <div className="ag-panel">
-        <div className="ag-panel-title" style={{ marginBottom: '8px' }}>Link opcional para partilhar</div>
+        <div className="ag-panel-title" style={{ marginBottom: '8px' }}>Link para partilhar (opcional)</div>
+        <p style={{ fontSize: '12.5px', color: 'var(--ag-ink-muted)', margin: '0 0 12px', lineHeight: 1.6 }}>
+          Uma página onde o cliente escolhe sozinho. Serve para pôr na bio do Instagram ou num site — o WhatsApp não precisa disto.
+        </p>
         {!empresaId ? (
           <div className="ag-empty-state"><div className="ag-empty-state-icon"><LinkIcon size={20} /></div>Não foi possível determinar a sua empresa.</div>
         ) : (
-          <>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <input readOnly value={link} style={{ flex: 1, padding: '11px 14px', borderRadius: '10px', border: '1px solid var(--ag-border)', background: 'var(--ag-canvas)', fontFamily: 'var(--ag-font-mono)', fontSize: '13px' }} />
-              <button className="ag-btn ag-btn-primary" onClick={() => { navigator.clipboard.writeText(link); setCopiado(true); setTimeout(() => setCopiado(false), 2000); }}>
-                <Copy size={15} /> {copiado ? 'Copiado!' : 'Copiar'}
-              </button>
-            </div>
-            <p style={{ fontSize: '12.5px', color: 'var(--ag-ink-muted)', marginTop: '16px', lineHeight: 1.6 }}>
-              Só é preciso se quiser publicar um link direto (ex: na bio do Instagram ou num site). O WhatsApp
-              não depende disto.
-            </p>
-          </>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <input readOnly value={link} style={{ flex: 1, padding: '11px 14px', borderRadius: '10px', border: '1px solid var(--ag-border)', background: 'var(--ag-canvas)', fontFamily: 'var(--ag-font-mono)', fontSize: '13px' }} />
+            <button className="ag-btn ag-btn-primary" onClick={() => { navigator.clipboard.writeText(link); setCopiado(true); setTimeout(() => setCopiado(false), 2000); }}>
+              <Copy size={15} /> {copiado ? 'Copiado!' : 'Copiar'}
+            </button>
+          </div>
         )}
+      </div>
+    </>
+  );
+}
+
+// ============================================================
+// DEFINIÇÕES — o módulo fala a língua do negócio
+// ============================================================
+function DefinicoesView({ onGuardado }: { onGuardado: () => void }) {
+  const rotulos = useRotulos();
+  const [f, setF] = useState<any>(rotulos);
+  const [modelos, setModelos] = useState<Record<string, any>>({});
+  const [aGuardar, setAGuardar] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  useEffect(() => {
+    (async () => {
+      const r = await authFetch(`${API}/api/agendamento/config`);
+      const d = await r.json();
+      if (d.success) { setF({ ...d.config, campos: d.config.campos || [] }); setModelos(d.modelos || {}); }
+    })();
+  }, []);
+
+  const aplicarModelo = (chave: string) => {
+    const m = modelos[chave];
+    if (!m) return;
+    setF({ ...f, ...m, modelo: chave, campos: m.campos || [], nome: undefined, exemplos: undefined });
+  };
+  const setCampo = (i: number, patch: any) => setF({ ...f, campos: f.campos.map((c: any, j: number) => j === i ? { ...c, ...patch } : c) });
+  const guardar = async () => {
+    setAGuardar(true); setMsg('');
+    const r = await authFetch(`${API}/api/agendamento/config`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...f, campos: f.campos })
+    });
+    const d = await r.json();
+    setAGuardar(false);
+    setMsg(d.success ? 'Guardado.' : (d.error || 'Não foi possível guardar.'));
+    if (d.success) onGuardado();
+  };
+
+  return (
+    <>
+      <div className="ag-content-head"><div><h2>Definições</h2><p>Escolha o tipo de negócio: o módulo passa a usar as suas palavras e a guardar os seus dados.</p></div></div>
+
+      <div className="ag-panel">
+        <div className="ag-panel-title" style={{ marginBottom: '10px' }}>Tipo de negócio</div>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {Object.entries(modelos).map(([chave, m]: any) => (
+            <button key={chave} className={`ag-btn${f.modelo === chave ? ' ag-btn-primary' : ''}`} onClick={() => aplicarModelo(chave)}>{m.nome}</button>
+          ))}
+        </div>
+        <p style={{ fontSize: '12.5px', color: 'var(--ag-ink-muted)', marginTop: '12px', lineHeight: 1.6 }}>
+          Escolher um tipo troca os nomes em todo o módulo e sugere os campos habituais. Pode ajustar tudo em baixo.
+        </p>
+      </div>
+
+      <div className="ag-panel">
+        <div className="ag-panel-title" style={{ marginBottom: '10px' }}>Como quer chamar as coisas</div>
+        <div className="ag-field-row">
+          <div className="ag-field"><label>O que se marca (singular)</label><input value={f.rotulo_item || ''} onChange={e => setF({ ...f, rotulo_item: e.target.value })} placeholder="Serviço / Quarto / Consulta" /></div>
+          <div className="ag-field"><label>Plural</label><input value={f.rotulo_item_plural || ''} onChange={e => setF({ ...f, rotulo_item_plural: e.target.value })} /></div>
+        </div>
+        <div className="ag-field-row">
+          <div className="ag-field"><label>Quem/o que fica ocupado</label><input value={f.rotulo_recurso || ''} onChange={e => setF({ ...f, rotulo_recurso: e.target.value })} placeholder="Profissional / Quarto / Mesa" /></div>
+          <div className="ag-field"><label>Plural</label><input value={f.rotulo_recurso_plural || ''} onChange={e => setF({ ...f, rotulo_recurso_plural: e.target.value })} /></div>
+        </div>
+        <div className="ag-field-row">
+          <div className="ag-field"><label>Como chama cada registo</label><input value={f.rotulo_agendamento || ''} onChange={e => setF({ ...f, rotulo_agendamento: e.target.value })} placeholder="Marcação / Reserva" /></div>
+          <div className="ag-field"><label>Plural</label><input value={f.rotulo_agendamento_plural || ''} onChange={e => setF({ ...f, rotulo_agendamento_plural: e.target.value })} /></div>
+        </div>
+      </div>
+
+      <div className="ag-panel">
+        <div className="ag-panel-title" style={{ marginBottom: '6px' }}>Dados que quer guardar em cada {String(f.rotulo_agendamento || 'marcação').toLowerCase()}</div>
+        <p style={{ fontSize: '12.5px', color: 'var(--ag-ink-muted)', margin: '0 0 12px', lineHeight: 1.6 }}>
+          Ex: nº de pessoas, matrícula, BI. Estes campos aparecem no formulário e podem ser preenchidos automaticamente pelo bloco "Criar marcação" do Autopilot.
+        </p>
+        {(f.campos || []).map((c: any, i: number) => (
+          <div key={i} className="ag-field-row" style={{ alignItems: 'flex-end' }}>
+            <div className="ag-field"><label>Nome do campo</label><input value={c.rotulo} onChange={e => setCampo(i, { rotulo: e.target.value, chave: c.chaveManual ? c.chave : e.target.value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') })} placeholder="Nº de pessoas" /></div>
+            <div className="ag-field"><label>Tipo</label>
+              <select value={c.tipo} onChange={e => setCampo(i, { tipo: e.target.value })}>
+                <option value="texto">Texto</option><option value="numero">Número</option><option value="selecao">Escolha</option>
+              </select>
+            </div>
+            {c.tipo === 'selecao' && (
+              <div className="ag-field"><label>Opções (vírgulas)</label><input value={(c.opcoes || []).join(', ')} onChange={e => setCampo(i, { opcoes: e.target.value.split(',').map((x: string) => x.trim()).filter(Boolean) })} /></div>
+            )}
+            <div className="ag-field" style={{ maxWidth: '120px' }}><label>Obrigatório</label>
+              <select value={c.obrigatorio ? 'sim' : 'nao'} onChange={e => setCampo(i, { obrigatorio: e.target.value === 'sim' })}><option value="nao">Não</option><option value="sim">Sim</option></select>
+            </div>
+            <button className="ag-btn" style={{ marginBottom: '14px' }} onClick={() => setF({ ...f, campos: f.campos.filter((_: any, j: number) => j !== i) })}><Trash2 size={14} /></button>
+          </div>
+        ))}
+        <button className="ag-btn" onClick={() => setF({ ...f, campos: [...(f.campos || []), { chave: '', rotulo: '', tipo: 'texto', obrigatorio: false, opcoes: [] }] })}><Plus size={14} /> Campo</button>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px' }}>
+        <button className="ag-btn ag-btn-primary" disabled={aGuardar} onClick={guardar}><Check size={15} /> {aGuardar ? 'A guardar...' : 'Guardar definições'}</button>
+        {msg && <span style={{ fontSize: '13px', color: msg === 'Guardado.' ? 'var(--ag-good-fg)' : 'var(--ag-bad-fg)' }}>{msg}</span>}
       </div>
     </>
   );

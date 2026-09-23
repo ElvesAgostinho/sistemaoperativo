@@ -101,7 +101,7 @@ export class AgendamentoService {
     // ============================================================
     public static async criarAgendamento(
         empresaId: string,
-        dados: { servico_id: number; profissional_id?: number; cliente_nome: string; cliente_telefone: string; data: string; hora_inicio: string; notas?: string },
+        dados: { servico_id: number; profissional_id?: number; cliente_nome: string; cliente_telefone: string; data: string; hora_inicio: string; notas?: string; dados?: Record<string, any> },
         origem: 'manual' | 'cliente' | 'whatsapp',
         client: any = supabase
     ) {
@@ -130,6 +130,9 @@ export class AgendamentoService {
             estado: 'Agendado',
             origem,
             notas: dados.notas || null,
+            // Campos próprios da empresa (nº de pessoas, matrícula, BI…), tal como
+            // definidos em Agendamento → Definições.
+            dados: dados.dados && Object.keys(dados.dados).length ? dados.dados : {},
         }).select('id').single();
 
         if (error) throw error;
