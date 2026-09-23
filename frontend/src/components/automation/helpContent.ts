@@ -276,6 +276,23 @@ export const HELP_ITEMS: HelpItem[] = [
     exemplo: { cenario: 'Esperar 15 segundos entre a saudação e o menu de opções.', passos: ['Nó "Aguardar" → 15 segundos, entre a mensagem de boas-vindas e o Menu'] }
   },
   {
+    id: 'simulador',
+    titulo: 'Simulador — testar sem enviar',
+    categoria: 'Conceitos',
+    cor: '#0E5A6B',
+    oQueFaz: 'O botão "Simular" (canto superior direito) abre uma conversa de teste que corre o fluxo a sério, mas sem enviar nada ao cliente nem gravar nada. Mostra as respostas, o caminho que o fluxo seguiu e destaca o bloco onde a conversa está.',
+    quandoUsar: 'Sempre que montar ou mudar um fluxo, antes de o ligar. É a forma mais rápida de perceber porque é que um caminho não foi o esperado: o simulador escreve o que a condição leu e com o que comparou (ex: "Condição: NÃO — Olá == sim").',
+    campos: [
+      { label: 'Caixa de mensagem', explicacao: 'Escreva o que o cliente escreveria. Comece por "Olá" e depois responda como um cliente responderia.' },
+      { label: 'Caminho percorrido', explicacao: 'A lista em baixo mostra cada bloco por onde passou, pela ordem, já com as variáveis substituídas.' },
+      { label: 'Reiniciar', explicacao: 'A seta ao lado do título limpa a conversa e volta ao início do fluxo.' }
+    ],
+    exemplo: {
+      cenario: 'Perceber porque é que a condição vai sempre para NÃO.',
+      passos: ['Abra o fluxo → Simular', 'Escreva "Olá" → veja se o fluxo ficou à espera ou se avançou logo', 'Se a condição correu já, falta um "Aguardar resposta" antes dela']
+    }
+  },
+  {
     id: 'send_template',
     titulo: 'Enviar template',
     categoria: 'Mensagens',

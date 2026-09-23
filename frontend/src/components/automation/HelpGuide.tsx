@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
-import { X, Search, BookOpen, Lightbulb, CheckCircle2 } from 'lucide-react';
+import { X, Search, BookOpen, Lightbulb, CheckCircle2, AlertTriangle, Play } from 'lucide-react';
 import { HELP_INTRO, HELP_ITEMS } from './helpContent';
+import { RECEITAS, VARIAVEIS_AJUDA } from './helpReceitas';
+import DiagramaFluxo, { ConversaExemplo } from './DiagramaFluxo';
 
 interface HelpGuideProps {
   onClose: () => void;
@@ -70,6 +72,30 @@ export default function HelpGuide({ onClose }: HelpGuideProps) {
               👋 Como Construir um Fluxo
             </button>
 
+            <button
+              onClick={() => setSelectedId('__receitas__')}
+              style={{
+                width: '100%', textAlign: 'left', padding: '9px 10px', borderRadius: '7px', border: 'none',
+                cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', marginBottom: '6px',
+                backgroundColor: selectedId === '__receitas__' ? '#e0f2fe' : 'transparent',
+                color: selectedId === '__receitas__' ? '#0369a1' : '#334155'
+              }}
+            >
+              🧩 Fluxos prontos (copiar)
+            </button>
+
+            <button
+              onClick={() => setSelectedId('__variaveis__')}
+              style={{
+                width: '100%', textAlign: 'left', padding: '9px 10px', borderRadius: '7px', border: 'none',
+                cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', marginBottom: '10px',
+                backgroundColor: selectedId === '__variaveis__' ? '#e0f2fe' : 'transparent',
+                color: selectedId === '__variaveis__' ? '#0369a1' : '#334155'
+              }}
+            >
+              🔤 Variáveis {'{{ }}'} — leia primeiro
+            </button>
+
             {CATEGORY_ORDER.map(cat => {
               const items = grouped.get(cat) || [];
               if (items.length === 0) return null;
@@ -108,7 +134,88 @@ export default function HelpGuide({ onClose }: HelpGuideProps) {
           </div>
 
           <div style={{ flex: 1, overflowY: 'auto', padding: '8px 40px 40px' }}>
-            {!selectedItem ? (
+            {selectedId === '__variaveis__' ? (
+              <>
+                <h1 style={{ fontSize: '23px', color: '#0f172a', margin: '0 0 12px 0' }}>{VARIAVEIS_AJUDA.titulo}</h1>
+                <div style={{ fontSize: '14px', color: '#1e293b', lineHeight: 1.65, marginBottom: '20px' }}>{VARIAVEIS_AJUDA.intro}</div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 'bold', color: '#b91c1c', marginBottom: '8px' }}>
+                      <AlertTriangle size={14} /> ERRADO — dá sempre NÃO
+                    </div>
+                    <DiagramaFluxo d={VARIAVEIS_AJUDA.erradoDiagrama} />
+                    <div style={{ fontSize: '12.5px', color: '#64748b', marginTop: '8px', lineHeight: 1.5 }}>
+                      O bloco pergunta e a condição corre <b>no mesmo instante</b>. O cliente ainda não respondeu, por isso o quadro tem "Olá".
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 'bold', color: '#15803d', marginBottom: '8px' }}>
+                      <CheckCircle2 size={14} /> CERTO — espera pela resposta
+                    </div>
+                    <DiagramaFluxo d={VARIAVEIS_AJUDA.certoDiagrama} />
+                    <div style={{ fontSize: '12.5px', color: '#64748b', marginTop: '8px', lineHeight: 1.5 }}>
+                      O "Aguardar resposta" pára o fluxo. Quando o cliente escreve, o quadro passa a ter a resposta e só aí a condição corre.
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569', marginBottom: '8px' }}>AS VARIÁVEIS QUE EXISTEM SEMPRE</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '24px' }}>
+                  {VARIAVEIS_AJUDA.lista.map(v => (
+                    <div key={v.nome} style={{ display: 'flex', gap: '12px', alignItems: 'baseline', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px 12px' }}>
+                      <code style={{ fontSize: '12.5px', fontWeight: 'bold', color: '#0369a1', whiteSpace: 'nowrap' }}>{v.nome}</code>
+                      <span style={{ fontSize: '13px', color: '#475569' }}>{v.o_que}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px', padding: '16px 20px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', fontSize: '14px', color: '#92400e', marginBottom: '8px' }}>
+                    <Lightbulb size={16} /> Regras que resolvem 90% dos problemas
+                  </div>
+                  <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', color: '#78350f', lineHeight: 1.8 }}>
+                    {VARIAVEIS_AJUDA.regras.map((r, i) => <li key={i}>{r}</li>)}
+                  </ul>
+                </div>
+              </>
+            ) : selectedId === '__receitas__' ? (
+              <>
+                <h1 style={{ fontSize: '23px', color: '#0f172a', margin: '0 0 6px 0' }}>Fluxos prontos</h1>
+                <div style={{ fontSize: '13.5px', color: '#475569', lineHeight: 1.6, marginBottom: '8px' }}>
+                  Cinco fluxos completos, do mais simples ao mais completo. Veja o desenho, copie os passos e use o botão
+                  <b> Simular</b> para testar sem enviar nada a ninguém.
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', color: '#0369a1', marginBottom: '22px' }}>
+                  <Play size={13} /> Dica: monte primeiro o nº 1. Cada receita acrescenta uma peça à anterior.
+                </div>
+
+                {RECEITAS.map(r => (
+                  <div key={r.id} style={{ marginBottom: '34px', borderTop: '1px solid #e2e8f0', paddingTop: '18px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+                      <h2 style={{ fontSize: '17px', color: '#0f172a', margin: 0 }}>{r.titulo}</h2>
+                      <span style={{ fontSize: '10.5px', fontWeight: 'bold', padding: '2px 8px', borderRadius: '10px', background: r.dificuldade === 'fácil' ? '#dcfce7' : '#fef3c7', color: r.dificuldade === 'fácil' ? '#166534' : '#92400e' }}>{r.dificuldade}</span>
+                    </div>
+                    <div style={{ fontSize: '13px', color: '#475569', lineHeight: 1.6, marginBottom: '14px' }}>{r.paraQue}</div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '16px', alignItems: 'start' }}>
+                      <DiagramaFluxo d={r.diagrama} />
+                      <div>
+                        <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', marginBottom: '6px' }}>O QUE O CLIENTE VÊ</div>
+                        <ConversaExemplo linhas={r.conversa} />
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: '14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '14px 18px' }}>
+                      <div style={{ fontSize: '11.5px', fontWeight: 'bold', color: '#166534', marginBottom: '6px' }}>COMO MONTAR</div>
+                      <ol style={{ margin: 0, paddingLeft: '18px', fontSize: '13px', color: '#166534', lineHeight: 1.8 }}>
+                        {r.comoMontar.map((p, i) => <li key={i}>{p}</li>)}
+                      </ol>
+                    </div>
+                  </div>
+                ))}
+              </>
+            ) : !selectedItem ? (
               <>
                 <h1 style={{ fontSize: '24px', color: '#0f172a', margin: '0 0 20px 0' }}>{HELP_INTRO.titulo}</h1>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', marginBottom: '32px' }}>
