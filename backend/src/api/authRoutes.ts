@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { supabase, supabaseAdmin } from '../lib/supabaseClient';
 import { requireAuth, AuthRequest } from '../middleware/authMiddleware';
 import { rotearEExecutar } from '../services/AIRouterService';
+import { EmailService } from '../services/EmailService';
 import crypto from 'crypto';
 
 const router = Router();
@@ -193,6 +194,141 @@ router.post('/register', async (req: Request, res: Response) => {
         message: empresaNome ? 'Empresa registada com sucesso. Aguarde aprovação do SuperAdmin.' : 'Utilizador registado. Aguarde aprovação do seu Admin.',
         user: { id: authData.user.id, email: authData.user.email },
     });
+});
+
+// ─── Auth: Esqueceu-se da palavra-passe ──────────────────────────────────────
+//
+// O email de recuperação sai pelo NOSSO servidor de correio, não pelo do
+// Supabase: o deles tem um limite de poucos emails por hora, que numa altura de
+// muitos registos deixaria clientes à espera sem perceberem porquê. Também nos
+// deixa escrever a mensagem em português e com o nome do sistema.
+//
+// O endereço nunca é confirmado nem desmentido na resposta: dizer "esse email
+// não existe" é entregar a quem pergunta a lista de quem tem conta.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const urlDoSite = () =>
+    (process.env.FRONTEND_URL || process.env.APP_URL || 'https://business.topconsultores.pt').replace(/\/+$/, '');
+
+/** Trava simples contra insistência: no máximo 3 pedidos por email em 15 minutos. */
+const pedidosDeRecuperacao = new Map<string, number[]>();
+const podePedirRecuperacao = (email: string): boolean => {
+    const agora = Date.now();
+    const janela = 15 * 60 * 1000;
+    const anteriores = (pedidosDeRecuperacao.get(email) || []).filter(t => agora - t < janela);
+    if (anteriores.length >= 3) { pedidosDeRecuperacao.set(email, anteriores); return false; }
+    anteriores.push(agora);
+    pedidosDeRecuperacao.set(email, anteriores);
+    // Limpeza para o mapa não crescer para sempre num servidor que nunca reinicia.
+    if (pedidosDeRecuperacao.size > 5000) {
+        for (const [k, v] of pedidosDeRecuperacao) if (!v.some(t => agora - t < janela)) pedidosDeRecuperacao.delete(k);
+    }
+    return true;
+};
+
+router.post('/recuperar-senha', async (req: Request, res: Response) => {
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const respostaNeutra = {
+        success: true,
+        message: 'Se existir uma conta com esse email, enviámos as instruções para a redefinir. Verifique também a pasta de spam.'
+    };
+
+    if (!email || !email.includes('@')) {
+        return res.status(400).json({ error: 'Escreva o seu email.' });
+    }
+    if (!podePedirRecuperacao(email)) {
+        return res.status(429).json({ error: 'Já pedimos a redefinição há pouco. Verifique o seu email (e o spam) ou tente daqui a 15 minutos.' });
+    }
+
+    try {
+        const adminClient = makeAdminClient();
+
+        // O link é gerado aqui e enviado por nós. Se o email não existir, o
+        // Supabase devolve erro — e nós respondemos na mesma a mesma coisa.
+        const { data, error } = await (adminClient.auth.admin as any).generateLink({
+            type: 'recovery',
+            email,
+            options: { redirectTo: `${urlDoSite()}/redefinir-senha` }
+        });
+
+        const codigo = data?.properties?.hashed_token;
+        if (error || !codigo) {
+            console.warn(`[Recuperar] Nada enviado para ${email}: ${error?.message || 'sem código'}`);
+            return res.json(respostaNeutra);
+        }
+
+        // Usa o correio da empresa do utilizador se estiver configurado; senão o
+        // do sistema (variáveis de ambiente). Sem isto, um cliente cuja empresa
+        // ainda não configurou o email ficava sem forma de recuperar a conta.
+        let empresaId: string | undefined;
+        try {
+            const { data: perfil } = await adminClient.from('perfis').select('empresa_id').eq('email', email).maybeSingle();
+            if (perfil?.empresa_id && await EmailService.isConfigured(perfil.empresa_id)) empresaId = perfil.empresa_id;
+        } catch { /* fica o do sistema */ }
+
+        const link = `${urlDoSite()}/redefinir-senha?codigo=${encodeURIComponent(codigo)}`;
+        const enviado = await EmailService.enviarEmailPersonalizado(
+            email,
+            'Redefinir a sua palavra-passe — BusinessOS',
+            `<div style="font-family:Arial,Helvetica,sans-serif;color:#1D2D3E;line-height:1.6">
+                <h2 style="color:#0E5A6B;margin:0 0 12px">Redefinir a palavra-passe</h2>
+                <p>Recebemos um pedido para redefinir a palavra-passe desta conta.</p>
+                <p style="margin:24px 0">
+                  <a href="${link}" style="background:#0E5A6B;color:#fff;padding:12px 22px;border-radius:2px;text-decoration:none;font-weight:700">Escolher uma nova palavra-passe</a>
+                </p>
+                <p style="font-size:13px;color:#5B738B">Este link só serve uma vez e expira dentro de uma hora.</p>
+                <p style="font-size:13px;color:#5B738B">Se não foi você que pediu, ignore este email — a sua palavra-passe atual continua a funcionar.</p>
+                <p style="font-size:12px;color:#8996A3;margin-top:24px">Se o botão não funcionar, copie este endereço para o navegador:<br>${link}</p>
+            </div>`,
+            empresaId
+        );
+
+        if (!enviado) console.error(`[Recuperar] O email para ${email} não saiu — verifique o SMTP.`);
+        else console.log(`[Recuperar] Instruções enviadas para ${email}.`);
+
+        return res.json(respostaNeutra);
+    } catch (e: any) {
+        console.error('[Recuperar] Erro inesperado:', e?.message || e);
+        return res.json(respostaNeutra);
+    }
+});
+
+/** Troca o código do email por uma palavra-passe nova. */
+router.post('/redefinir-senha', async (req: Request, res: Response) => {
+    const { codigo, password } = req.body || {};
+
+    if (!codigo) return res.status(400).json({ error: 'Link inválido. Peça a redefinição outra vez.' });
+    if (!password || String(password).length < 6) {
+        return res.status(400).json({ error: 'A palavra-passe tem de ter pelo menos 6 caracteres.' });
+    }
+
+    try {
+        const authClient = makeAuthClient();
+        const { data, error } = await authClient.auth.verifyOtp({ token_hash: String(codigo), type: 'recovery' });
+
+        if (error || !data?.session) {
+            return res.status(400).json({ error: 'Este link já foi usado ou expirou. Peça a redefinição outra vez.' });
+        }
+
+        const userClient = makeUserClient(data.session.access_token);
+        const { error: erroUpdate } = await userClient.auth.updateUser({ password: String(password) });
+        if (erroUpdate) {
+            return res.status(400).json({ error: erroUpdate.message || 'Não foi possível guardar a nova palavra-passe.' });
+        }
+
+        // Quem redefine a palavra-passe prova que tem acesso ao email: aproveitamos
+        // para confirmar a conta, senão ficava a redefinir sem conseguir entrar.
+        try {
+            const adminClient = makeAdminClient();
+            await (adminClient.auth.admin as any).updateUserById(data.user!.id, { email_confirm: true });
+        } catch { /* se não der, o login dirá o que falta */ }
+
+        console.log(`[Recuperar] Palavra-passe redefinida para ${data.user?.email}.`);
+        return res.json({ success: true, message: 'Palavra-passe alterada. Já pode entrar.' });
+    } catch (e: any) {
+        console.error('[Recuperar] Erro ao redefinir:', e?.message || e);
+        return res.status(500).json({ error: 'Não foi possível redefinir agora. Tente outra vez.' });
+    }
 });
 
 // ─── Auth: Login ─────────────────────────────────────────────────────────────

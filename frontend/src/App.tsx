@@ -23,6 +23,7 @@ import CandidaturaForm from './pages/public/CandidaturaForm';
 import PartilhaDocumento from './pages/public/PartilhaDocumento';
 import ReuniaoConvidado from './pages/public/ReuniaoConvidado';
 import PortalAgendamento from './pages/public/PortalAgendamento';
+import RedefinirSenha from './pages/public/RedefinirSenha';
 import TermosServico from './pages/public/TermosServico';
 import PoliticaPrivacidade from './pages/public/PoliticaPrivacidade';
 import PoliticaCookies from './pages/public/PoliticaCookies';
@@ -307,6 +308,9 @@ function App() {
     return <ReuniaoConvidado />;
   }
 
+  if (pathname.startsWith('/redefinir-senha')) {
+    return <RedefinirSenha />;
+  }
   if (pathname.startsWith('/agendar/')) {
     return <PortalAgendamento />;
   }

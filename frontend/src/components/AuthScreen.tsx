@@ -37,6 +37,33 @@ export default function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [pendingMessage, setPendingMessage] = useState('');
+  // Recuperacao da palavra-passe: o ecra passa a pedir so o email.
+  const [modoRecuperar, setModoRecuperar] = useState(false);
+  const [recuperado, setRecuperado] = useState('');
+
+  /**
+   * Pede o email de recuperacao. A resposta e sempre a mesma, exista ou nao a
+   * conta: dizer "esse email nao existe" era entregar a lista de quem tem conta
+   * a quem andasse a adivinhar enderecos.
+   */
+  const pedirRecuperacao = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true); setError(''); setRecuperado('');
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/recuperar-senha`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Nao foi possivel enviar.');
+      setRecuperado(data.message || 'Se existir uma conta com esse email, enviamos as instrucoes.');
+    } catch (err: any) {
+      setError(err.message || 'Erro de ligacao ao servidor.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -168,10 +195,12 @@ export default function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
 
           <div style={{ marginBottom: '32px' }}>
             <h2 style={{ fontFamily: FONT_DISPLAY, fontSize: '22px', fontWeight: 700, color: INK, margin: '0 0 8px 0' }}>
-              {isLogin ? 'Bem-vindo de volta' : 'Crie a sua conta'}
+              {modoRecuperar ? 'Recuperar o acesso' : isLogin ? 'Bem-vindo de volta' : 'Crie a sua conta'}
             </h2>
             <p style={{ color: INK_MUTED, margin: 0, fontSize: '14px' }}>
-              {isLogin ? 'Introduza as suas credenciais para aceder ao sistema.' : 'Registe-se e aguarde aprovação do administrador.'}
+              {modoRecuperar
+                ? 'Escreva o email da sua conta. Enviamos-lhe um link para escolher uma palavra-passe nova.'
+                : isLogin ? 'Introduza as suas credenciais para aceder ao sistema.' : 'Registe-se e aguarde aprovação do administrador.'}
             </p>
           </div>
 
@@ -187,6 +216,44 @@ export default function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
             </div>
           )}
 
+          {modoRecuperar && (
+            <>
+              {recuperado ? (
+                <div style={{ padding: '16px', backgroundColor: '#DCEEE2', borderLeft: '3px solid #107E3E', color: '#107E3E', fontSize: '13.5px', lineHeight: 1.65 }}>
+                  {recuperado}
+                </div>
+              ) : (
+                <form onSubmit={pedirRecuperacao} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                  <div>
+                    <label style={labelStyle}>Email da conta</label>
+                    <div style={{ position: 'relative' }}>
+                      <div style={{ position: 'absolute', top: '50%', left: '16px', transform: 'translateY(-50%)', color: '#8996A3' }}><Mail size={17} /></div>
+                      <input
+                        type="email" required autoFocus placeholder="nome@empresa.com"
+                        value={email} onChange={e => setEmail(e.target.value)}
+                        style={inputStyle} onFocus={focusIn} onBlur={focusOut}
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="submit" disabled={loading}
+                    style={{ padding: '12px', backgroundColor: ACCENT, color: 'white', border: 'none', borderRadius: '2px', fontSize: '14px', fontWeight: 700, fontFamily: FONT_BODY, cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
+                  >
+                    {loading ? <Loader2 size={17} className="spin" /> : <>Enviar instruções <ArrowRight size={17} /></>}
+                  </button>
+                </form>
+              )}
+              <button
+                type="button"
+                onClick={() => { setModoRecuperar(false); setRecuperado(''); setError(''); }}
+                style={{ background: 'none', border: 'none', color: ACCENT, fontWeight: 700, cursor: 'pointer', fontSize: '13.5px', fontFamily: FONT_BODY, marginTop: '22px', padding: 0 }}
+              >
+                ← Voltar a entrar
+              </button>
+            </>
+          )}
+
+          {!modoRecuperar && (
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
 
             {!isLogin && (
@@ -284,7 +351,7 @@ export default function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
                 {isLogin && (
                   <button
                     type="button"
-                    onClick={() => alert('Para redefinir a sua palavra-passe, contacte o administrador da sua empresa ou o suporte.')}
+                    onClick={() => { setModoRecuperar(true); setError(''); setSuccess(''); setRecuperado(''); }}
                     style={{ fontSize: '12px', color: ACCENT, fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: FONT_BODY }}
                   >
                     Esqueceu-se?
@@ -322,7 +389,9 @@ export default function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
               {!loading && <ArrowRight size={17} />}
             </button>
           </form>
+          )}
 
+          {!modoRecuperar && (
           <div style={{ textAlign: 'center', marginTop: '28px', fontSize: '13.5px', color: INK_MUTED }}>
             {isLogin ? 'Não tem uma conta?' : 'Já tem uma conta?'}
             <button
@@ -332,6 +401,7 @@ export default function AuthScreen({ onLogin, onBack }: AuthScreenProps) {
               {isLogin ? 'Registar' : 'Fazer Login'}
             </button>
           </div>
+          )}
 
         </div>
       </div>
