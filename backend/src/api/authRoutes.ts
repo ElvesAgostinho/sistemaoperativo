@@ -4,6 +4,7 @@ import { supabase, supabaseAdmin } from '../lib/supabaseClient';
 import { requireAuth, AuthRequest } from '../middleware/authMiddleware';
 import { rotearEExecutar } from '../services/AIRouterService';
 import { EmailService } from '../services/EmailService';
+import { LicencaService } from '../services/LicencaService';
 import crypto from 'crypto';
 
 const router = Router();
@@ -454,21 +455,10 @@ async function processLogin(res: any, data: any, perfil: any, email: string) {
         }
     }
 
-    // Fetch contracted modules
-    let modulos = ['hr', 'crm', 'reunioes', 'auto', 'wa', 'kb', 'email', 'data', 'chat', 'afiliados', 'contabilidade'];
-    if (perfil?.empresa_id && data?.session?.access_token) {
-        try {
-            const userClient = makeUserClient(data.session.access_token);
-            const { data: row } = await userClient.from('configuracoes')
-                .select('valor')
-                .eq('empresa_id', perfil.empresa_id)
-                .eq('chave', 'modulos_empresa')
-                .single();
-            if (row && row.valor) {
-                modulos = JSON.parse(row.valor);
-            }
-        } catch(e) { console.error('[Login] Erro ao buscar módulos:', e); }
-    }
+    // Os módulos licenciados. Lidos por um só sítio, e fechados por omissão:
+    // ver a nota no LicencaService sobre porque é que isto não pode falhar
+    // para o lado aberto.
+    const modulos = await LicencaService.modulosDaEmpresa(perfil?.empresa_id);
 
     return res.json({
         success: true,

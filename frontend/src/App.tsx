@@ -338,17 +338,12 @@ function App() {
     // Superadmin panel is only for superadmins
     if (module === 'superadmin') return user.role === 'superadmin';
 
-    // Enterprise Licensing Check (Applies to all companies, even the superadmin's company if configured)
-    let companyModules = user.modulos_contratados || ['hr', 'crm', 'reunioes', 'auto', 'wa', 'kb', 'email', 'data', 'chat', 'afiliados', 'contabilidade'];
-    
-    // Força a inclusão do novo módulo para sessões cacheadas
-    if (!companyModules.includes('afiliados')) {
-      companyModules = [...companyModules, 'afiliados'];
-    }
-    if (!companyModules.includes('contabilidade')) {
-      companyModules = [...companyModules, 'contabilidade'];
-    }
-
+    // A licenca da empresa. Nada se acrescenta aqui: havia duas linhas a
+    // "forcar a inclusao" do Financeiro e do Afiliados para sessoes antigas, e o
+    // resultado era que esses dois modulos apareciam sempre, por mais que o
+    // superadmin os desligasse. E a lista por omissao com onze modulos fazia o
+    // mesmo a todos os outros. Quem decide e a licenca, e so ela.
+    const companyModules = user.modulos_contratados || [];
     if (!companyModules.includes(module)) return false;
 
     // After licensing check, superadmin has access to everything permitted by licensing

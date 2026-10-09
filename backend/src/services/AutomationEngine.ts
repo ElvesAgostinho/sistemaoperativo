@@ -1,6 +1,7 @@
 import { KnowledgeBaseService } from './KnowledgeBaseService';
 import { AIGatewayService } from './AIGatewayService';
 import { supabase } from '../lib/supabaseClient'; // Service role client
+import { EsperaFluxoService } from './EsperaFluxoService';
 
 export interface WhatsAppMessage {
     id?: string;
@@ -28,6 +29,12 @@ interface FlowEdge {
 }
 
 const MAX_GRAPH_STEPS = 200;
+/**
+ * Acima disto, a pausa deixa de ser um temporizador em memória e passa a ficar
+ * guardada. Dois minutos é curto o suficiente para uma publicação de código não
+ * apanhar quase nenhuma espera a meio.
+ */
+const ESPERA_EM_MEMORIA_MAX = 120;
 // Quanto tempo um fluxo fica à espera da resposta do cliente antes de a conversa
 // recomeçar do princípio (ninguém responde a um menu três dias depois).
 const ESTADO_FLUXO_VALIDADE_MS = 6 * 60 * 60 * 1000;
@@ -136,6 +143,13 @@ export class AutomationEngine {
             await this.saveMessage(conversationId, message);
 
             if (message.direction !== 'inbound') return;
+
+            // O fluxo estava numa pausa longa ("esperar 2 dias") e o cliente
+            // escreveu entretanto? Então a pausa deixa de fazer sentido: a
+            // conversa seguiu noutra direção e chegar dois dias depois com a
+            // mensagem seguinte da sequência antiga é o tipo de coisa que faz o
+            // cliente bloquear o número.
+            await EsperaFluxoService.cancelarDaConversa(conversationId, 'O cliente respondeu durante a pausa');
 
             const crmInfo = await this.syncCrmFromMessage(message, empresaId);
 
@@ -271,6 +285,45 @@ export class AutomationEngine {
      * escrito nada (`mensagemDisponivel` distingue-os — no segundo caso não há
      * mensagem nenhuma para um menu consumir).
      */
+    /**
+     * Quanto tempo dura uma pausa, seja qual for a unidade escolhida.
+     *
+     * Os fluxos antigos guardavam `segundos` ou `minutos`; os novos guardam um
+     * número e uma unidade (segundos, minutos, horas, dias). Tudo isto tem de
+     * continuar a funcionar — há fluxos gravados de todas as formas.
+     */
+    public static segundosDaPausa(config: any): number {
+        const POR_UNIDADE: Record<string, number> = { segundos: 1, minutos: 60, horas: 3600, dias: 86400 };
+        if (config?.duracao !== undefined && config?.unidade) {
+            const n = Number(config.duracao);
+            const mult = POR_UNIDADE[String(config.unidade)] ?? 1;
+            if (Number.isFinite(n) && n >= 0) return Math.round(n * mult);
+        }
+        if (config?.segundos !== undefined) {
+            const n = parseInt(config.segundos, 10);
+            if (Number.isFinite(n)) return Math.max(n, 0);
+        }
+        const m = parseInt(config?.minutos ?? config?.minutes ?? '1', 10);
+        return Number.isFinite(m) ? Math.max(m, 0) * 60 : 60;
+    }
+
+    /** "2 horas", "30 minutos" — para os registos e para o simulador. */
+    public static pausaPorExtenso(segundos: number): string {
+        if (segundos >= 86400) {
+            const d = Math.round((segundos / 86400) * 10) / 10;
+            return `${d} dia${d === 1 ? '' : 's'}`;
+        }
+        if (segundos >= 3600) {
+            const h = Math.round((segundos / 3600) * 10) / 10;
+            return `${h} hora${h === 1 ? '' : 's'}`;
+        }
+        if (segundos >= 60) {
+            const m = Math.round((segundos / 60) * 10) / 10;
+            return `${m} minuto${m === 1 ? '' : 's'}`;
+        }
+        return `${segundos} segundo${segundos === 1 ? '' : 's'}`;
+    }
+
     /**
      * Por onde se comeca a correr um fluxo que foi disparado à mão.
      *
@@ -544,7 +597,11 @@ export class AutomationEngine {
      * Percorre o grafo a partir de startNodeId até não haver mais aresta de saída,
      * executando nós de ação e escolhendo o branch correto em nós de condição.
      */
-    private static async executeGraph(nodes: FlowNode[], edges: FlowEdge[], startNodeId: string, initialContext: any, empresa_id: number | null, cadeiaFluxos: number[] = [], opts: ExecOpcoes = {}): Promise<any> {
+    /**
+     * Corre o desenho a partir de um bloco. Público porque uma pausa longa é
+     * retomada noutro momento, por quem processa as esperas guardadas.
+     */
+    public static async executeGraph(nodes: FlowNode[], edges: FlowEdge[], startNodeId: string, initialContext: any, empresa_id: number | null, cadeiaFluxos: number[] = [], opts: ExecOpcoes = {}): Promise<any> {
         let context = { ...initialContext };
         let currentNodeId: string | undefined = startNodeId;
         let iterations = 0;
@@ -642,6 +699,45 @@ export class AutomationEngine {
                     registar(node, 'Voltar ao menu', (alvo.data as any)?.pergunta?.slice(0, 40));
                     mensagemDisponivel = false;   // o menu volta a perguntar e espera
                     currentNodeId = alvo.id;
+                    continue;
+                }
+
+                // "Aguardar resposta": pára aqui e continua na mensagem seguinte.
+                // Uma pausa longa não pode ser um temporizador em memória: bastava
+                // uma publicação de código a meio para o resto do fluxo nunca
+                // acontecer, e ninguém dava por isso. Acima de dois minutos a
+                // espera fica guardada e o fluxo continua noutra altura.
+                if (node.data?.actionType === 'DELAY' || node.data?.actionType === 'WAIT') {
+                    const segundos = this.segundosDaPausa(node.data?.config || {});
+                    const seguinte = edges.find(e => e.source === node.id)?.target;
+
+                    if (sim) {
+                        registar(node, 'DELAY', this.pausaPorExtenso(segundos));
+                        currentNodeId = seguinte;
+                        continue;
+                    }
+
+                    if (segundos > ESPERA_EM_MEMORIA_MAX && seguinte && conversationId) {
+                        const guardada = await EsperaFluxoService.guardar({
+                            empresaId: empresa_id, conversationId, automationId: automationId ?? null,
+                            nodeId: seguinte, contexto: context, segundos
+                        });
+                        if (guardada) {
+                            console.log(`[AUTOPILOT] Fluxo em pausa de ${this.pausaPorExtenso(segundos)}; continua no bloco ${seguinte}.`);
+                            return context;
+                        }
+                        // Não foi possível guardar (migração por correr, por exemplo):
+                        // mais vale esperar o máximo que se consegue do que saltar
+                        // a pausa toda e enviar tudo de seguida.
+                        console.warn('[AUTOPILOT] Não foi possível guardar a pausa longa — espera curta em memória.');
+                    }
+
+                    const esperar = Math.min(Math.max(segundos, 0), ESPERA_EM_MEMORIA_MAX);
+                    if (esperar > 0) {
+                        console.log(`[AUTOPILOT] A aguardar ${esperar} segundo(s)...`);
+                        await new Promise(r => setTimeout(r, esperar * 1000));
+                    }
+                    currentNodeId = seguinte;
                     continue;
                 }
 
@@ -810,7 +906,7 @@ export class AutomationEngine {
                 NOTIFY_TEAM: `notificar ${config.destinatario || ''}`, HANDOFF_HUMAN: 'passa a conversa para um humano (bot pausado)',
                 EXTERNAL_REQUEST: `${config.method || 'GET'} ${this.parseString(config.url || '', context)}`,
                 JUMP_TO_WORKFLOW: `salta para o fluxo "${config.target_workflow_nome || ''}"`,
-                DELAY: `espera ${config.segundos ?? (config.minutos ? Number(config.minutos) * 60 : 1)}s`,
+                DELAY: `espera ${this.pausaPorExtenso(this.segundosDaPausa(config))}`,
                 LOG_MESSAGE: texto
             };
             // Os nós de agendamento que só LEEM correm na mesma na simulação, para se

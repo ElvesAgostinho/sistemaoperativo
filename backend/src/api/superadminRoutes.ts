@@ -151,12 +151,10 @@ router.get('/empresas/:id/modulos', requireAuth, requireSuperAdmin, async (req: 
     try {
         const { id } = req.params;
         const db = getClientForUser(req);
-        const { data: row, error } = await db.from('configuracoes').select('valor').eq('empresa_id', id).eq('chave', `modulos_empresa`).single();
-        
-        let modulos = ['hr', 'crm', 'reunioes']; // default básico
-        if (row && row.valor) {
-            modulos = JSON.parse(row.valor);
-        }
+        // A mesma leitura que o login usa — ter aqui uma lista por omissao
+        // diferente fazia o painel mostrar uma coisa e o cliente ver outra.
+        const { LicencaService } = require('../services/LicencaService');
+        const modulos = await LicencaService.modulosDaEmpresa(id);
         res.json({ success: true, modulos });
     } catch (e: any) {
         res.status(500).json({ success: false, error: e.message });

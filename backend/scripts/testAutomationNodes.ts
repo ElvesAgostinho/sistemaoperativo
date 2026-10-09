@@ -331,15 +331,39 @@ async function testGraphNodes() {
         assert(sentWhatsApp.length === 0, 'não devia ter enviado nada');
     });
 
-    await test('DELAY respeita o teto de 15 minutos (timer acelerado no teste)', async () => {
+    await test('DELAY nunca bloqueia o processo por horas (timer acelerado no teste)', async () => {
+        // Uma pausa longa fica guardada e é retomada mais tarde — isso tem testes
+        // seus em testEsperaFluxo.ts. Aqui não há conversa onde a guardar, e o que
+        // importa é que mesmo assim o processo não fica preso duas horas: encurta
+        // para o máximo que se aguenta em memória e segue.
         const realSetTimeout = global.setTimeout;
         const calls: number[] = [];
         (global as any).setTimeout = (fn: any, ms: number) => { calls.push(ms); return realSetTimeout(fn, 0); };
         try {
-            const nodes = [{ id: 'a1', type: 'action', data: { actionType: 'DELAY', config: { minutos: '120' } } }];
+            const nodes = [{ id: 'a1', type: 'action', data: { actionType: 'DELAY', config: { duracao: 2, unidade: 'horas' } } }];
             await runGraph(nodes, [], 'a1', {});
             assert(calls.length === 1, 'setTimeout não foi chamado');
-            assert(calls[0] === 15 * 60000, `esperado teto de 15min (${15 * 60000}ms), veio ${calls[0]}ms`);
+            assert(calls[0] === 120000, `devia encurtar para 2 minutos (120000ms), veio ${calls[0]}ms`);
+        } finally {
+            (global as any).setTimeout = realSetTimeout;
+        }
+    });
+
+    await test('DELAY aceita horas e dias, não só segundos', async () => {
+        // O cliente tinha de calcular à mão quantos segundos são três horas.
+        const realSetTimeout = global.setTimeout;
+        try {
+            for (const [config, segundos] of [
+                [{ duracao: 90, unidade: 'segundos' }, 90],
+                [{ duracao: 1, unidade: 'minutos' }, 60],
+                [{ minutos: '1' }, 60]
+            ] as [any, number][]) {
+                const calls: number[] = [];
+                (global as any).setTimeout = (fn: any, ms: number) => { calls.push(ms); return realSetTimeout(fn, 0); };
+                const nodes = [{ id: 'a1', type: 'action', data: { actionType: 'DELAY', config } }];
+                await runGraph(nodes, [], 'a1', {});
+                assert(calls[0] === segundos * 1000, `${JSON.stringify(config)} devia esperar ${segundos}s, esperou ${calls[0] / 1000}s`);
+            }
         } finally {
             (global as any).setTimeout = realSetTimeout;
         }

@@ -530,51 +530,116 @@ export default function NodeConfigPanel({ node, todosOsNos = [], automations, cu
           )}
 
           {d.actionType === 'DELAY' && (() => {
-            // Compatibilidade com fluxos antigos gravados só com `minutos`.
-            const segundosAtuais = config.segundos !== undefined ? parseInt(config.segundos, 10) : (parseInt(config.minutos || '1', 10) * 60);
-            const presets = [
-              { label: '5 seg', valor: 5 },
-              { label: '15 seg', valor: 15 },
-              { label: '30 seg', valor: 30 },
-              { label: '1 min', valor: 60 },
-              { label: '2 min', valor: 120 },
-              { label: '5 min', valor: 300 },
-              { label: '15 min', valor: 900 },
+            // Os fluxos antigos guardavam `segundos` ou `minutos`; os novos guardam
+            // um número e uma unidade. Tudo isto tem de continuar a abrir bem — há
+            // fluxos gravados das três maneiras.
+            const POR_UNIDADE: Record<string, number> = { segundos: 1, minutos: 60, horas: 3600, dias: 86400 };
+            const lerConfig = () => {
+              if (config.duracao !== undefined && config.unidade) {
+                return { duracao: Number(config.duracao) || 0, unidade: String(config.unidade) };
+              }
+              const seg = config.segundos !== undefined
+                ? parseInt(config.segundos, 10)
+                : (parseInt(config.minutos || '1', 10) * 60);
+              if (!Number.isFinite(seg)) return { duracao: 1, unidade: 'minutos' };
+              if (seg >= 86400 && seg % 86400 === 0) return { duracao: seg / 86400, unidade: 'dias' };
+              if (seg >= 3600 && seg % 3600 === 0) return { duracao: seg / 3600, unidade: 'horas' };
+              if (seg >= 60 && seg % 60 === 0) return { duracao: seg / 60, unidade: 'minutos' };
+              return { duracao: seg, unidade: 'segundos' };
+            };
+            const { duracao, unidade } = lerConfig();
+            const emSegundos = Math.round(duracao * (POR_UNIDADE[unidade] ?? 1));
+
+            const guardar = (d2: number, u: string) =>
+              updateConfig({ duracao: d2, unidade: u, segundos: undefined, minutos: undefined });
+
+            const atalhos = [
+              { label: '30 seg', d: 30, u: 'segundos' },
+              { label: '2 min', d: 2, u: 'minutos' },
+              { label: '15 min', d: 15, u: 'minutos' },
+              { label: '1 hora', d: 1, u: 'horas' },
+              { label: '3 horas', d: 3, u: 'horas' },
+              { label: '1 dia', d: 1, u: 'dias' },
+              { label: '3 dias', d: 3, u: 'dias' },
             ];
+
+            const porExtenso = (seg: number) => {
+              if (seg >= 86400) { const v = Math.round(seg / 8640) / 10; return `${v} dia${v === 1 ? '' : 's'}`; }
+              if (seg >= 3600) { const v = Math.round(seg / 360) / 10; return `${v} hora${v === 1 ? '' : 's'}`; }
+              if (seg >= 60) { const v = Math.round(seg / 6) / 10; return `${v} minuto${v === 1 ? '' : 's'}`; }
+              return `${seg} segundo${seg === 1 ? '' : 's'}`;
+            };
+
+            const guardada = emSegundos > 120;
+
             return (
               <>
-                <label style={labelStyle}>Tempo de espera</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
-                  {presets.map(p => (
-                    <button
-                      key={p.valor}
-                      type="button"
-                      onClick={() => updateConfig({ segundos: p.valor, minutos: undefined })}
-                      style={{
-                        padding: '5px 10px', borderRadius: '999px', fontSize: '12px', cursor: 'pointer',
-                        border: segundosAtuais === p.valor ? '1px solid #0E5A6B' : '1px solid #cbd5e1',
-                        background: segundosAtuais === p.valor ? '#E1EEF0' : '#fff',
-                        color: segundosAtuais === p.valor ? '#0E5A6B' : '#475569',
-                        fontWeight: segundosAtuais === p.valor ? 700 : 500,
-                      }}
-                    >
-                      {p.label}
-                    </button>
-                  ))}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <label style={labelStyle}>Esperar quanto tempo</label>
+
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'stretch', marginBottom: '10px' }}>
                   <input
-                    style={{ ...fieldStyle, width: '100px' }}
+                    style={{ ...fieldStyle, width: '92px', textAlign: 'center', fontSize: '15px', fontWeight: 600 }}
                     type="number"
                     min={1}
-                    max={900}
-                    value={segundosAtuais}
-                    onChange={e => updateConfig({ segundos: e.target.value, minutos: undefined })}
+                    max={unidade === 'dias' ? 30 : unidade === 'horas' ? 72 : unidade === 'minutos' ? 600 : 300}
+                    value={duracao || ''}
+                    onChange={e => guardar(Math.max(1, Number(e.target.value) || 1), unidade)}
                   />
-                  <span style={{ fontSize: '12px', color: '#666' }}>segundos (personalizado)</span>
+                  <select
+                    style={{ ...fieldStyle, flex: 1 }}
+                    value={unidade}
+                    onChange={e => guardar(duracao || 1, e.target.value)}
+                  >
+                    <option value="segundos">segundos</option>
+                    <option value="minutos">minutos</option>
+                    <option value="horas">horas</option>
+                    <option value="dias">dias</option>
+                  </select>
                 </div>
-                <div style={{ marginTop: '10px', fontSize: '11px', color: '#666' }}>
-                  Máximo de 15 minutos (900 segundos) — a espera acontece em memória enquanto a mensagem está a ser processada, sem fila persistente. Varia o tempo entre respostas para não parecer sempre o mesmo robô a esperar 1 minuto. Para esperas mais longas (horas/dias), use um nó "Notificar Equipa" ou "Transferir para Humano" em vez de bloquear o fluxo.
+
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {atalhos.map(a => {
+                    const ativo = emSegundos === Math.round(a.d * POR_UNIDADE[a.u]);
+                    return (
+                      <button
+                        key={a.label}
+                        type="button"
+                        onClick={() => guardar(a.d, a.u)}
+                        style={{
+                          padding: '5px 11px', borderRadius: '999px', fontSize: '12px', cursor: 'pointer',
+                          border: ativo ? '1px solid #0E5A6B' : '1px solid #cbd5e1',
+                          background: ativo ? '#E1EEF0' : '#fff',
+                          color: ativo ? '#0E5A6B' : '#475569',
+                          fontWeight: ativo ? 700 : 500,
+                        }}
+                      >
+                        {a.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div style={{
+                  marginTop: '12px', padding: '11px 13px', borderRadius: '2px',
+                  background: guardada ? '#E1EEF0' : '#f8fafc',
+                  fontSize: '11.5px', lineHeight: 1.65,
+                  color: guardada ? '#0E5A6B' : '#475569'
+                }}>
+                  O fluxo continua <b>{porExtenso(emSegundos)}</b> depois deste bloco.
+                  {guardada ? (
+                    <>
+                      <br /><br />
+                      Esperas acima de dois minutos ficam <b>guardadas</b>: o fluxo continua à hora
+                      certa mesmo que o servidor reinicie pelo meio. Se o cliente escrever entretanto,
+                      a pausa é cancelada — ele seguiu a conversa noutra direção e insistir seria estranho.
+                    </>
+                  ) : (
+                    <>
+                      <br /><br />
+                      Pausas curtas servem para a conversa não parecer um robô a despejar tudo de uma vez.
+                      Varie os tempos entre respostas.
+                    </>
+                  )}
                 </div>
               </>
             );

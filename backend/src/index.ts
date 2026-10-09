@@ -26,6 +26,7 @@ import { EmailSyncService } from './services/EmailSyncService';
 import { CampaignService } from './services/CampaignService';
 import { EmailCampaignService } from './services/EmailCampaignService';
 import { FluxoDisparoService } from './services/FluxoDisparoService';
+import { EsperaFluxoService } from './services/EsperaFluxoService';
 import documentosRoutes from './api/documentosRoutes';
 import { DocumentosService } from './services/DocumentosService';
 import { requireAuth } from './middleware/authMiddleware';
@@ -123,6 +124,14 @@ app.listen(port, () => {
   // numero pessoal a enviar centenas de mensagens seguidas e banido pelo WhatsApp.
   setInterval(() => {
     FluxoDisparoService.processarFila().catch(console.error);
+  }, 20 * 1000);
+
+  // Pausas longas dos fluxos ("esperar 3 horas", "esperar 2 dias"). Sem isto,
+  // uma pausa era um temporizador em memoria: qualquer reinicio apagava-a e o
+  // resto do fluxo nunca acontecia — sem erro nenhum, simplesmente nao saia
+  // mais nada. Agora fica guardada e e aqui que se retoma.
+  setInterval(() => {
+    EsperaFluxoService.processarFila().catch(console.error);
   }, 20 * 1000);
 
   // Documentos que ficaram a meio (ex: o servidor reiniciou durante a leitura
