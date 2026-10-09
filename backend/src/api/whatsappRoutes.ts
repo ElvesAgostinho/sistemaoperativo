@@ -97,6 +97,111 @@ async function downloadMediaFromEvolution(instanceName: string, msg: any, tentat
 // ==============================================================
 
 /**
+ * Lê o que uma mensagem do WhatsApp diz — texto, legenda, ou o ficheiro que
+ * traz (foto, vídeo, áudio, documento, sticker).
+ *
+ * Vive aqui, fora do webhook, porque é precisa nos dois caminhos: nas mensagens
+ * que chegam ao vivo e na importação do histórico de uma conversa. Tê-la em dois
+ * sítios era garantir que um deles ficava para trás — por exemplo a mostrar
+ * "[Áudio]" em vez de deixar ouvir.
+ *
+ * A legenda real e o marcador interno [MEDIA_URL:...] nunca se misturam com o
+ * texto de reserva ([Imagem], [Áudio]): esse só aparece sozinho quando o
+ * download falha mesmo, para o ecrã saber mostrar "ficheiro indisponível".
+ */
+async function extrairConteudo(
+    msg: any,
+    instanceName?: string
+): Promise<{ content: string; mediaUrl: string | null; mediaType: string | null; mediaFilename: string | null }> {
+    let content: string = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
+        let mediaUrl: string | null = null;
+        let mediaType: string | null = null;
+        let mediaFilename: string | null = null;
+        
+        if (!content) {
+            // Tentar ler base64 inline primeiro (quando Evolution envia directamente)
+            const b64 = msg.message?.base64 || msg.base64 ||
+                msg.message?.imageMessage?.base64 ||
+                msg.message?.videoMessage?.base64 ||
+                msg.message?.audioMessage?.base64 ||
+                msg.message?.documentMessage?.base64 ||
+                msg.message?.stickerMessage?.base64;
+
+            // Nota: a legenda (caption) real do WhatsApp e o marcador interno
+            // [MEDIA_URL:...] nunca se misturam com o placeholder ([Imagem],
+            // [Áudio], etc.) — esse placeholder só aparece sozinho quando o
+            // download/upload da mídia falha de facto (ex: erro a decifrar
+            // um áudio na Evolution API), para o frontend saber mostrar um
+            // estado "mídia indisponível" em vez de texto em bruto.
+            if (msg.message?.imageMessage) {
+                const mime = msg.message.imageMessage.mimetype || 'image/jpeg';
+                const fname = 'imagem.jpg';
+                const caption = msg.message.imageMessage.caption || '';
+                mediaType = 'image';
+                mediaFilename = fname;
+                if (b64) {
+                    mediaUrl = await uploadMediaToStorage(b64, fname, mime);
+                } else if (instanceName) {
+                    // Tem de ser a mensagem completa (com `.key` lá dentro), não só o
+                    // `.key` sozinho — a Evolution espera `{ message: { key: {...} } }`.
+                    const dl = await downloadMediaFromEvolution(instanceName, msg);
+                    if (dl) mediaUrl = await uploadMediaToStorage(dl.base64, fname, dl.mimeType);
+                }
+                content = mediaUrl ? [caption, `[MEDIA_URL:${mediaUrl}]`].filter(Boolean).join('\n') : (caption || '[Imagem]');
+            } else if (msg.message?.videoMessage) {
+                const mime = msg.message.videoMessage.mimetype || 'video/mp4';
+                const fname = `video_${Date.now()}.mp4`;
+                const caption = msg.message.videoMessage.caption || '';
+                mediaType = 'video';
+                mediaFilename = fname;
+                if (b64) {
+                    mediaUrl = await uploadMediaToStorage(b64, fname, mime);
+                } else if (instanceName) {
+                    const dl = await downloadMediaFromEvolution(instanceName, msg);
+                    if (dl) mediaUrl = await uploadMediaToStorage(dl.base64, fname, dl.mimeType);
+                }
+                content = mediaUrl ? [caption, `[MEDIA_URL:${mediaUrl}]`].filter(Boolean).join('\n') : (caption || '[Vídeo]');
+            } else if (msg.message?.audioMessage) {
+                const mime = msg.message.audioMessage.mimetype || 'audio/ogg';
+                const fname = `audio_${Date.now()}.ogg`;
+                mediaType = 'audio';
+                mediaFilename = fname;
+                if (b64) {
+                    mediaUrl = await uploadMediaToStorage(b64, fname, mime);
+                } else if (instanceName) {
+                    const dl = await downloadMediaFromEvolution(instanceName, msg);
+                    if (dl) mediaUrl = await uploadMediaToStorage(dl.base64, fname, dl.mimeType);
+                }
+                content = mediaUrl ? `[MEDIA_URL:${mediaUrl}]` : '[Áudio]';
+            } else if (msg.message?.documentMessage) {
+                const originalName = msg.message.documentMessage.fileName || 'ficheiro';
+                const mime = msg.message.documentMessage.mimetype || 'application/octet-stream';
+                const caption = msg.message.documentMessage.caption || '';
+                mediaType = 'document';
+                mediaFilename = originalName;
+                if (b64) {
+                    mediaUrl = await uploadMediaToStorage(b64, originalName, mime);
+                } else if (instanceName) {
+                    const dl = await downloadMediaFromEvolution(instanceName, msg);
+                    if (dl) mediaUrl = await uploadMediaToStorage(dl.base64, originalName, dl.mimeType);
+                }
+                content = mediaUrl ? [caption, `[MEDIA_URL:${mediaUrl}]`].filter(Boolean).join('\n') : `[Documento] ${originalName}`;
+            } else if (msg.message?.stickerMessage) {
+                mediaType = 'image';
+                if (b64) mediaUrl = await uploadMediaToStorage(b64, 'sticker.webp', 'image/webp');
+                content = mediaUrl ? `[MEDIA_URL:${mediaUrl}]` : '[Sticker]';
+            } else if (msg.message?.locationMessage) {
+                content = '[Localização]';
+            } else if (Object.keys(msg.message || {}).length > 0) {
+                content = '[Media]';
+            }
+        }
+    
+    return { content, mediaUrl, mediaType, mediaFilename };
+}
+
+
+/**
  * Webhook para Evolution API
  * Evolution envia os eventos em POST para esta rota
  */
@@ -146,11 +251,22 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
             else if (body.data) msgs = [body.data];
             
             for (const msg of msgs) {
-                // Ignorar mensagens enviadas por nós mesmos
                 if (!msg?.key) continue;
-                if (msg.key.fromMe) continue;
+
+                // Mensagens que o próprio utilizador escreveu (do telemóvel ou da
+                // app) também fazem parte da conversa. Eram deitadas fora aqui, e
+                // por isso o inbox só mostrava um lado do diálogo: as respostas do
+                // dono — texto, áudios, fotos — nunca apareciam.
+                //
+                // Entram como "outbound" e NÃO passam pelos fluxos do Autopilot:
+                // responder à nossa própria mensagem seria um ciclo sem fim.
+                const souEu = !!msg.key.fromMe;
 
                 if (msg.key.remoteJid?.includes('@g.us')) {
+                    // Nos grupos continuamos a tratar só o que os outros escrevem:
+                    // o serviço de grupos reage a mensagens, e reagir às nossas
+                    // próprias criaria respostas em cadeia.
+                    if (souEu) continue;
                     try {
                         const groupContent = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
                         if (groupContent.trim()) {
@@ -183,94 +299,20 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                     phoneNumber = phoneNumber.replace(/\D/g, '');
                 }
 
-                // FIX #6 — Processar conteúdo de mídia com download se necessário
-                let content = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
-                let mediaUrl: string | null = null;
-                let mediaType: string | null = null;
-                let mediaFilename: string | null = null;
+                // O que esta mensagem diz, seja texto, foto, áudio ou ficheiro.
                 const instanceName = body.instance || req.body?.instance;
-                
-                if (!content) {
-                    // Tentar ler base64 inline primeiro (quando Evolution envia directamente)
-                    const b64 = msg.message?.base64 || msg.base64 ||
-                        msg.message?.imageMessage?.base64 ||
-                        msg.message?.videoMessage?.base64 ||
-                        msg.message?.audioMessage?.base64 ||
-                        msg.message?.documentMessage?.base64 ||
-                        msg.message?.stickerMessage?.base64;
+                const lido = await extrairConteudo(msg, instanceName);
+                let content = lido.content;
+                const mediaUrl = lido.mediaUrl;
+                const mediaType = lido.mediaType;
+                const mediaFilename = lido.mediaFilename;
 
-                    // Nota: a legenda (caption) real do WhatsApp e o marcador interno
-                    // [MEDIA_URL:...] nunca se misturam com o placeholder ([Imagem],
-                    // [Áudio], etc.) — esse placeholder só aparece sozinho quando o
-                    // download/upload da mídia falha de facto (ex: erro a decifrar
-                    // um áudio na Evolution API), para o frontend saber mostrar um
-                    // estado "mídia indisponível" em vez de texto em bruto.
-                    if (msg.message?.imageMessage) {
-                        const mime = msg.message.imageMessage.mimetype || 'image/jpeg';
-                        const fname = 'imagem.jpg';
-                        const caption = msg.message.imageMessage.caption || '';
-                        mediaType = 'image';
-                        mediaFilename = fname;
-                        if (b64) {
-                            mediaUrl = await uploadMediaToStorage(b64, fname, mime);
-                        } else if (instanceName) {
-                            // Tem de ser a mensagem completa (com `.key` lá dentro), não só o
-                            // `.key` sozinho — a Evolution espera `{ message: { key: {...} } }`.
-                            const dl = await downloadMediaFromEvolution(instanceName, msg);
-                            if (dl) mediaUrl = await uploadMediaToStorage(dl.base64, fname, dl.mimeType);
-                        }
-                        content = mediaUrl ? [caption, `[MEDIA_URL:${mediaUrl}]`].filter(Boolean).join('\n') : (caption || '[Imagem]');
-                    } else if (msg.message?.videoMessage) {
-                        const mime = msg.message.videoMessage.mimetype || 'video/mp4';
-                        const fname = `video_${Date.now()}.mp4`;
-                        const caption = msg.message.videoMessage.caption || '';
-                        mediaType = 'video';
-                        mediaFilename = fname;
-                        if (b64) {
-                            mediaUrl = await uploadMediaToStorage(b64, fname, mime);
-                        } else if (instanceName) {
-                            const dl = await downloadMediaFromEvolution(instanceName, msg);
-                            if (dl) mediaUrl = await uploadMediaToStorage(dl.base64, fname, dl.mimeType);
-                        }
-                        content = mediaUrl ? [caption, `[MEDIA_URL:${mediaUrl}]`].filter(Boolean).join('\n') : (caption || '[Vídeo]');
-                    } else if (msg.message?.audioMessage) {
-                        const mime = msg.message.audioMessage.mimetype || 'audio/ogg';
-                        const fname = `audio_${Date.now()}.ogg`;
-                        mediaType = 'audio';
-                        mediaFilename = fname;
-                        if (b64) {
-                            mediaUrl = await uploadMediaToStorage(b64, fname, mime);
-                        } else if (instanceName) {
-                            const dl = await downloadMediaFromEvolution(instanceName, msg);
-                            if (dl) mediaUrl = await uploadMediaToStorage(dl.base64, fname, dl.mimeType);
-                        }
-                        content = mediaUrl ? `[MEDIA_URL:${mediaUrl}]` : '[Áudio]';
-                    } else if (msg.message?.documentMessage) {
-                        const originalName = msg.message.documentMessage.fileName || 'ficheiro';
-                        const mime = msg.message.documentMessage.mimetype || 'application/octet-stream';
-                        const caption = msg.message.documentMessage.caption || '';
-                        mediaType = 'document';
-                        mediaFilename = originalName;
-                        if (b64) {
-                            mediaUrl = await uploadMediaToStorage(b64, originalName, mime);
-                        } else if (instanceName) {
-                            const dl = await downloadMediaFromEvolution(instanceName, msg);
-                            if (dl) mediaUrl = await uploadMediaToStorage(dl.base64, originalName, dl.mimeType);
-                        }
-                        content = mediaUrl ? [caption, `[MEDIA_URL:${mediaUrl}]`].filter(Boolean).join('\n') : `[Documento] ${originalName}`;
-                    } else if (msg.message?.stickerMessage) {
-                        mediaType = 'image';
-                        if (b64) mediaUrl = await uploadMediaToStorage(b64, 'sticker.webp', 'image/webp');
-                        content = mediaUrl ? `[MEDIA_URL:${mediaUrl}]` : '[Sticker]';
-                    } else if (msg.message?.locationMessage) {
-                        content = '[Localização]';
-                    } else if (Object.keys(msg.message || {}).length > 0) {
-                        content = '[Media]';
-                    }
-                }
-                
                 // FIX #1 — Usar número limpo (phoneNumber) para buscar perfil, não o JID raw
-                let contactName = msg.pushName || body.data?.pushName || msg.message?.pushName || '';
+                //
+                // Numa mensagem nossa, o pushName é o NOSSO nome, não o de quem está
+                // do outro lado. Usá-lo aqui renomeava a conversa do cliente com o
+                // nome do dono da empresa.
+                let contactName = souEu ? '' : (msg.pushName || body.data?.pushName || msg.message?.pushName || '');
                 if (!contactName && phoneNumber && !phoneNumber.includes('@lid')) {
                     const evolutionUrl = process.env.EVOLUTION_API_URL || 'https://evolution.topconsultores.pt';
                     const apikey = process.env.AUTHENTICATION_API_KEY || '';
@@ -331,16 +373,28 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                     continue;
                 }
 
+                // Uma mensagem enviada pela própria app já foi gravada pela rota
+                // /send com o id que o WhatsApp devolveu. O webhook traz essa mesma
+                // mensagem de volta como "minha" — sem esta verificação, cada
+                // mensagem enviada pelo sistema aparecia duas vezes no inbox.
+                if (souEu && msg.key.id) {
+                    const { data: jaGravada } = await supabase.from('wa_messages')
+                        .select('id').eq('message_id', msg.key.id).maybeSingle();
+                    if (jaGravada) continue;
+                }
+
                 // Não aguardamos aqui: se a automação tiver um nó "Aguardar", esperar por
                 // ela deixaria o webhook pendente e o Evolution/Meta poderiam reenviar o
                 // evento por timeout. O processamento continua em background.
+                // (Para as nossas próprias mensagens o motor só grava e sai — não corre
+                // nenhum fluxo, porque a direção não é "inbound".)
                 AutomationEngine.processIncomingWhatsAppMessage({
                     channel_id: channelId,
                     phone_number: phoneNumber,
                     contact_name: contactName,
                     contact_picture: contactPicture,
                     content: content,
-                    direction: 'inbound',
+                    direction: souEu ? 'outbound' : 'inbound',
                     id: msg.key.id
                 }).catch(err => console.error('[Webhook Evolution] Erro no processamento assíncrono do Automation Engine:', err));
 
@@ -348,7 +402,7 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                 // PDF enviado para o WhatsApp da empresa vai para a fila de arquivo.
                 // Só imagens e documentos (não áudio/vídeo/stickers), e só para
                 // empresas com o módulo e com a captura por WhatsApp ligada.
-                if (mediaUrl && (mediaType === 'image' || mediaType === 'document') && !msg.message?.stickerMessage) {
+                if (!souEu && mediaUrl && (mediaType === 'image' || mediaType === 'document') && !msg.message?.stickerMessage) {
                     capturarMediaParaDocumentos(channelId, mediaUrl, mediaFilename || 'ficheiro', msg.key.id, contactName, phoneNumber)
                         .catch(err => console.error('[Webhook Evolution] Falha a capturar para Documentos:', err?.message));
                 }
@@ -686,6 +740,96 @@ router.delete('/evolution/instance/logout', requireAuth, async (req: AuthRequest
         return res.json({ success: true, cleared: true });
     } catch (e: any) {
         return res.status(500).json({ error: e.message });
+    }
+});
+
+/**
+ * Traz para dentro o histórico de uma conversa, dos dois lados.
+ *
+ * Até agora só se guardava o que ia entrando ao vivo — e, pior, só o que os
+ * outros escreviam. Quem abrisse uma conversa antiga via metade do diálogo.
+ * Isto vai ao WhatsApp buscar as mensagens que faltam e grava-as com a direção
+ * certa, incluindo os áudios e as fotos.
+ *
+ * As mensagens que já cá estão são deixadas em paz (comparadas pelo id), por
+ * isso correr isto duas vezes não duplica nada.
+ */
+router.post('/evolution/sync-mensagens', requireAuth, async (req: AuthRequest, res: Response) => {
+    const empresaId = req.user?.empresa_id;
+    const { conversation_id, limite } = req.body || {};
+    if (!empresaId) return res.status(400).json({ error: 'Utilizador sem empresa associada.' });
+    if (!conversation_id) return res.status(400).json({ error: 'Indique a conversa.' });
+
+    const client = getSupabase(req);
+    const { data: conv } = await client.from('wa_conversations')
+        .select('id, phone_number, channel_id').eq('id', conversation_id).eq('empresa_id', empresaId).maybeSingle();
+    if (!conv) return res.status(404).json({ error: 'Conversa não encontrada.' });
+
+    const instanceName = `SISTEMA_EMP_${empresaId}`;
+    const apiUrl = process.env.EVOLUTION_API_URL || 'https://evolution.topconsultores.pt';
+    const apiKey = process.env.AUTHENTICATION_API_KEY || '';
+    const jid = `${String(conv.phone_number).replace(/\D/g, '')}@s.whatsapp.net`;
+    const quantas = Math.min(Math.max(Number(limite) || 100, 1), 300);
+
+    try {
+        const r = await fetch(`${apiUrl}/chat/findMessages/${instanceName}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', apikey: apiKey },
+            body: JSON.stringify({ where: { key: { remoteJid: jid } }, limit: quantas })
+        });
+        if (!r.ok) {
+            return res.status(502).json({ error: `O WhatsApp não devolveu o histórico (${r.status}).` });
+        }
+        const corpo = await r.json();
+
+        // Conforme a versão, a Evolution devolve uma lista, ou {messages:{records:[]}}.
+        const lista: any[] = Array.isArray(corpo) ? corpo
+            : Array.isArray(corpo?.messages?.records) ? corpo.messages.records
+            : Array.isArray(corpo?.messages) ? corpo.messages
+            : Array.isArray(corpo?.records) ? corpo.records
+            : [];
+
+        if (lista.length === 0) return res.json({ success: true, importadas: 0, total: 0 });
+
+        // Quem já cá está fica como está — uma só ida à base de dados em vez de
+        // uma por mensagem.
+        const ids = lista.map(m => m?.key?.id).filter(Boolean);
+        const { data: existentes } = await client.from('wa_messages')
+            .select('message_id').eq('conversation_id', conv.id).in('message_id', ids);
+        const jaTemos = new Set((existentes || []).map((x: any) => x.message_id));
+
+        const novas: any[] = [];
+        for (const msg of lista) {
+            const id = msg?.key?.id;
+            if (!id || jaTemos.has(id)) continue;
+
+            const lido = await extrairConteudo(msg, instanceName);
+            if (!lido.content) continue;
+
+            const quando = msg.messageTimestamp
+                ? new Date(Number(msg.messageTimestamp) * 1000).toISOString()
+                : new Date().toISOString();
+
+            novas.push({
+                conversation_id: conv.id,
+                message_id: id,
+                direction: msg.key?.fromMe ? 'outbound' : 'inbound',
+                content: lido.content,
+                status: msg.key?.fromMe ? 'delivered' : 'received',
+                created_at: quando
+            });
+        }
+
+        if (novas.length) {
+            const { error } = await client.from('wa_messages').insert(novas);
+            if (error) throw error;
+        }
+
+        console.log(`[sync-mensagens] Conversa ${conv.phone_number}: ${novas.length} mensagens novas de ${lista.length} lidas.`);
+        return res.json({ success: true, importadas: novas.length, total: lista.length });
+    } catch (e: any) {
+        console.error('[sync-mensagens] Erro:', e?.message || e);
+        return res.status(500).json({ error: e?.message || 'Não foi possível trazer o histórico.' });
     }
 });
 

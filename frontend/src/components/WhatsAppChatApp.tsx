@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { MessageSquare, Phone, MoreVertical, Search, Paperclip, Smile, Send, Bot, Settings, QrCode, Key, Plus, UserPlus, ClipboardList, Filter, Check, CheckCheck, Clock, AlertCircle, Users, Megaphone, Play, Pause, LayoutTemplate } from 'lucide-react';
+import { MessageSquare, Phone, MoreVertical, Search, Paperclip, Smile, Send, Bot, Settings, QrCode, Key, Plus, UserPlus, ClipboardList, Filter, Check, CheckCheck, Clock, AlertCircle, Users, Megaphone, Play, Pause, LayoutTemplate, History } from 'lucide-react';
 import EmojiPicker from 'emoji-picker-react';
 import { createClient } from '@supabase/supabase-js';
 import WhatsAppGruposApp from './WhatsAppGruposApp';
@@ -168,6 +168,8 @@ export default function WhatsAppChatApp() {
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [activeConv, setActiveConv] = useState<Conversation | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
+    const [aImportar, setAImportar] = useState(false);
+    const [avisoHistorico, setAvisoHistorico] = useState('');
     // Guarda o id da conversa activa "no instante" — usado para descartar
     // respostas de fetch que cheguem atrasadas de uma conversa já trocada.
     const activeConvIdRef = useRef<string | null>(null);
@@ -645,6 +647,39 @@ export default function WhatsAppChatApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeConv?.id]);
 
+    /**
+     * Traz as mensagens antigas desta conversa que nunca chegaram a ser gravadas.
+     * Faz falta porque, durante muito tempo, o que o utilizador enviava era
+     * deitado fora à chegada — as conversas antigas ficaram só com um lado.
+     */
+    async function importarHistorico() {
+        if (!activeConv || aImportar) return;
+        setAImportar(true);
+        setAvisoHistorico('');
+        try {
+            const token = localStorage.getItem('os_auth_token');
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/whatsapp/evolution/sync-mensagens`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ conversation_id: activeConv.id, limite: 200 })
+            });
+            const d = await res.json();
+            if (!res.ok || !d.success) {
+                setAvisoHistorico(d.error || 'Não foi possível trazer o histórico.');
+            } else if (d.importadas === 0) {
+                setAvisoHistorico('Já está tudo cá — não havia mensagens em falta.');
+            } else {
+                setAvisoHistorico(`${d.importadas} mensagem(ns) recuperada(s).`);
+                await fetchMessages();
+            }
+        } catch {
+            setAvisoHistorico('Não foi possível falar com o servidor.');
+        } finally {
+            setAImportar(false);
+            setTimeout(() => setAvisoHistorico(''), 6000);
+        }
+    }
+
     async function fetchMessages() {
         if (!activeConv) return;
         const convId = activeConv.id;
@@ -1109,6 +1144,14 @@ export default function WhatsAppChatApp() {
                             
                             {/* Top Actions */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <button
+                                    onClick={importarHistorico}
+                                    disabled={aImportar}
+                                    title="Ir buscar ao WhatsApp as mensagens antigas desta conversa que faltam aqui"
+                                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', backgroundColor: '#D5D7DA', color: '#5B738B', border: 'none', borderRadius: '2px', cursor: aImportar ? 'wait' : 'pointer', fontSize: '13px', fontWeight: 500 }}
+                                >
+                                    <History size={16} /> {aImportar ? 'A recuperar...' : 'Recuperar histórico'}
+                                </button>
                                 {currentUser && (currentUser.role === 'admin' || currentUser.role === 'supervisor' || currentUser.role === 'superadmin') && (
                                     <>
                                         <button 
@@ -1149,6 +1192,11 @@ export default function WhatsAppChatApp() {
                         </div>
 
                         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 40px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {avisoHistorico && (
+                                <div style={{ alignSelf: 'center', backgroundColor: '#E1EEF0', color: '#0E5A6B', fontSize: '12.5px', padding: '6px 14px', borderRadius: '2px' }}>
+                                    {avisoHistorico}
+                                </div>
+                            )}
                             {messages.map(msg => (
                                 <div key={msg.id} style={{ alignSelf: msg.direction === 'outbound' ? 'flex-end' : 'flex-start', maxWidth: '65%' }}>
                                     <div style={{ 
