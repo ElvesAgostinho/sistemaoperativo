@@ -1151,7 +1151,7 @@ export default function WhatsAppChatApp() {
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', backgroundImage: 'url(https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png)', backgroundRepeat: 'repeat', backgroundColor: '#F5F6F7' }}>
                 {currentView === 'chats' && activeConv ? (
                     <>
-                        <div className="wa-topo" style={{ padding: '10px 16px', backgroundColor: '#F5F6F7', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '59px', gap: '12px', flexShrink: 0, overflow: 'hidden' }}>
+                        <div className="wa-topo" style={{ padding: '10px 16px', backgroundColor: '#F5F6F7', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '59px', gap: '12px', flexShrink: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
                                 <div
                                     onClick={() => setFichaAberta(v => !v)}
@@ -1546,6 +1546,10 @@ export default function WhatsAppChatApp() {
                    com pouco espaco e os botoes de cima saiam de vista. Em vez de
                    desaparecerem, encolhem — primeiro o rotulo do bot, depois o
                    nome do fluxo, ficando sempre os icones clicaveis. */
+                /* Sem overflow:hidden aqui. Os menus do cabecalho (escolher fluxo,
+                   tres pontos) abrem por baixo com position:absolute — cortar o que
+                   sai da barra fazia-os desaparecer por completo. O nome do contacto
+                   corta-se sozinho, com overflow no proprio texto. */
                 .wa-topo { container-type: inline-size; }
                 @container (max-width: 620px) {
                     .wa-bot-rotulo { display: none; }
