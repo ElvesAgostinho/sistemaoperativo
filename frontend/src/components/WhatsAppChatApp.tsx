@@ -168,6 +168,35 @@ function VoiceNotePlayer({ src, outbound }: { src: string; outbound: boolean }) 
     );
 }
 
+/** Dois dias diferentes? Entao vai um separador entre as mensagens. */
+function mudouDeDia(lista: Message[], i: number): boolean {
+    if (i === 0) return true;
+    const dia = (x: any) => new Date(x.created_at).toDateString();
+    return dia(lista[i]) !== dia(lista[i - 1]);
+}
+
+/** "Hoje", "Ontem", ou a data — como no WhatsApp. */
+function rotuloDoDia(iso: string): string {
+    const d = new Date(iso);
+    const hoje = new Date();
+    const ontem = new Date(); ontem.setDate(ontem.getDate() - 1);
+    const igual = (a: Date, b: Date) => a.toDateString() === b.toDateString();
+    if (igual(d, hoje)) return 'Hoje';
+    if (igual(d, ontem)) return 'Ontem';
+    return d.toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' });
+}
+
+/**
+ * So a primeira mensagem de uma sequencia do mesmo lado leva bico — e assim que
+ * o WhatsApp agrupa, e e o que faz uma conversa parecer uma conversa em vez de
+ * uma lista de caixas soltas.
+ */
+function primeiroDoGrupo(lista: Message[], i: number): boolean {
+    if (i === 0) return true;
+    if (mudouDeDia(lista, i)) return true;
+    return lista[i].direction !== lista[i - 1].direction;
+}
+
 export default function WhatsAppChatApp() {
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [activeConv, setActiveConv] = useState<Conversation | null>(null);
@@ -874,6 +903,114 @@ export default function WhatsAppChatApp() {
 
     return (
         <div style={{ display: 'flex', height: '100%', width: '100%', backgroundColor: '#F5F6F7' }}>
+        {/* Estilos da conversa. Vivem aqui, no que esta sempre montado:
+            estavam dentro do <style> do spinner do QR Code, que so existe
+            enquanto se gera o codigo — por isso nunca chegavam a aplicar-se. */}
+        <style>{`
+                /* O cabecalho da conversa mede-se a si proprio: com a ficha do
+                   contacto aberta numa janela estreita, a coluna da conversa fica
+                   com pouco espaco e os botoes de cima saiam de vista. Em vez de
+                   desaparecerem, encolhem — primeiro o rotulo do bot, depois o
+                   nome do fluxo, ficando sempre os icones clicaveis. */
+                /* Sem overflow:hidden aqui. Os menus do cabecalho (escolher fluxo,
+                   tres pontos) abrem por baixo com position:absolute — cortar o que
+                   sai da barra fazia-os desaparecer por completo. O nome do contacto
+                   corta-se sozinho, com overflow no proprio texto. */
+                .wa-topo { container-type: inline-size; }
+                @container (max-width: 620px) {
+                    .wa-bot-rotulo { display: none; }
+                }
+                @container (max-width: 500px) {
+                    .wa-topo-accoes .wa-fluxo-nome { display: none; }
+                }
+
+                /* ---------- Balões da conversa ----------
+                   O desenho é o do WhatsApp de propósito: é onde as pessoas
+                   passam o dia, e qualquer coisa diferente parece errada. As
+                   nossas mensagens ficam em verde à direita, as do cliente em
+                   branco à esquerda, cada grupo com o seu bico. */
+                .wa-linha {
+                    max-width: 65%;
+                    margin-bottom: 2px;
+                    position: relative;
+                }
+                .wa-linha.wa-minha { align-self: flex-end; }
+                .wa-linha.wa-dele  { align-self: flex-start; }
+                /* Espaço entre grupos, não entre cada mensagem. */
+                .wa-linha.wa-com-bico { margin-top: 10px; }
+
+                .wa-balao {
+                    position: relative;
+                    padding: 6px 9px 8px 9px;
+                    border-radius: 7.5px;
+                    box-shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
+                    word-break: break-word;
+                }
+                .wa-minha .wa-balao { background: #d9fdd3; }
+                .wa-dele  .wa-balao { background: #ffffff; }
+
+                /* O canto do lado do bico fica direito, como no original. */
+                .wa-minha.wa-com-bico .wa-balao { border-top-right-radius: 0; }
+                .wa-dele.wa-com-bico  .wa-balao { border-top-left-radius: 0; }
+
+                /* O bico, desenhado com bordas — sem imagens nem SVG. */
+                .wa-com-bico .wa-balao::before {
+                    content: '';
+                    position: absolute;
+                    top: 0;
+                    width: 0;
+                    height: 0;
+                    border: 10px solid transparent;
+                }
+                .wa-minha.wa-com-bico .wa-balao::before {
+                    right: -9px;
+                    border-top-color: #d9fdd3;
+                    border-right: 0;
+                    border-bottom: 0;
+                }
+                .wa-dele.wa-com-bico .wa-balao::before {
+                    left: -9px;
+                    border-top-color: #ffffff;
+                    border-left: 0;
+                    border-bottom: 0;
+                }
+
+                /* Um balao que so tem uma imagem ou um video cola-a as bordas:
+                   e assim no WhatsApp, e a moldura branca a toda a volta dava
+                   um ar de caixa dentro de caixa. */
+                .wa-balao:has(> div > .wa-media:only-child) { padding: 3px 3px 5px 3px; }
+
+                /* A hora encosta-se ao canto e o texto desvia-se dela. */
+                .wa-rodape {
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+                    justify-content: flex-end;
+                    margin-top: -4px;
+                    margin-left: 8px;
+                    float: right;
+                    position: relative;
+                    top: 4px;
+                }
+                .wa-balao::after { content: ''; display: block; clear: both; }
+
+                /* ---------- Separador de dia ---------- */
+                .wa-dia {
+                    align-self: center;
+                    margin: 14px 0 6px;
+                }
+                .wa-dia span {
+                    display: inline-block;
+                    background: #ffffff;
+                    color: #54656f;
+                    font-size: 12.5px;
+                    font-weight: 500;
+                    padding: 5px 12px;
+                    border-radius: 7.5px;
+                    box-shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
+                    text-transform: none;
+                }
+`}</style>
 
             <div style={{ width: '30%', minWidth: '300px', borderRight: '1px solid #D5D7DA', display: 'flex', flexDirection: 'column', backgroundColor: 'white' }}>
                 <div style={{ padding: '10px 16px', backgroundColor: '#F5F6F7', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '59px', borderBottom: '1px solid #D5D7DA' }}>
@@ -1220,22 +1357,22 @@ export default function WhatsAppChatApp() {
                             </div>
                         </div>
 
-                        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 40px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <div style={{ flex: 1, overflowY: 'auto', padding: '14px 7%', display: 'flex', flexDirection: 'column' }}>
                             {avisoHistorico && (
                                 <div style={{ alignSelf: 'center', backgroundColor: '#E1EEF0', color: '#0E5A6B', fontSize: '12.5px', padding: '6px 14px', borderRadius: '2px' }}>
                                     {avisoHistorico}
                                 </div>
                             )}
-                            {messages.map(msg => (
-                                <div key={msg.id} style={{ alignSelf: msg.direction === 'outbound' ? 'flex-end' : 'flex-start', maxWidth: '65%' }}>
-                                    <div style={{ 
-                                        backgroundColor: msg.direction === 'outbound' ? '#E1EEF0' : 'white', 
-                                        padding: '6px 12px', 
-                                        borderRadius: '2px', 
-                                        boxShadow: '0 1px 0.5px rgba(11,20,26,.13)',
-                                        position: 'relative'
-                                    }}>
-                                        <div style={{ fontSize: '14.2px', color: '#1D2D3E', lineHeight: '19px', paddingRight: '40px', wordWrap: 'break-word', whiteSpace: 'pre-wrap' }}>
+                            {messages.map((msg, i) => (
+                                <React.Fragment key={msg.id}>
+                                {mudouDeDia(messages, i) && (
+                                    <div className="wa-dia"><span>{rotuloDoDia(msg.created_at)}</span></div>
+                                )}
+                                <div
+                                    className={`wa-linha ${msg.direction === 'outbound' ? 'wa-minha' : 'wa-dele'}${primeiroDoGrupo(messages, i) ? ' wa-com-bico' : ''}`}
+                                >
+                                    <div className="wa-balao">
+                                        <div style={{ fontSize: '14.2px', color: '#111b21', lineHeight: '19px', wordWrap: 'break-word', whiteSpace: 'pre-wrap' }}>
                                             {(() => {
                                                 const content = msg.content || '';
 
@@ -1251,9 +1388,9 @@ export default function WhatsAppChatApp() {
 
                                                     let mediaEl = null;
                                                     if (isImage) {
-                                                        mediaEl = <img src={url} alt="media" style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '2px', marginTop: cleanText ? '8px' : '0', cursor: 'pointer' }} onClick={() => window.open(url, '_blank')} />;
+                                                        mediaEl = <img className="wa-media" src={url} alt="media" style={{ maxWidth: '100%', maxHeight: '320px', borderRadius: '6px', marginTop: cleanText ? '6px' : '0', cursor: 'pointer', display: 'block' }} onClick={() => window.open(url, '_blank')} />;
                                                     } else if (isVideo) {
-                                                        mediaEl = <video src={url} controls style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '2px', marginTop: cleanText ? '8px' : '0' }} />;
+                                                        mediaEl = <video className="wa-media" src={url} controls style={{ maxWidth: '100%', maxHeight: '320px', borderRadius: '6px', marginTop: cleanText ? '6px' : '0', display: 'block' }} />;
                                                     } else if (isAudio) {
                                                         mediaEl = <VoiceNotePlayer src={url} outbound={msg.direction === 'outbound'} />;
                                                     } else {
@@ -1308,21 +1445,20 @@ export default function WhatsAppChatApp() {
                                                 return content;
                                             })()}
                                         </div>
-                                        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                                        <div className="wa-rodape">
                                             {msg.direction === 'outbound' && msg.agent_id && (
-                                                <span style={{ fontSize: '10px', color: '#5B738B', marginRight: 'auto', fontStyle: 'italic' }}>
+                                                <span style={{ fontSize: '10.5px', color: '#667781', marginRight: 'auto', fontStyle: 'italic' }}>
                                                     {agents.find(a => a.id === msg.agent_id)?.nome || 'Agente'}
                                                 </span>
                                             )}
-                                            <span style={{ fontSize: '11px', color: '#5B738B', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            <span style={{ fontSize: '11px', color: '#667781', display: 'inline-flex', alignItems: 'center', gap: '3px', whiteSpace: 'nowrap' }}>
                                                 {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 {msg.direction === 'outbound' && (
                                                     <>
-                                                        {msg.status === 'sending' && <Clock size={12} color="#8996A3" />}
-                                                        {msg.status === 'sent' && <Check size={14} color="#8996A3" />}
-                                                        {(msg.status === 'delivered' || msg.status === 'read' || !msg.status) && (
-                                                            <CheckCheck size={15} color={(msg.status === 'read' || msg.status === 'delivered') ? '#0E5A6B' : '#8996A3'} />
-                                                        )}
+                                                        {msg.status === 'sending' && <Clock size={12} color="#8696a0" />}
+                                                        {msg.status === 'sent' && <Check size={15} color="#8696a0" />}
+                                                        {(msg.status === 'delivered' || !msg.status) && <CheckCheck size={16} color="#8696a0" />}
+                                                        {msg.status === 'read' && <CheckCheck size={16} color="#53bdeb" />}
                                                         {msg.status === 'failed' && <AlertCircle size={14} color="#BB0000" />}
                                                     </>
                                                 )}
@@ -1330,6 +1466,7 @@ export default function WhatsAppChatApp() {
                                         </div>
                                     </div>
                                 </div>
+                                </React.Fragment>
                             ))}
                         </div>
 
@@ -1541,23 +1678,7 @@ export default function WhatsAppChatApp() {
                                             <div className="spinner" style={{ width: '24px', height: '24px', border: '3px solid #D5D7DA', borderTopColor: '#0E5A6B', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
                                             <span style={{ fontSize: '14px', fontWeight: 500 }}>A gerar QR Code...</span>
                                             <style>{`@keyframes spin { to { transform: rotate(360deg); } }
-                /* O cabecalho da conversa mede-se a si proprio: com a ficha do
-                   contacto aberta numa janela estreita, a coluna da conversa fica
-                   com pouco espaco e os botoes de cima saiam de vista. Em vez de
-                   desaparecerem, encolhem — primeiro o rotulo do bot, depois o
-                   nome do fluxo, ficando sempre os icones clicaveis. */
-                /* Sem overflow:hidden aqui. Os menus do cabecalho (escolher fluxo,
-                   tres pontos) abrem por baixo com position:absolute — cortar o que
-                   sai da barra fazia-os desaparecer por completo. O nome do contacto
-                   corta-se sozinho, com overflow no proprio texto. */
-                .wa-topo { container-type: inline-size; }
-                @container (max-width: 620px) {
-                    .wa-bot-rotulo { display: none; }
-                }
-                @container (max-width: 500px) {
-                    .wa-topo-accoes .wa-fluxo-nome { display: none; }
-                }
-`}</style>
+                                            `}</style>
                                         </div>
                                     )}
                                 </div>
