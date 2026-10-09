@@ -18,6 +18,7 @@ import recrutamentoRoutes from './api/recrutamentoRoutes';
 import accountingRoutes from './api/accountingRoutes';
 import financeiroRoutes from './api/financeiroRoutes';
 import agendamentoRoutes from './api/agendamentoRoutes';
+import etiquetaRoutes from './api/etiquetaRoutes';
 import campanhasRoutes from './api/campanhasRoutes';
 import emailRoutes from './api/emailRoutes';
 import publicRoutes from './api/publicRoutes';
@@ -78,6 +79,7 @@ app.use('/api/recrutamento', requireAuth, recrutamentoRoutes);
 app.use('/api/accounting', requireAuth, accountingRoutes);
 app.use('/api/financeiro', requireAuth, financeiroRoutes);
 app.use('/api/agendamento', requireAuth, agendamentoRoutes);
+app.use('/api/etiquetas', requireAuth, etiquetaRoutes);
 app.use('/api/campanhas', requireAuth, campanhasRoutes);
 app.use('/api/email', requireAuth, emailRoutes);
 app.use('/api/documentos', documentosRoutes); // valida sessao e licenca do modulo internamente

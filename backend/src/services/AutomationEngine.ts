@@ -752,14 +752,16 @@ export class AutomationEngine {
                 }
 
                 try {
-                    const { data: cliente } = await supabase.from('clientes').select('tags').eq('id', clientId).single();
-                    let currentTags: string[] = cliente?.tags || [];
-                    if (node.data.actionType === 'ADD_TAG') {
-                        currentTags = Array.from(new Set([...currentTags, ...tagList]));
-                    } else {
-                        currentTags = currentTags.filter(t => !tagList.includes(t));
-                    }
-                    await supabase.from('clientes').update({ tags: currentTags }).eq('id', clientId);
+                    // Passa pelo catálogo da empresa: assim "VIP" e "vip" são a mesma
+                    // etiqueta (antes ficavam duas), e uma etiqueta criada por um fluxo
+                    // aparece em Definições como qualquer outra em vez de ficar
+                    // escondida dentro dos contactos.
+                    const { EtiquetaService } = require('./EtiquetaService');
+                    const ehAdicionar = node.data.actionType === 'ADD_TAG';
+                    const currentTags: string[] = await EtiquetaService.aplicarNoContacto(
+                        String(empresa_id), clientId,
+                        ehAdicionar ? { adicionar: tagList } : { remover: tagList }
+                    );
                     context['tags'] = currentTags.join(',');
                     console.log(`[AUTOPILOT] ${node.data.actionType}: ${tagList.join(', ')} (cliente ${clientId})`);
                 } catch (e) {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Mail, CheckCircle, AlertCircle, Loader, Save, Wifi, Users, UserCheck, Shield, FileText, Building } from 'lucide-react';
+import { Settings, Mail, CheckCircle, AlertCircle, Loader, Save, Wifi, Users, UserCheck, Shield, FileText, Building, Tag } from 'lucide-react';
 import ConfiguracaoProforma from './settings/ConfiguracaoProforma';
+import GestaoEtiquetas from './settings/GestaoEtiquetas';
 
 type TestStatus = 'idle' | 'testing' | 'ok' | 'error';
 
@@ -27,7 +28,7 @@ export default function SettingsApp() {
     const [testStatus, setTestStatus] = useState<TestStatus>('idle');
     const [testMsg, setTestMsg] = useState('');
     const [showPass, setShowPass] = useState(false);
-    const [activeTab, setActiveTab] = useState<'email' | 'empresa' | 'equipa' | 'seguranca' | 'documentos'>('email');
+    const [activeTab, setActiveTab] = useState<'email' | 'empresa' | 'equipa' | 'seguranca' | 'documentos' | 'etiquetas'>('email');
 
     // Segurança
     const [newPassword, setNewPassword] = useState('');
@@ -286,6 +287,7 @@ export default function SettingsApp() {
                     { id: 'empresa', label: 'Dados da Empresa', icon: <Building size={16} /> },
                     { id: 'email', label: 'Email & SMTP', icon: <Mail size={16} /> },
                     { id: 'documentos', label: 'Personalização de Documentos', icon: <FileText size={16} /> },
+                    { id: 'etiquetas', label: 'Etiquetas', icon: <Tag size={16} /> },
                     { id: 'seguranca', label: 'Segurança', icon: <Shield size={16} /> },
                     ...((currentUser?.role === 'admin' || currentUser?.role === 'superadmin') ? [{ id: 'equipa', label: 'Gestão de Equipa', icon: <Users size={16} /> }] : []),
                 ].map(item => (
@@ -689,6 +691,8 @@ export default function SettingsApp() {
                         </div>
                     </div>
                 )}
+
+                {activeTab === 'etiquetas' && <GestaoEtiquetas />}
 
                 {activeTab === 'seguranca' && (
                     <div style={{ maxWidth: '680px' }}>

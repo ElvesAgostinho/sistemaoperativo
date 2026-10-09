@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import SeletorEtiquetas from './SeletorEtiquetas';
 import { X, Trash2, Loader2, Plus, Upload } from 'lucide-react';
 import type { ActionNodeData, ActionType, Automation, AutomationNode, ConditionNodeData, MenuNodeData, TriggerNodeData } from './types';
 import { ACTION_LABELS, createDefaultMenuOption, VARIAVEIS_CONVERSA } from './types';
@@ -580,13 +581,11 @@ export default function NodeConfigPanel({ node, todosOsNos = [], automations, cu
           )}
 
           {(d.actionType === 'ADD_TAG' || d.actionType === 'REMOVE_TAG') && (
-            <>
-              <label style={labelStyle}>Tag(s) (separadas por vírgula)</label>
-              <input style={fieldStyle} type="text" value={config.tag || ''} onChange={e => updateConfig({ tag: e.target.value })} placeholder="ex: vip, interessado" />
-              <div style={{ marginTop: '10px', fontSize: '11px', color: '#666' }}>
-                Requer um cliente já resolvido no fluxo (ex: através de um nó "Criar Cliente" antes, ou de um trigger que já identifique o cliente pelo telefone).
-              </div>
-            </>
+            <SeletorEtiquetas
+              valor={config.tag || ''}
+              aoMudar={v => updateConfig({ tag: v })}
+              aRemover={d.actionType === 'REMOVE_TAG'}
+            />
           )}
 
           {d.actionType === 'SET_CUSTOM_FIELD' && (
