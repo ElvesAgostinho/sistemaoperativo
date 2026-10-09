@@ -68,11 +68,8 @@ export class FluxoDisparoService {
         // agora do que deixar 300 linhas a falhar uma a uma.
         const nodes = typeof fluxo.nodes === 'string' ? JSON.parse(fluxo.nodes || '[]') : (fluxo.nodes || []);
         const edges = typeof fluxo.edges === 'string' ? JSON.parse(fluxo.edges || '[]') : (fluxo.edges || []);
-        const gatilho = nodes.find((n: any) => n.type === 'trigger');
-        if (!gatilho) throw new Error('Esse fluxo não tem bloco de gatilho.');
-        if (!edges.some((e: any) => e.source === gatilho.id)) {
-            throw new Error('O gatilho desse fluxo não está ligado a nenhum bloco — não há nada para enviar.');
-        }
+        const entrada = AutomationEngine.entradaDoFluxo(nodes, edges);
+        if (!entrada.nodeId) throw new Error(entrada.erro || 'Não se percebe por onde esse fluxo começa.');
 
         const contactos = await FluxoDisparoService.resolverPublico(
             empresaId, dados.publico_tipo, { tags: dados.publico_tags, manualIds: dados.manual_ids }, client

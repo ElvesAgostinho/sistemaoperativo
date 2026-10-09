@@ -102,11 +102,23 @@ export default function NodeConfigPanel({ node, todosOsNos = [], automations, cu
       const d = node.data as TriggerNodeData;
       return (
         <>
-          <label style={labelStyle}>Tipo de Gatilho</label>
+          <label style={labelStyle}>Quando é que este fluxo corre</label>
           <select style={fieldStyle} value={d.triggerKind} onChange={e => updateData({ triggerKind: e.target.value })}>
-            <option value="whatsapp_message">Mensagem Recebida no WhatsApp</option>
-            <option value="webhook_generic">Webhook Genérico</option>
+            <option value="whatsapp_message">Quando chega uma mensagem no WhatsApp</option>
+            <option value="manual">Só quando eu mandar (à mão)</option>
+            <option value="webhook_generic">Quando um sistema externo chamar (webhook)</option>
           </select>
+
+          {d.triggerKind === 'manual' && (
+            <div style={{ marginTop: '10px', padding: '11px 13px', background: '#E1EEF0', borderRadius: '2px', fontSize: '11.5px', color: '#0E5A6B', lineHeight: 1.65 }}>
+              Este fluxo <b>nunca responde sozinho</b> a mensagens, esteja ligado ou não.
+              Só corre quando o escolher no chat de um cliente e carregar em <b>Começar agora</b>,
+              ou quando o usar num <b>disparo</b> para um grupo.
+              <br /><br />
+              É a forma de ter fluxos de seguimento e de campanha sem que eles passem
+              a atender toda a gente — isso fica para os fluxos de mensagem.
+            </div>
+          )}
 
           {d.triggerKind === 'whatsapp_message' ? (
             <>

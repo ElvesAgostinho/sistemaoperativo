@@ -7,7 +7,7 @@ const authFetch = (url: string, options: any = {}) => {
   return fetch(url, { ...options, headers: { ...options.headers, Authorization: `Bearer ${token}` } });
 };
 
-interface Fluxo { id: number; nome: string; ativo: boolean; blocos: number; reageAMensagens: boolean }
+interface Fluxo { id: number; nome: string; ativo: boolean; blocos: number; reageAMensagens: boolean; soAMao?: boolean }
 
 /**
  * Escolher qual o fluxo que atende ESTA conversa.
@@ -141,7 +141,8 @@ export default function SeletorFluxo({
           <div style={{ padding: '12px 14px', borderBottom: '1px solid #E7E9EB' }}>
             <div style={{ fontWeight: 700, color: '#1D2D3E', fontSize: '13.5px' }}>Quem atende este cliente</div>
             <div style={{ fontSize: '12px', color: '#5B738B', marginTop: '3px', lineHeight: 1.5 }}>
-              Escolha o fluxo para esta conversa. Cada cliente pode ter o seu.
+              A escolha é só deste cliente — não mexe nos outros. Os fluxos ligados
+              continuam a responder a toda a gente.
             </div>
           </div>
 
@@ -166,8 +167,13 @@ export default function SeletorFluxo({
               return (
                 <div key={f.id} style={{ padding: '10px 14px', borderTop: '1px solid #F0F1F2', background: ativo ? '#F5FAFB' : 'white' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: f.ativo ? '#107E3E' : '#C6CDD4', flexShrink: 0 }}
-                      title={f.ativo ? 'Fluxo ligado' : 'Fluxo desligado'} />
+                    {/* Um fluxo "so a mao" nao tem ligado/desligado que faca sentido:
+                        ele nunca responde sozinho, so corre quando alguem o manda. */}
+                    <span style={{
+                      width: '7px', height: '7px', borderRadius: '50%', flexShrink: 0,
+                      background: f.soAMao ? '#0E5A6B' : f.ativo ? '#107E3E' : '#C6CDD4'
+                    }}
+                      title={f.soAMao ? 'Só corre quando alguém o mandar' : f.ativo ? 'Ligado — responde a toda a gente' : 'Desligado'} />
                     <span style={{ flex: 1, fontSize: '13.5px', fontWeight: ativo ? 700 : 500, color: '#1D2D3E', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {f.nome}
                     </span>
@@ -176,17 +182,20 @@ export default function SeletorFluxo({
 
                   <div style={{ fontSize: '11.5px', color: '#8996A3', margin: '3px 0 8px', paddingLeft: '15px' }}>
                     {f.blocos} bloco{f.blocos === 1 ? '' : 's'}
-                    {!f.ativo && ' · desligado no Autopilot'}
-                    {f.ativo && !f.reageAMensagens && ' · não reage a mensagens, mas pode ser começado à mão'}
+                    {f.soAMao
+                      ? ' · só à mão — nunca responde sozinho'
+                      : f.ativo
+                        ? ' · ligado, responde a toda a gente'
+                        : ' · desligado no Autopilot'}
                   </div>
 
                   <div style={{ display: 'flex', gap: '6px', paddingLeft: '15px' }}>
                     {!ativo && (
                       <button
                         onClick={() => atenderCom(f)}
-                        disabled={!f.ativo || ocupado !== null}
-                        title={f.ativo ? 'A próxima mensagem deste cliente é tratada por este fluxo' : 'Ligue o fluxo no Autopilot primeiro'}
-                        style={{ padding: '5px 10px', background: 'white', color: f.ativo ? '#0E5A6B' : '#B8C2CC', border: `1px solid ${f.ativo ? '#0E5A6B' : '#D5D7DA'}`, borderRadius: '2px', fontSize: '12px', fontWeight: 600, cursor: f.ativo ? 'pointer' : 'not-allowed' }}
+                        disabled={(!f.ativo && !f.soAMao) || ocupado !== null}
+                        title={(f.ativo || f.soAMao) ? 'A próxima mensagem deste cliente é tratada por este fluxo' : 'Ligue o fluxo no Autopilot primeiro'}
+                        style={{ padding: '5px 10px', background: 'white', color: (f.ativo || f.soAMao) ? '#0E5A6B' : '#B8C2CC', border: `1px solid ${(f.ativo || f.soAMao) ? '#0E5A6B' : '#D5D7DA'}`, borderRadius: '2px', fontSize: '12px', fontWeight: 600, cursor: (f.ativo || f.soAMao) ? 'pointer' : 'not-allowed' }}
                       >
                         {ocupado === f.id ? <Loader2 size={12} className="spin" /> : 'Atender com este'}
                       </button>

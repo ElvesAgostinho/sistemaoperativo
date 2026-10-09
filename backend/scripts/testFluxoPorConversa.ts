@@ -297,6 +297,96 @@ const ditas = () => enviadas.map(e => e.content).join(' | ');
         assert(d.fluxos.every((f: any) => f.reageAMensagens), 'estes reagem a mensagens');
     });
 
+    console.log('\n=== Fluxos so a mao, e fluxos sem gatilho ===\n');
+
+    /** Um fluxo que so corre quando alguem o manda correr. */
+    const fluxoSoAMao = (id: number, nome: string, frase: string, ativo = false) => ({
+        id, nome, ativo, empresa_id: EMPRESA,
+        nodes: [
+            { id: 't1', type: 'trigger', data: { triggerKind: 'manual' } },
+            { id: 'r1', type: 'action', data: { actionType: 'REPLY_MESSAGE', config: { mensagem: frase } } }
+        ],
+        edges: [{ id: 'e1', source: 't1', target: 'r1' }]
+    });
+
+    /** Um fluxo sem bloco de gatilho nenhum: so blocos ligados entre si. */
+    const fluxoSemGatilho = (id: number, nome: string, frase: string) => ({
+        id, nome, ativo: true, empresa_id: EMPRESA,
+        nodes: [
+            { id: 'r1', type: 'action', position: { x: 0, y: 0 }, data: { actionType: 'REPLY_MESSAGE', config: { mensagem: frase } } },
+            { id: 'r2', type: 'action', position: { x: 0, y: 100 }, data: { actionType: 'REPLY_MESSAGE', config: { mensagem: frase + '-SEGUNDA' } } }
+        ],
+        edges: [{ id: 'e1', source: 'r1', target: 'r2' }]
+    });
+
+    await test('um fluxo "so a mao" nunca responde a uma mensagem, mesmo ligado', async () => {
+        // E o ponto todo: poder ter fluxos de seguimento sem que passem a atender
+        // toda a gente so por estarem disponiveis.
+        tabela('automations').push(fluxoSoAMao(5, 'Seguimento', 'SEGUIMENTO', true));
+        await receber('244900000001', 'Ola');
+        assert(enviadas.length === 0, `nao podia responder: ${ditas()}`);
+    });
+
+    await test('com um fluxo de mensagem ao lado, e esse que responde', async () => {
+        tabela('automations').push(fluxoSoAMao(5, 'Seguimento', 'SEGUIMENTO', true), fluxoQueDiz(1, 'Atendimento', 'ATENDIMENTO'));
+        await receber('244900000001', 'Ola');
+        assert(ditas().includes('ATENDIMENTO'), `devia responder o de mensagem: ${ditas()}`);
+        assert(!ditas().includes('SEGUIMENTO'), `o "so a mao" nao podia entrar: ${ditas()}`);
+    });
+
+    await test('o "so a mao" dispara quando alguem o manda, mesmo desligado', async () => {
+        // Exigir que estivesse ligado obrigava a liga-lo, e liga-lo transformava-o
+        // num fluxo para toda a gente — exatamente o que se quer evitar.
+        tabela('automations').push(fluxoSoAMao(5, 'Seguimento', 'SEGUIMENTO', false));
+        const [s, d] = await chamar('POST', '/api/whatsapp/conversations/conv-a/fluxo/iniciar', { automation_id: 5 });
+        assert(s === 200 && d.success, `devia disparar: ${JSON.stringify(d)}`);
+        assert(ditas().includes('SEGUIMENTO'), `devia enviar: ${ditas()}`);
+    });
+
+    await test('o "so a mao" pode ser escolhido para a conversa, mesmo desligado', async () => {
+        tabela('automations').push(fluxoSoAMao(5, 'Seguimento', 'SEGUIMENTO', false));
+        const [s, d] = await chamar('PUT', '/api/whatsapp/conversations/conv-a/fluxo', { automation_id: 5 });
+        assert(s === 200 && d.success, `devia deixar escolher: ${s} ${JSON.stringify(d)}`);
+        await receber('244900000001', 'Ola');
+        assert(ditas().includes('SEGUIMENTO'), `escolhido, devia atender: ${ditas()}`);
+    });
+
+    await test('um fluxo de mensagem desligado continua a ser recusado', async () => {
+        tabela('automations').push(fluxoQueDiz(2, 'Cobrancas', 'COBRANCAS', false));
+        const [s, d] = await chamar('PUT', '/api/whatsapp/conversations/conv-a/fluxo', { automation_id: 2 });
+        assert(s === 400 && /desligado/i.test(d.error || ''), `devia recusar: ${s} ${JSON.stringify(d)}`);
+    });
+
+    await test('um fluxo SEM bloco de gatilho corre na mesma', async () => {
+        // "Basta criar os blocos e disparar" — sem isto o motor recusava.
+        tabela('automations').push(fluxoSemGatilho(6, 'Sem gatilho', 'PRIMEIRA'));
+        const [s, d] = await chamar('POST', '/api/whatsapp/conversations/conv-a/fluxo/iniciar', { automation_id: 6 });
+        assert(s === 200 && d.success, `devia correr: ${JSON.stringify(d)}`);
+        assert(ditas().includes('PRIMEIRA'), `devia comecar no primeiro bloco: ${ditas()}`);
+        assert(ditas().includes('PRIMEIRA-SEGUNDA'), `devia seguir para o bloco ligado: ${ditas()}`);
+    });
+
+    await test('um fluxo sem gatilho tambem nao responde a mensagens', async () => {
+        tabela('automations').push(fluxoSemGatilho(6, 'Sem gatilho', 'PRIMEIRA'));
+        await receber('244900000001', 'Ola');
+        assert(enviadas.length === 0, `sem gatilho nao reage a mensagens: ${ditas()}`);
+    });
+
+    await test('um fluxo vazio e recusado com uma razao percebivel', async () => {
+        tabela('automations').push({ id: 7, nome: 'Vazio', ativo: true, empresa_id: EMPRESA, nodes: [], edges: [] });
+        const [s, d] = await chamar('POST', '/api/whatsapp/conversations/conv-a/fluxo/iniciar', { automation_id: 7 });
+        assert(s === 400 && /vazio/i.test(d.error || ''), `devia explicar: ${s} ${JSON.stringify(d)}`);
+    });
+
+    await test('a lista do chat diz quais sao "so a mao"', async () => {
+        tabela('automations').push(fluxoQueDiz(1, 'Atendimento', 'A'), fluxoSoAMao(5, 'Seguimento', 'S', false));
+        const [, d] = await chamar('GET', '/api/whatsapp/conversations/conv-a/fluxo');
+        const atendimento = d.fluxos.find((f: any) => f.nome === 'Atendimento');
+        const seguimento = d.fluxos.find((f: any) => f.nome === 'Seguimento');
+        assert(atendimento.reageAMensagens && !atendimento.soAMao, `atendimento mal marcado: ${JSON.stringify(atendimento)}`);
+        assert(seguimento.soAMao && !seguimento.reageAMensagens, `seguimento mal marcado: ${JSON.stringify(seguimento)}`);
+    });
+
     servidor.unref();
     console.log(`\n=== Resultado: ${passed} passaram, ${failed} falharam ===`);
     if (falhas.length) console.log('Falhou:\n  - ' + falhas.join('\n  - '));

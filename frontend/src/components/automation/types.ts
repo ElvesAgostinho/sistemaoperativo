@@ -8,7 +8,7 @@ export type ActionType =
   | 'ADD_TAG' | 'REMOVE_TAG' | 'SET_CUSTOM_FIELD' | 'EXTERNAL_REQUEST' | 'NOTIFY_TEAM' | 'HANDOFF_HUMAN' | 'AI_REPLY';
 
 export interface TriggerNodeData {
-  triggerKind: 'whatsapp_message' | 'webhook_generic';
+  triggerKind: 'whatsapp_message' | 'webhook_generic' | 'manual';
   matchMode?: 'keyword' | 'regex' | 'any';
   matchValue?: string;
   webhookSource?: string;

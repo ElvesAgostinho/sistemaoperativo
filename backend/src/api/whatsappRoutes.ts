@@ -808,14 +808,17 @@ router.get('/conversations/:id/fluxo', requireAuth, async (req: AuthRequest, res
             fluxos: (fluxos || []).map((f: any) => {
                 const nodes = typeof f.nodes === 'string' ? JSON.parse(f.nodes || '[]') : (f.nodes || []);
                 const gatilho = nodes.find((n: any) => n.type === 'trigger');
+                const reageAMensagens = gatilho?.data?.triggerKind === 'whatsapp_message';
                 return {
                     id: f.id,
                     nome: f.nome,
                     ativo: f.ativo,
                     blocos: nodes.length,
-                    // Um fluxo sem gatilho de WhatsApp não reage a mensagens, mas pode
-                    // na mesma ser começado à mão — convém a pessoa saber qual é qual.
-                    reageAMensagens: gatilho?.data?.triggerKind === 'whatsapp_message'
+                    // Dois tipos de fluxo, e convém saber qual é qual antes de clicar:
+                    // os que respondem a mensagens (ligados, valem para toda a gente)
+                    // e os que só correm quando alguém os manda correr.
+                    reageAMensagens,
+                    soAMao: !reageAMensagens
                 };
             })
         });
@@ -838,9 +841,18 @@ router.put('/conversations/:id/fluxo', requireAuth, async (req: AuthRequest, res
 
         if (automation_id) {
             const { data: fluxo } = await client.from('automations')
-                .select('id, nome, ativo').eq('id', automation_id).eq('empresa_id', empresaId).maybeSingle();
+                .select('id, nome, ativo, nodes').eq('id', automation_id).eq('empresa_id', empresaId).maybeSingle();
             if (!fluxo) return res.status(404).json({ error: 'Fluxo não encontrado.' });
-            if (!fluxo.ativo) {
+
+            // "Ligado" quer dizer "responde a toda a gente". Para um fluxo que só
+            // corre quando alguém o manda correr isso não faz sentido nenhum —
+            // exigi-lo obrigava a ligá-lo, e ligá-lo transformava-o num fluxo para
+            // todos, que é exatamente o que se quer evitar.
+            const nodes = typeof fluxo.nodes === 'string' ? JSON.parse(fluxo.nodes || '[]') : (fluxo.nodes || []);
+            const gatilho = nodes.find((n: any) => n.type === 'trigger');
+            const reageAMensagens = gatilho?.data?.triggerKind === 'whatsapp_message';
+
+            if (reageAMensagens && !fluxo.ativo) {
                 return res.status(400).json({ error: `"${fluxo.nome}" está desligado. Ligue-o no Autopilot antes de o pôr a atender.` });
             }
         }

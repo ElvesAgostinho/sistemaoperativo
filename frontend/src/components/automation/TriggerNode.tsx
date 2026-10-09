@@ -5,7 +5,9 @@ import type { TriggerNodeData } from './types';
 export default function TriggerNode({ data, selected }: NodeProps) {
   const d = data as unknown as TriggerNodeData;
 
-  const summary = d.triggerKind === 'whatsapp_message'
+  const summary = d.triggerKind === 'manual'
+    ? 'Corre quando alguem o mandar correr'
+    : d.triggerKind === 'whatsapp_message'
     ? (d.matchMode === 'any' || !d.matchMode
         ? 'Qualquer mensagem recebida'
         : d.matchMode === 'keyword'
@@ -29,7 +31,9 @@ export default function TriggerNode({ data, selected }: NodeProps) {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#d97706', letterSpacing: '0.5px' }}>GATILHO</div>
           <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#1a1a1a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {d.triggerKind === 'whatsapp_message' ? 'Mensagem WhatsApp' : 'Webhook Genérico'}
+            {d.triggerKind === 'whatsapp_message' ? 'Mensagem WhatsApp'
+              : d.triggerKind === 'manual' ? 'Só quando eu mandar'
+              : 'Webhook Genérico'}
           </div>
         </div>
       </div>

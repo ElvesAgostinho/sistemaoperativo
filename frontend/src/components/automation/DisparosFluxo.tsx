@@ -191,7 +191,13 @@ function NovoDisparo({ onVoltar, onCriado }: { onVoltar: () => void; onCriado: (
       ]);
       const dF = await rF.json();
       const dE = await rE.json();
-      if (dF.success) setFluxos((dF.automations || []).filter((a: any) => a.ativo));
+      // Nao se filtra por "ativo": um fluxo "so a mao" existe precisamente para
+      // ser disparado sem estar ligado a responder a toda a gente.
+      if (dF.success) setFluxos((dF.automations || []).map((a: any) => {
+        const nodes = typeof a.nodes === 'string' ? JSON.parse(a.nodes || '[]') : (a.nodes || []);
+        const gatilho = nodes.find((n: any) => n.type === 'trigger');
+        return { ...a, soAMao: gatilho?.data?.triggerKind !== 'whatsapp_message' };
+      }).filter((a: any) => a.ativo || a.soAMao));
       if (dE.success) setEtiquetas(dE.etiquetas || []);
     })();
   }, []);
@@ -239,11 +245,16 @@ function NovoDisparo({ onVoltar, onCriado }: { onVoltar: () => void; onCriado: (
             <label style={rotulo}>Que fluxo vai correr</label>
             <select value={fluxoId} onChange={e => setFluxoId(Number(e.target.value) || '')} style={campo}>
               <option value="">— escolher —</option>
-              {fluxos.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
+              {fluxos.map(f => (
+                <option key={f.id} value={f.id}>
+                  {f.nome}{f.soAMao ? '  (só à mão)' : '  (também responde a mensagens)'}
+                </option>
+              ))}
             </select>
             <div style={{ fontSize: '12px', color: '#5B738B', marginTop: '6px', lineHeight: 1.55 }}>
-              Só aparecem os fluxos ligados. O fluxo corre do princípio, como se o cliente
-              tivesse acabado de escrever — por isso convém começar por um bloco que diga algo.
+              O fluxo corre do princípio, como se o cliente tivesse acabado de escrever —
+              por isso convém que comece por um bloco que diga alguma coisa.
+              Os marcados <b>só à mão</b> nunca respondem sozinhos: existem para isto.
             </div>
           </div>
           <div>

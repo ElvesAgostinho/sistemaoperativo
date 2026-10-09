@@ -281,6 +281,34 @@ const correrTudo = async (voltas = 8) => { for (let i = 0; i < voltas; i++) awai
         assert(d.estado === 'Cancelado', `devia cancelar-se, ficou ${d.estado}`);
     });
 
+    await test('dispara um fluxo "so a mao", mesmo desligado', async () => {
+        tabela('automations').push({
+            id: 5, nome: 'Seguimento', ativo: false, empresa_id: EMPRESA,
+            nodes: [
+                { id: 't1', type: 'trigger', data: { triggerKind: 'manual' } },
+                { id: 'r1', type: 'action', data: { actionType: 'REPLY_MESSAGE', config: { mensagem: 'ola' } } }
+            ],
+            edges: [{ id: 'e1', source: 't1', target: 'r1' }]
+        });
+        const r = await FluxoDisparoService.criar(EMPRESA, { ...base, automation_id: 5 }, 'user-1');
+        assert(r.total === 2, `devia apanhar 2, apanhou ${r.total}`);
+        await FluxoDisparoService.iniciar(EMPRESA, r.id);
+        await correrTudo();
+        assert(corridos.length === 2, `devia correr para os 2, correu ${corridos.length}`);
+    });
+
+    await test('dispara um fluxo sem bloco de gatilho nenhum', async () => {
+        tabela('automations').push({
+            id: 6, nome: 'Sem gatilho', ativo: true, empresa_id: EMPRESA,
+            nodes: [{ id: 'r1', type: 'action', position: { x: 0, y: 0 }, data: { actionType: 'REPLY_MESSAGE', config: { mensagem: 'ola' } } }],
+            edges: []
+        });
+        const r = await FluxoDisparoService.criar(EMPRESA, { ...base, automation_id: 6 }, 'user-1');
+        await FluxoDisparoService.iniciar(EMPRESA, r.id);
+        await correrTudo();
+        assert(corridos.length === 2, `devia correr para os 2, correu ${corridos.length}`);
+    });
+
     console.log(`\n=== Resultado: ${passed} passaram, ${failed} falharam ===`);
     if (falhas.length) console.log('Falhou:\n  - ' + falhas.join('\n  - '));
     process.exit(failed === 0 ? 0 : 1);

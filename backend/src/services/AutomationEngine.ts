@@ -170,6 +170,9 @@ export class AutomationEngine {
                 .map((automation: any) => {
                     const { nodes, edges } = this.parseGraph(automation);
                     const trigger = nodes.find((n: FlowNode) => n.type === 'trigger');
+                    // Um fluxo "só quando eu mandar" (ou sem gatilho nenhum) fica de
+                    // fora desta disputa de propósito: existe para ser disparado à
+                    // mão, e entrar aqui fazia dele mais um fluxo para toda a gente.
                     if (!trigger || trigger.data?.triggerKind !== 'whatsapp_message') return null;
                     if (!this.evaluateWhatsAppTrigger(trigger.data, message.content)) return null;
                     return { automation, nodes, edges, trigger };
@@ -238,7 +241,17 @@ export class AutomationEngine {
                 console.warn(`[AUTOPILOT] O fluxo escolhido para a conversa ${conversationId} já não existe — o sistema volta a decidir.`);
                 return null;
             }
-            if (!automation.ativo) {
+            // "Desligado" só quer dizer alguma coisa para um fluxo que responde a
+            // mensagens: desligá-lo no Autopilot tem mesmo de o calar em todo o lado.
+            // Num fluxo "só quando eu mandar" o interruptor não significa nada — ele
+            // nunca responde sozinho —, por isso continuar a honrar a escolha de quem
+            // atende é o correto. Sem esta distinção, escolher um desses para uma
+            // conversa deixava o cliente sem resposta, em silêncio.
+            const { nodes } = this.parseGraph(automation);
+            const gatilho = nodes.find((n: FlowNode) => n.type === 'trigger');
+            const respondeAMensagens = gatilho?.data?.triggerKind === 'whatsapp_message';
+
+            if (!automation.ativo && respondeAMensagens) {
                 console.warn(`[AUTOPILOT] O fluxo "${automation.nome}" está desligado — a conversa ${conversationId} volta ao normal.`);
                 return null;
             }
@@ -258,6 +271,37 @@ export class AutomationEngine {
      * escrito nada (`mensagemDisponivel` distingue-os — no segundo caso não há
      * mensagem nenhuma para um menu consumir).
      */
+    /**
+     * Por onde se comeca a correr um fluxo que foi disparado à mão.
+     *
+     * O bloco de gatilho é só um marcador de início: quando alguém manda o fluxo
+     * correr, a condição dele (qualquer mensagem, palavra-chave) não se avalia —
+     * quem decidiu foi a pessoa. E um fluxo pode nem ter gatilho nenhum: nesse
+     * caso começa no primeiro bloco, aquele a que não chega nenhuma seta.
+     */
+    public static entradaDoFluxo(nodes: FlowNode[], edges: FlowEdge[]): { nodeId?: string; erro?: string } {
+        const trigger = nodes.find((n: FlowNode) => n.type === 'trigger');
+        if (trigger) {
+            const saida = edges.find((e: FlowEdge) => e.source === trigger.id);
+            if (!saida) return { erro: 'O gatilho do fluxo não está ligado a nenhum bloco.' };
+            return { nodeId: saida.target };
+        }
+
+        const temSetaAChegar = new Set(edges.map((e: FlowEdge) => e.target));
+        const inicios = nodes.filter((n: FlowNode) => n.type !== 'end' && !temSetaAChegar.has(n.id));
+
+        if (inicios.length === 0) {
+            return { erro: nodes.length === 0
+                ? 'O fluxo está vazio.'
+                : 'Não se percebe por onde começar: todos os blocos têm uma seta a chegar.' };
+        }
+        // Com vários princípios possíveis, ganha o que está mais acima e à esquerda —
+        // é por onde a pessoa lê o desenho.
+        const ordenados = [...inicios].sort((a: any, b: any) =>
+            (a.position?.y ?? 0) - (b.position?.y ?? 0) || (a.position?.x ?? 0) - (b.position?.x ?? 0));
+        return { nodeId: ordenados[0].id };
+    }
+
     public static async correrFluxoNaConversa(
         automation: any,
         conversationId: string,
@@ -267,11 +311,8 @@ export class AutomationEngine {
         opcoes: { mensagemDisponivel?: boolean } = {}
     ): Promise<{ ok: boolean; erro?: string }> {
         const { nodes, edges } = this.parseGraph(automation);
-        const trigger = nodes.find((n: FlowNode) => n.type === 'trigger');
-        if (!trigger) return { ok: false, erro: 'O fluxo não tem nó de gatilho.' };
-
-        const primeira = edges.find((e: FlowEdge) => e.source === trigger.id);
-        if (!primeira) return { ok: false, erro: 'O gatilho do fluxo não está ligado a nenhum bloco.' };
+        const entrada = this.entradaDoFluxo(nodes, edges);
+        if (!entrada.nodeId) return { ok: false, erro: entrada.erro };
 
         const context: Record<string, any> = {
             telefone: message.phone_number,
@@ -288,7 +329,7 @@ export class AutomationEngine {
         // do cliente ia ser entregue ao fluxo antigo, que já ninguém está a seguir.
         await this.limparEstadoFluxo(conversationId);
 
-        await this.executeGraph(nodes, edges, primeira.target, context, empresaId || null, [automation.id], {
+        await this.executeGraph(nodes, edges, entrada.nodeId, context, empresaId || null, [automation.id], {
             mensagemDisponivel: !!opcoes.mensagemDisponivel,
             conversationId,
             automationId: automation.id
