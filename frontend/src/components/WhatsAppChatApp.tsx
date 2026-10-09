@@ -6,6 +6,7 @@ import WhatsAppGruposApp from './WhatsAppGruposApp';
 import CampanhasApp from './CampanhasApp';
 import TemplatesApp from './whatsapp/TemplatesApp';
 import SeletorTemplate from './whatsapp/SeletorTemplate';
+import FichaContacto from './whatsapp/FichaContacto';
 
 // FIX #5 — Supabase client para Realtime (usa as mesmas variáveis de ambiente)
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://lmxuixmmrglrqxjrhpgn.supabase.co';
@@ -169,6 +170,7 @@ export default function WhatsAppChatApp() {
     const [activeConv, setActiveConv] = useState<Conversation | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
     const [aImportar, setAImportar] = useState(false);
+    const [fichaAberta, setFichaAberta] = useState(false);
     const [avisoHistorico, setAvisoHistorico] = useState('');
     // Guarda o id da conversa activa "no instante" — usado para descartar
     // respostas de fetch que cheguem atrasadas de uma conversa já trocada.
@@ -1129,14 +1131,21 @@ export default function WhatsAppChatApp() {
                     <>
                         <div style={{ padding: '10px 16px', backgroundColor: '#F5F6F7', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '59px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                                <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#D5D7DA', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                                <div
+                                    onClick={() => setFichaAberta(v => !v)}
+                                    title="Ver a ficha deste contacto"
+                                    style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#D5D7DA', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', cursor: 'pointer' }}>
                                     {activeConv.contact_picture && !brokenPictures.has(activeConv.id) ? (
                                         <img src={activeConv.contact_picture} alt={displayContactName(activeConv.contact_name, activeConv.phone_number)} onError={() => markPictureBroken(activeConv.id)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                     ) : (
                                         <UserIcon name={displayContactName(activeConv.contact_name, activeConv.phone_number)} />
                                     )}
                                 </div>
-                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <div
+                                    onClick={() => setFichaAberta(v => !v)}
+                                    title="Ver a ficha deste contacto"
+                                    style={{ display: 'flex', flexDirection: 'column', cursor: 'pointer' }}
+                                >
                                     <div style={{ fontWeight: 500, color: '#1D2D3E', fontSize: '16px' }}>{displayContactName(activeConv.contact_name, activeConv.phone_number)}</div>
                                     <div style={{ fontSize: '13px', color: '#5B738B' }}>{formatPhoneNumber(activeConv.phone_number)}{activeConv.wa_channels?.name ? ` • ${activeConv.wa_channels.name}` : ''}</div>
                                 </div>
@@ -1394,6 +1403,18 @@ export default function WhatsAppChatApp() {
                     </div>
                 )}
             </div>
+
+            {/* Ficha do lead: quem escreve para o WhatsApp da empresa e um lead, e
+                ate agora nao havia por onde lhe pegar sem sair da conversa. */}
+            {currentView === 'chats' && activeConv && fichaAberta && (
+                <FichaContacto
+                    key={activeConv.id}
+                    conversaId={activeConv.id}
+                    onFechar={() => setFichaAberta(false)}
+                    onNomeMudado={() => fetchConversations()}
+                />
+            )}
+
             {/* Seletor de templates: escrever à mão ou usar um modelo já criado */}
             {showTemplateModal && activeConv && (
                 <SeletorTemplate

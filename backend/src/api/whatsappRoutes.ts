@@ -744,6 +744,112 @@ router.delete('/evolution/instance/logout', requireAuth, async (req: AuthRequest
 });
 
 /**
+ * A ficha de quem está do outro lado da conversa.
+ *
+ * Quem escreve para o WhatsApp da empresa é um lead, e até agora não havia por
+ * onde lhe pegar: o chat mostrava um nome e um número e mais nada. Isto junta
+ * num sítio o que o sistema já sabe sobre ele — o registo no CRM, as etiquetas,
+ * o negócio aberto — para se poder trabalhar o lead sem sair da conversa.
+ */
+router.get('/conversations/:id/contacto', requireAuth, async (req: AuthRequest, res: Response) => {
+    try {
+        const empresaId = req.user?.empresa_id;
+        if (!empresaId) return res.status(400).json({ error: 'Utilizador sem empresa associada.' });
+        const client = getSupabase(req);
+
+        const { data: conv } = await client.from('wa_conversations')
+            .select('id, phone_number, contact_name, contact_picture, created_at, last_client_message_at')
+            .eq('id', req.params.id).eq('empresa_id', empresaId).maybeSingle();
+        if (!conv) return res.status(404).json({ error: 'Conversa não encontrada.' });
+
+        const telefone = String(conv.phone_number || '').replace(/\D/g, '');
+        const { data: cliente } = await client.from('clientes')
+            .select('id, nome, email, telefone, empresa, tags, custom_fields, bot_paused, criado_em')
+            .eq('empresa_id', empresaId).eq('telefone', telefone).maybeSingle();
+
+        // O negócio mais recente deste contacto, para se ver em que ponto está.
+        let negocio = null;
+        if (cliente) {
+            const { data } = await client.from('negocios')
+                .select('id, titulo, fase, valor, criado_em')
+                .eq('empresa_id', empresaId).eq('cliente_id', cliente.id)
+                .order('criado_em', { ascending: false }).limit(1);
+            negocio = (data || [])[0] || null;
+        }
+
+        const { count: totalMensagens } = await client.from('wa_messages')
+            .select('id', { count: 'exact', head: true }).eq('conversation_id', conv.id);
+
+        res.json({
+            success: true,
+            conversa: conv,
+            cliente: cliente || null,
+            negocio,
+            totalMensagens: totalMensagens || 0
+        });
+    } catch (err: any) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+/** Guardar o que se corrigiu na ficha (nome, email, empresa, notas). */
+router.put('/conversations/:id/contacto', requireAuth, async (req: AuthRequest, res: Response) => {
+    try {
+        const empresaId = req.user?.empresa_id;
+        if (!empresaId) return res.status(400).json({ error: 'Utilizador sem empresa associada.' });
+        const client = getSupabase(req);
+        const { nome, email, empresa, notas } = req.body || {};
+
+        const { data: conv } = await client.from('wa_conversations')
+            .select('id, phone_number').eq('id', req.params.id).eq('empresa_id', empresaId).maybeSingle();
+        if (!conv) return res.status(404).json({ error: 'Conversa não encontrada.' });
+
+        const telefone = String(conv.phone_number || '').replace(/\D/g, '');
+        let { data: cliente } = await client.from('clientes')
+            .select('id, custom_fields').eq('empresa_id', empresaId).eq('telefone', telefone).maybeSingle();
+
+        // Um lead que nunca chegou a entrar no CRM ganha aqui a sua ficha, em vez
+        // de a pessoa ter de ir criá-lo a outro lado primeiro.
+        if (!cliente) {
+            const { data: novo, error } = await client.from('clientes').insert({
+                empresa_id: empresaId,
+                nome: nome || conv.phone_number,
+                telefone,
+                email: email || null,
+                empresa: empresa || null
+            }).select('id, custom_fields').single();
+            if (error) throw error;
+            cliente = novo;
+        }
+
+        const patch: any = {};
+        if (nome !== undefined) patch.nome = String(nome).trim() || telefone;
+        if (email !== undefined) patch.email = String(email).trim() || null;
+        if (empresa !== undefined) patch.empresa = String(empresa).trim() || null;
+        if (notas !== undefined) patch.custom_fields = { ...(cliente!.custom_fields || {}), notas: String(notas) };
+
+        if (Object.keys(patch).length) {
+            const { error } = await client.from('clientes').update(patch).eq('id', cliente!.id).eq('empresa_id', empresaId);
+            if (error) throw error;
+        }
+
+        // O nome corrigido na ficha é o que deve aparecer na lista de conversas.
+        if (patch.nome) {
+            await client.from('wa_conversations').update({ contact_name: patch.nome })
+                .eq('id', conv.id).eq('empresa_id', empresaId);
+        }
+
+        const { data: atualizado } = await client.from('clientes')
+            .select('id, nome, email, telefone, empresa, tags, custom_fields, bot_paused, criado_em')
+            .eq('id', cliente!.id).maybeSingle();
+
+        res.json({ success: true, cliente: atualizado });
+    } catch (err: any) {
+        res.status(400).json({ success: false, error: err.message });
+    }
+});
+
+/**
  * Traz para dentro o histórico de uma conversa, dos dois lados.
  *
  * Até agora só se guardava o que ia entrando ao vivo — e, pior, só o que os
