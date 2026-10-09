@@ -595,7 +595,38 @@ router.get('/conversations', requireAuth, async (req: AuthRequest, res: Response
 
     const { data, error } = await query;
     if (error) return res.status(500).json({ error: error.message });
-    res.json({ success: true, conversations: data });
+
+    // As etiquetas do contacto vêm com a conversa: de outra forma só se viam
+    // abrindo a ficha de cada um, o que não serve para olhar para a lista e
+    // perceber num relance quem está em que ponto.
+    try {
+        const client = getSupabase(req);
+        const { data: clientes } = await client.from('clientes')
+            .select('telefone, tags').eq('empresa_id', req.user!.empresa_id);
+        const { data: catalogo } = await client.from('etiquetas')
+            .select('nome, cor').eq('empresa_id', req.user!.empresa_id);
+
+        const cor: Record<string, string> = {};
+        for (const e of (catalogo || [])) cor[String(e.nome).trim().toLowerCase()] = e.cor;
+
+        const porTelefone: Record<string, any[]> = {};
+        for (const c of (clientes || [])) {
+            const chave = String(c.telefone || '').replace(/\D/g, '');
+            if (!chave || !(c.tags || []).length) continue;
+            porTelefone[chave] = (c.tags || []).map((t: string) => ({
+                nome: t, cor: cor[String(t).trim().toLowerCase()] || '#8996A3'
+            }));
+        }
+
+        const comEtiquetas = (data || []).map((conv: any) => ({
+            ...conv,
+            etiquetas: porTelefone[String(conv.phone_number || '').replace(/\D/g, '')] || []
+        }));
+        return res.json({ success: true, conversations: comEtiquetas });
+    } catch {
+        // Sem etiquetas a lista funciona na mesma — nunca vale a pena falhar por isto.
+        return res.json({ success: true, conversations: data });
+    }
 });
 
 router.get('/agents', requireAuth, async (req: AuthRequest, res: Response) => {
@@ -740,6 +771,151 @@ router.delete('/evolution/instance/logout', requireAuth, async (req: AuthRequest
         return res.json({ success: true, cleared: true });
     } catch (e: any) {
         return res.status(500).json({ error: e.message });
+    }
+});
+
+/**
+ * Qual o fluxo que atende esta conversa, e quais há para escolher.
+ *
+ * Até agora isto era decidido pelo sistema, igual para toda a gente: entre os
+ * fluxos ligados ganhava o do gatilho mais específico. Quem atende não tinha
+ * como dizer "este cliente é para ser atendido por aquele fluxo".
+ */
+router.get('/conversations/:id/fluxo', requireAuth, async (req: AuthRequest, res: Response) => {
+    try {
+        const empresaId = req.user?.empresa_id;
+        if (!empresaId) return res.status(400).json({ error: 'Utilizador sem empresa associada.' });
+        const client = getSupabase(req);
+
+        const { data: conv } = await client.from('wa_conversations')
+            .select('id, phone_number, automation_escolhida_id, fluxo_node_id, fluxo_automation_id')
+            .eq('id', req.params.id).eq('empresa_id', empresaId).maybeSingle();
+        if (!conv) return res.status(404).json({ error: 'Conversa não encontrada.' });
+
+        const { data: fluxos } = await client.from('automations')
+            .select('id, nome, ativo, nodes').eq('empresa_id', empresaId).order('nome');
+
+        // O bot está pausado para este cliente? É o mesmo interruptor do inbox.
+        const telefone = String(conv.phone_number || '').replace(/\D/g, '');
+        const { data: cliente } = await client.from('clientes')
+            .select('id, bot_paused').eq('empresa_id', empresaId).eq('telefone', telefone).maybeSingle();
+
+        res.json({
+            success: true,
+            escolhido: conv.automation_escolhida_id || null,
+            aMeio: conv.fluxo_node_id ? { automationId: conv.fluxo_automation_id, nodeId: conv.fluxo_node_id } : null,
+            botPausado: !!cliente?.bot_paused,
+            fluxos: (fluxos || []).map((f: any) => {
+                const nodes = typeof f.nodes === 'string' ? JSON.parse(f.nodes || '[]') : (f.nodes || []);
+                const gatilho = nodes.find((n: any) => n.type === 'trigger');
+                return {
+                    id: f.id,
+                    nome: f.nome,
+                    ativo: f.ativo,
+                    blocos: nodes.length,
+                    // Um fluxo sem gatilho de WhatsApp não reage a mensagens, mas pode
+                    // na mesma ser começado à mão — convém a pessoa saber qual é qual.
+                    reageAMensagens: gatilho?.data?.triggerKind === 'whatsapp_message'
+                };
+            })
+        });
+    } catch (err: any) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+/** Escolher (ou largar) o fluxo que atende esta conversa. */
+router.put('/conversations/:id/fluxo', requireAuth, async (req: AuthRequest, res: Response) => {
+    try {
+        const empresaId = req.user?.empresa_id;
+        if (!empresaId) return res.status(400).json({ error: 'Utilizador sem empresa associada.' });
+        const client = getSupabase(req);
+        const { automation_id } = req.body || {};
+
+        const { data: conv } = await client.from('wa_conversations')
+            .select('id').eq('id', req.params.id).eq('empresa_id', empresaId).maybeSingle();
+        if (!conv) return res.status(404).json({ error: 'Conversa não encontrada.' });
+
+        if (automation_id) {
+            const { data: fluxo } = await client.from('automations')
+                .select('id, nome, ativo').eq('id', automation_id).eq('empresa_id', empresaId).maybeSingle();
+            if (!fluxo) return res.status(404).json({ error: 'Fluxo não encontrado.' });
+            if (!fluxo.ativo) {
+                return res.status(400).json({ error: `"${fluxo.nome}" está desligado. Ligue-o no Autopilot antes de o pôr a atender.` });
+            }
+        }
+
+        const { error } = await client.from('wa_conversations').update({
+            automation_escolhida_id: automation_id || null,
+            automation_escolhida_em: automation_id ? new Date().toISOString() : null,
+            automation_escolhida_por: automation_id ? req.user?.id : null
+        }).eq('id', conv.id).eq('empresa_id', empresaId);
+        if (error) throw error;
+
+        res.json({ success: true, escolhido: automation_id || null });
+    } catch (err: any) {
+        res.status(400).json({ success: false, error: err.message });
+    }
+});
+
+/**
+ * Começar um fluxo nesta conversa AGORA, sem esperar que o cliente escreva.
+ *
+ * É o que faltava para fazer seguimento: um fluxo só arrancava quando chegava
+ * uma mensagem, por isso quem nunca respondia nunca mais era contactado.
+ */
+router.post('/conversations/:id/fluxo/iniciar', requireAuth, async (req: AuthRequest, res: Response) => {
+    try {
+        const empresaId = req.user?.empresa_id;
+        if (!empresaId) return res.status(400).json({ error: 'Utilizador sem empresa associada.' });
+        const client = getSupabase(req);
+        const { automation_id } = req.body || {};
+        if (!automation_id) return res.status(400).json({ error: 'Indique o fluxo a começar.' });
+
+        const { data: conv } = await client.from('wa_conversations')
+            .select('id, phone_number, contact_name, channel_id')
+            .eq('id', req.params.id).eq('empresa_id', empresaId).maybeSingle();
+        if (!conv) return res.status(404).json({ error: 'Conversa não encontrada.' });
+
+        const { data: fluxo } = await client.from('automations')
+            .select('*').eq('id', automation_id).eq('empresa_id', empresaId).maybeSingle();
+        if (!fluxo) return res.status(404).json({ error: 'Fluxo não encontrado.' });
+
+        const telefone = String(conv.phone_number || '').replace(/\D/g, '');
+        const { data: cliente } = await client.from('clientes')
+            .select('id, tags, custom_fields, bot_paused').eq('empresa_id', empresaId).eq('telefone', telefone).maybeSingle();
+
+        // Começar um fluxo à mão é uma decisão de quem atende: se o bot estava
+        // pausado para este cliente, é porque alguém o pausou — avisamos em vez de
+        // o atropelar em silêncio.
+        if (cliente?.bot_paused && !req.body?.forcar) {
+            return res.status(409).json({
+                error: 'O bot está pausado para este cliente. Retome o bot, ou confirme que quer começar o fluxo à mesma.',
+                precisaConfirmar: true
+            });
+        }
+
+        const { AutomationEngine } = require('../services/AutomationEngine');
+        const r = await AutomationEngine.correrFluxoNaConversa(
+            fluxo, conv.id,
+            { phone_number: telefone, contact_name: conv.contact_name, content: '', channel_id: conv.channel_id },
+            empresaId,
+            { clienteId: cliente?.id, tags: cliente?.tags || [], customFields: cliente?.custom_fields || {} },
+            { mensagemDisponivel: false }
+        );
+        if (!r.ok) return res.status(400).json({ success: false, error: r.erro });
+
+        // Quem começa um fluxo à mão quer que ele continue a atender a conversa.
+        await client.from('wa_conversations').update({
+            automation_escolhida_id: fluxo.id,
+            automation_escolhida_em: new Date().toISOString(),
+            automation_escolhida_por: req.user?.id
+        }).eq('id', conv.id).eq('empresa_id', empresaId);
+
+        res.json({ success: true, message: `"${fluxo.nome}" começou nesta conversa.` });
+    } catch (err: any) {
+        console.error('[Fluxo na conversa] Erro:', err?.message || err);
+        res.status(500).json({ success: false, error: err.message });
     }
 });
 

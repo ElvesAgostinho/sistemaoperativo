@@ -149,6 +149,15 @@ export class AutomationEngine {
             // onde o fluxo ficou em vez de o repetir desde a saudação.
             if (await this.retomarFluxoPendente(conversationId, message, empresaId, crmInfo)) return;
 
+            // Quem atende pode ter escolhido um fluxo para ESTA conversa. Nesse
+            // caso é esse que responde, e não o que o sistema escolheria — o mesmo
+            // fluxo não serve para todos os clientes.
+            const escolhido = await this.fluxoEscolhidoDaConversa(conversationId, empresaId);
+            if (escolhido) {
+                await this.correrFluxoNaConversa(escolhido, conversationId, message, empresaId, crmInfo, { mensagemDisponivel: false });
+                return;
+            }
+
             const { data: automations } = await supabase.from('automations').select('*').eq('ativo', true).eq('empresa_id', empresaId);
 
             // Só UM fluxo responde a cada mensagem (evita respostas duplicadas).
@@ -209,6 +218,83 @@ export class AutomationEngine {
         } catch (error) {
             console.error('Erro no Automation Engine (WhatsApp):', error);
         }
+    }
+
+    /**
+     * O fluxo que quem atende escolheu para esta conversa, se ainda existir e
+     * estiver ligado. Um fluxo escolhido e depois desligado não pode deixar a
+     * conversa muda — nesse caso devolve null e o sistema volta a decidir.
+     */
+    private static async fluxoEscolhidoDaConversa(conversationId: string, empresaId: any): Promise<any | null> {
+        try {
+            const { data: conv } = await supabase.from('wa_conversations')
+                .select('automation_escolhida_id').eq('id', conversationId).maybeSingle();
+            if (!conv?.automation_escolhida_id) return null;
+
+            const { data: automation } = await supabase.from('automations')
+                .select('*').eq('id', conv.automation_escolhida_id).eq('empresa_id', empresaId).maybeSingle();
+
+            if (!automation) {
+                console.warn(`[AUTOPILOT] O fluxo escolhido para a conversa ${conversationId} já não existe — o sistema volta a decidir.`);
+                return null;
+            }
+            if (!automation.ativo) {
+                console.warn(`[AUTOPILOT] O fluxo "${automation.nome}" está desligado — a conversa ${conversationId} volta ao normal.`);
+                return null;
+            }
+            return automation;
+        } catch (e) {
+            // A coluna pode ainda não existir (migração por correr): não é razão
+            // para a conversa deixar de ser atendida.
+            return null;
+        }
+    }
+
+    /**
+     * Corre um fluxo nesta conversa, do princípio.
+     *
+     * Serve os dois casos que quem atende precisa: a mensagem do cliente ser
+     * tratada pelo fluxo escolhido, e começar um fluxo agora sem o cliente ter
+     * escrito nada (`mensagemDisponivel` distingue-os — no segundo caso não há
+     * mensagem nenhuma para um menu consumir).
+     */
+    public static async correrFluxoNaConversa(
+        automation: any,
+        conversationId: string,
+        message: { phone_number: string; contact_name?: string; content?: string; channel_id: string },
+        empresaId: any,
+        crmInfo: { clienteId?: any; tags?: string[]; customFields?: Record<string, any> } = {},
+        opcoes: { mensagemDisponivel?: boolean } = {}
+    ): Promise<{ ok: boolean; erro?: string }> {
+        const { nodes, edges } = this.parseGraph(automation);
+        const trigger = nodes.find((n: FlowNode) => n.type === 'trigger');
+        if (!trigger) return { ok: false, erro: 'O fluxo não tem nó de gatilho.' };
+
+        const primeira = edges.find((e: FlowEdge) => e.source === trigger.id);
+        if (!primeira) return { ok: false, erro: 'O gatilho do fluxo não está ligado a nenhum bloco.' };
+
+        const context: Record<string, any> = {
+            telefone: message.phone_number,
+            nome_whatsapp: message.contact_name || '',
+            mensagem: message.content || '',
+            channel_id: message.channel_id,
+            client_id: crmInfo.clienteId,
+            tags: (crmInfo.tags || []).join(','),
+            conversation_id: conversationId,
+            ...(crmInfo.customFields || {})
+        };
+
+        // Começar um fluxo limpa o que estivesse a meio: senão a primeira resposta
+        // do cliente ia ser entregue ao fluxo antigo, que já ninguém está a seguir.
+        await this.limparEstadoFluxo(conversationId);
+
+        await this.executeGraph(nodes, edges, primeira.target, context, empresaId || null, [automation.id], {
+            mensagemDisponivel: !!opcoes.mensagemDisponivel,
+            conversationId,
+            automationId: automation.id
+        });
+        console.log(`[AUTOPILOT] Fluxo "${automation.nome}" corrido na conversa ${conversationId}.`);
+        return { ok: true };
     }
 
     /**

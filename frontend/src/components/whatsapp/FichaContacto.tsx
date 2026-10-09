@@ -132,15 +132,36 @@ export default function FichaContacto({
   const seccao: React.CSSProperties = { fontSize: '11px', fontWeight: 700, color: '#8996A3', letterSpacing: '0.5px', margin: '22px 0 10px' };
 
   return (
-    <div style={{ width: '330px', minWidth: '330px', borderLeft: '1px solid #D5D7DA', background: 'white', display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ padding: '14px 16px', borderBottom: '1px solid #D5D7DA', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontWeight: 700, color: '#1D2D3E', fontSize: '15px' }}>Ficha do contacto</span>
-        <button onClick={onFechar} title="Fechar" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#5B738B', display: 'flex' }}>
-          <X size={18} />
+    <div style={{
+      width: '320px', minWidth: '320px', flexShrink: 0,
+      borderLeft: '1px solid #D5D7DA', background: 'white',
+      display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden'
+    }}>
+      {/* O botão de fechar fica à vista e com área de clique a sério: antes era
+          um ícone fino que ficava cortado na margem e ninguém encontrava. */}
+      <div style={{
+        padding: '0 8px 0 16px', height: '59px', flexShrink: 0,
+        borderBottom: '1px solid #D5D7DA', background: '#F5F6F7',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px'
+      }}>
+        <span style={{ fontWeight: 700, color: '#1D2D3E', fontSize: '14.5px', whiteSpace: 'nowrap' }}>Ficha do contacto</span>
+        <button
+          onClick={onFechar}
+          title="Fechar a ficha"
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: '34px', height: '34px', flexShrink: 0,
+            background: 'white', border: '1px solid #D5D7DA', borderRadius: '2px',
+            cursor: 'pointer', color: '#5B738B'
+          }}
+          onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#E7E9EB'; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'white'; }}
+        >
+          <X size={17} />
         </button>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '18px 16px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '18px 16px', wordBreak: 'break-word' }}>
         {aCarregar ? (
           <div style={{ color: '#5B738B', fontSize: '13.5px' }}>A carregar...</div>
         ) : (
@@ -202,15 +223,18 @@ export default function FichaContacto({
                   </button>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', marginTop: '14px', fontSize: '13px', color: '#1D2D3E' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Phone size={14} color="#8996A3" /> {ficha?.conversa?.phone_number || '—'}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '14px', fontSize: '13px', color: '#1D2D3E' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '9px' }}>
+                    <Phone size={14} color="#8996A3" style={{ flexShrink: 0, marginTop: '2px' }} />
+                    <span style={{ minWidth: 0, wordBreak: 'break-word' }}>{ficha?.conversa?.phone_number || '—'}</span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: ficha?.cliente?.email ? '#1D2D3E' : '#8996A3' }}>
-                    <Mail size={14} color="#8996A3" /> {ficha?.cliente?.email || 'sem email'}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '9px', color: ficha?.cliente?.email ? '#1D2D3E' : '#8996A3' }}>
+                    <Mail size={14} color="#8996A3" style={{ flexShrink: 0, marginTop: '2px' }} />
+                    <span style={{ minWidth: 0, wordBreak: 'break-word' }}>{ficha?.cliente?.email || 'sem email'}</span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: ficha?.cliente?.empresa ? '#1D2D3E' : '#8996A3' }}>
-                    <Building2 size={14} color="#8996A3" /> {ficha?.cliente?.empresa || 'sem empresa'}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '9px', color: ficha?.cliente?.empresa ? '#1D2D3E' : '#8996A3' }}>
+                    <Building2 size={14} color="#8996A3" style={{ flexShrink: 0, marginTop: '2px' }} />
+                    <span style={{ minWidth: 0, wordBreak: 'break-word' }}>{ficha?.cliente?.empresa || 'sem empresa'}</span>
                   </div>
                 </div>
 
@@ -270,8 +294,8 @@ export default function FichaContacto({
             )}
 
             {etiquetas.length === 0 && !novaAberta && (
-              <div style={{ fontSize: '12px', color: '#8996A3', marginTop: '8px', lineHeight: 1.5 }}>
-                Ainda não há etiquetas. Crie aqui, ou em Definições → Etiquetas.
+              <div style={{ fontSize: '12px', color: '#8996A3', marginTop: '8px', lineHeight: 1.55 }}>
+                Ainda não há etiquetas. Crie uma aqui com o <b>+ Nova</b>, ou em Definições&nbsp;→&nbsp;Etiquetas.
               </div>
             )}
 
@@ -296,17 +320,31 @@ export default function FichaContacto({
 
             {/* ---------- Histórico ---------- */}
             <div style={seccao}>NESTA CONVERSA</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', fontSize: '12.5px', color: '#5B738B' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <MessageSquare size={13} color="#8996A3" /> {ficha?.totalMensagens || 0} mensagem(ns)
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12.5px', color: '#5B738B' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '9px' }}>
+                <MessageSquare size={13} color="#8996A3" style={{ flexShrink: 0, marginTop: '2px' }} />
+                <span style={{ minWidth: 0 }}>{ficha?.totalMensagens || 0} mensagens trocadas</span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Briefcase size={13} color="#8996A3" /> Cliente desde {dataCurta(ficha?.cliente?.criado_em || ficha?.conversa?.created_at)}
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '9px' }}>
+                <Briefcase size={13} color="#8996A3" style={{ flexShrink: 0, marginTop: '2px' }} />
+                <span style={{ minWidth: 0 }}>Cliente desde {dataCurta(ficha?.cliente?.criado_em || ficha?.conversa?.created_at)}</span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Tag size={13} color="#8996A3" /> Última mensagem dele: {dataCurta(ficha?.conversa?.last_client_message_at)}
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '9px' }}>
+                <Tag size={13} color="#8996A3" style={{ flexShrink: 0, marginTop: '2px' }} />
+                <span style={{ minWidth: 0 }}>Escreveu pela última vez a {dataCurta(ficha?.conversa?.last_client_message_at)}</span>
               </div>
             </div>
+
+            <button
+              onClick={onFechar}
+              style={{
+                width: '100%', marginTop: '22px', padding: '9px', background: 'white',
+                border: '1px solid #D5D7DA', borderRadius: '2px', color: '#5B738B',
+                fontSize: '13px', fontWeight: 600, cursor: 'pointer'
+              }}
+            >
+              Fechar a ficha
+            </button>
           </>
         )}
       </div>

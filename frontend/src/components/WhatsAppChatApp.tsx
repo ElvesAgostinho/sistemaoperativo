@@ -7,6 +7,8 @@ import CampanhasApp from './CampanhasApp';
 import TemplatesApp from './whatsapp/TemplatesApp';
 import SeletorTemplate from './whatsapp/SeletorTemplate';
 import FichaContacto from './whatsapp/FichaContacto';
+import SeletorFluxo from './whatsapp/SeletorFluxo';
+import MenuAccoesConversa from './whatsapp/MenuAccoesConversa';
 
 // FIX #5 — Supabase client para Realtime (usa as mesmas variáveis de ambiente)
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://lmxuixmmrglrqxjrhpgn.supabase.co';
@@ -85,6 +87,7 @@ interface Conversation {
     contact_picture?: string | null;
     status: string;
     last_message_at: string;
+    etiquetas?: { nome: string; cor: string }[];
     last_client_message_at?: string;
     wa_channels: { name: string, provider: string };
     assigned_to?: string;
@@ -944,6 +947,25 @@ export default function WhatsAppChatApp() {
                                                 <UserPlus size={12} /> {agents.find(a => a.id === conv.assigned_to)?.nome || 'Agente Atribuído'}
                                             </div>
                                         )}
+                                        {/* As etiquetas aqui mesmo: olhar para a lista e ver
+                                            num relance quem esta em que ponto, sem abrir cada ficha. */}
+                                        {!!conv.etiquetas?.length && (
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '5px' }}>
+                                                {conv.etiquetas.slice(0, 3).map((et: any) => (
+                                                    <span key={et.nome} title={et.nome} style={{
+                                                        fontSize: '10.5px', fontWeight: 700, padding: '2px 7px', borderRadius: '2px',
+                                                        background: et.cor, color: 'white', maxWidth: '110px',
+                                                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                                                    }}>{et.nome}</span>
+                                                ))}
+                                                {conv.etiquetas.length > 3 && (
+                                                    <span title={conv.etiquetas.map((e: any) => e.nome).join(', ')}
+                                                        style={{ fontSize: '10.5px', fontWeight: 700, padding: '2px 6px', borderRadius: '2px', background: '#E7E9EB', color: '#5B738B' }}>
+                                                        +{conv.etiquetas.length - 3}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             ))}
@@ -1126,11 +1148,11 @@ export default function WhatsAppChatApp() {
                 )}
             </div>
 
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundImage: 'url(https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png)', backgroundRepeat: 'repeat', backgroundColor: '#F5F6F7' }}>
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', backgroundImage: 'url(https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png)', backgroundRepeat: 'repeat', backgroundColor: '#F5F6F7' }}>
                 {currentView === 'chats' && activeConv ? (
                     <>
-                        <div style={{ padding: '10px 16px', backgroundColor: '#F5F6F7', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '59px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <div style={{ padding: '10px 16px', backgroundColor: '#F5F6F7', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '59px', gap: '12px', flexShrink: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
                                 <div
                                     onClick={() => setFichaAberta(v => !v)}
                                     title="Ver a ficha deste contacto"
@@ -1144,59 +1166,57 @@ export default function WhatsAppChatApp() {
                                 <div
                                     onClick={() => setFichaAberta(v => !v)}
                                     title="Ver a ficha deste contacto"
-                                    style={{ display: 'flex', flexDirection: 'column', cursor: 'pointer' }}
+                                    style={{ display: 'flex', flexDirection: 'column', cursor: 'pointer', minWidth: 0 }}
                                 >
-                                    <div style={{ fontWeight: 500, color: '#1D2D3E', fontSize: '16px' }}>{displayContactName(activeConv.contact_name, activeConv.phone_number)}</div>
-                                    <div style={{ fontSize: '13px', color: '#5B738B' }}>{formatPhoneNumber(activeConv.phone_number)}{activeConv.wa_channels?.name ? ` • ${activeConv.wa_channels.name}` : ''}</div>
+                                    <div style={{ fontWeight: 600, color: '#1D2D3E', fontSize: '15px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {displayContactName(activeConv.contact_name, activeConv.phone_number)}
+                                    </div>
+                                    <div style={{ fontSize: '12.5px', color: '#5B738B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {formatPhoneNumber(activeConv.phone_number)}{activeConv.wa_channels?.name ? ` · ${activeConv.wa_channels.name}` : ''}
+                                    </div>
                                 </div>
                             </div>
                             
-                            {/* Top Actions */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <button
-                                    onClick={importarHistorico}
-                                    disabled={aImportar}
-                                    title="Ir buscar ao WhatsApp as mensagens antigas desta conversa que faltam aqui"
-                                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', backgroundColor: '#D5D7DA', color: '#5B738B', border: 'none', borderRadius: '2px', cursor: aImportar ? 'wait' : 'pointer', fontSize: '13px', fontWeight: 500 }}
-                                >
-                                    <History size={16} /> {aImportar ? 'A recuperar...' : 'Recuperar histórico'}
-                                </button>
-                                {currentUser && (currentUser.role === 'admin' || currentUser.role === 'supervisor' || currentUser.role === 'superadmin') && (
-                                    <>
-                                        <button 
-                                            onClick={() => setShowAssignModal(true)}
-                                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', backgroundColor: '#D5D7DA', color: '#5B738B', border: 'none', borderRadius: '2px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}
-                                            title="Atribuir Conversa"
-                                        >
-                                            <UserPlus size={16} /> Delegar
-                                        </button>
-                                        <button 
-                                            onClick={handleViewAudit}
-                                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', backgroundColor: '#D5D7DA', color: '#5B738B', border: 'none', borderRadius: '2px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}
-                                            title="Ver Auditoria"
-                                        >
-                                            <ClipboardList size={16} /> Auditoria
-                                        </button>
-                                    </>
-                                )}
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '8px' }}>
-                                    <span style={{ fontSize: '13px', color: '#5B738B', fontWeight: 500 }}>
-                                        {isBotPaused ? 'Bot Pausado' : 'Bot Ativo'}
+                            {/* Acções do topo. Só o que se usa a toda a hora fica à
+                                vista; o resto vive no menu dos três pontos, senão o
+                                cabeçalho enche e o nome do contacto parte-se em três
+                                linhas espremidas a um canto. */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                                <SeletorFluxo
+                                    key={activeConv.id}
+                                    conversaId={activeConv.id}
+                                    onMudou={() => fetchMessages()}
+                                />
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ fontSize: '13px', color: '#5B738B', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                                        {isBotPaused ? 'Bot pausado' : 'Bot ativo'}
                                     </span>
-                                    <div 
+                                    <div
                                         onClick={toggleBotStatus}
-                                        style={{ 
-                                            width: '40px', height: '20px', borderRadius: '2px', 
-                                            backgroundColor: isBotPaused ? '#D5D7DA' : '#0E5A6B', 
+                                        title={isBotPaused ? 'Retomar as respostas automáticas' : 'Pausar as respostas automáticas'}
+                                        style={{
+                                            width: '40px', height: '20px', borderRadius: '2px', flexShrink: 0,
+                                            backgroundColor: isBotPaused ? '#D5D7DA' : '#0E5A6B',
                                             position: 'relative', cursor: 'pointer', transition: 'background-color 0.3s'
                                         }}
                                     >
-                                        <div style={{ 
+                                        <div style={{
                                             width: '16px', height: '16px', backgroundColor: 'white', borderRadius: '50%',
                                             position: 'absolute', top: '2px', left: isBotPaused ? '2px' : '22px', transition: 'left 0.3s'
                                         }}></div>
                                     </div>
                                 </div>
+
+                                <MenuAccoesConversa
+                                    fichaAberta={fichaAberta}
+                                    onFicha={() => setFichaAberta(v => !v)}
+                                    onHistorico={importarHistorico}
+                                    aImportar={aImportar}
+                                    onDelegar={() => setShowAssignModal(true)}
+                                    onAuditoria={handleViewAudit}
+                                    podeGerir={!!currentUser && ['admin', 'supervisor', 'superadmin'].includes(currentUser.role)}
+                                />
                             </div>
                         </div>
 
