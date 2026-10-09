@@ -13,6 +13,70 @@ export class CrmService {
         return data;
     }
 
+    /** Tudo o que o sistema sabe deste cliente, num sítio só. */
+    public static async getCliente(req: Request, id: number) {
+        const supabase = getSupabase(req);
+        const empresa_id = (req as any).user?.empresa_id;
+
+        const { data: cliente } = await supabase.from('clientes')
+            .select('*').eq('id', id).eq('empresa_id', empresa_id).maybeSingle();
+        if (!cliente) return null;
+
+        const { data: negocios } = await supabase.from('negocios')
+            .select('id, titulo, fase, valor, criado_em')
+            .eq('empresa_id', empresa_id).eq('cliente_id', id)
+            .order('criado_em', { ascending: false });
+
+        // A conversa de WhatsApp deste número, se existir — para se poder saltar
+        // da ficha para o chat em vez de a ir procurar à mão.
+        const telefone = String(cliente.telefone || '').replace(/\D/g, '');
+        let conversa = null;
+        if (telefone) {
+            const { data } = await supabase.from('wa_conversations')
+                .select('id, last_message_at').eq('empresa_id', empresa_id).eq('phone_number', telefone).maybeSingle();
+            conversa = data || null;
+        }
+
+        return { cliente, negocios: negocios || [], conversa };
+    }
+
+    public static async updateCliente(req: Request, id: number, dados: any) {
+        const supabase = getSupabase(req);
+        const empresa_id = (req as any).user?.empresa_id;
+
+        const { data: atual } = await supabase.from('clientes')
+            .select('id, custom_fields').eq('id', id).eq('empresa_id', empresa_id).maybeSingle();
+        if (!atual) throw new Error('Cliente não encontrado.');
+
+        const patch: any = {};
+        if (dados.nome !== undefined) {
+            const nome = String(dados.nome).trim();
+            if (!nome) throw new Error('O nome não pode ficar vazio.');
+            patch.nome = nome;
+        }
+        if (dados.email !== undefined) {
+            const email = String(dados.email).trim();
+            if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) throw new Error('Esse email não parece válido.');
+            patch.email = email || null;
+        }
+        if (dados.telefone !== undefined) patch.telefone = String(dados.telefone).replace(/\D/g, '') || null;
+        if (dados.empresa !== undefined) patch.empresa = String(dados.empresa).trim() || null;
+        if (dados.notas !== undefined) patch.custom_fields = { ...(atual.custom_fields || {}), notas: String(dados.notas) };
+
+        if (Object.keys(patch).length === 0) throw new Error('Não havia nada para guardar.');
+
+        const { data, error } = await supabase.from('clientes')
+            .update(patch).eq('id', id).eq('empresa_id', empresa_id).select('*').single();
+        if (error) throw error;
+
+        // O nome corrigido aqui é o que deve aparecer no chat do WhatsApp.
+        if (patch.nome && data?.telefone) {
+            await supabase.from('wa_conversations').update({ contact_name: patch.nome })
+                .eq('empresa_id', empresa_id).eq('phone_number', String(data.telefone).replace(/\D/g, ''));
+        }
+        return data;
+    }
+
     public static async createCliente(req: Request | null, dados: { nome: string; email?: string; telefone?: string; empresa?: string, empresa_id?: number | null }) {
         const { supabase } = await import('../lib/supabaseClient'); // admin client
         const client = req ? getSupabase(req) : supabase;

@@ -112,14 +112,14 @@ export default function SeletorFluxo({
           background: atual ? '#E1EEF0' : '#D5D7DA',
           color: atual ? '#0E5A6B' : '#5B738B',
           border: atual ? '1px solid #0E5A6B' : 'none',
-          borderRadius: '2px', cursor: 'pointer', fontSize: '13px', fontWeight: 500, maxWidth: '240px'
+          borderRadius: '2px', cursor: 'pointer', fontSize: '13px', fontWeight: 500, maxWidth: '190px'
         }}
       >
-        <Zap size={15} />
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <Zap size={15} style={{ flexShrink: 0 }} />
+        <span className="wa-fluxo-nome" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {aCarregar ? 'A carregar...' : atual ? atual.nome : 'Escolher fluxo'}
         </span>
-        <ChevronDown size={14} />
+        <ChevronDown size={14} style={{ flexShrink: 0 }} />
       </button>
 
       {aviso && (

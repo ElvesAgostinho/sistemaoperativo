@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { Zap, Plus, Trash2, PanelLeftClose, PanelLeftOpen, Pencil, Check, X, HelpCircle, AlertTriangle, ArrowLeft } from 'lucide-react';
+import { Zap, Plus, Trash2, PanelLeftClose, PanelLeftOpen, Pencil, Check, X, HelpCircle, AlertTriangle, ArrowLeft, Send } from 'lucide-react';
 import AutomationCanvas from './automation/AutomationCanvas';
 import HelpGuide from './automation/HelpGuide';
+import DisparosFluxo from './automation/DisparosFluxo';
 import { createBlankAutomationGraph, type Automation, type AutomationEdge, type AutomationNode } from './automation/types';
 
 export default function AutomationApp({ onVoltar }: { onVoltar?: () => void }) {
@@ -15,6 +16,7 @@ export default function AutomationApp({ onVoltar }: { onVoltar?: () => void }) {
   const [isRenaming, setIsRenaming] = useState(false);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [disparosAberto, setDisparosAberto] = useState(false);
 
   const authHeaders = () => {
     const token = localStorage.getItem('os_auth_token');
@@ -238,7 +240,14 @@ export default function AutomationApp({ onVoltar }: { onVoltar?: () => void }) {
               <HelpCircle size={13} /> Ajuda
             </button>
           </div>
-          <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#666' }}>Construtor Visual de Automações</p>
+          <button
+            onClick={() => setDisparosAberto(true)}
+            title="Pôr um fluxo a correr para um grupo de contactos, sem esperar que escrevam"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', width: '100%', marginTop: '10px', background: 'white', border: '1px solid #0E5A6B', color: '#0E5A6B', borderRadius: '2px', padding: '7px 9px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
+          >
+            <Send size={13} /> Disparar um fluxo
+          </button>
+          <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: '#666' }}>Construtor Visual de Automações</p>
         </div>
 
         <div style={{ padding: '16px', overflowY: 'auto', flex: 1, minWidth: '300px' }}>
@@ -400,6 +409,7 @@ export default function AutomationApp({ onVoltar }: { onVoltar?: () => void }) {
       </div>
 
       {helpOpen && <HelpGuide onClose={() => setHelpOpen(false)} />}
+      {disparosAberto && <DisparosFluxo onFechar={() => setDisparosAberto(false)} />}
 
     </div>
   );

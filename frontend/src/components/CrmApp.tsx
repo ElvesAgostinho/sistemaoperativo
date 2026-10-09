@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import FichaCliente from './crm/FichaCliente';
 import { Plus, Trash2, ChevronRight, Check, X, Building, DollarSign, Target, TrendingUp, Users, XCircle, FolderOpen } from 'lucide-react';
 import DocumentosLigados from './documentos/DocumentosLigados';
 import './CrmApp.css';
@@ -45,6 +46,7 @@ export default function CrmApp() {
   const [negocios, setNegocios] = useState<Negocio[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [docsCliente, setDocsCliente] = useState<Cliente | null>(null);
+  const [fichaCliente, setFichaCliente] = useState<number | null>(null);
   const [searchCliente, setSearchCliente] = useState('');
 
   const [showClienteModal, setShowClienteModal] = useState(false);
@@ -389,21 +391,30 @@ export default function CrmApp() {
                       (c.telefone && c.telefone.includes(searchCliente)) ||
                       (c.empresa && c.empresa.toLowerCase().includes(searchCliente.toLowerCase())))
                     .map(c => (
-                      <tr key={c.id}>
+                      <tr
+                        key={c.id}
+                        onClick={() => setFichaCliente(c.id)}
+                        title="Abrir a ficha deste cliente"
+                        style={{ cursor: 'pointer' }}
+                      >
                         <td style={{ fontWeight: 600 }}>{c.nome}</td>
                         <td>{c.empresa || '-'}</td>
                         <td>{c.telefone || '-'}</td>
-                        <td>{c.email || '-'}</td>
+                        {/* O que falta fica assinalado: sem email, este cliente
+                            fica de fora das campanhas e ninguem dá por isso. */}
+                        <td style={{ color: c.email ? undefined : '#8A4B0B' }}>
+                          {c.email || 'por preencher'}
+                        </td>
                         <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
                           <button
-                            onClick={() => setDocsCliente(c)}
+                            onClick={e => { e.stopPropagation(); setDocsCliente(c); }}
                             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--crm-accent)', marginRight: '6px' }}
                             title="Documentos deste cliente"
                           >
                             <FolderOpen size={16} />
                           </button>
                           <button
-                            onClick={() => deleteCliente(c.id)}
+                            onClick={e => { e.stopPropagation(); deleteCliente(c.id); }}
                             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--crm-bad-fg)' }}
                             title="Apagar Cliente"
                           >
@@ -492,6 +503,14 @@ export default function CrmApp() {
               </form>
             </div>
           </div>
+        )}
+
+        {fichaCliente !== null && (
+          <FichaCliente
+            clienteId={fichaCliente}
+            onFechar={() => setFichaCliente(null)}
+            onGuardado={() => fetchDados()}
+          />
         )}
 
         {showProformaModal && (

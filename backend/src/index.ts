@@ -25,6 +25,7 @@ import publicRoutes from './api/publicRoutes';
 import { EmailSyncService } from './services/EmailSyncService';
 import { CampaignService } from './services/CampaignService';
 import { EmailCampaignService } from './services/EmailCampaignService';
+import { FluxoDisparoService } from './services/FluxoDisparoService';
 import documentosRoutes from './api/documentosRoutes';
 import { DocumentosService } from './services/DocumentosService';
 import { requireAuth } from './middleware/authMiddleware';
@@ -116,6 +117,12 @@ app.listen(port, () => {
   // spam — com lotes pequenos as mensagens chegam mesmo.
   setInterval(() => {
     EmailCampaignService.processarFila().catch(console.error);
+  }, 20 * 1000);
+
+  // Disparos de fluxo: o mesmo ritmo, e pela razao mais seria de todas — um
+  // numero pessoal a enviar centenas de mensagens seguidas e banido pelo WhatsApp.
+  setInterval(() => {
+    FluxoDisparoService.processarFila().catch(console.error);
   }, 20 * 1000);
 
   // Documentos que ficaram a meio (ex: o servidor reiniciou durante a leitura

@@ -1,11 +1,13 @@
 import { Router } from 'express';
-import { getClientes, createCliente, deleteCliente, getNegocios, createNegocio, updateFaseNegocio, generateProforma, deleteNegocio, registerPayment } from '../controllers/crmController';
+import { getClientes, createCliente, deleteCliente, getNegocios, createNegocio, updateFaseNegocio, generateProforma, deleteNegocio, registerPayment, getCliente, updateCliente } from '../controllers/crmController';
 
 const router = Router();
 
 // Clientes
 router.get('/clientes', getClientes);
 router.post('/clientes', createCliente);
+router.get('/clientes/:id', getCliente);
+router.put('/clientes/:id', updateCliente);
 router.delete('/clientes/:id', deleteCliente);
 
 // Negócios (Pipeline)

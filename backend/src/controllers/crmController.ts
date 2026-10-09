@@ -31,6 +31,32 @@ export const createCliente = async (req: Request, res: Response) => {
     }
 };
 
+/**
+ * A ficha de um cliente: o que se sabe dele, o que tem marcado e em que ponto
+ * está o negócio. Antes a lista do CRM mostrava quatro colunas e mais nada —
+ * para ver ou corrigir seja o que fosse não havia por onde.
+ */
+export const getCliente = async (req: Request, res: Response) => {
+    try {
+        const ficha = await CrmService.getCliente(req, Number(req.params.id));
+        if (!ficha) return res.status(404).json({ error: 'Cliente não encontrado.' });
+        return res.json({ success: true, ...ficha });
+    } catch (error: any) {
+        console.error('Erro a ler cliente:', error);
+        return res.status(500).json({ error: error.message });
+    }
+};
+
+export const updateCliente = async (req: Request, res: Response) => {
+    try {
+        const cliente = await CrmService.updateCliente(req, Number(req.params.id), req.body || {});
+        return res.json({ success: true, cliente });
+    } catch (error: any) {
+        console.error('Erro a guardar cliente:', error);
+        return res.status(400).json({ error: error.message });
+    }
+};
+
 export const deleteCliente = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;

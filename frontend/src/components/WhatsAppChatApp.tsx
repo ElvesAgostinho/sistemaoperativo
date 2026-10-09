@@ -1151,7 +1151,7 @@ export default function WhatsAppChatApp() {
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', backgroundImage: 'url(https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png)', backgroundRepeat: 'repeat', backgroundColor: '#F5F6F7' }}>
                 {currentView === 'chats' && activeConv ? (
                     <>
-                        <div style={{ padding: '10px 16px', backgroundColor: '#F5F6F7', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '59px', gap: '12px', flexShrink: 0 }}>
+                        <div className="wa-topo" style={{ padding: '10px 16px', backgroundColor: '#F5F6F7', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '59px', gap: '12px', flexShrink: 0, overflow: 'hidden' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
                                 <div
                                     onClick={() => setFichaAberta(v => !v)}
@@ -1181,7 +1181,7 @@ export default function WhatsAppChatApp() {
                                 vista; o resto vive no menu dos três pontos, senão o
                                 cabeçalho enche e o nome do contacto parte-se em três
                                 linhas espremidas a um canto. */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                            <div className="wa-topo-accoes" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
                                 <SeletorFluxo
                                     key={activeConv.id}
                                     conversaId={activeConv.id}
@@ -1189,7 +1189,7 @@ export default function WhatsAppChatApp() {
                                 />
 
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={{ fontSize: '13px', color: '#5B738B', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                                    <span className="wa-bot-rotulo" style={{ fontSize: '13px', color: '#5B738B', fontWeight: 500, whiteSpace: 'nowrap' }}>
                                         {isBotPaused ? 'Bot pausado' : 'Bot ativo'}
                                     </span>
                                     <div
@@ -1540,7 +1540,20 @@ export default function WhatsAppChatApp() {
                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
                                             <div className="spinner" style={{ width: '24px', height: '24px', border: '3px solid #D5D7DA', borderTopColor: '#0E5A6B', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
                                             <span style={{ fontSize: '14px', fontWeight: 500 }}>A gerar QR Code...</span>
-                                            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                                            <style>{`@keyframes spin { to { transform: rotate(360deg); } }
+                /* O cabecalho da conversa mede-se a si proprio: com a ficha do
+                   contacto aberta numa janela estreita, a coluna da conversa fica
+                   com pouco espaco e os botoes de cima saiam de vista. Em vez de
+                   desaparecerem, encolhem — primeiro o rotulo do bot, depois o
+                   nome do fluxo, ficando sempre os icones clicaveis. */
+                .wa-topo { container-type: inline-size; }
+                @container (max-width: 620px) {
+                    .wa-bot-rotulo { display: none; }
+                }
+                @container (max-width: 500px) {
+                    .wa-topo-accoes .wa-fluxo-nome { display: none; }
+                }
+`}</style>
                                         </div>
                                     )}
                                 </div>
