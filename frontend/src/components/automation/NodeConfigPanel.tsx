@@ -3,6 +3,7 @@ import SeletorEtiquetas from './SeletorEtiquetas';
 import { X, Trash2, Loader2, Plus, Upload } from 'lucide-react';
 import type { ActionNodeData, ActionType, Automation, AutomationNode, ConditionNodeData, MenuNodeData, TriggerNodeData } from './types';
 import { ACTION_LABELS, createDefaultMenuOption, VARIAVEIS_CONVERSA } from './types';
+import { duracaoDaPausa, emSegundos, pausaPorExtenso, UNIDADES, ESPERA_GUARDADA_ACIMA_DE, type Unidade } from './tempoDaPausa';
 
 interface NodeConfigPanelProps {
   node: AutomationNode;
@@ -530,30 +531,16 @@ export default function NodeConfigPanel({ node, todosOsNos = [], automations, cu
           )}
 
           {d.actionType === 'DELAY' && (() => {
-            // Os fluxos antigos guardavam `segundos` ou `minutos`; os novos guardam
-            // um número e uma unidade. Tudo isto tem de continuar a abrir bem — há
-            // fluxos gravados das três maneiras.
-            const POR_UNIDADE: Record<string, number> = { segundos: 1, minutos: 60, horas: 3600, dias: 86400 };
-            const lerConfig = () => {
-              if (config.duracao !== undefined && config.unidade) {
-                return { duracao: Number(config.duracao) || 0, unidade: String(config.unidade) };
-              }
-              const seg = config.segundos !== undefined
-                ? parseInt(config.segundos, 10)
-                : (parseInt(config.minutos || '1', 10) * 60);
-              if (!Number.isFinite(seg)) return { duracao: 1, unidade: 'minutos' };
-              if (seg >= 86400 && seg % 86400 === 0) return { duracao: seg / 86400, unidade: 'dias' };
-              if (seg >= 3600 && seg % 3600 === 0) return { duracao: seg / 3600, unidade: 'horas' };
-              if (seg >= 60 && seg % 60 === 0) return { duracao: seg / 60, unidade: 'minutos' };
-              return { duracao: seg, unidade: 'segundos' };
-            };
-            const { duracao, unidade } = lerConfig();
-            const emSegundos = Math.round(duracao * (POR_UNIDADE[unidade] ?? 1));
+            const { duracao, unidade } = duracaoDaPausa(config);
+            const segundos = emSegundos(duracao, unidade);
+            const guardada = segundos > ESPERA_GUARDADA_ACIMA_DE;
 
             const guardar = (d2: number, u: string) =>
               updateConfig({ duracao: d2, unidade: u, segundos: undefined, minutos: undefined });
 
-            const atalhos = [
+            // Os tempos que uma pessoa escolhe mesmo, do "não pareças um robô"
+            // ao seguimento de dias depois.
+            const atalhos: { label: string; d: number; u: Unidade }[] = [
               { label: '30 seg', d: 30, u: 'segundos' },
               { label: '2 min', d: 2, u: 'minutos' },
               { label: '15 min', d: 15, u: 'minutos' },
@@ -563,25 +550,18 @@ export default function NodeConfigPanel({ node, todosOsNos = [], automations, cu
               { label: '3 dias', d: 3, u: 'dias' },
             ];
 
-            const porExtenso = (seg: number) => {
-              if (seg >= 86400) { const v = Math.round(seg / 8640) / 10; return `${v} dia${v === 1 ? '' : 's'}`; }
-              if (seg >= 3600) { const v = Math.round(seg / 360) / 10; return `${v} hora${v === 1 ? '' : 's'}`; }
-              if (seg >= 60) { const v = Math.round(seg / 6) / 10; return `${v} minuto${v === 1 ? '' : 's'}`; }
-              return `${seg} segundo${seg === 1 ? '' : 's'}`;
-            };
-
-            const guardada = emSegundos > 120;
+            const maximo: Record<string, number> = { segundos: 300, minutos: 600, horas: 72, dias: 30 };
 
             return (
               <>
                 <label style={labelStyle}>Esperar quanto tempo</label>
 
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'stretch', marginBottom: '10px' }}>
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
                   <input
                     style={{ ...fieldStyle, width: '92px', textAlign: 'center', fontSize: '15px', fontWeight: 600 }}
                     type="number"
                     min={1}
-                    max={unidade === 'dias' ? 30 : unidade === 'horas' ? 72 : unidade === 'minutos' ? 600 : 300}
+                    max={maximo[unidade]}
                     value={duracao || ''}
                     onChange={e => guardar(Math.max(1, Number(e.target.value) || 1), unidade)}
                   />
@@ -590,16 +570,13 @@ export default function NodeConfigPanel({ node, todosOsNos = [], automations, cu
                     value={unidade}
                     onChange={e => guardar(duracao || 1, e.target.value)}
                   >
-                    <option value="segundos">segundos</option>
-                    <option value="minutos">minutos</option>
-                    <option value="horas">horas</option>
-                    <option value="dias">dias</option>
+                    {UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}
                   </select>
                 </div>
 
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                   {atalhos.map(a => {
-                    const ativo = emSegundos === Math.round(a.d * POR_UNIDADE[a.u]);
+                    const ativo = segundos === emSegundos(a.d, a.u);
                     return (
                       <button
                         key={a.label}
@@ -625,19 +602,18 @@ export default function NodeConfigPanel({ node, todosOsNos = [], automations, cu
                   fontSize: '11.5px', lineHeight: 1.65,
                   color: guardada ? '#0E5A6B' : '#475569'
                 }}>
-                  O fluxo continua <b>{porExtenso(emSegundos)}</b> depois deste bloco.
+                  O fluxo continua <b>{pausaPorExtenso(segundos)}</b> depois deste bloco.
+                  <br /><br />
                   {guardada ? (
                     <>
-                      <br /><br />
                       Esperas acima de dois minutos ficam <b>guardadas</b>: o fluxo continua à hora
                       certa mesmo que o servidor reinicie pelo meio. Se o cliente escrever entretanto,
                       a pausa é cancelada — ele seguiu a conversa noutra direção e insistir seria estranho.
                     </>
                   ) : (
                     <>
-                      <br /><br />
-                      Pausas curtas servem para a conversa não parecer um robô a despejar tudo de uma vez.
-                      Varie os tempos entre respostas.
+                      Pausas curtas servem para a conversa não parecer um robô a despejar tudo de uma
+                      vez. Varie os tempos entre respostas.
                     </>
                   )}
                 </div>

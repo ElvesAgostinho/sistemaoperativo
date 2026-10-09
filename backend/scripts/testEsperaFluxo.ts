@@ -92,6 +92,27 @@ WhatsAppChannelManager.sendMediaMessage = async () => true;
 const { AutomationEngine } = require(path.join(__dirname, '..', 'src', 'services', 'AutomationEngine'));
 const { EsperaFluxoService } = require(path.join(__dirname, '..', 'src', 'services', 'EsperaFluxoService'));
 
+/**
+ * As regras de tempo do lado do ecra, para se compararem com as do motor.
+ *
+ * O ficheiro do navegador e um modulo ESM e o `require` daqui nao o carrega.
+ * Compila-se a fonte para o formato deste lado e corre-se — e sempre a fonte
+ * verdadeira, nunca uma copia que podia envelhecer sem ninguem reparar.
+ */
+let regrasEmCache: any = null;
+function regrasDoEcra(): any {
+    if (regrasEmCache) return regrasEmCache;
+    const ts = require('typescript');
+    const fonte = require('fs').readFileSync(
+        path.join(__dirname, '..', '..', 'frontend', 'src', 'components', 'automation', 'tempoDaPausa.ts'), 'utf8'
+    );
+    const js = ts.transpileModule(fonte, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2019 } }).outputText;
+    const mod: any = { exports: {} };
+    new Function('exports', 'module', 'require', js)(mod.exports, mod, require);
+    regrasEmCache = mod.exports;
+    return regrasEmCache;
+}
+
 const EMPRESA = 'empresa-1';
 const CONV = 'conv-1';
 let passed = 0, failed = 0; const falhas: string[] = [];
@@ -179,6 +200,43 @@ async function test(nome: string, fn: () => Promise<void>) {
             const r = AutomationEngine.pausaPorExtenso(seg);
             assert(r === texto, `${seg}s devia ler-se "${texto}", leu-se "${r}"`);
         }
+    });
+
+    console.log('\n=== O painel e o motor dizem o mesmo ===\n');
+
+    await test('o ecra e o servidor contam o tempo da mesma maneira', async () => {
+        // Sao duas copias das mesmas regras — uma no navegador, outra aqui — e
+        // nada no compilador as obriga a concordar. Se divergirem, o painel
+        // promete "3 horas" e o cliente recebe a mensagem dois minutos depois.
+        const ecra = regrasDoEcra();
+        const configs = [
+            { duracao: 3, unidade: 'horas' }, { duracao: 1, unidade: 'dias' },
+            { duracao: 30, unidade: 'minutos' }, { duracao: 45, unidade: 'segundos' },
+            { segundos: 90 }, { segundos: '45' }, { minutos: 5 }, { minutos: '1' }, {}
+        ];
+        for (const c of configs) {
+            const aqui = AutomationEngine.segundosDaPausa(c);
+            const la = ecra.segundosDaPausa(c);
+            assert(aqui === la, `${JSON.stringify(c)}: servidor diz ${aqui}s, ecra diz ${la}s`);
+
+            const textoAqui = AutomationEngine.pausaPorExtenso(aqui);
+            const textoLa = ecra.pausaPorExtenso(la);
+            assert(textoAqui === textoLa, `${JSON.stringify(c)}: servidor escreve "${textoAqui}", ecra escreve "${textoLa}"`);
+        }
+    });
+
+    await test('o limite da espera em memoria e o mesmo dos dois lados', async () => {
+        // O painel so promete "fica guardada" acima deste numero. Se o motor
+        // usasse outro, haveria pausas que o painel dizia guardadas e que na
+        // verdade se perdiam num reinicio.
+        const ecra = regrasDoEcra();
+        const fonte = require('fs').readFileSync(path.join(__dirname, '..', 'src', 'services', 'AutomationEngine.ts'), 'utf8');
+        const m = fonte.match(/const ESPERA_EM_MEMORIA_MAX = (\d+);/);
+        assert(!!m, 'nao encontrei o ESPERA_EM_MEMORIA_MAX no motor');
+        assert(
+            Number(m[1]) === ecra.ESPERA_GUARDADA_ACIMA_DE,
+            `motor usa ${m[1]}s, painel promete a partir de ${ecra.ESPERA_GUARDADA_ACIMA_DE}s`
+        );
     });
 
     console.log('\n=== Pausas curtas: continuam em memória ===\n');
