@@ -1322,6 +1322,7 @@ export default function WhatsAppChatApp() {
                                 <SeletorFluxo
                                     key={activeConv.id}
                                     conversaId={activeConv.id}
+                                    botPausado={isBotPaused}
                                     onMudou={() => fetchMessages()}
                                 />
 

@@ -253,6 +253,41 @@ const clienteDe = (id: number) => tabela('clientes').find(c => c.id === id)!;
         assert(!(d.conversations || []).some((c: any) => c.id === 'conv-outra'), 'a conversa da outra empresa nao devia aparecer');
     });
 
+    console.log('\n=== Estado do bot ===\n');
+
+    await test('diz que o bot esta pausado quando esta', async () => {
+        tabela('clientes').find(c => c.id === 1)!.bot_paused = true;
+        const [s, d] = await chamar('GET', '/api/whatsapp/bot-status/244923000111');
+        assert(s === 200 && d.paused === true, `devia dizer pausado: ${s} ${JSON.stringify(d)}`);
+    });
+
+    await test('nao rebenta quando ha dois contactos no mesmo numero', async () => {
+        // Era daqui que vinha a contradicao: com contactos repetidos o pedido
+        // rebentava, o ecra apanhava o erro em silencio e mostrava "Bot ativo"
+        // fosse qual fosse a verdade — ao lado de um painel a dizer "pausado".
+        tabela('clientes').push({ id: 50, empresa_id: EMPRESA, nome: 'Maria (repetida)', telefone: '244923000111', tags: [], custom_fields: {}, bot_paused: true });
+        const [s, d] = await chamar('GET', '/api/whatsapp/bot-status/244923000111');
+        assert(s === 200, `nao podia rebentar, deu ${s}`);
+        assert(d.paused === true, `basta uma linha pausada para o bot estar pausado: ${JSON.stringify(d)}`);
+    });
+
+    await test('o numero escrito de outra maneira da o mesmo resultado', async () => {
+        tabela('clientes').find(c => c.id === 1)!.bot_paused = true;
+        const [, d] = await chamar('GET', '/api/whatsapp/bot-status/' + encodeURIComponent('+244 923 000 111'));
+        assert(d.paused === true, `devia perceber o numero formatado: ${JSON.stringify(d)}`);
+    });
+
+    await test('bot ativo quando ninguem o pausou', async () => {
+        const [, d] = await chamar('GET', '/api/whatsapp/bot-status/244923000111');
+        assert(d.paused === false, `devia dizer ativo: ${JSON.stringify(d)}`);
+    });
+
+    await test('nao ve o estado do bot de um contacto de outra empresa', async () => {
+        tabela('clientes').find(c => c.id === 9)!.bot_paused = true;
+        const [, d] = await chamar('GET', '/api/whatsapp/bot-status/244900000000');
+        assert(d.paused === false, `nao podia ler o contacto da outra empresa: ${JSON.stringify(d)}`);
+    });
+
     servidor.unref();
     console.log(`\n=== Resultado: ${passed} passaram, ${failed} falharam ===`);
     if (falhas.length) console.log('Falhou:\n  - ' + falhas.join('\n  - '));

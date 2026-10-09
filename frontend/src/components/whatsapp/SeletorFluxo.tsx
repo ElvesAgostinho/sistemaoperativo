@@ -22,12 +22,11 @@ interface Fluxo { id: number; nome: string; ativo: boolean; blocos: number; reag
  *  - "Começar agora": o fluxo arranca já e envia, sem o cliente escrever nada.
  */
 export default function SeletorFluxo({
-  conversaId, onMudou
-}: { conversaId: string; onMudou?: () => void }) {
+  conversaId, botPausado, onMudou
+}: { conversaId: string; botPausado: boolean; onMudou?: () => void }) {
   const [aberto, setAberto] = useState(false);
   const [fluxos, setFluxos] = useState<Fluxo[]>([]);
   const [escolhido, setEscolhido] = useState<number | null>(null);
-  const [botPausado, setBotPausado] = useState(false);
   const [aCarregar, setACarregar] = useState(true);
   const [ocupado, setOcupado] = useState<number | null>(null);
   const [aviso, setAviso] = useState('');
@@ -40,7 +39,10 @@ export default function SeletorFluxo({
       if (d.success) {
         setFluxos(d.fluxos || []);
         setEscolhido(d.escolhido ?? null);
-        setBotPausado(!!d.botPausado);
+        // O estado do bot vem de cima, do mesmo sitio que o interruptor ao lado.
+        // Ter aqui uma copia propria fazia os dois contradizerem-se: o painel
+        // dizia "pausado" enquanto o interruptor dizia "ativo", porque nenhum
+        // avisava o outro quando mudava.
       }
     } catch { /* fica como está */ }
     setACarregar(false);

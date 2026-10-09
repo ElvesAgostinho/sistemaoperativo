@@ -1850,13 +1850,21 @@ router.put('/toggle-bot/:telefone', requireAuth, async (req: AuthRequest, res: R
 
 // Rota para consultar o estado atual do bot de um cliente
 router.get('/bot-status/:telefone', requireAuth, async (req: AuthRequest, res: Response) => {
-    const telefone = req.params.telefone;
+    // O numero vem do ecra como esta na conversa; na tabela pode estar escrito de
+    // outra maneira. Normaliza-se dos dois lados, como em todo o resto.
+    const telefone = String(req.params.telefone || '').replace(/\D/g, '');
     const empresaId = req.user?.empresa_id;
+    if (!empresaId) return res.status(400).json({ error: 'Utilizador sem empresa associada.' });
     try {
-        let query = getSupabase(req).from('clientes').select('bot_paused').eq('telefone', telefone);
-        if (empresaId) query = query.eq('empresa_id', empresaId);
-        const { data: client } = await query.single();
-        res.json({ success: true, paused: client ? client.bot_paused === true : false });
+        // Nada de .single() aqui: com dois contactos no mesmo numero — e eles
+        // existem — o pedido rebentava, o ecra apanhava o erro em silencio e
+        // mostrava "Bot ativo" fosse qual fosse a verdade. Se houver mais do que
+        // uma linha, basta uma estar pausada para o bot estar pausado.
+        const { data: clientes, error } = await getSupabase(req).from('clientes')
+            .select('bot_paused').eq('empresa_id', empresaId).eq('telefone', telefone);
+        if (error) throw error;
+        const pausado = (clientes || []).some((c: any) => c.bot_paused === true);
+        res.json({ success: true, paused: pausado });
     } catch(err: any) {
         res.status(500).json({ error: err.message });
     }
