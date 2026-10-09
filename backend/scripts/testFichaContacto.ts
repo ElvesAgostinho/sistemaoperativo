@@ -22,6 +22,7 @@ let seq = 1;
 const bate = (row: any, f: any[]) => f.every(x => {
     const v = row[x.col];
     if (x.op === 'eq') return String(v) === String(x.val);
+    if (x.op === 'neq') return String(v) !== String(x.val);
     if (x.op === 'in') return x.val.map(String).includes(String(v));
     return true;
 });
@@ -32,6 +33,7 @@ function mockFrom(t: string) {
     const self: any = {}; const ret = () => self;
     self.select = (_c?: string, o?: any) => { if (o?.count) contar = true; return self; };
     self.order = ret; self.limit = ret; self.not = ret; self.or = ret; self.is = ret; self.filter = ret;
+    self.neq = (col: string, val: any) => { filtros.push({ col, val, op: 'neq' }); return self; };
     self.insert = (p: any) => { op = 'insert'; payload = p; return self; };
     self.update = (p: any) => { op = 'update'; payload = p; return self; };
     self.delete = () => { op = 'delete'; return self; };
@@ -220,6 +222,35 @@ const clienteDe = (id: number) => tabela('clientes').find(c => c.id === id)!;
         const [s] = await chamar('PUT', '/api/etiquetas/contacto/9', { adicionar: ['intruso'] });
         assert(s === 400, `devia recusar, deu ${s}`);
         assert(!clienteDe(9).tags.includes('intruso'), 'o contacto da outra empresa não podia ser tocado');
+    });
+
+    console.log('\n=== Etiquetas na lista de conversas ===\n');
+
+    await test('a lista de conversas traz as etiquetas, com a cor do catalogo', async () => {
+        // Sem isto so se viam abrindo a ficha de cada um, e nao se percebia num
+        // relance quem esta em que ponto.
+        tabela('etiquetas').push({ id: 'e1', empresa_id: EMPRESA, nome: 'comprou', cor: '#107E3E' });
+        await chamar('PUT', '/api/etiquetas/contacto/1', { adicionar: ['comprou'] });
+        const [s, d] = await chamar('GET', '/api/whatsapp/conversations');
+        assert(s === 200 && d.success, `devia listar: ${JSON.stringify(d).slice(0, 200)}`);
+        const maria = (d.conversations || []).find((c: any) => c.id === 'conv-1');
+        assert(!!maria, 'a conversa devia estar na lista');
+        const nomes = (maria.etiquetas || []).map((e: any) => e.nome);
+        assert(nomes.includes('comprou'), `devia trazer a etiqueta: ${JSON.stringify(maria.etiquetas)}`);
+        const comprou = maria.etiquetas.find((e: any) => e.nome === 'comprou');
+        assert(comprou.cor === '#107E3E', `devia trazer a cor do catalogo: ${comprou.cor}`);
+    });
+
+    await test('uma conversa sem contacto no CRM vem sem etiquetas, e nao rebenta', async () => {
+        const [s, d] = await chamar('GET', '/api/whatsapp/conversations');
+        const nova = (d.conversations || []).find((c: any) => c.id === 'conv-nova');
+        assert(s === 200 && !!nova, 'devia listar na mesma');
+        assert(Array.isArray(nova.etiquetas) && nova.etiquetas.length === 0, `devia vir vazia: ${JSON.stringify(nova.etiquetas)}`);
+    });
+
+    await test('nao traz etiquetas de contactos de outra empresa', async () => {
+        const [, d] = await chamar('GET', '/api/whatsapp/conversations');
+        assert(!(d.conversations || []).some((c: any) => c.id === 'conv-outra'), 'a conversa da outra empresa nao devia aparecer');
     });
 
     servidor.unref();
