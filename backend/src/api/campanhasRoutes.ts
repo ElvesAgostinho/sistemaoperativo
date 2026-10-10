@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import multer from 'multer';
 import { getSupabase, supabase } from '../lib/supabaseClient';
 import { requireAuth, AuthRequest } from '../middleware/authMiddleware';
+import { AuditoriaService } from '../services/AuditoriaService';
 import { CampaignService } from '../services/CampaignService';
 import { MediaUploadService } from '../services/MediaUploadService';
 
@@ -150,8 +151,17 @@ router.get('/:id/destinatarios', requireAuth, async (req: AuthRequest, res: Resp
 
 router.post('/:id/iniciar', requireAuth, async (req: AuthRequest, res: Response) => {
     try {
-        await CampaignService.iniciarCampanha(req.user!.empresa_id!, req.params.id, getSupabase(req));
-        await getSupabase(req).from('wa_audit_logs').insert({ campanha_id: req.params.id, action: 'campanha_iniciada', performed_by: req.user!.id });
+        const empresaId = req.user!.empresa_id!;
+        await CampaignService.iniciarCampanha(empresaId, req.params.id, getSupabase(req));
+
+        const { data: c } = await getSupabase(req).from('campanhas')
+            .select('nome').eq('id', req.params.id).eq('empresa_id', empresaId).maybeSingle();
+        await AuditoriaService.registar({
+            empresaId, quemId: req.user!.id, accao: 'campanha_iniciada',
+            alvoTipo: 'campanha', alvoId: req.params.id,
+            detalhes: `mandou arrancar a campanha "${c?.nome || 'sem nome'}".`,
+        });
+
         res.json({ success: true });
     } catch (err: any) {
         res.status(400).json({ error: err.message });
@@ -160,8 +170,17 @@ router.post('/:id/iniciar', requireAuth, async (req: AuthRequest, res: Response)
 
 router.post('/:id/pausar', requireAuth, async (req: AuthRequest, res: Response) => {
     try {
-        await CampaignService.pausarCampanha(req.user!.empresa_id!, req.params.id, getSupabase(req));
-        await getSupabase(req).from('wa_audit_logs').insert({ campanha_id: req.params.id, action: 'campanha_pausada', performed_by: req.user!.id });
+        const empresaId = req.user!.empresa_id!;
+        await CampaignService.pausarCampanha(empresaId, req.params.id, getSupabase(req));
+
+        const { data: c } = await getSupabase(req).from('campanhas')
+            .select('nome').eq('id', req.params.id).eq('empresa_id', empresaId).maybeSingle();
+        await AuditoriaService.registar({
+            empresaId, quemId: req.user!.id, accao: 'campanha_pausada',
+            alvoTipo: 'campanha', alvoId: req.params.id,
+            detalhes: `parou a meio a campanha "${c?.nome || 'sem nome'}".`,
+        });
+
         res.json({ success: true });
     } catch (err: any) {
         res.status(400).json({ error: err.message });
@@ -170,8 +189,17 @@ router.post('/:id/pausar', requireAuth, async (req: AuthRequest, res: Response) 
 
 router.post('/:id/cancelar', requireAuth, async (req: AuthRequest, res: Response) => {
     try {
-        await CampaignService.cancelarCampanha(req.user!.empresa_id!, req.params.id, getSupabase(req));
-        await getSupabase(req).from('wa_audit_logs').insert({ campanha_id: req.params.id, action: 'campanha_cancelada', performed_by: req.user!.id });
+        const empresaId = req.user!.empresa_id!;
+        await CampaignService.cancelarCampanha(empresaId, req.params.id, getSupabase(req));
+
+        const { data: c } = await getSupabase(req).from('campanhas')
+            .select('nome').eq('id', req.params.id).eq('empresa_id', empresaId).maybeSingle();
+        await AuditoriaService.registar({
+            empresaId, quemId: req.user!.id, accao: 'campanha_cancelada',
+            alvoTipo: 'campanha', alvoId: req.params.id,
+            detalhes: `cancelou a campanha "${c?.nome || 'sem nome'}".`,
+        });
+
         res.json({ success: true });
     } catch (err: any) {
         res.status(400).json({ error: err.message });

@@ -37,6 +37,7 @@ function mockFrom(t: string) {
     self.select = ret; self.order = ret; self.limit = ret; self.not = ret; self.or = ret; self.is = ret;
     self.insert = (p: any) => { op = 'insert'; payload = p; return self; };
     self.update = (p: any) => { op = 'update'; payload = p; return self; };
+    self.delete = () => { op = 'delete'; return self; };
     for (const o of ['eq', 'neq', 'in'] as const) {
         self[o] = (col: string, val: any) => { filtros.push({ col, val, op: o }); return self; };
     }
@@ -53,6 +54,11 @@ function mockFrom(t: string) {
             const alvo = linhas.filter(l => bate(l, filtros));
             alvo.forEach(l => Object.assign(l, payload));
             return { data: alvo, error: null };
+        }
+        if (op === 'delete') {
+            const fora = linhas.filter(l => bate(l, filtros));
+            db[t] = linhas.filter(l => !bate(l, filtros));
+            return { data: fora, error: null };
         }
         return { data: linhas.filter(l => bate(l, filtros)).map(l => JSON.parse(JSON.stringify(l))), error: null };
     };
@@ -82,12 +88,49 @@ require.cache[authMwPath] = fake({
 }, authMwPath);
 
 const whatsappRoutes = require(path.join(__dirname, '..', 'src', 'api', 'whatsappRoutes')).default;
+
+// Os servicos de massa sao substituidos: o que esta em causa aqui e o REGISTO,
+// nao o envio. Mandar mesmo 300 mensagens num teste nao prova nada e arrisca
+// tudo.
+const disparoPath = require.resolve(path.join(__dirname, '..', 'src', 'services', 'FluxoDisparoService'));
+require.cache[disparoPath] = fake({
+    FluxoDisparoService: {
+        criar: async () => ({ id: 'disp-1', total: 42, fluxo: 'Seguimento' }),
+        iniciar: async () => { }, pausar: async () => { }, cancelar: async () => { },
+    }
+}, disparoPath);
+
+const emailCampPath = require.resolve(path.join(__dirname, '..', 'src', 'services', 'EmailCampaignService'));
+require.cache[emailCampPath] = fake({
+    EmailCampaignService: {
+        criar: async () => ({ id: 'camp-1', totalDestinatarios: 17 }),
+        iniciar: async () => { }, pausar: async () => { }, cancelar: async () => { },
+        metricas: async () => ({}),
+    }
+}, emailCampPath);
+
+const campPath = require.resolve(path.join(__dirname, '..', 'src', 'services', 'CampaignService'));
+require.cache[campPath] = fake({
+    CampaignService: {
+        iniciarCampanha: async () => { }, pausarCampanha: async () => { }, cancelarCampanha: async () => { },
+    }
+}, campPath);
+
+const automationRoutes = require(path.join(__dirname, '..', 'src', 'api', 'automationRoutes')).default;
+const emailRoutes = require(path.join(__dirname, '..', 'src', 'api', 'emailRoutes')).default;
+const campanhasRoutes = require(path.join(__dirname, '..', 'src', 'api', 'campanhasRoutes')).default;
 const { PermissaoService } = require(path.join(__dirname, '..', 'src', 'services', 'PermissaoService'));
 const { AuditoriaService } = require(path.join(__dirname, '..', 'src', 'services', 'AuditoriaService'));
 
 const app = express();
 app.use(express.json());
 app.use('/api/whatsapp', whatsappRoutes);
+// Como no index.ts: este modulo e montado com o requireAuth por fora, e as
+// rotas la dentro contam com o req.user ja preenchido.
+const { requireAuth } = require(authMwPath);
+app.use('/api/automation', requireAuth, automationRoutes);
+app.use('/api/email', emailRoutes);
+app.use('/api/campanhas', campanhasRoutes);
 const servidor = app.listen(0);
 const porta = () => (servidor.address() as any).port;
 
@@ -233,6 +276,112 @@ async function test(nome: string, fn: () => Promise<void>) {
         assert(r.corpo.audit.length === 1, `devia mostrar o que acabou de acontecer, mostrou ${r.corpo.audit.length}`);
         assert(r.corpo.audit[0].performed_by_name === 'Elves', `devia dizer quem: ${r.corpo.audit[0].performed_by_name}`);
         assert(/autom/i.test(r.corpo.audit[0].details), `devia explicar o que foi feito: ${r.corpo.audit[0].details}`);
+    });
+
+    console.log('\n=== Envios em massa ===\n');
+
+    await test('preparar um disparo de fluxo fica registado, com o fluxo e quantos', async () => {
+        // Um disparo em massa sai do numero da empresa para centenas de pessoas.
+        // Se correr mal, e o numero que leva com o castigo — quem o preparou tem
+        // de ficar escrito.
+        quemEntra = 'dono';
+        const r = await pedir('POST', '/api/automation/disparos', { automation_id: 1, publico_tipo: 'tags', publico_tags: ['interessado'] });
+        assert(r.estado === 200, `devia criar, deu ${r.estado}: ${r.corpo.error}`);
+
+        const log = tabela('wa_audit_logs')[0];
+        assert(!!log, 'devia ficar registado');
+        assert(log.empresa_id === EMPRESA, 'tem de levar a empresa — era isto que faltava nas campanhas antigas');
+        assert(/Seguimento/.test(log.details), `devia dizer o fluxo: ${log.details}`);
+        assert(/42/.test(log.details), `devia dizer quantos: ${log.details}`);
+    });
+
+    await test('arrancar, parar e cancelar um disparo fica tudo registado', async () => {
+        tabela('fluxo_disparos').push({ id: 'disp-1', empresa_id: EMPRESA, nome: 'Seguimento de Outubro', estado: 'Pendente' });
+        quemEntra = 'dono';
+        for (const accao of ['iniciar', 'pausar', 'cancelar']) {
+            const r = await pedir('POST', `/api/automation/disparos/disp-1/${accao}`);
+            assert(r.estado === 200, `${accao} devia passar, deu ${r.estado}: ${r.corpo.error}`);
+        }
+        const logs = tabela('wa_audit_logs');
+        assert(logs.length === 3, `deviam ficar 3 registos, ficaram ${logs.length}`);
+        assert(logs.every(l => l.empresa_id === EMPRESA), 'todos com a empresa');
+        assert(logs.every(l => /Seguimento de Outubro/.test(l.details)), `todos com o nome: ${logs.map(l => l.details).join(' | ')}`);
+        assert(logs.map(l => l.action).join(',') === 'disparo_iniciado,disparo_pausado,disparo_cancelado', logs.map(l => l.action).join(','));
+    });
+
+    await test('apagar um disparo guarda o nome antes de ele desaparecer', async () => {
+        // Se o nome so fosse lido depois do DELETE, o registo ficava a dizer
+        // "sem nome" — inutil para quem depois pergunta o que foi apagado.
+        tabela('fluxo_disparos').push({ id: 'disp-2', empresa_id: EMPRESA, nome: 'Promocao de Natal', estado: 'Concluido' });
+        quemEntra = 'dono';
+        const r = await pedir('DELETE', '/api/automation/disparos/disp-2');
+        assert(r.estado === 200, `devia apagar, deu ${r.estado}: ${r.corpo.error}`);
+        const log = tabela('wa_audit_logs')[0];
+        assert(/Promocao de Natal/.test(log?.details || ''), `devia guardar o nome: ${log?.details}`);
+    });
+
+    await test('uma campanha de email fica registada', async () => {
+        quemEntra = 'dono';
+        const r = await pedir('POST', '/api/email/campanhas', { nome: 'Newsletter de Outubro', assunto: 'Novidades' });
+        assert(r.estado === 200, `devia criar, deu ${r.estado}: ${r.corpo.error}`);
+        const log = tabela('wa_audit_logs')[0];
+        assert(!!log && log.empresa_id === EMPRESA, 'devia ficar registada, com a empresa');
+        assert(/Newsletter de Outubro/.test(log.details), `devia dizer o nome: ${log.details}`);
+        assert(/17/.test(log.details), `devia dizer quantos: ${log.details}`);
+    });
+
+    await test('arrancar uma campanha de email fica registado', async () => {
+        tabela('email_campanhas').push({ id: 'camp-1', empresa_id: EMPRESA, nome: 'Newsletter de Outubro', estado: 'Pendente' });
+        quemEntra = 'dono';
+        const r = await pedir('POST', '/api/email/campanhas/camp-1/iniciar');
+        assert(r.estado === 200, `devia passar, deu ${r.estado}: ${r.corpo.error}`);
+        const log = tabela('wa_audit_logs')[0];
+        assert(log?.action === 'campanha_iniciada', `accao errada: ${log?.action}`);
+        assert(/Newsletter de Outubro/.test(log.details), `devia dizer o nome: ${log.details}`);
+    });
+
+    await test('a campanha de WhatsApp ja nao se grava sem a empresa', async () => {
+        // Era este o buraco: o formato antigo gravava sem empresa_id, e a leitura
+        // filtra por empresa — o registo entrava e nunca mais ninguem o via.
+        tabela('campanhas').push({ id: 'wacamp-1', empresa_id: EMPRESA, nome: 'Black Friday', estado: 'Pendente' });
+        quemEntra = 'dono';
+        const r = await pedir('POST', '/api/campanhas/wacamp-1/iniciar');
+        assert(r.estado === 200, `devia passar, deu ${r.estado}: ${r.corpo.error}`);
+
+        const log = tabela('wa_audit_logs')[0];
+        assert(!!log, 'devia ficar registado');
+        assert(log.empresa_id === EMPRESA, `sem a empresa, ninguem o volta a ver: ${JSON.stringify(log)}`);
+        assert(/Black Friday/.test(log.details), `devia dizer o nome: ${log.details}`);
+
+        // E o que importa mesmo: aparece no ecra.
+        const vista = await pedir('GET', '/api/whatsapp/auditoria');
+        assert(vista.estado === 200 && vista.corpo.audit.length === 1, `devia aparecer na auditoria: ${JSON.stringify(vista.corpo).slice(0, 160)}`);
+    });
+
+    console.log('\n=== Recuperar historico ===\n');
+
+    await test('trazer historico para dentro fica registado na conversa', async () => {
+        // Se alguem estranhar mensagens que "apareceram do nada", fica aqui quem
+        // as foi buscar.
+        await AuditoriaService.registar({
+            empresaId: EMPRESA, quemId: 'dono', accao: 'historico_importado',
+            conversationId: CONV, alvoTipo: 'conversa', alvoId: CONV,
+            detalhes: 'trouxe 34 mensagens antigas do WhatsApp para esta conversa.',
+            extra: { importadas: 34, lidas: 120 },
+        });
+        const r = await pedir('GET', `/api/whatsapp/conversations/${CONV}/audit`);
+        assert(r.estado === 200 && r.corpo.audit.length === 1, 'devia aparecer na auditoria da conversa');
+        assert(/34 mensagens antigas/.test(r.corpo.audit[0].details), r.corpo.audit[0].details);
+    });
+
+    await test('quem nao atende conversas tambem nao lhes mexe no historico', async () => {
+        // Um agente PODE recuperar historico: precisa dele para atender. O que
+        // nao pode e quem nao tem sequer o direito de responder.
+        await PermissaoService.guardar('alexandre', ['wa'], []);
+        quemEntra = 'alexandre';
+        const r = await pedir('POST', '/api/whatsapp/evolution/sync-mensagens', { conversation_id: CONV });
+        assert(r.estado === 403, `devia recusar, deu ${r.estado}`);
+        assert(/permiss/i.test(r.corpo.error || ''), `devia explicar: ${r.corpo.error}`);
     });
 
     console.log(`\n=== Resultado: ${passed} passaram, ${failed} falharam ===`);

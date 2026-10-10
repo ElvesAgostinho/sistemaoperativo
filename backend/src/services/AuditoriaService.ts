@@ -24,6 +24,8 @@ export type AccaoAuditada =
     | 'conversa_delegada' | 'conversa_devolvida'
     | 'bot_pausado' | 'bot_retomado'
     | 'fluxo_escolhido' | 'fluxo_removido' | 'fluxo_disparado'
+    | 'disparo_criado' | 'disparo_iniciado' | 'disparo_pausado' | 'disparo_cancelado' | 'disparo_apagado'
+    | 'campanha_email_criada'
     | 'etiqueta_adicionada' | 'etiqueta_removida'
     | 'contacto_editado' | 'historico_importado'
     | 'mensagem_enviada'
@@ -39,7 +41,7 @@ export interface RegistoAuditoria {
     conversationId?: string | null;
     /** Quando a acção é sobre alguém (delegar a, mudar as permissões de). */
     alvoUtilizador?: string | null;
-    alvoTipo?: 'conversa' | 'fluxo' | 'utilizador' | 'etiqueta' | 'cliente' | 'campanha' | null;
+    alvoTipo?: 'conversa' | 'fluxo' | 'utilizador' | 'etiqueta' | 'cliente' | 'campanha' | 'disparo' | null;
     alvoId?: string | number | null;
     extra?: Record<string, any> | null;
 }

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { FluxoDisparoService } from '../services/FluxoDisparoService';
+import { AuditoriaService } from '../services/AuditoriaService';
 import { getSupabase } from '../lib/supabaseClient';
 import { getAutomations, createAutomation, processWebhook, deleteAutomation, toggleAutomation, updateAutomation, simulateAutomation } from '../controllers/automationController';
 
@@ -77,6 +78,17 @@ router.post('/disparos', async (req: any, res: any) => {
     try {
         const empresaId = req.user?.empresa_id;
         const r = await FluxoDisparoService.criar(empresaId, req.body, req.user?.id, getSupabase(req));
+
+        // Um disparo em massa e das decisoes mais pesadas que se tomam aqui: sai
+        // do numero da empresa para centenas de pessoas e, se correr mal, e o
+        // numero que leva com o castigo. Quem o preparou tem de ficar escrito.
+        await AuditoriaService.registar({
+            empresaId, quemId: req.user?.id, accao: 'disparo_criado',
+            alvoTipo: 'disparo', alvoId: r.id,
+            detalhes: `preparou um disparo do fluxo "${r.fluxo}" para ${r.total} contacto${r.total === 1 ? '' : 's'}.`,
+            extra: { fluxo: r.fluxo, total: r.total, publico: req.body?.publico_tipo },
+        });
+
         res.json({ success: true, ...r });
     } catch (err: any) {
         res.status(400).json({ success: false, error: err.message });
@@ -96,10 +108,27 @@ router.get('/disparos/:id/destinatarios', async (req: any, res: any) => {
     }
 });
 
+const VERBO_DISPARO = {
+    iniciar: { accao: 'disparo_iniciado' as const, texto: 'mandou arrancar' },
+    pausar: { accao: 'disparo_pausado' as const, texto: 'parou a meio' },
+    cancelar: { accao: 'disparo_cancelado' as const, texto: 'cancelou' },
+};
+
 for (const accao of ['iniciar', 'pausar', 'cancelar'] as const) {
     router.post(`/disparos/:id/${accao}`, async (req: any, res: any) => {
         try {
-            await (FluxoDisparoService as any)[accao](req.user?.empresa_id, req.params.id, getSupabase(req));
+            const empresaId = req.user?.empresa_id;
+            await (FluxoDisparoService as any)[accao](empresaId, req.params.id, getSupabase(req));
+
+            const { data: d } = await getSupabase(req).from('fluxo_disparos')
+                .select('nome').eq('id', req.params.id).eq('empresa_id', empresaId).maybeSingle();
+            const v = VERBO_DISPARO[accao];
+            await AuditoriaService.registar({
+                empresaId, quemId: req.user?.id, accao: v.accao,
+                alvoTipo: 'disparo', alvoId: req.params.id,
+                detalhes: `${v.texto} o disparo "${d?.nome || 'sem nome'}".`,
+            });
+
             res.json({ success: true });
         } catch (err: any) {
             res.status(400).json({ success: false, error: err.message });
@@ -115,8 +144,17 @@ router.delete('/disparos/:id', async (req: any, res: any) => {
             .eq('id', req.params.id).eq('empresa_id', empresaId).maybeSingle();
         if (!d) return res.status(404).json({ success: false, error: 'Disparo não encontrado.' });
         if (d.estado === 'Em_Execucao') return res.status(409).json({ success: false, error: 'Pare o disparo antes de o apagar.' });
+        const { data: antes } = await client.from('fluxo_disparos')
+            .select('nome').eq('id', req.params.id).eq('empresa_id', empresaId).maybeSingle();
         const { error } = await client.from('fluxo_disparos').delete().eq('id', req.params.id).eq('empresa_id', empresaId);
         if (error) throw error;
+
+        await AuditoriaService.registar({
+            empresaId, quemId: req.user?.id, accao: 'disparo_apagado',
+            alvoTipo: 'disparo', alvoId: req.params.id,
+            detalhes: `apagou o disparo "${antes?.nome || 'sem nome'}" e o seu registo de envios.`,
+        });
+
         res.json({ success: true });
     } catch (err: any) {
         res.status(500).json({ success: false, error: err.message });

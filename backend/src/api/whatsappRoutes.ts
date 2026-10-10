@@ -1213,6 +1213,19 @@ router.post('/evolution/sync-mensagens', requireAuth, exigirPermissao('wa.respon
         }
 
         console.log(`[sync-mensagens] Conversa ${conv.phone_number}: ${novas.length} mensagens novas de ${lista.length} lidas.`);
+
+        // Trazer historico para dentro muda o que a conversa mostra a toda a
+        // gente. Se alguem estranhar mensagens que "apareceram do nada", fica
+        // aqui quem as foi buscar.
+        if (novas.length) {
+            await AuditoriaService.registar({
+                empresaId, quemId: req.user!.id, accao: 'historico_importado',
+                conversationId: conv.id, alvoTipo: 'conversa', alvoId: conv.id,
+                detalhes: `trouxe ${novas.length} mensagem${novas.length === 1 ? '' : 's'} antiga${novas.length === 1 ? '' : 's'} do WhatsApp para esta conversa.`,
+                extra: { importadas: novas.length, lidas: lista.length },
+            });
+        }
+
         return res.json({ success: true, importadas: novas.length, total: lista.length });
     } catch (e: any) {
         console.error('[sync-mensagens] Erro:', e?.message || e);

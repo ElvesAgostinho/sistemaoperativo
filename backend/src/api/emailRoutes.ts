@@ -5,6 +5,7 @@ import { getSupabase } from '../lib/supabaseClient';
 import { EmailService } from '../services/EmailService';
 import { EmailSyncService } from '../services/EmailSyncService';
 import { EmailCampaignService } from '../services/EmailCampaignService';
+import { AuditoriaService } from '../services/AuditoriaService';
 import { MediaUploadService } from '../services/MediaUploadService';
 
 const router = express.Router();
@@ -105,6 +106,14 @@ router.post('/campanhas', requireAuth, async (req, res) => {
     try {
         const empresaId = (req as any).user?.empresa_id;
         const r = await EmailCampaignService.criar(empresaId, req.body, (req as any).user?.id, getSupabase(req));
+
+        await AuditoriaService.registar({
+            empresaId, quemId: (req as any).user?.id, accao: 'campanha_email_criada',
+            alvoTipo: 'campanha', alvoId: r.id,
+            detalhes: `preparou a campanha de email "${req.body?.nome || 'sem nome'}" para ${r.totalDestinatarios} destinatário${r.totalDestinatarios === 1 ? '' : 's'}.`,
+            extra: { assunto: req.body?.assunto, total: r.totalDestinatarios },
+        });
+
         res.json({ success: true, ...r });
     } catch (err: any) {
         res.status(400).json({ success: false, error: err.message });
@@ -125,11 +134,27 @@ router.get('/campanhas/:id/destinatarios', requireAuth, async (req, res) => {
     }
 });
 
+const VERBO_CAMPANHA = {
+    iniciar: { accao: 'campanha_iniciada' as const, texto: 'mandou arrancar' },
+    pausar: { accao: 'campanha_pausada' as const, texto: 'parou a meio' },
+    cancelar: { accao: 'campanha_cancelada' as const, texto: 'cancelou' },
+};
+
 for (const [accao, metodo] of [['iniciar', 'iniciar'], ['pausar', 'pausar'], ['cancelar', 'cancelar']] as const) {
     router.post(`/campanhas/:id/${accao}`, requireAuth, async (req, res) => {
         try {
             const empresaId = (req as any).user?.empresa_id;
             await (EmailCampaignService as any)[metodo](empresaId, req.params.id, getSupabase(req));
+
+            const { data: c } = await getSupabase(req).from('email_campanhas')
+                .select('nome').eq('id', req.params.id).eq('empresa_id', empresaId).maybeSingle();
+            const v = VERBO_CAMPANHA[accao];
+            await AuditoriaService.registar({
+                empresaId, quemId: (req as any).user?.id, accao: v.accao,
+                alvoTipo: 'campanha', alvoId: req.params.id,
+                detalhes: `${v.texto} a campanha de email "${c?.nome || 'sem nome'}".`,
+            });
+
             res.json({ success: true });
         } catch (err: any) {
             res.status(400).json({ success: false, error: err.message });
@@ -147,6 +172,8 @@ router.delete('/campanhas/:id', requireAuth, async (req, res) => {
         if (c.estado === 'Em_Execucao') {
             return res.status(409).json({ success: false, error: 'Pare a campanha antes de a apagar.' });
         }
+        const { data: antes } = await client.from('email_campanhas')
+            .select('nome').eq('id', req.params.id).eq('empresa_id', empresaId).maybeSingle();
         const { error } = await client.from('email_campanhas').delete().eq('id', req.params.id).eq('empresa_id', empresaId);
         if (error) throw error;
         res.json({ success: true });

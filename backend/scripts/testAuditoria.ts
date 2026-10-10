@@ -282,6 +282,9 @@ async function test(nome: string, fn: () => Promise<void>) {
             path.join(__dirname, '..', 'src', 'api', 'etiquetaRoutes.ts'),
             path.join(__dirname, '..', 'src', 'middleware', 'permissaoMiddleware.ts'),
             path.join(__dirname, '..', 'src', 'services', 'PermissaoService.ts'),
+            path.join(__dirname, '..', 'src', 'api', 'emailRoutes.ts'),
+            path.join(__dirname, '..', 'src', 'api', 'automationRoutes.ts'),
+            path.join(__dirname, '..', 'src', 'api', 'campanhasRoutes.ts'),
         ];
 
         // Palavras que em portugues levam acento ou cedilha de certeza, e que
@@ -290,6 +293,7 @@ async function test(nome: string, fn: () => Promise<void>) {
             'automatico', 'permissoes', 'permissao', 'accoes', 'accao', 'modulos',
             'proprias', 'proprio', 'nao ', 'ultima', 'numero', 'informacao',
             'ja nao', 'pos o ', 'repos ', 'sera ', 'esta e ', 'voce',
+            'destinatario', 'historico',
         ];
 
         const culpados: string[] = [];
