@@ -21,6 +21,8 @@ const db: Record<string, any[]> = {};
 const tabela = (t: string) => (db[t] = db[t] || []);
 let seq = 100;
 let erroDeLeitura: Record<string, any> = {};
+/** Colunas que a base ainda nao tem (migracao por correr). */
+let colunasEmFalta: string[] = [];
 
 const bate = (row: any, f: any[]) => f.every(x => {
     const v = row[x.col];
@@ -35,7 +37,9 @@ function mockFrom(t: string) {
     const filtros: any[] = [];
     let op = 'select'; let payload: any = null;
     const self: any = {}; const ret = () => self;
-    self.select = ret; self.order = ret; self.limit = ret; self.neq = ret;
+    let colunasPedidas: string[] = [];
+    self.select = (c?: string) => { colunasPedidas = String(c || '').split(',').map(x => x.trim()); return self; };
+    self.order = ret; self.limit = ret; self.neq = ret;
     self.insert = (p: any) => { op = 'insert'; payload = p; return self; };
     self.update = (p: any) => { op = 'update'; payload = p; return self; };
     for (const o of ['eq', 'in'] as const) {
@@ -43,6 +47,11 @@ function mockFrom(t: string) {
     }
     const correr = () => {
         if (erroDeLeitura[t]) return { data: null, error: erroDeLeitura[t] };
+        // A base de dados recusa a consulta inteira quando uma das colunas nao
+        // existe. E isso que acontece se o codigo subir antes da migracao.
+        if (colunasEmFalta.length && colunasPedidas.some(c => colunasEmFalta.includes(c))) {
+            return { data: null, error: { code: '42703', message: `column perfis.${colunasEmFalta[0]} does not exist` } };
+        }
         const linhas = tabela(t);
         if (op === 'insert') {
             const novos = (Array.isArray(payload) ? payload : [payload]).map(p => ({ id: p.id ?? `r-${seq++}`, ...p }));
@@ -83,7 +92,7 @@ const pessoa = (id: string, role: string, extra: any = {}) =>
 
 async function test(nome: string, fn: () => Promise<void>) {
     for (const t of Object.keys(db)) delete db[t];
-    erroDeLeitura = {}; seq = 100;
+    erroDeLeitura = {}; colunasEmFalta = []; seq = 100;
     const antes = console.error; console.error = () => { };
     try { await fn(); console.log(`  ✓ ${nome}`); passed++; }
     catch (e: any) { console.log(`  ✗ ${nome} — ${e.message}`); failed++; falhas.push(nome); }
@@ -219,6 +228,26 @@ async function test(nome: string, fn: () => Promise<void>) {
         const p = await PermissaoService.efectivas('dono');
         assert(p.accoes.length === 0, `falhou para o lado aberto: ${JSON.stringify(p.accoes)}`);
         assert(!p.modulos.includes('wa'), 'um erro de leitura não pode valer módulos');
+    });
+
+    await test('sem a migracao corrida, ninguem fica trancado fora', async () => {
+        // O codigo sobe antes de a migracao correr — sao dois passos separados,
+        // e um deles e a mao. Se a coluna `permissoes` em falta fizesse a
+        // leitura toda falhar, o servico falhava fechado e o DONO ficava sem
+        // acesso ao proprio sistema. Vale o que o perfil da, como antes desta
+        // funcionalidade existir.
+        colunasEmFalta = ['permissoes'];
+        licenciar(['wa', 'crm', 'email']);
+        pessoa('dono', 'admin');
+        pessoa('ana', 'agente');
+
+        const d = await PermissaoService.efectivas('dono');
+        assert(d.modulos.includes('wa') && d.modulos.includes('crm'), `o dono ficou trancado fora: ${JSON.stringify(d.modulos)}`);
+        assert(d.accoes.includes('wa.auditoria'), 'o dono continua a ver a auditoria');
+
+        const a = await PermissaoService.efectivas('ana');
+        assert(a.modulos.includes('wa'), 'o agente continua a atender');
+        assert(!a.accoes.includes('wa.auditoria'), 'e continua sem ver a auditoria — nao se ganha acesso por falta de migracao');
     });
 
     await test('um utilizador que não existe não tem permissões', async () => {

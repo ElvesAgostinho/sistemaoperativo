@@ -29,6 +29,9 @@ export interface Accao {
 
 export class PermissaoService {
 
+    /** O aviso da migração em falta sai uma vez, não a cada pedido. */
+    private static avisouDaColuna = false;
+
     /** Os módulos que não se tiram a ninguém: sem eles não se entra. */
     public static readonly MODULOS_SEMPRE = ['home', 'settings'];
 
@@ -104,10 +107,22 @@ export class PermissaoService {
     }> {
         const vazio = { papel: 'pending', empresaId: null, modulos: [...PermissaoService.MODULOS_SEMPRE], accoes: [], proprias: false };
 
+        // Duas leituras de propósito, e a ordem importa.
+        //
+        // As colunas que sempre existiram vêm primeiro: se ESTA leitura falhar,
+        // não se sabe quem é a pessoa e dá-se o mínimo.
+        //
+        // A coluna `permissoes` é nova. Se o código subir antes de a migração
+        // correr — e sobe, porque são dois passos separados — pedi-la na mesma
+        // consulta fazia a leitura toda falhar, e o dono ficava trancado fora do
+        // próprio sistema. Por isso vai à parte: não conseguir lê-la quer dizer
+        // "esta pessoa não tem permissões próprias", que é exactamente como o
+        // sistema se comportava antes desta funcionalidade existir. Ninguém
+        // ganha acesso a mais do que já tinha.
         let perfil: any = null;
         try {
             const { data, error } = await supabase.from('perfis')
-                .select('role, empresa_id, permissoes, ativo').eq('id', utilizadorId).maybeSingle();
+                .select('role, empresa_id, ativo').eq('id', utilizadorId).maybeSingle();
             if (error) {
                 // Falhar fechado: não saber quem é dá o mínimo, não o máximo.
                 console.error('[Permissoes] Não foi possível ler o perfil:', error.message);
@@ -117,6 +132,23 @@ export class PermissaoService {
         } catch (e: any) {
             console.error('[Permissoes] Erro a ler o perfil:', e?.message || e);
             return vazio;
+        }
+
+        if (perfil) {
+            try {
+                const { data, error } = await supabase.from('perfis')
+                    .select('permissoes').eq('id', utilizadorId).maybeSingle();
+                if (error) {
+                    if (!PermissaoService.avisouDaColuna) {
+                        PermissaoService.avisouDaColuna = true;
+                        console.warn('[Permissoes] A coluna `permissoes` ainda não existe — correr backend/migration_permissoes.sql. Até lá vale o que o perfil dá por omissão.');
+                    }
+                } else {
+                    perfil.permissoes = data?.permissoes ?? null;
+                }
+            } catch {
+                perfil.permissoes = null;
+            }
         }
 
         if (!perfil) return vazio;
