@@ -28,7 +28,9 @@ export type AccaoAuditada =
     | 'campanha_email_criada'
     | 'etiqueta_adicionada' | 'etiqueta_removida'
     | 'contacto_editado' | 'historico_importado'
-    | 'mensagem_enviada'
+    // Nao ha 'mensagem_enviada' de proposito: as mensagens para o cliente ja
+    // estao na propria conversa, que as mostra com a hora e o lado. Duplica-las
+    // aqui enchia a auditoria de ruido e afogava o que ela serve para responder.
     | 'permissoes_alteradas' | 'papel_alterado' | 'utilizador_desativado' | 'utilizador_ativado'
     | 'campanha_iniciada' | 'campanha_pausada' | 'campanha_cancelada';
 

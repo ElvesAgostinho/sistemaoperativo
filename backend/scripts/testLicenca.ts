@@ -127,6 +127,30 @@ async function test(nome: string, fn: () => Promise<void>) {
         assert(m.join(',') === LicencaService.PADRAO.join(','), `devia cair no padrão, veio ${JSON.stringify(m)}`);
     });
 
+    await test('modulos que ja nao existem sao ignorados', async () => {
+        // A empresa mestre tem um "pc" na licenca que nunca existiu no codigo.
+        // Nao faz mal — ninguem lhe consegue abrir nada — mas aparecia nas
+        // contagens e no painel do superadmin, onde o dono nao o conseguia
+        // sequer desligar porque nao havia caixa para ele.
+        tabela('configuracoes').push({
+            id: 1, empresa_id: EMPRESA, chave: 'modulos_empresa',
+            valor: JSON.stringify(['crm', 'wa', 'pc', 'modulo_que_morreu']),
+        });
+        const m = await LicencaService.modulosDaEmpresa(EMPRESA);
+        assert(m.join(',') === 'crm,wa', `devia ficar so com o que existe: ${JSON.stringify(m)}`);
+    });
+
+    await test('uma licenca so com fantasmas fica vazia, nao cheia', async () => {
+        // Nao se "corrige" para o padrao: a empresa comprou coisas que ja nao
+        // existem, e inventar-lhe modulos novos nao e a resposta.
+        tabela('configuracoes').push({
+            id: 1, empresa_id: EMPRESA, chave: 'modulos_empresa',
+            valor: JSON.stringify(['pc', 'modulo_que_morreu']),
+        });
+        const m = await LicencaService.modulosDaEmpresa(EMPRESA);
+        assert(m.length === 0, `devia ficar vazia, veio ${JSON.stringify(m)}`);
+    });
+
     await test('lixo no meio da lista é deitado fora, o resto vale', async () => {
         tabela('configuracoes').push({ id: 1, empresa_id: EMPRESA, chave: 'modulos_empresa', valor: JSON.stringify(['crm', null, 7, 'wa']) });
         const m = await LicencaService.modulosDaEmpresa(EMPRESA);

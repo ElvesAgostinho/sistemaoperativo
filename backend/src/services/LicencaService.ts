@@ -14,6 +14,9 @@ import { supabase } from '../lib/supabaseClient';
  */
 export class LicencaService {
 
+    /** O aviso dos módulos que já não existem sai uma vez por empresa. */
+    private static fantasmasAvisados = new Set<string>();
+
     /** O que uma empresa nova recebe enquanto ninguém lhe definir a licença. */
     public static readonly PADRAO = ['crm', 'wa', 'auto'];
 
@@ -55,7 +58,21 @@ export class LicencaService {
             }
             // Uma lista vazia é uma escolha legítima: a empresa fica só com o
             // essencial. Não se "corrige" para a lista cheia.
-            return lista.filter((m: any) => typeof m === 'string');
+            const limpa = lista.filter((m: any) => typeof m === 'string');
+
+            // Módulos que já não existem ficam para trás nas licenças antigas
+            // (a empresa mestre tem um "pc" que nunca existiu no código). Não
+            // fazem mal — ninguém lhes consegue abrir nada — mas aparecem nas
+            // contagens e no painel do superadmin, onde confundem quem está a
+            // decidir o que a empresa comprou. Vão para o log uma vez, porque
+            // um módulo que o painel não sabe desligar merece ser conhecido.
+            const fantasmas = limpa.filter((m: string) => !LicencaService.TODOS.includes(m));
+            if (fantasmas.length && !LicencaService.fantasmasAvisados.has(empresaId)) {
+                LicencaService.fantasmasAvisados.add(empresaId);
+                console.warn(`[Licenca] A empresa ${empresaId} tem módulos que já não existem: ${fantasmas.join(', ')}. São ignorados.`);
+            }
+
+            return limpa.filter((m: string) => LicencaService.TODOS.includes(m));
         } catch (e: any) {
             console.error(`[Licenca] Erro a ler a licença da empresa ${empresaId}:`, e?.message || e);
             return [...LicencaService.PADRAO];
