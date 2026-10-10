@@ -144,6 +144,28 @@ const correrTudo = async (voltas = 8) => { for (let i = 0; i < voltas; i++) awai
         assert(c.length === 1 && c[0].telefone === '244900000005', `devia ser só o "comprou": ${JSON.stringify(c)}`);
     });
 
+    await test('escolher pessoas e nao escolher nenhuma quer dizer NINGUEM', async () => {
+        // Era um fail-open com dentes: um publico 'manual' sem ids — ou 'tags'
+        // sem etiquetas — deixava a consulta sem filtro nenhum e apanhava a base
+        // de contactos inteira. Num disparo em massa isso e a diferenca entre
+        // nao enviar nada e disparar para toda a gente de rajada, que e a forma
+        // mais rapida de o numero ser banido pelo WhatsApp.
+        for (const [tipo, opcoes] of [
+            ['manual', {}],
+            ['manual', { manualIds: [] }],
+            ['tags', {}],
+            ['tags', { tags: [] }],
+        ] as [any, any][]) {
+            const c = await FluxoDisparoService.resolverPublico(EMPRESA, tipo, opcoes);
+            assert(c.length === 0, `"${tipo}" sem alvo apanhou ${c.length} contactos — devia ser 0`);
+        }
+    });
+
+    await test('"todos" continua a querer dizer todos', async () => {
+        const c = await FluxoDisparoService.resolverPublico(EMPRESA, 'todos', {});
+        assert(c.length > 0, 'quem pede todos tem de receber todos');
+    });
+
     console.log('\n=== Criar o disparo ===\n');
 
     await test('cria uma linha por pessoa e diz quantas são', async () => {

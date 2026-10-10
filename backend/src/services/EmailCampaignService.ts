@@ -50,6 +50,18 @@ export class EmailCampaignService {
                 .map(e => ({ id: null, nome: null, email: e, empresa: null, custom_fields: null }));
         }
 
+        // "Escolhi pessoas" com a lista vazia quer dizer NINGUEM, nao toda a
+        // gente. Antes, um publico 'manual' sem ids — ou 'tags' sem etiquetas —
+        // deixava a consulta sem filtro nenhum e apanhava a base de contactos
+        // inteira. Num disparo em massa isso e a diferenca entre nao enviar
+        // nada e enviar para os 101 contactos da empresa de rajada, que e a
+        // forma mais rapida de o numero ser banido pelo WhatsApp.
+        if (publicoTipo !== 'todos') {
+            const temAlvo = (publicoTipo === 'tags' && opcoes.tags?.length)
+                || (publicoTipo === 'manual' && opcoes.manualIds?.length);
+            if (!temAlvo) return [];
+        }
+
         let query = client.from('clientes').select('id, nome, email, empresa, custom_fields').eq('empresa_id', empresaId);
         if (publicoTipo === 'tags' && opcoes.tags?.length) query = query.overlaps('tags', opcoes.tags);
         else if (publicoTipo === 'manual' && opcoes.manualIds?.length) query = query.in('id', opcoes.manualIds);

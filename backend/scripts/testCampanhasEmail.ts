@@ -130,6 +130,23 @@ const base = {
 (async () => {
     console.log('\n=== Quem recebe ===\n');
 
+    await test('escolher pessoas e nao escolher nenhuma quer dizer NINGUEM', async () => {
+        // O mesmo fail-open dos disparos: 'manual' sem ids, ou 'tags' sem
+        // etiquetas, apanhava a base de contactos inteira. Um servidor de
+        // correio que recebe isso de rajada fecha a porta e o dominio ganha
+        // fama de spam.
+        for (const [tipo, opcoes] of [
+            ['manual', {}],
+            ['manual', { manualIds: [] }],
+            ['tags', {}],
+            ['tags', { tags: [] }],
+        ] as [any, any][]) {
+            const c = await EmailCampaignService.resolverPublico(EMPRESA, tipo, opcoes);
+            assert(c.length === 0, `"${tipo}" sem alvo apanhou ${c.length} destinatarios — devia ser 0`);
+        }
+    });
+
+
     await test('só entram contactos desta empresa e com email válido', async () => {
         const c = await EmailCampaignService.resolverPublico(EMPRESA, 'todos', {});
         const enderecos = c.map((x: any) => x.email).sort();

@@ -32,6 +32,18 @@ export class FluxoDisparoService {
         opcoes: { tags?: string[]; manualIds?: number[] },
         client: any = supabase
     ): Promise<ContactoAlvo[]> {
+        // "Escolhi pessoas" com a lista vazia quer dizer NINGUEM, nao toda a
+        // gente. Antes, um publico 'manual' sem ids — ou 'tags' sem etiquetas —
+        // deixava a consulta sem filtro nenhum e apanhava a base de contactos
+        // inteira. Num disparo em massa isso e a diferenca entre nao enviar
+        // nada e enviar para os 101 contactos da empresa de rajada, que e a
+        // forma mais rapida de o numero ser banido pelo WhatsApp.
+        if (publicoTipo !== 'todos') {
+            const temAlvo = (publicoTipo === 'tags' && opcoes.tags?.length)
+                || (publicoTipo === 'manual' && opcoes.manualIds?.length);
+            if (!temAlvo) return [];
+        }
+
         let query = client.from('clientes')
             .select('id, nome, telefone, tags, custom_fields, bot_paused').eq('empresa_id', empresaId);
 
