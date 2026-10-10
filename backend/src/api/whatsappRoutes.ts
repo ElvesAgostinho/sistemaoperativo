@@ -627,11 +627,15 @@ router.get('/conversations', requireAuth, async (req: AuthRequest, res: Response
         const ids = (data || []).map((c: any) => c.id);
         const ultima: Record<string, any> = {};
         if (ids.length) {
-            const { data: msgs } = await client.from('wa_messages')
-                .select('conversation_id, content, direction, type, created_at, status')
+            const { data: msgs, error: erroMsgs } = await client.from('wa_messages')
+                .select('conversation_id, content, direction, message_type, created_at, status')
                 .in('conversation_id', ids)
                 .order('created_at', { ascending: false })
                 .limit(ids.length * 12);
+
+            // O Supabase nao atira: devolve o erro num campo. Sem olhar para
+            // ele, uma coluna mal escrita passa por "nao ha mensagens".
+            if (erroMsgs) console.error('[WhatsApp] Nao foi possivel ler as ultimas mensagens:', erroMsgs.message);
 
             for (const m of (msgs || [])) {
                 if (!ultima[m.conversation_id]) ultima[m.conversation_id] = m;
@@ -644,7 +648,10 @@ router.get('/conversations', requireAuth, async (req: AuthRequest, res: Response
                 image: 'Foto', video: 'Video', audio: 'Mensagem de voz',
                 document: 'Documento', sticker: 'Autocolante', location: 'Localizacao',
             };
-            if (m.type && m.type !== 'text' && porTipo[m.type]) return porTipo[m.type];
+            // A coluna chama-se `message_type`. Pedir `type` fazia o pedido
+            // inteiro falhar, e o catch la em baixo engolia o erro: ficavam as
+            // 97 conversas sem previa nenhuma e sem um unico sinal do porque.
+            if (m.message_type && m.message_type !== 'text' && porTipo[m.message_type]) return porTipo[m.message_type];
             return String(m.content || '').replace(/\s+/g, ' ').trim();
         };
 
@@ -655,12 +662,17 @@ router.get('/conversations', requireAuth, async (req: AuthRequest, res: Response
                 etiquetas: porTelefone[String(conv.phone_number || '').replace(/\D/g, '')] || [],
                 ultima_mensagem: previa(m),
                 ultima_direccao: m?.direction || null,
-                ultima_tipo: m?.type || null,
+                ultima_tipo: m?.message_type || null,
             };
         });
         return res.json({ success: true, conversations: comEtiquetas });
-    } catch {
-        // Sem etiquetas a lista funciona na mesma — nunca vale a pena falhar por isto.
+    } catch (e: any) {
+        // A lista funciona sem as etiquetas e sem a previa — nunca vale a pena
+        // deitar abaixo o inbox por causa disto. Mas em voz alta: este catch
+        // esteve a engolir um nome de coluna errado (`type` em vez de
+        // `message_type`) e as 97 conversas ficaram sem previa nenhuma, sem um
+        // unico sinal do porque.
+        console.error('[WhatsApp] A lista foi servida sem etiquetas nem previa:', e?.message || e);
         return res.json({ success: true, conversations: data });
     }
 });
