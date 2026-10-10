@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import { requireAuth, AuthRequest } from '../middleware/authMiddleware';
+import { AuditoriaService } from '../services/AuditoriaService';
 import { getSupabase } from '../lib/supabaseClient';
 import { EtiquetaService } from '../services/EtiquetaService';
 
@@ -106,6 +107,24 @@ router.put('/contacto/:clienteId', requireAuth, async (req: AuthRequest, res: Re
             { adicionar: adicionar || [], remover: remover || [] },
             getSupabase(req)
         );
+
+        // Uma etiqueta decide quem entra num disparo em massa. Saber quem a pos
+        // (ou tirou) deixa de ser um detalhe quando alguem pergunta porque e que
+        // um cliente recebeu uma campanha.
+        for (const [lista, accao, verbo] of [
+            [adicionar || [], 'etiqueta_adicionada' as const, 'pos'],
+            [remover || [], 'etiqueta_removida' as const, 'tirou'],
+        ] as const) {
+            for (const etiqueta of lista as string[]) {
+                await AuditoriaService.registar({
+                    empresaId, quemId: req.user!.id, accao,
+                    alvoTipo: 'cliente', alvoId: req.params.clienteId,
+                    detalhes: `${verbo} a etiqueta "${etiqueta}" a este cliente.`,
+                    extra: { etiqueta },
+                });
+            }
+        }
+
         res.json({ success: true, tags });
     } catch (err: any) {
         res.status(400).json({ success: false, error: err.message });

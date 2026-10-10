@@ -3,6 +3,10 @@ import multer from 'multer';
 import fs from 'fs';
 import { supabase, getSupabase } from '../lib/supabaseClient';
 import { requireAuth, AuthRequest } from '../middleware/authMiddleware';
+import { exigirDono } from '../middleware/permissaoMiddleware';
+import { PermissaoService } from '../services/PermissaoService';
+import { AuditoriaService } from '../services/AuditoriaService';
+import { LicencaService } from '../services/LicencaService';
 
 const router = Router();
 const upload = multer({
@@ -92,7 +96,117 @@ router.get('/', requireAuth, requireAdmin, async (req: AuthRequest, res: Respons
         .order('criado_em', { ascending: false });
 
     if (error) return res.status(500).json({ error: error.message });
-    return res.json({ success: true, users: data });
+
+    // Cada linha leva consigo o que aquela pessoa abre mesmo, para o ecra nao
+    // ter de voltar a calcular (e calcular de outra maneira, que era o que
+    // acontecia antes: o servidor dizia uma coisa e o ecra mostrava outra).
+    const users = await Promise.all((data || []).map(async (u: any) => {
+        const p = await PermissaoService.efectivas(u.id);
+        return {
+            ...u,
+            permissoes_efectivas: { modulos: p.modulos, accoes: p.accoes },
+            permissoes_proprias: p.proprias,   // false = ainda esta no que o papel da
+        };
+    }));
+
+    return res.json({ success: true, users });
+});
+
+/**
+ * O catalogo: que modulos a empresa licenciou e que accoes existem para dar.
+ * O ecra desenha as caixas a partir daqui, para nao haver uma lista no
+ * servidor e outra no navegador a divergirem com o tempo.
+ */
+router.get('/permissoes/catalogo', requireAuth, exigirDono, async (req: AuthRequest, res: Response) => {
+    try {
+        const modulos = await LicencaService.modulosDaEmpresa(req.user!.empresa_id);
+        res.json({
+            success: true,
+            modulos: modulos.filter(m => !PermissaoService.MODULOS_SEMPRE.includes(m)),
+            accoes: PermissaoService.ACCOES,
+            papeis: ['pending', 'agente', 'sales_manager', 'hr_manager', 'admin'].map(papel => ({
+                papel, omissao: PermissaoService.omissaoDoPapel(papel)
+            })),
+        });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+/** O que esta pessoa pode, e o que o papel dela daria por omissao. */
+router.get('/:id/permissoes', requireAuth, exigirDono, async (req: AuthRequest, res: Response) => {
+    const { data: alvo } = await supabase.from('perfis').select('empresa_id, role').eq('id', req.params.id).maybeSingle();
+    if (!alvo || alvo.empresa_id !== req.user?.empresa_id) {
+        return res.status(403).json({ error: 'Este utilizador nao e da sua empresa.' });
+    }
+    const p = await PermissaoService.efectivas(req.params.id);
+    res.json({
+        success: true,
+        papel: p.papel,
+        modulos: p.modulos.filter(m => !PermissaoService.MODULOS_SEMPRE.includes(m)),
+        accoes: p.accoes,
+        proprias: p.proprias,
+        omissaoDoPapel: PermissaoService.omissaoDoPapel(p.papel),
+    });
+});
+
+/** O dono afina as permissoes de um funcionario. */
+router.put('/:id/permissoes', requireAuth, exigirDono, async (req: AuthRequest, res: Response) => {
+    const { modulos, accoes, repor } = req.body || {};
+
+    const { data: alvo } = await supabase.from('perfis').select('empresa_id, role, nome').eq('id', req.params.id).maybeSingle();
+    if (!alvo || alvo.empresa_id !== req.user?.empresa_id) {
+        return res.status(403).json({ error: 'Este utilizador nao e da sua empresa.' });
+    }
+
+    // Ninguem se tira a si proprio o direito de gerir a equipa: ficaria uma
+    // empresa sem ninguem que pudesse voltar atras.
+    if (req.params.id === req.user?.id) {
+        return res.status(400).json({ error: 'Nao pode alterar as suas proprias permissoes.' });
+    }
+    if (alvo.role === 'admin' && !PermissaoService.mandaEmTudo(req.user?.role || '')) {
+        return res.status(403).json({ error: 'Nao pode alterar as permissoes de outro administrador.' });
+    }
+
+    try {
+        if (repor) {
+            await PermissaoService.repor(req.params.id);
+            await AuditoriaService.registar({
+                empresaId: req.user!.empresa_id, quemId: req.user!.id,
+                accao: 'permissoes_alteradas', alvoUtilizador: req.params.id,
+                alvoTipo: 'utilizador', alvoId: req.params.id,
+                detalhes: `repos as permissoes de ${alvo.nome || 'um colega'} para as normais do perfil.`,
+            });
+            const p = await PermissaoService.efectivas(req.params.id);
+            return res.json({ success: true, modulos: p.modulos, accoes: p.accoes, proprias: false });
+        }
+
+        if (!Array.isArray(modulos) || !Array.isArray(accoes)) {
+            return res.status(400).json({ error: 'Faltam as listas de modulos e accoes.' });
+        }
+
+        const antes = await PermissaoService.efectivas(req.params.id);
+        const guardado = await PermissaoService.guardar(req.params.id, modulos, accoes);
+        const depois = await PermissaoService.efectivas(req.params.id);
+
+        const saiu = (a: string[], b: string[]) => a.filter(x => !b.includes(x));
+        const ganhou = [...saiu(depois.modulos, antes.modulos), ...saiu(depois.accoes, antes.accoes)];
+        const perdeu = [...saiu(antes.modulos, depois.modulos), ...saiu(antes.accoes, depois.accoes)];
+
+        await AuditoriaService.registar({
+            empresaId: req.user!.empresa_id, quemId: req.user!.id,
+            accao: 'permissoes_alteradas', alvoUtilizador: req.params.id,
+            alvoTipo: 'utilizador', alvoId: req.params.id,
+            detalhes: `alterou as permissoes de ${alvo.nome || 'um colega'}.`
+                + (ganhou.length ? ` Ganhou: ${ganhou.join(', ')}.` : '')
+                + (perdeu.length ? ` Perdeu: ${perdeu.join(', ')}.` : ''),
+            extra: { ganhou, perdeu, guardado },
+        });
+
+        return res.json({ success: true, modulos: depois.modulos, accoes: depois.accoes, proprias: true });
+    } catch (e: any) {
+        return res.status(500).json({ error: e.message });
+    }
 });
 
 // Alterar o role de um utilizador (apenas da mesma empresa)
@@ -123,6 +237,14 @@ router.put('/:id/role', requireAuth, requireAdmin, async (req: AuthRequest, res:
         .eq('id', id);
 
     if (error) return res.status(500).json({ error: error.message });
+
+    await AuditoriaService.registar({
+        empresaId: req.user!.empresa_id, quemId: req.user!.id,
+        accao: 'papel_alterado', alvoUtilizador: id, alvoTipo: 'utilizador', alvoId: id,
+        detalhes: `mudou o perfil de acesso de "${userToUpdate.role}" para "${role}".`,
+        extra: { de: userToUpdate.role, para: role },
+    });
+
     return res.json({ success: true, message: 'Função atualizada com sucesso.' });
 });
 
@@ -154,6 +276,14 @@ router.put('/:id/status', requireAuth, requireAdmin, async (req: AuthRequest, re
         .eq('id', id);
 
     if (error) return res.status(500).json({ error: error.message });
+
+    await AuditoriaService.registar({
+        empresaId: req.user!.empresa_id, quemId: req.user!.id,
+        accao: ativo ? 'utilizador_ativado' : 'utilizador_desativado',
+        alvoUtilizador: id, alvoTipo: 'utilizador', alvoId: id,
+        detalhes: ativo ? 'reativou o acesso de um colega.' : 'desativou o acesso de um colega.',
+    });
+
     return res.json({ success: true, message: 'Estado atualizado com sucesso.' });
 });
 

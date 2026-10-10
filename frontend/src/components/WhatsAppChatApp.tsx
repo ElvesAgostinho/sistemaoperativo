@@ -197,7 +197,13 @@ function primeiroDoGrupo(lista: Message[], i: number): boolean {
     return lista[i].direction !== lista[i - 1].direction;
 }
 
-export default function WhatsAppChatApp() {
+/**
+ * `podeFazer` vem do App, que o recebe do servidor. Esconder um botao nao fecha
+ * a porta — a API verifica o mesmo — mas tambem nao se mostra a alguem um botao
+ * que so lhe ia dar "nao tem permissao".
+ */
+export default function WhatsAppChatApp({ podeFazer }: { podeFazer?: (accao: string) => boolean }) {
+    const pode = (a: string) => (podeFazer ? podeFazer(a) : true);
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [activeConv, setActiveConv] = useState<Conversation | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
@@ -247,6 +253,10 @@ export default function WhatsAppChatApp() {
     const [showAuditModal, setShowAuditModal] = useState(false);
     const [auditLogs, setAuditLogs] = useState<any[]>([]);
     const [filter, setFilter] = useState<'all' | 'mine' | 'unassigned'>('all');
+    // A caixa de procura existia mas nao tinha valor nem onChange: escrevia-se
+    // la dentro e nao acontecia nada. Com 97 conversas, isso e o unico sitio
+    // por onde se encontra alguem.
+    const [procura, setProcura] = useState('');
     
     // Retrieve user from localStorage
     const [currentUser, setCurrentUser] = useState<any>(null);
@@ -620,11 +630,19 @@ export default function WhatsAppChatApp() {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
-            if (data.success) {
-                setAuditLogs(data.audit);
-                setShowAuditModal(true);
+            if (!res.ok || !data.success) {
+                // Antes, se isto falhasse, nao acontecia nada: a pessoa clicava e
+                // o ecra ficava igual, sem saber se nao tinha permissao ou se o
+                // sistema estava avariado.
+                alert(data.error || 'Nao foi possivel abrir a auditoria.');
+                return;
             }
-        } catch(err) { console.error(err); }
+            setAuditLogs(data.audit);
+            setShowAuditModal(true);
+        } catch(err) {
+            console.error(err);
+            alert('Erro de rede ao abrir a auditoria.');
+        }
     };
 
     // FIX #5 — Supabase Realtime: subscription a wa_messages para a conversa activa
@@ -924,6 +942,142 @@ export default function WhatsAppChatApp() {
                     .wa-topo-accoes .wa-fluxo-nome { display: none; }
                 }
 
+                /* ---------- O fundo da conversa ----------
+                   O padrao do WhatsApp, desenhado aqui em SVG em vez de vir de
+                   um ficheiro: sao poucos bytes, nao ha mais um pedido a rede
+                   e nao se perde se alguem mudar de servidor. Fica muito claro
+                   de proposito — o fundo e para dar textura, nao para competir
+                   com o que la esta escrito. */
+                .wa-fundo {
+                    background-color: #EFEAE2;
+                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='88' height='88' viewBox='0 0 88 88'%3E%3Cg fill='none' stroke='%23000' stroke-opacity='.035' stroke-width='1.3'%3E%3Ccircle cx='14' cy='14' r='5'/%3E%3Cpath d='M30 10h10v10H30z'/%3E%3Cpath d='M58 8l5 9-10 0z'/%3E%3Cpath d='M74 14h8M78 10v8'/%3E%3Cpath d='M8 38c4-5 10-5 14 0'/%3E%3Ccircle cx='46' cy='42' r='6'/%3E%3Cpath d='M66 36h12v10H66z'/%3E%3Cpath d='M12 64l6 6 6-6'/%3E%3Ccircle cx='40' cy='70' r='4'/%3E%3Cpath d='M58 62h10v12H58z'/%3E%3Cpath d='M78 66c3 4 3 6 0 10'/%3E%3C/g%3E%3C/svg%3E");
+                }
+                /* A barra do lado da conversa, a condizer com o fundo. */
+                .wa-fundo::-webkit-scrollbar { width: 6px; }
+                .wa-fundo::-webkit-scrollbar-thumb { background: rgba(0,0,0,.18); border-radius: 3px; }
+                .wa-fundo::-webkit-scrollbar-track { background: transparent; }
+
+                /* ---------- Escrever ---------- */
+                .wa-barra-escrever {
+                    padding: 9px 16px; background: #F0F2F5;
+                    display: flex; align-items: center; gap: 13px;
+                }
+                .wa-escrever {
+                    flex: 1; border: none; border-radius: 8px;
+                    padding: 11px 16px; font-size: 14.5px; outline: none;
+                    background: #fff; color: #111B21; font-family: inherit;
+                }
+                .wa-escrever::placeholder { color: #8696A0; }
+
+                .wa-enviar {
+                    width: 38px; height: 38px; flex-shrink: 0;
+                    border: none; border-radius: 50%; background: #0E5A6B;
+                    cursor: pointer; display: grid; place-items: center;
+                    /* Aparece a crescer em vez de saltar para o sitio: e a
+                       diferenca entre parecer vivo e parecer avariado. */
+                    animation: wa-surgir .14s ease-out;
+                    transition: background .15s ease, transform .1s ease;
+                }
+                .wa-enviar:hover { background: #0B4654; }
+                .wa-enviar:active { transform: scale(.93); }
+                @keyframes wa-surgir { from { transform: scale(.75); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+                /* Quem tiver pedido menos movimento ao sistema nao leva com
+                   nenhum: e uma definicao de acessibilidade, nao um gosto. */
+                @media (prefers-reduced-motion: reduce) {
+                    .wa-enviar { animation: none; }
+                    .wa-conversa, .wa-pastilha, .wa-procura, .wa-enviar { transition: none; }
+                }
+
+                /* ---------- Lista de conversas ----------
+                   O desenho e o do WhatsApp Web de proposito. Nao e capricho:
+                   e onde as pessoas passam o dia, e qualquer coisa diferente
+                   parece um erro antes de parecer uma escolha. O que muda em
+                   relacao ao que estava aqui: cantos arredondados em vez de
+                   quadrados a 2px, a ultima mensagem por baixo do nome em vez
+                   do numero repetido, e transicoes curtas o suficiente para se
+                   sentirem sem se notarem. */
+
+                .wa-procura {
+                    display: flex; align-items: center; gap: 2px;
+                    background: #F0F2F5; border-radius: 8px;
+                    padding: 7px 13px; margin-bottom: 9px;
+                    border: 1px solid transparent;
+                    transition: background .15s ease, border-color .15s ease;
+                }
+                .wa-procura:focus-within {
+                    background: #fff;
+                    border-color: #0E5A6B;
+                }
+                .wa-procura input::placeholder { color: #8696A0; }
+
+                .wa-filtros { display: flex; gap: 7px; overflow-x: auto; padding-bottom: 2px; }
+                /* A barra de deslocamento por baixo das pastilhas tirava-lhes
+                   o ar de arrumado quando havia pouco espaco. */
+                .wa-filtros::-webkit-scrollbar { display: none; }
+                .wa-filtros { scrollbar-width: none; }
+
+                .wa-pastilha {
+                    padding: 5px 13px; border-radius: 999px; font-size: 12.5px;
+                    border: 1px solid #E9EDEF; background: #fff; color: #54656F;
+                    cursor: pointer; white-space: nowrap; font-family: inherit;
+                    transition: background .15s ease, color .15s ease, border-color .15s ease;
+                }
+                .wa-pastilha:hover { background: #F5F6F6; }
+                .wa-pastilha-activa {
+                    background: #E1EEF0; border-color: #CFE3E7;
+                    color: #0E5A6B; font-weight: 600;
+                }
+
+                /* A lista corre muito: uma barra fina incomoda menos. */
+                .wa-lista::-webkit-scrollbar { width: 6px; }
+                .wa-lista::-webkit-scrollbar-thumb { background: #D4D4D4; border-radius: 3px; }
+                .wa-lista::-webkit-scrollbar-thumb:hover { background: #BFBFBF; }
+                .wa-lista::-webkit-scrollbar-track { background: transparent; }
+
+                .wa-conversa {
+                    display: flex; gap: 13px; padding: 10px 14px; cursor: pointer;
+                    /* A linha separadora comeca depois do avatar, como no
+                       WhatsApp: atravessar a linha toda corta a lista em
+                       fatias e cansa a vista. */
+                    box-shadow: inset 0 -1px 0 0 #F0F2F5;
+                    background: #fff;
+                    transition: background-color .13s ease;
+                }
+                .wa-conversa:hover { background: #F5F6F6; }
+                .wa-conversa-activa, .wa-conversa-activa:hover { background: #F0F2F5; }
+
+                .wa-avatar {
+                    width: 48px; height: 48px; border-radius: 50%;
+                    background: #DFE5E7; overflow: hidden; flex-shrink: 0;
+                    display: flex; align-items: center; justify-content: center;
+                }
+
+                /* min-width:0 para o texto se poder cortar: sem isto o nome
+                   longo empurrava a hora para fora da coluna. */
+                .wa-conversa-corpo { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+
+                .wa-conversa-linha1 { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+                .wa-conversa-nome {
+                    font-size: 15.5px; color: #111B21; font-weight: 500;
+                    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+                }
+                .wa-conversa-hora { font-size: 11.5px; color: #667781; flex-shrink: 0; }
+
+                .wa-conversa-linha2 { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+                .wa-conversa-previa {
+                    font-size: 13.5px; color: #667781; min-width: 0;
+                    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+                }
+                .wa-conversa-sinais { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+                .wa-conversa-etiquetas { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+                .wa-etiqueta {
+                    font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 10px;
+                    color: #fff; max-width: 110px;
+                    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+                }
+
                 /* ---------- Balões da conversa ----------
                    O desenho é o do WhatsApp de propósito: é onde as pessoas
                    passam o dia, e qualquer coisa diferente parece errada. As
@@ -1028,84 +1182,133 @@ export default function WhatsAppChatApp() {
 
                 {currentView === 'chats' ? (
                     <>
-                        <div style={{ padding: '8px', backgroundColor: '#fff', borderBottom: '1px solid #F5F6F7' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', backgroundColor: '#F5F6F7', borderRadius: '2px', padding: '6px 12px', marginBottom: '8px' }}>
-                                <Search size={18} color="#5B738B" />
-                                <input 
-                                    type="text" 
-                                    placeholder="Pesquisar conversa" 
-                                    style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', marginLeft: '12px', fontSize: '15px' }}
+                        <div style={{ padding: '8px 12px 10px', backgroundColor: '#fff', borderBottom: '1px solid #F0F2F5' }}>
+                            <div className="wa-procura">
+                                <Search size={17} color="#54656F" style={{ flexShrink: 0 }} />
+                                <input
+                                    type="text"
+                                    value={procura}
+                                    onChange={e => setProcura(e.target.value)}
+                                    placeholder="Procurar uma conversa"
+                                    style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', marginLeft: '12px', fontSize: '14.5px', color: '#111B21' }}
                                 />
+                                {procura && (
+                                    <button onClick={() => setProcura('')} aria-label="Limpar a procura"
+                                        style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#54656F', padding: 0, display: 'flex' }}>
+                                        <X size={16} />
+                                    </button>
+                                )}
                             </div>
-                            {currentUser && (currentUser.role === 'admin' || currentUser.role === 'supervisor' || currentUser.role === 'superadmin') && (
-                                <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
-                                    <button onClick={() => setFilter('all')} style={{ padding: '4px 8px', borderRadius: '2px', fontSize: '12px', border: 'none', cursor: 'pointer', backgroundColor: filter === 'all' ? '#0E5A6B' : '#F5F6F7', color: filter === 'all' ? 'white' : '#5B738B' }}>Todas</button>
-                                    <button onClick={() => setFilter('mine')} style={{ padding: '4px 8px', borderRadius: '2px', fontSize: '12px', border: 'none', cursor: 'pointer', backgroundColor: filter === 'mine' ? '#0E5A6B' : '#F5F6F7', color: filter === 'mine' ? 'white' : '#5B738B' }}>Minhas</button>
-                                    <button onClick={() => setFilter('unassigned')} style={{ padding: '4px 8px', borderRadius: '2px', fontSize: '12px', border: 'none', cursor: 'pointer', backgroundColor: filter === 'unassigned' ? '#0E5A6B' : '#F5F6F7', color: filter === 'unassigned' ? 'white' : '#5B738B' }}>Na Fila</button>
-                                </div>
-                            )}
+
+                            <div className="wa-filtros">
+                                {([
+                                    { id: 'all', rotulo: 'Tudo' },
+                                    { id: 'mine', rotulo: 'Minhas' },
+                                    { id: 'unassigned', rotulo: 'Na fila' },
+                                ] as const).map(f => (
+                                    <button
+                                        key={f.id}
+                                        onClick={() => setFilter(f.id)}
+                                        className={'wa-pastilha' + (filter === f.id ? ' wa-pastilha-activa' : '')}
+                                    >
+                                        {f.rotulo}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
 
-                        <div style={{ flex: 1, overflowY: 'auto' }}>
-                            {conversations.filter(c => {
-                                if (filter === 'mine') return c.assigned_to === currentUser?.id;
-                                if (filter === 'unassigned') return !c.assigned_to;
-                                return true;
-                            }).map(conv => (
-                                <div 
-                                    key={conv.id} 
-                                    onClick={() => setActiveConv(conv)}
-                                    style={{ 
-                                        display: 'flex', padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid #F5F6F7',
-                                        backgroundColor: activeConv?.id === conv.id ? '#F5F6F7' : 'white',
-                                        transition: 'background-color 0.2s'
-                                    }}
-                                >
-                                    <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: '#D5D7DA', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '16px', overflow: 'hidden' }}>
-                                        {conv.contact_picture && !brokenPictures.has(conv.id) ? (
-                                            <img src={conv.contact_picture} alt={conv.contact_name} onError={() => markPictureBroken(conv.id)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                        ) : (
-                                            <UserIcon name={displayContactName(conv.contact_name, conv.phone_number)} />
-                                        )}
-                                    </div>
-                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <span style={{ fontSize: '16px', color: '#1D2D3E', fontWeight: 500 }}>{displayContactName(conv.contact_name, conv.phone_number)}</span>
-                                            <span style={{ fontSize: '12px', color: '#5B738B' }}>{new Date(conv.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        <div className="wa-lista" style={{ flex: 1, overflowY: 'auto' }}>
+                            {(() => {
+                                const termo = procura.trim().toLowerCase();
+                                const visiveis = conversations.filter(c => {
+                                    if (filter === 'mine' && c.assigned_to !== currentUser?.id) return false;
+                                    if (filter === 'unassigned' && c.assigned_to) return false;
+                                    if (!termo) return true;
+                                    // Procura pelo nome, pelo numero e pelo que foi dito:
+                                    // quem procura "reserva" quer a conversa onde isso apareceu,
+                                    // nao so o contacto que por acaso se chame assim.
+                                    const nome = displayContactName(c.contact_name, c.phone_number).toLowerCase();
+                                    const numero = String(c.phone_number || '').replace(/\D/g, '');
+                                    const ultima = String((c as any).ultima_mensagem || '').toLowerCase();
+                                    const etiquetas = ((c as any).etiquetas || []).map((e: any) => String(e.nome).toLowerCase()).join(' ');
+                                    return nome.includes(termo)
+                                        || numero.includes(termo.replace(/\D/g, '') || '\u0000')
+                                        || ultima.includes(termo)
+                                        || etiquetas.includes(termo);
+                                });
+
+                                if (visiveis.length === 0) {
+                                    return (
+                                        <div style={{ padding: '44px 24px', textAlign: 'center', color: '#667781', fontSize: '13.5px', lineHeight: 1.6 }}>
+                                            {termo
+                                                ? <>Nenhuma conversa com <b>&ldquo;{procura}&rdquo;</b>.</>
+                                                : filter === 'mine' ? 'Ainda nao tem conversas suas.'
+                                                : filter === 'unassigned' ? 'Nao ha conversas a espera de ninguem.'
+                                                : 'Ainda nao ha conversas.'}
                                         </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
-                                            <span style={{ fontSize: '14px', color: '#5B738B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>
-                                                {formatPhoneNumber(conv.phone_number)}
-                                            </span>
-                                            {conv.status === 'bot' && <span title="O Bot está a responder"><Bot size={14} color="#0E5A6B" /></span>}
-                                        </div>
-                                        {conv.assigned_to && (
-                                            <div style={{ fontSize: '11px', color: '#0E5A6B', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                <UserPlus size={12} /> {agents.find(a => a.id === conv.assigned_to)?.nome || 'Agente Atribuído'}
-                                            </div>
-                                        )}
-                                        {/* As etiquetas aqui mesmo: olhar para a lista e ver
-                                            num relance quem esta em que ponto, sem abrir cada ficha. */}
-                                        {!!conv.etiquetas?.length && (
-                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '5px' }}>
-                                                {conv.etiquetas.slice(0, 3).map((et: any) => (
-                                                    <span key={et.nome} title={et.nome} style={{
-                                                        fontSize: '10.5px', fontWeight: 700, padding: '2px 7px', borderRadius: '2px',
-                                                        background: et.cor, color: 'white', maxWidth: '110px',
-                                                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                                                    }}>{et.nome}</span>
-                                                ))}
-                                                {conv.etiquetas.length > 3 && (
-                                                    <span title={conv.etiquetas.map((e: any) => e.nome).join(', ')}
-                                                        style={{ fontSize: '10.5px', fontWeight: 700, padding: '2px 6px', borderRadius: '2px', background: '#E7E9EB', color: '#5B738B' }}>
-                                                        +{conv.etiquetas.length - 3}
-                                                    </span>
+                                    );
+                                }
+
+                                return visiveis.map(conv => {
+                                    const activa = activeConv?.id === conv.id;
+                                    const ultima = (conv as any).ultima_mensagem as string;
+                                    const minha = (conv as any).ultima_direccao === 'outbound';
+                                    return (
+                                        <div
+                                            key={conv.id}
+                                            onClick={() => setActiveConv(conv)}
+                                            className={'wa-conversa' + (activa ? ' wa-conversa-activa' : '')}
+                                        >
+                                            <div className="wa-avatar">
+                                                {conv.contact_picture && !brokenPictures.has(conv.id) ? (
+                                                    <img src={conv.contact_picture} alt={conv.contact_name} onError={() => markPictureBroken(conv.id)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                ) : (
+                                                    <UserIcon name={displayContactName(conv.contact_name, conv.phone_number)} />
                                                 )}
                                             </div>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
+
+                                            <div className="wa-conversa-corpo">
+                                                <div className="wa-conversa-linha1">
+                                                    <span className="wa-conversa-nome">{displayContactName(conv.contact_name, conv.phone_number)}</span>
+                                                    <span className="wa-conversa-hora">
+                                                        {conv.last_message_at ? new Date(conv.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                                    </span>
+                                                </div>
+
+                                                <div className="wa-conversa-linha2">
+                                                    <span className="wa-conversa-previa">
+                                                        {ultima
+                                                            ? <>{minha && <span style={{ color: '#667781' }}>Eu: </span>}{ultima}</>
+                                                            : <span style={{ color: '#8696A0' }}>{formatPhoneNumber(conv.phone_number)}</span>}
+                                                    </span>
+                                                    <span className="wa-conversa-sinais">
+                                                        {conv.status === 'bot' && <span title="O bot esta a responder"><Bot size={14} color="#0E5A6B" /></span>}
+                                                        {conv.assigned_to && (
+                                                            <span title={agents.find(a => a.id === conv.assigned_to)?.nome || 'Delegada'}>
+                                                                <UserPlus size={13} color="#0E5A6B" />
+                                                            </span>
+                                                        )}
+                                                    </span>
+                                                </div>
+
+                                                {!!(conv as any).etiquetas?.length && (
+                                                    <div className="wa-conversa-etiquetas">
+                                                        {(conv as any).etiquetas.slice(0, 3).map((et: any) => (
+                                                            <span key={et.nome} title={et.nome} className="wa-etiqueta" style={{ background: et.cor }}>{et.nome}</span>
+                                                        ))}
+                                                        {(conv as any).etiquetas.length > 3 && (
+                                                            <span title={(conv as any).etiquetas.map((e: any) => e.nome).join(', ')}
+                                                                className="wa-etiqueta" style={{ background: '#E7E9EB', color: '#5B738B' }}>
+                                                                +{(conv as any).etiquetas.length - 3}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                });
+                            })()}
                         </div>
                     </>
                 ) : (
@@ -1353,12 +1556,13 @@ export default function WhatsAppChatApp() {
                                     aImportar={aImportar}
                                     onDelegar={() => setShowAssignModal(true)}
                                     onAuditoria={handleViewAudit}
-                                    podeGerir={!!currentUser && ['admin', 'supervisor', 'superadmin'].includes(currentUser.role)}
+                                    podeDelegar={pode('wa.delegar')}
+                                    podeVerAuditoria={pode('wa.auditoria')}
                                 />
                             </div>
                         </div>
 
-                        <div style={{ flex: 1, overflowY: 'auto', padding: '14px 7%', display: 'flex', flexDirection: 'column' }}>
+                        <div className="wa-fundo" style={{ flex: 1, overflowY: 'auto', padding: '14px 7%', display: 'flex', flexDirection: 'column' }}>
                             {avisoHistorico && (
                                 <div style={{ alignSelf: 'center', backgroundColor: '#E1EEF0', color: '#0E5A6B', fontSize: '12.5px', padding: '6px 14px', borderRadius: '2px' }}>
                                     {avisoHistorico}
@@ -1471,7 +1675,7 @@ export default function WhatsAppChatApp() {
                             ))}
                         </div>
 
-                        <div style={{ padding: '12px 16px', backgroundColor: '#F5F6F7', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <div className="wa-barra-escrever">
                             {(() => {
                                 let is24hLocked = false;
                                 if (activeConv?.wa_channels?.provider === 'meta') {
@@ -1526,10 +1730,14 @@ export default function WhatsAppChatApp() {
                                             value={inputText}
                                             onChange={e => setInputText(e.target.value)}
                                             onKeyDown={e => e.key === 'Enter' && handleSend()}
-                                            placeholder="Digite uma mensagem" 
-                                            style={{ flex: 1, border: 'none', borderRadius: '2px', padding: '10px 16px', fontSize: '15px', outline: 'none' }}
+                                            placeholder="Escrever mensagem"
+                                            className="wa-escrever"
                                         />
-                                        {inputText.trim() && <Send size={24} color="#0E5A6B" style={{ cursor: 'pointer' }} onClick={handleSend} />}
+                                        {inputText.trim() && (
+                                            <button onClick={handleSend} className="wa-enviar" aria-label="Enviar">
+                                                <Send size={19} color="#fff" />
+                                            </button>
+                                        )}
                                     </>
                                 );
                             })()}

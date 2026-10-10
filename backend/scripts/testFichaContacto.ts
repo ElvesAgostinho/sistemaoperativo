@@ -118,6 +118,12 @@ const assert = (c: boolean, m: string) => { if (!c) throw new Error(m); };
 
 async function test(nome: string, fn: () => Promise<void>) {
     for (const t of Object.keys(db)) delete db[t];
+    // Quem faz o pedido tem de existir mesmo: as rotas passaram a verificar as
+    // permissoes no servidor, e o PermissaoService le o perfil e a licenca da
+    // empresa. Sem estas duas linhas o guarda recusa — e bem, porque falha
+    // fechado. Este teste nao e sobre permissoes, por isso o utilizador e dono.
+    tabela('perfis').push({ id: 'agente-1', nome: 'Elves', role: 'admin', empresa_id: EMPRESA, ativo: true, permissoes: null });
+    tabela('configuracoes').push({ id: 'lic-1', empresa_id: EMPRESA, chave: 'modulos_empresa', valor: JSON.stringify(['wa', 'crm', 'auto', 'email']) });
     // Acima dos ids semeados a mao, senao um registo novo nascia com o id de um
     // existente e os testes mediam a linha errada.
     seq = 100;

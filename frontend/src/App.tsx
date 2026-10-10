@@ -338,19 +338,34 @@ function App() {
     // Superadmin panel is only for superadmins
     if (module === 'superadmin') return user.role === 'superadmin';
 
-    // A licenca da empresa. Nada se acrescenta aqui: havia duas linhas a
-    // "forcar a inclusao" do Financeiro e do Afiliados para sessoes antigas, e o
-    // resultado era que esses dois modulos apareciam sempre, por mais que o
-    // superadmin os desligasse. E a lista por omissao com onze modulos fazia o
-    // mesmo a todos os outros. Quem decide e a licenca, e so ela.
+    // O servidor ja cruzou a licenca da empresa com as permissoes que o dono
+    // deu a esta pessoa. Quando esse calculo chega, e esse que vale: ter aqui
+    // uma segunda opiniao era como o sistema ficava a dizer uma coisa no ecra e
+    // outra na API.
+    if (Array.isArray(user.modulos_permitidos)) {
+      return user.modulos_permitidos.includes(module);
+    }
+
+    // Sessao antiga, gravada antes das permissoes existirem: vale a licenca
+    // cruzada com o papel, ate o /me responder (corre a cada 30 segundos).
     const companyModules = user.modulos_contratados || [];
     if (!companyModules.includes(module)) return false;
-
-    // After licensing check, superadmin has access to everything permitted by licensing
     if (user.role === 'superadmin') return true;
-    
     const perms = ROLE_PERMISSIONS[user.role] || [];
     return perms.includes(module);
+  };
+
+  /**
+   * Esta pessoa pode fazer isto? (ex: 'wa.auditoria')
+   *
+   * O servidor tambem verifica — esconder um botao nao fecha a porta. Isto
+   * serve para nao mostrar o que ia dar erro.
+   */
+  const podeFazer = (accao: string) => {
+    if (!user) return false;
+    if (Array.isArray(user.accoes)) return user.accoes.includes(accao);
+    // Sessao antiga: so quem manda em tudo e que ve o que e sensivel.
+    return user.role === 'admin' || user.role === 'superadmin';
   };
 
   if (user.role === 'pending') {
@@ -505,7 +520,7 @@ function App() {
                 {activeModule === 'hr' && <HrApp />}
                 {activeModule === 'crm' && <CrmApp />}
                 {activeModule === 'auto' && <AutomationApp onVoltar={() => navigateTo('home')} />}
-                {activeModule === 'wa' && <WhatsAppChatApp />}
+                {activeModule === 'wa' && <WhatsAppChatApp podeFazer={podeFazer} />}
                 {activeModule === 'kb' && <KnowledgeBaseApp />}
                 {activeModule === 'email' && <EmailApp />}
                 {activeModule === 'settings' && <SettingsApp />}

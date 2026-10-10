@@ -10,7 +10,8 @@ import { MoreVertical, History, UserPlus, ClipboardList, IdCard, Loader2 } from 
  * Aqui fica só o que se usa a toda a hora; o resto vive atrás dos três pontos.
  */
 export default function MenuAccoesConversa({
-  fichaAberta, onFicha, onHistorico, aImportar, onDelegar, onAuditoria, podeGerir
+  fichaAberta, onFicha, onHistorico, aImportar, onDelegar, onAuditoria,
+  podeDelegar, podeVerAuditoria
 }: {
   fichaAberta: boolean;
   onFicha: () => void;
@@ -18,7 +19,11 @@ export default function MenuAccoesConversa({
   aImportar: boolean;
   onDelegar: () => void;
   onAuditoria: () => void;
-  podeGerir: boolean;
+  // Uma permissao por acao, em vez de um "podeGerir" que ligava as duas ao
+  // papel: o dono pode querer que um supervisor delegue conversas sem lhe dar
+  // a auditoria, e ao contrario.
+  podeDelegar: boolean;
+  podeVerAuditoria: boolean;
 }) {
   const [aberto, setAberto] = useState(false);
   const caixa = useRef<HTMLDivElement>(null);
@@ -73,13 +78,11 @@ export default function MenuAccoesConversa({
             aImportar ? 'A recuperar...' : 'Recuperar histórico',
             onHistorico
           )}
-          {podeGerir && (
-            <>
-              <div style={{ height: '1px', background: '#E7E9EB', margin: '4px 0' }} />
-              {item(<UserPlus size={16} />, 'Delegar a um agente', onDelegar)}
-              {item(<ClipboardList size={16} />, 'Ver auditoria', onAuditoria)}
-            </>
+          {(podeDelegar || podeVerAuditoria) && (
+            <div style={{ height: '1px', background: '#E7E9EB', margin: '4px 0' }} />
           )}
+          {podeDelegar && item(<UserPlus size={16} />, 'Delegar a um agente', onDelegar)}
+          {podeVerAuditoria && item(<ClipboardList size={16} />, 'Ver auditoria', onAuditoria)}
         </div>
       )}
       <style>{`.spin { animation: spin 1s linear infinite; } @keyframes spin { 100% { transform: rotate(360deg); } }`}</style>

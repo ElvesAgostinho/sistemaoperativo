@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Settings, Mail, CheckCircle, AlertCircle, Loader, Save, Wifi, Users, UserCheck, Shield, FileText, Building, Tag } from 'lucide-react';
 import ConfiguracaoProforma from './settings/ConfiguracaoProforma';
 import GestaoEtiquetas from './settings/GestaoEtiquetas';
+import PermissoesFuncionario from './settings/PermissoesFuncionario';
 
 type TestStatus = 'idle' | 'testing' | 'ok' | 'error';
 
@@ -52,6 +53,8 @@ export default function SettingsApp() {
     const [logoPosition, setLogoPosition] = useState('top-left');
     // Equipa state
     const [users, setUsers] = useState<any[]>([]);
+    // Quem esta a ter as permissoes afinadas neste momento.
+    const [permissoesDe, setPermissoesDe] = useState<any>(null);
     const [loadingUsers, setLoadingUsers] = useState(false);
     const currentUser = JSON.parse(localStorage.getItem('os_auth_user') || '{}');
 
@@ -571,8 +574,17 @@ export default function SettingsApp() {
                             <Shield size={24} color="#0E5A6B" /> Gestão de Equipa e Permissões
                         </h1>
                         <p style={{ color: '#5B738B', fontSize: '14px', margin: '0 0 32px 0' }}>
-                            Aprove novos registos, defina perfis de acesso (RBAC) e bloqueie utilizadores inativos.
+                            Aprove novos registos, escolha o que cada pessoa ve e faz, e bloqueie quem ja nao trabalha consigo.
+                            O perfil da um ponto de partida; em "Permissoes" afina pessoa a pessoa.
                         </p>
+
+                        {permissoesDe && (
+                            <PermissoesFuncionario
+                                utilizador={permissoesDe}
+                                aoFechar={() => setPermissoesDe(null)}
+                                aoGuardar={fetchUsers}
+                            />
+                        )}
 
                         <div style={{ backgroundColor: 'white', borderRadius: '2px', border: '1px solid #D5D7DA', overflow: 'hidden' }}>
                             {loadingUsers ? (
@@ -583,6 +595,7 @@ export default function SettingsApp() {
                                         <tr>
                                             <th style={{ padding: '12px 24px', color: '#5B738B', fontWeight: 600 }}>Utilizador</th>
                                             <th style={{ padding: '12px 24px', color: '#5B738B', fontWeight: 600 }}>Perfil (Role)</th>
+                                            <th style={{ padding: '12px 24px', color: '#5B738B', fontWeight: 600 }}>Permissões</th>
                                             <th style={{ padding: '12px 24px', color: '#5B738B', fontWeight: 600 }}>Acesso</th>
                                             <th style={{ padding: '12px 24px', color: '#5B738B', fontWeight: 600 }}>Último Acesso</th>
                                         </tr>
@@ -607,6 +620,24 @@ export default function SettingsApp() {
                                                     </select>
                                                 </td>
                                                 <td style={{ padding: '16px 24px' }}>
+                                                    {u.id === currentUser?.id ? (
+                                                        <span style={{ fontSize: '12px', color: '#94A3B8' }}>&mdash;</span>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => setPermissoesDe(u)}
+                                                            title="Escolher o que esta pessoa ve e faz"
+                                                            style={{
+                                                                padding: '5px 11px', borderRadius: '2px', fontSize: '12px', cursor: 'pointer',
+                                                                border: '1px solid #0E5A6B', background: '#fff', color: '#0E5A6B', fontWeight: 600,
+                                                                display: 'inline-flex', alignItems: 'center', gap: '5px',
+                                                            }}
+                                                        >
+                                                            <Shield size={12} />
+                                                            {u.permissoes_proprias ? 'Personalizadas' : 'Do perfil'}
+                                                        </button>
+                                                    )}
+                                                </td>
+                                                <td style={{ padding: '16px 24px' }}>
                                                     <button 
                                                         onClick={() => handleChangeStatus(u.id, !u.ativo)}
                                                         style={{ padding: '4px 12px', borderRadius: '2px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer', backgroundColor: u.ativo ? '#DCEEE2' : '#F6DEDE', color: u.ativo ? '#107E3E' : '#BB0000' }}
@@ -621,7 +652,7 @@ export default function SettingsApp() {
                                         ))}
                                         {users.length === 0 && (
                                             <tr>
-                                                <td colSpan={4} style={{ padding: '24px', textAlign: 'center', color: '#5B738B' }}>Nenhum utilizador encontrado.</td>
+                                                <td colSpan={5} style={{ padding: '24px', textAlign: 'center', color: '#5B738B' }}>Nenhum utilizador encontrado.</td>
                                             </tr>
                                         )}
                                     </tbody>

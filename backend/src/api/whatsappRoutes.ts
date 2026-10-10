@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import { WhatsAppTemplateService } from '../services/WhatsAppTemplateService';
 import { supabase, getSupabase } from '../lib/supabaseClient';
 import { requireAuth, AuthRequest } from '../middleware/authMiddleware';
+import { AuditoriaService } from '../services/AuditoriaService';
+import { exigirPermissao } from '../middleware/permissaoMiddleware';
 import { AutomationEngine } from '../services/AutomationEngine';
 import { WhatsAppGroupService } from '../services/WhatsAppGroupService';
 
@@ -618,10 +620,44 @@ router.get('/conversations', requireAuth, async (req: AuthRequest, res: Response
             }));
         }
 
-        const comEtiquetas = (data || []).map((conv: any) => ({
-            ...conv,
-            etiquetas: porTelefone[String(conv.phone_number || '').replace(/\D/g, '')] || []
-        }));
+        // A ultima mensagem de cada conversa. A lista mostrava o numero de
+        // telefone outra vez por baixo do nome — a mesma informacao duas vezes,
+        // e nenhuma pista do que o cliente disse. Qualquer pessoa habituada ao
+        // WhatsApp espera ver aqui a ultima mensagem.
+        const ids = (data || []).map((c: any) => c.id);
+        const ultima: Record<string, any> = {};
+        if (ids.length) {
+            const { data: msgs } = await client.from('wa_messages')
+                .select('conversation_id, content, direction, type, created_at, status')
+                .in('conversation_id', ids)
+                .order('created_at', { ascending: false })
+                .limit(ids.length * 12);
+
+            for (const m of (msgs || [])) {
+                if (!ultima[m.conversation_id]) ultima[m.conversation_id] = m;
+            }
+        }
+
+        const previa = (m: any) => {
+            if (!m) return '';
+            const porTipo: Record<string, string> = {
+                image: 'Foto', video: 'Video', audio: 'Mensagem de voz',
+                document: 'Documento', sticker: 'Autocolante', location: 'Localizacao',
+            };
+            if (m.type && m.type !== 'text' && porTipo[m.type]) return porTipo[m.type];
+            return String(m.content || '').replace(/\s+/g, ' ').trim();
+        };
+
+        const comEtiquetas = (data || []).map((conv: any) => {
+            const m = ultima[conv.id];
+            return {
+                ...conv,
+                etiquetas: porTelefone[String(conv.phone_number || '').replace(/\D/g, '')] || [],
+                ultima_mensagem: previa(m),
+                ultima_direccao: m?.direction || null,
+                ultima_tipo: m?.type || null,
+            };
+        });
         return res.json({ success: true, conversations: comEtiquetas });
     } catch {
         // Sem etiquetas a lista funciona na mesma — nunca vale a pena falhar por isto.
@@ -638,13 +674,9 @@ router.get('/agents', requireAuth, async (req: AuthRequest, res: Response) => {
     res.json({ success: true, agents: data });
 });
 
-router.put('/conversations/:id/assign', requireAuth, async (req: AuthRequest, res: Response) => {
+router.put('/conversations/:id/assign', requireAuth, exigirPermissao('wa.delegar'), async (req: AuthRequest, res: Response) => {
     const { agent_id } = req.body;
     const conversation_id = req.params.id;
-
-    if (req.user!.role !== 'admin' && req.user!.role !== 'supervisor' && req.user!.role !== 'superadmin') {
-        return res.status(403).json({ error: 'Apenas supervisores ou admins podem atribuir conversas.' });
-    }
 
     const { error: updateError } = await getSupabase(req)
         .from('wa_conversations')
@@ -654,38 +686,40 @@ router.put('/conversations/:id/assign', requireAuth, async (req: AuthRequest, re
 
     if (updateError) return res.status(500).json({ error: updateError.message });
 
-    await getSupabase(req).from('wa_audit_logs').insert({
-        conversation_id,
-        action: agent_id ? 'assigned' : 'unassigned',
-        performed_by: req.user!.id,
-        target_user: agent_id || null,
-        details: agent_id ? 'Conversa atribuída a agente.' : 'Conversa devolvida para a fila global.'
+    // A empresa vai escrita a mao: havia um gatilho na base de dados a
+    // preenche-la a partir da conversa, mas a leitura filtra por empresa e o
+    // que ficasse em branco desaparecia do ecra.
+    await AuditoriaService.registar({
+        empresaId: req.user!.empresa_id, quemId: req.user!.id,
+        accao: agent_id ? 'conversa_delegada' : 'conversa_devolvida',
+        conversationId: conversation_id, alvoUtilizador: agent_id || null,
+        detalhes: agent_id ? 'passou esta conversa a um colega.' : 'devolveu esta conversa a fila de todos.',
     });
 
     res.json({ success: true });
 });
 
-router.get('/conversations/:id/audit', requireAuth, async (req: AuthRequest, res: Response) => {
-    const conversation_id = req.params.id;
-    const { data, error } = await getSupabase(req)
-        .from('wa_audit_logs')
-        .select('*')
-        .eq('conversation_id', conversation_id)
-        .eq('empresa_id', req.user!.empresa_id)
-        .order('created_at', { ascending: false });
+/**
+ * A auditoria de uma conversa. Esconder o botao no ecra nao chegava: quem
+ * soubesse o endereco lia os registos na mesma.
+ */
+router.get('/conversations/:id/audit', requireAuth, exigirPermissao('wa.auditoria'), async (req: AuthRequest, res: Response) => {
+    try {
+        const audit = await AuditoriaService.daConversa(req.user!.empresa_id!, req.params.id);
+        res.json({ success: true, audit });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
 
-    if (error) return res.status(500).json({ error: error.message });
-    
-    const { data: perfis } = await getSupabase(req).from('perfis').select('id, nome');
-    const perfisMap = (perfis || []).reduce((acc: any, p: any) => ({ ...acc, [p.id]: p.nome }), {});
-    
-    const auditWithNames = (data || []).map(log => ({
-        ...log,
-        performed_by_name: perfisMap[log.performed_by] || 'Sistema',
-        target_user_name: log.target_user ? (perfisMap[log.target_user] || 'Desconhecido') : null
-    }));
-
-    res.json({ success: true, audit: auditWithNames });
+/** Tudo o que aconteceu na empresa, nao so numa conversa. */
+router.get('/auditoria', requireAuth, exigirPermissao('wa.auditoria'), async (req: AuthRequest, res: Response) => {
+    try {
+        const audit = await AuditoriaService.daEmpresa(req.user!.empresa_id!);
+        res.json({ success: true, audit });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
 });
 
 router.get('/conversations/:id/messages', requireAuth, async (req: AuthRequest, res: Response) => {
@@ -828,7 +862,7 @@ router.get('/conversations/:id/fluxo', requireAuth, async (req: AuthRequest, res
 });
 
 /** Escolher (ou largar) o fluxo que atende esta conversa. */
-router.put('/conversations/:id/fluxo', requireAuth, async (req: AuthRequest, res: Response) => {
+router.put('/conversations/:id/fluxo', requireAuth, exigirPermissao('wa.fluxo'), async (req: AuthRequest, res: Response) => {
     try {
         const empresaId = req.user?.empresa_id;
         if (!empresaId) return res.status(400).json({ error: 'Utilizador sem empresa associada.' });
@@ -839,10 +873,15 @@ router.put('/conversations/:id/fluxo', requireAuth, async (req: AuthRequest, res
             .select('id').eq('id', req.params.id).eq('empresa_id', empresaId).maybeSingle();
         if (!conv) return res.status(404).json({ error: 'Conversa não encontrada.' });
 
+        // Guardado aqui fora para a auditoria poder dizer o nome do fluxo em vez
+        // de um numero, que a ninguem diz nada passado um mes.
+        let nomeDoFluxo = '';
+
         if (automation_id) {
             const { data: fluxo } = await client.from('automations')
                 .select('id, nome, ativo, nodes').eq('id', automation_id).eq('empresa_id', empresaId).maybeSingle();
             if (!fluxo) return res.status(404).json({ error: 'Fluxo não encontrado.' });
+            nomeDoFluxo = fluxo.nome || '';
 
             // "Ligado" quer dizer "responde a toda a gente". Para um fluxo que só
             // corre quando alguém o manda correr isso não faz sentido nenhum —
@@ -864,6 +903,15 @@ router.put('/conversations/:id/fluxo', requireAuth, async (req: AuthRequest, res
         }).eq('id', conv.id).eq('empresa_id', empresaId);
         if (error) throw error;
 
+        await AuditoriaService.registar({
+            empresaId, quemId: req.user!.id,
+            accao: automation_id ? 'fluxo_escolhido' : 'fluxo_removido',
+            conversationId: conv.id, alvoTipo: 'fluxo', alvoId: automation_id || null,
+            detalhes: automation_id
+                ? `pos o fluxo "${nomeDoFluxo}" a atender este cliente.`
+                : 'tirou o fluxo que atendia este cliente.',
+        });
+
         res.json({ success: true, escolhido: automation_id || null });
     } catch (err: any) {
         res.status(400).json({ success: false, error: err.message });
@@ -876,7 +924,7 @@ router.put('/conversations/:id/fluxo', requireAuth, async (req: AuthRequest, res
  * É o que faltava para fazer seguimento: um fluxo só arrancava quando chegava
  * uma mensagem, por isso quem nunca respondia nunca mais era contactado.
  */
-router.post('/conversations/:id/fluxo/iniciar', requireAuth, async (req: AuthRequest, res: Response) => {
+router.post('/conversations/:id/fluxo/iniciar', requireAuth, exigirPermissao('wa.fluxo'), async (req: AuthRequest, res: Response) => {
     try {
         const empresaId = req.user?.empresa_id;
         if (!empresaId) return res.status(400).json({ error: 'Utilizador sem empresa associada.' });
@@ -981,7 +1029,7 @@ router.get('/conversations/:id/contacto', requireAuth, async (req: AuthRequest, 
 });
 
 /** Guardar o que se corrigiu na ficha (nome, email, empresa, notas). */
-router.put('/conversations/:id/contacto', requireAuth, async (req: AuthRequest, res: Response) => {
+router.put('/conversations/:id/contacto', requireAuth, exigirPermissao('wa.responder'), async (req: AuthRequest, res: Response) => {
     try {
         const empresaId = req.user?.empresa_id;
         if (!empresaId) return res.status(400).json({ error: 'Utilizador sem empresa associada.' });
@@ -1031,6 +1079,16 @@ router.put('/conversations/:id/contacto', requireAuth, async (req: AuthRequest, 
             .select('id, nome, email, telefone, empresa, tags, custom_fields, bot_paused, criado_em')
             .eq('id', cliente!.id).maybeSingle();
 
+        if (Object.keys(patch).length) {
+            const campos = Object.keys(patch).map(k => (k === 'custom_fields' ? 'notas' : k));
+            await AuditoriaService.registar({
+                empresaId, quemId: req.user!.id, accao: 'contacto_editado',
+                conversationId: conv.id, alvoTipo: 'cliente', alvoId: cliente!.id,
+                detalhes: `corrigiu a ficha do cliente (${campos.join(', ')}).`,
+                extra: { campos },
+            });
+        }
+
         res.json({ success: true, cliente: atualizado });
     } catch (err: any) {
         res.status(400).json({ success: false, error: err.message });
@@ -1048,7 +1106,7 @@ router.put('/conversations/:id/contacto', requireAuth, async (req: AuthRequest, 
  * As mensagens que já cá estão são deixadas em paz (comparadas pelo id), por
  * isso correr isto duas vezes não duplica nada.
  */
-router.post('/evolution/sync-mensagens', requireAuth, async (req: AuthRequest, res: Response) => {
+router.post('/evolution/sync-mensagens', requireAuth, exigirPermissao('wa.responder'), async (req: AuthRequest, res: Response) => {
     const empresaId = req.user?.empresa_id;
     const { conversation_id, limite } = req.body || {};
     if (!empresaId) return res.status(400).json({ error: 'Utilizador sem empresa associada.' });
@@ -1563,7 +1621,7 @@ router.post('/templates/sync', requireAuth, async (req: AuthRequest, res: Respon
     }
 });
 
-router.post('/templates/send', requireAuth, async (req: AuthRequest, res: Response) => {
+router.post('/templates/send', requireAuth, exigirPermissao('wa.responder'), async (req: AuthRequest, res: Response) => {
     try {
         const { conversation_id, template_id, template_name, language_code, params } = req.body;
         const { data: conv } = await getSupabase(req).from('wa_conversations').select('*')
@@ -1695,7 +1753,7 @@ router.post('/templates/previsualizar', requireAuth, async (req: AuthRequest, re
 });
 
 // Rota para o Operador Humano (RH) responder manualmente
-router.post('/send', requireAuth, async (req: AuthRequest, res: Response) => {
+router.post('/send', requireAuth, exigirPermissao('wa.responder'), async (req: AuthRequest, res: Response) => {
     const { conversation_id, content, type = 'text', templateData } = req.body;
     
     // Buscar detalhes da conversa com o channel
@@ -1765,7 +1823,7 @@ router.post('/send', requireAuth, async (req: AuthRequest, res: Response) => {
 });
 
 // Rota para envio de Mídia (Base64)
-router.post('/send-media', requireAuth, async (req: AuthRequest, res: Response) => {
+router.post('/send-media', requireAuth, exigirPermissao('wa.responder'), async (req: AuthRequest, res: Response) => {
     const { conversation_id, mediaBase64, fileName } = req.body;
     
     const { data: conv } = await getSupabase(req)
@@ -1834,7 +1892,7 @@ router.post('/send-media', requireAuth, async (req: AuthRequest, res: Response) 
 });
 
 // Rota para alternar o estado de bot_paused de um cliente
-router.put('/toggle-bot/:telefone', requireAuth, async (req: AuthRequest, res: Response) => {
+router.put('/toggle-bot/:telefone', requireAuth, exigirPermissao('wa.bot'), async (req: AuthRequest, res: Response) => {
     const telefone = req.params.telefone;
     const { paused } = req.body;
     const empresaId = req.user?.empresa_id;
@@ -1842,6 +1900,20 @@ router.put('/toggle-bot/:telefone', requireAuth, async (req: AuthRequest, res: R
         let query = getSupabase(req).from('clientes').update({ bot_paused: !!paused }).eq('telefone', telefone);
         if (empresaId) query = query.eq('empresa_id', empresaId);
         await query;
+
+        // Desligar o bot a um cliente e das coisas que depois ninguem sabe
+        // explicar ("porque e que este nao foi atendido?"). Fica registado.
+        const { data: conv } = await getSupabase(req).from('wa_conversations')
+            .select('id').eq('empresa_id', empresaId).eq('phone_number', String(telefone).replace(/\D/g, '')).maybeSingle();
+        await AuditoriaService.registar({
+            empresaId, quemId: req.user!.id,
+            accao: paused ? 'bot_pausado' : 'bot_retomado',
+            conversationId: conv?.id || null, alvoTipo: 'cliente', alvoId: telefone,
+            detalhes: paused
+                ? 'desligou o atendimento automatico deste cliente.'
+                : 'voltou a ligar o atendimento automatico deste cliente.',
+        });
+
         res.json({ success: true, paused: !!paused });
     } catch(err: any) {
         res.status(500).json({ error: err.message });

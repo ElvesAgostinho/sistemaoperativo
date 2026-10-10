@@ -5,6 +5,7 @@ import { requireAuth, AuthRequest } from '../middleware/authMiddleware';
 import { rotearEExecutar } from '../services/AIRouterService';
 import { EmailService } from '../services/EmailService';
 import { LicencaService } from '../services/LicencaService';
+import { PermissaoService } from '../services/PermissaoService';
 import crypto from 'crypto';
 
 const router = Router();
@@ -459,6 +460,7 @@ async function processLogin(res: any, data: any, perfil: any, email: string) {
     // ver a nota no LicencaService sobre porque é que isto não pode falhar
     // para o lado aberto.
     const modulos = await LicencaService.modulosDaEmpresa(perfil?.empresa_id);
+    const permissoes = await PermissaoService.efectivas(data.user.id);
 
     return res.json({
         success: true,
@@ -474,6 +476,8 @@ async function processLogin(res: any, data: any, perfil: any, email: string) {
             codigo_convite: perfil?.empresas ? (perfil.empresas as any).codigo_convite : null,
             avatar_url: perfil?.avatar_url || null,
             modulos_contratados: modulos,
+            modulos_permitidos: permissoes.modulos,
+            accoes: permissoes.accoes,
         },
     });
 }
@@ -537,21 +541,23 @@ router.get('/me', requireAuth, async (req: AuthRequest, res: Response) => {
         .eq('id', req.user!.id)
         .single();
 
-    let modulos = ['hr', 'crm', 'reunioes', 'auto', 'wa', 'kb', 'email', 'data', 'chat', 'afiliados', 'contabilidade'];
-    if (perfil?.empresa_id) {
-        try {
-            const { data: row } = await userClient.from('configuracoes')
-                .select('valor')
-                .eq('empresa_id', perfil.empresa_id)
-                .eq('chave', 'modulos_empresa')
-                .single();
-            if (row && row.valor) {
-                modulos = JSON.parse(row.valor);
-            }
-        } catch(e) {}
-    }
+    // A mesma leitura do login, fechada por omissao. Este sitio tinha ficado
+    // para tras: mantinha a lista velha de onze modulos e lia a configuracao
+    // como o proprio utilizador, sujeito as regras de acesso da base.
+    const modulos = await LicencaService.modulosDaEmpresa(perfil?.empresa_id);
+    const permissoes = await PermissaoService.efectivas(req.user!.id);
 
-    return res.json({ success: true, user: { ...req.user, ...perfil, modulos_contratados: modulos } });
+    return res.json({
+        success: true,
+        user: {
+            ...req.user, ...perfil,
+            modulos_contratados: modulos,
+            // O que esta pessoa abre mesmo: a licenca da empresa cruzada com as
+            // permissoes que o dono lhe deu.
+            modulos_permitidos: permissoes.modulos,
+            accoes: permissoes.accoes,
+        },
+    });
 });
 
 // ─── AI Router: Chat Inteligente HR ──────────────────────────────────────────
