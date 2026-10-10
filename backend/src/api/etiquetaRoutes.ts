@@ -112,7 +112,7 @@ router.put('/contacto/:clienteId', requireAuth, async (req: AuthRequest, res: Re
         // (ou tirou) deixa de ser um detalhe quando alguem pergunta porque e que
         // um cliente recebeu uma campanha.
         for (const [lista, accao, verbo] of [
-            [adicionar || [], 'etiqueta_adicionada' as const, 'pos'],
+            [adicionar || [], 'etiqueta_adicionada' as const, 'pôs'],
             [remover || [], 'etiqueta_removida' as const, 'tirou'],
         ] as const) {
             for (const etiqueta of lista as string[]) {

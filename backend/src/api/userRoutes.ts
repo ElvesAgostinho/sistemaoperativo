@@ -137,7 +137,7 @@ router.get('/permissoes/catalogo', requireAuth, exigirDono, async (req: AuthRequ
 router.get('/:id/permissoes', requireAuth, exigirDono, async (req: AuthRequest, res: Response) => {
     const { data: alvo } = await supabase.from('perfis').select('empresa_id, role').eq('id', req.params.id).maybeSingle();
     if (!alvo || alvo.empresa_id !== req.user?.empresa_id) {
-        return res.status(403).json({ error: 'Este utilizador nao e da sua empresa.' });
+        return res.status(403).json({ error: 'Este utilizador não é da sua empresa.' });
     }
     const p = await PermissaoService.efectivas(req.params.id);
     res.json({
@@ -156,16 +156,16 @@ router.put('/:id/permissoes', requireAuth, exigirDono, async (req: AuthRequest, 
 
     const { data: alvo } = await supabase.from('perfis').select('empresa_id, role, nome').eq('id', req.params.id).maybeSingle();
     if (!alvo || alvo.empresa_id !== req.user?.empresa_id) {
-        return res.status(403).json({ error: 'Este utilizador nao e da sua empresa.' });
+        return res.status(403).json({ error: 'Este utilizador não é da sua empresa.' });
     }
 
     // Ninguem se tira a si proprio o direito de gerir a equipa: ficaria uma
     // empresa sem ninguem que pudesse voltar atras.
     if (req.params.id === req.user?.id) {
-        return res.status(400).json({ error: 'Nao pode alterar as suas proprias permissoes.' });
+        return res.status(400).json({ error: 'Não pode alterar as suas próprias permissões.' });
     }
     if (alvo.role === 'admin' && !PermissaoService.mandaEmTudo(req.user?.role || '')) {
-        return res.status(403).json({ error: 'Nao pode alterar as permissoes de outro administrador.' });
+        return res.status(403).json({ error: 'Não pode alterar as permissões de outro administrador.' });
     }
 
     try {
@@ -175,14 +175,14 @@ router.put('/:id/permissoes', requireAuth, exigirDono, async (req: AuthRequest, 
                 empresaId: req.user!.empresa_id, quemId: req.user!.id,
                 accao: 'permissoes_alteradas', alvoUtilizador: req.params.id,
                 alvoTipo: 'utilizador', alvoId: req.params.id,
-                detalhes: `repos as permissoes de ${alvo.nome || 'um colega'} para as normais do perfil.`,
+                detalhes: `repôs as permissões de ${alvo.nome || 'um colega'} para as normais do perfil.`,
             });
             const p = await PermissaoService.efectivas(req.params.id);
             return res.json({ success: true, modulos: p.modulos, accoes: p.accoes, proprias: false });
         }
 
         if (!Array.isArray(modulos) || !Array.isArray(accoes)) {
-            return res.status(400).json({ error: 'Faltam as listas de modulos e accoes.' });
+            return res.status(400).json({ error: 'Faltam as listas de módulos e acções.' });
         }
 
         const antes = await PermissaoService.efectivas(req.params.id);
@@ -197,7 +197,7 @@ router.put('/:id/permissoes', requireAuth, exigirDono, async (req: AuthRequest, 
             empresaId: req.user!.empresa_id, quemId: req.user!.id,
             accao: 'permissoes_alteradas', alvoUtilizador: req.params.id,
             alvoTipo: 'utilizador', alvoId: req.params.id,
-            detalhes: `alterou as permissoes de ${alvo.nome || 'um colega'}.`
+            detalhes: `alterou as permissões de ${alvo.nome || 'um colega'}.`
                 + (ganhou.length ? ` Ganhou: ${ganhou.join(', ')}.` : '')
                 + (perdeu.length ? ` Perdeu: ${perdeu.join(', ')}.` : ''),
             extra: { ganhou, perdeu, guardado },

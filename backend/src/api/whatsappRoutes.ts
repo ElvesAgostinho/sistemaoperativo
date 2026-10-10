@@ -728,7 +728,7 @@ router.put('/conversations/:id/assign', requireAuth, exigirPermissao('wa.delegar
         empresaId: req.user!.empresa_id, quemId: req.user!.id,
         accao: agent_id ? 'conversa_delegada' : 'conversa_devolvida',
         conversationId: conversation_id, alvoUtilizador: agent_id || null,
-        detalhes: agent_id ? 'passou esta conversa a um colega.' : 'devolveu esta conversa a fila de todos.',
+        detalhes: agent_id ? 'passou esta conversa a um colega.' : 'devolveu esta conversa à fila de todos.',
     });
 
     res.json({ success: true });
@@ -943,7 +943,7 @@ router.put('/conversations/:id/fluxo', requireAuth, exigirPermissao('wa.fluxo'),
             accao: automation_id ? 'fluxo_escolhido' : 'fluxo_removido',
             conversationId: conv.id, alvoTipo: 'fluxo', alvoId: automation_id || null,
             detalhes: automation_id
-                ? `pos o fluxo "${nomeDoFluxo}" a atender este cliente.`
+                ? `pôs o fluxo "${nomeDoFluxo}" a atender este cliente.`
                 : 'tirou o fluxo que atendia este cliente.',
         });
 
@@ -1945,8 +1945,8 @@ router.put('/toggle-bot/:telefone', requireAuth, exigirPermissao('wa.bot'), asyn
             accao: paused ? 'bot_pausado' : 'bot_retomado',
             conversationId: conv?.id || null, alvoTipo: 'cliente', alvoId: telefone,
             detalhes: paused
-                ? 'desligou o atendimento automatico deste cliente.'
-                : 'voltou a ligar o atendimento automatico deste cliente.',
+                ? 'desligou o atendimento automático deste cliente.'
+                : 'voltou a ligar o atendimento automático deste cliente.',
         });
 
         res.json({ success: true, paused: !!paused });

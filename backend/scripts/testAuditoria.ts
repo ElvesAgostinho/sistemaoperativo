@@ -264,6 +264,72 @@ async function test(nome: string, fn: () => Promise<void>) {
         assert(/tabela em falta/.test(erro), `devia dar erro: "${erro}"`);
     });
 
+    console.log('\n=== O portugues que o cliente le ===\n');
+
+    await test('os textos que chegam ao cliente levam os acentos', async () => {
+        // Estes textos aparecem no ecra. Escrevi-os sem acentos nos scripts que
+        // os inseriram no codigo, para fugir a problemas de codificacao, e o
+        // resultado foi "desligou o atendimento automatico" a aparecer na
+        // producao. Um sistema que se vende a empresas nao se apresenta assim.
+        //
+        // A primeira versao deste teste procurava na MESMA linha do `detalhes:`
+        // e deixava passar tudo o que estivesse na linha a seguir — que era
+        // justamente o caso. Agora olha-se para cada texto entre aspas.
+        const fs = require('fs');
+        const ficheiros = [
+            path.join(__dirname, '..', 'src', 'api', 'whatsappRoutes.ts'),
+            path.join(__dirname, '..', 'src', 'api', 'userRoutes.ts'),
+            path.join(__dirname, '..', 'src', 'api', 'etiquetaRoutes.ts'),
+            path.join(__dirname, '..', 'src', 'middleware', 'permissaoMiddleware.ts'),
+            path.join(__dirname, '..', 'src', 'services', 'PermissaoService.ts'),
+        ];
+
+        // Palavras que em portugues levam acento ou cedilha de certeza, e que
+        // aparecem nestes textos.
+        const semAcento = [
+            'automatico', 'permissoes', 'permissao', 'accoes', 'accao', 'modulos',
+            'proprias', 'proprio', 'nao ', 'ultima', 'numero', 'informacao',
+            'ja nao', 'pos o ', 'repos ', 'sera ', 'esta e ', 'voce',
+        ];
+
+        const culpados: string[] = [];
+        for (const f of ficheiros) {
+            const linhas = fs.readFileSync(f, 'utf8').split('\n');
+            linhas.forEach((linha: string, n: number) => {
+                // Comentarios e logs do servidor nao sao vistos por ninguem de fora.
+                const limpa = linha.trim();
+                if (limpa.startsWith('//') || limpa.startsWith('*') || limpa.startsWith('/*')) return;
+                if (/console\.(log|warn|error)/.test(linha)) return;
+
+                // Cada texto entre aspas simples ou crases nesta linha.
+                const textos = [
+                    ...linha.matchAll(/'([^'\\]{12,})'/g),
+                    ...linha.matchAll(/`([^`\\]{12,})`/g),
+                ].map(m => m[1]);
+
+                for (const bruto of textos) {
+                    // O regex acima tambem apanha o CODIGO entre dois literais
+                    // da mesma linha (", requireAuth, exigirPermissao("). Uma
+                    // frase em portugues nao tem parenteses nem chavetas; o que
+                    // os tiver nao e texto para ninguem ler.
+                    const t = bruto.replace(/\$\{[^}]*\}/g, '');
+                    if (/[(){}\[\]=<>;\/\|]/.test(t)) continue;
+                    if (!/^[A-Za-zÀ-ÿ]/.test(t.trim())) continue;
+                    if (!/\s/.test(t)) continue;
+                    const baixo = t.toLowerCase();
+                    for (const palavra of semAcento) {
+                        if (baixo.includes(palavra)) {
+                            culpados.push(`${path.basename(f)}:${n + 1} — "${t.slice(0, 64)}"`);
+                            return;
+                        }
+                    }
+                }
+            });
+        }
+
+        assert(culpados.length === 0, 'texto sem acentos a chegar ao cliente:\n      ' + culpados.join('\n      '));
+    });
+
     console.log(`\n=== Resultado: ${passed} passaram, ${failed} falharam ===`);
     if (falhas.length) console.log('Falhou:\n  - ' + falhas.join('\n  - '));
     process.exit(failed === 0 ? 0 : 1);
