@@ -541,7 +541,12 @@ function App() {
 
                 {activeModule === 'chat' && (
                    <div className="odoo-content-area" style={{ padding: 0 }}>
-                      <div style={{ width: '100%', height: '100%', maxWidth: '800px', margin: '0 auto', borderLeft: '1px solid var(--odoo-border)', borderRight: '1px solid var(--odoo-border)' }}>
+                      {/* Sem maxWidth aqui. Havia um limite de 800px a espremer o
+                          modulo inteiro: tirando os 272px da coluna das conversas,
+                          sobravam pouco mais de 500px para a conversa, com o ecra
+                          vazio dos dois lados. A largura de leitura e tratada
+                          dentro do proprio ChatApp, onde so se aplica ao TEXTO. */}
+                      <div style={{ width: '100%', height: '100%' }}>
                         <ChatApp />
                       </div>
                    </div>
