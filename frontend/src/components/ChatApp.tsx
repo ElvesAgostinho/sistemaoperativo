@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ShieldAlert, CheckCircle, Zap, Mic, MicOff, Volume2, VolumeX, DollarSign } from 'lucide-react';
+import BarraConversas from './chat/BarraConversas';
 
 const authHeaders = () => {
   const token = localStorage.getItem('os_auth_token');
@@ -417,69 +418,31 @@ export default function ChatApp() {
   return (
     <div style={{ display: 'flex', height: '100%', background: '#F5F6F7' }}>
       
-      {/* Dashboard Lateral do Assistente */}
-      <div style={{ width: '300px', borderRight: '1px solid var(--odoo-border)', background: '#fff', padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--odoo-text-dark)' }}>
-             <Zap size={24} color="var(--odoo-teal)" />
-             <h3 style={{ margin: 0, fontSize: '16px' }}>Assistente Dashboard</h3>
-         </div>
-         <p style={{ fontSize: '13px', color: 'var(--odoo-text-muted)' }}>Métricas e alertas detetados no seu ERP.</p>
-         
-         <div style={{ display: 'flex', gap: '8px' }}>
-           <button onClick={handleNewConversation} className="odoo-btn" style={{ flex: 1, background: 'var(--odoo-teal)', color: '#fff', border: 'none', padding: '10px', borderRadius: '2px', cursor: 'pointer', fontWeight: 'bold' }}>+ Nova Conversa</button>
-           <button 
-             onClick={() => setVoiceEnabled(!voiceEnabled)} 
-             className="odoo-btn" 
-             style={{ width: '40px', background: voiceEnabled ? '#107E3E' : '#D5D7DA', color: voiceEnabled ? '#fff' : '#5B738B', border: 'none', padding: '10px', borderRadius: '2px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
-             title={voiceEnabled ? 'Desativar Voz da IA' : 'Ativar Voz da IA'}
-           >
-             {voiceEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
-           </button>
-         </div>
-
-         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, overflowY: 'auto' }}>
-             <h4 style={{ margin: '12px 0 4px', fontSize: '12px', textTransform: 'uppercase', color: 'var(--odoo-text-muted)', letterSpacing: '0.5px' }}>Histórico</h4>
-             {conversations.map(conv => (
-                 <div 
-                    key={conv.id} 
-                    onClick={() => handleLoadConversation(conv.id)}
-                    style={{ 
-                        padding: '10px', 
-                        background: conversaId === conv.id ? '#E7E9EB' : '#fff', 
-                        border: '1px solid var(--odoo-border)', 
-                        borderRadius: '2px', 
-                        fontSize: '13px', 
-                        color: 'var(--odoo-text-dark)',
-                        cursor: 'pointer',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis'
-                    }}
-                 >
-                     {conv.titulo}
-                 </div>
-             ))}
-         </div>
-      </div>
+      {/* A coluna das conversas. Era uma pilha de caixas com borda, todas
+          iguais, com os titulos a sair fora de uma coluna de 300px. */}
+      <BarraConversas
+        conversas={conversations}
+        actual={conversaId}
+        aoAbrir={handleLoadConversation}
+        aoComecar={handleNewConversation}
+        vozLigada={voiceEnabled}
+        aoAlternarVoz={() => setVoiceEnabled(!voiceEnabled)}
+      />
 
       {/* Main Chat Area */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff' }}>
-          <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Uma coluna com largura de leitura, centrada. A conversa ocupava a
+              largura toda do ecra e, num monitor grande, as linhas ficavam tao
+              compridas que se perdia a linha a meio da frase. */}
+          <div className="ia-area" style={{ flex: 1, overflowY: 'auto', padding: '28px 24px 8px' }}>
+           <div style={{ maxWidth: '760px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '18px' }}>
             {messages.map((msg, idx) => (
-              <div key={idx} style={{ 
-                display: 'flex', 
-                justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' 
+              <div key={idx} style={{
+                display: 'flex',
+                justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start'
               }}>
-                <div style={{ 
-                  maxWidth: '80%', 
-                  padding: msg.role === 'system' ? '0' : '12px 16px', 
-                  borderRadius: '2px',
-                  fontSize: '14px',
-                  lineHeight: '1.5',
-                  background: msg.role === 'user' ? 'var(--odoo-teal)' : (msg.role === 'system' ? 'transparent' : '#E7E9EB'),
-                  color: msg.role === 'user' ? '#fff' : 'var(--odoo-text-dark)',
-                  boxShadow: msg.role === 'user' ? '0 2px 4px rgba(1, 126, 132, 0.2)' : 'none',
-                }}>
+                <div className={'ia-msg ia-msg-' + msg.role}
+                     style={{ maxWidth: msg.role === 'user' ? '78%' : '100%' }}>
                   {typeof msg.content === 'string' ? (
                      msg.content.includes('![') ? (
                         msg.content.split('\n').map((line, i) => {
@@ -520,16 +483,17 @@ export default function ChatApp() {
             
             {loading && (
               <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                <div style={{ fontSize: '13px', color: 'var(--odoo-text-muted)', fontStyle: 'italic' }}>
-                  A processar...
+                <div className="ia-pensar" aria-label="A pensar">
+                  <span /><span /><span />
                 </div>
               </div>
             )}
+           </div>
           </div>
 
           {/* Input Area */}
-          <div style={{ padding: '16px 24px', borderTop: '1px solid var(--odoo-border)', background: '#fff' }}>
-            <form onSubmit={handleSendMessage} style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <div style={{ padding: '14px 24px 20px', background: '#fff' }}>
+            <form onSubmit={handleSendMessage} className="ia-escrever-barra">
               <input 
                 type="text" 
                 placeholder="Ex: Contrata o candidato Pedro Silva para Comercial com salário de 250000 Kz"
@@ -589,6 +553,86 @@ export default function ChatApp() {
             </form>
           </div>
       </div>
+
+      <style>{`
+        /* ---------- A conversa com o assistente ----------
+           O desenho segue o que se usa nestes assistentes, porque e o que as
+           pessoas ja sabem ler: o que ELAS escrevem fica num balao a direita, o
+           que o assistente responde fica como texto corrido, sem caixa. Meter o
+           assistente tambem num balao faz a resposta parecer uma mensagem curta
+           de telemovel quando, na verdade, e para ser lida com atencao. */
+
+        .ia-msg {
+          font-size: 15px;
+          line-height: 1.65;
+          color: #1D2D3E;
+        }
+
+        .ia-msg-user {
+          padding: 11px 16px;
+          border-radius: 18px;
+          background: #E1EEF0;
+          color: #0E3F4A;
+        }
+
+        .ia-msg-assistant {
+          padding: 2px 0;
+        }
+
+        /* As mensagens do sistema sao avisos, nao conversa. */
+        .ia-msg-system {
+          padding: 0;
+          font-size: 13px;
+          color: #5B738B;
+        }
+
+        .ia-msg strong { font-weight: 700; }
+        .ia-msg img { border-radius: 10px; }
+
+        .ia-area::-webkit-scrollbar { width: 7px; }
+        .ia-area::-webkit-scrollbar-thumb { background: #D4D4D4; border-radius: 4px; }
+        .ia-area::-webkit-scrollbar-track { background: transparent; }
+
+        /* ---------- "A pensar" ----------
+           Dizia "A processar..." em italico. Tres pontos a pulsar dizem o mesmo
+           sem ocupar uma linha de texto que depois e substituida pela resposta. */
+        .ia-pensar { display: flex; gap: 5px; align-items: center; padding: 10px 2px; }
+        .ia-pensar span {
+          width: 7px; height: 7px; border-radius: 50%; background: #B9C3CB;
+          animation: ia-pulsar 1.2s ease-in-out infinite;
+        }
+        .ia-pensar span:nth-child(2) { animation-delay: .18s; }
+        .ia-pensar span:nth-child(3) { animation-delay: .36s; }
+        @keyframes ia-pulsar {
+          0%, 60%, 100% { opacity: .35; transform: translateY(0); }
+          30% { opacity: 1; transform: translateY(-3px); }
+        }
+
+        /* ---------- Escrever ---------- */
+        .ia-escrever-barra {
+          display: flex; gap: 8px; align-items: center;
+          max-width: 760px; margin: 0 auto;
+          background: #F5F6F7;
+          border: 1px solid #E0E2E4;
+          border-radius: 26px;
+          padding: 5px 7px 5px 6px;
+          transition: border-color .15s ease, background .15s ease;
+        }
+        .ia-escrever-barra:focus-within { border-color: #0E5A6B; background: #fff; }
+        /* A caixa de texto ja esta dentro da barra: a borda e o fundo dela
+           desenhavam uma segunda caixa dentro da primeira. */
+        .ia-escrever-barra input[type="text"] {
+          border: none !important;
+          background: transparent !important;
+          outline: none;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .ia-pensar span { animation: none; opacity: .6; }
+          .ia-escrever-barra { transition: none; }
+        }
+      `}</style>
+
     </div>
   );
 }

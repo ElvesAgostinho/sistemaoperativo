@@ -10,6 +10,7 @@ import FichaContacto from './whatsapp/FichaContacto';
 import SeletorFluxo from './whatsapp/SeletorFluxo';
 import MenuAccoesConversa from './whatsapp/MenuAccoesConversa';
 import AuditoriaEmpresa from './whatsapp/AuditoriaEmpresa';
+import MenuSeccoes from './whatsapp/MenuSeccoes';
 
 // FIX #5 — Supabase client para Realtime (usa as mesmas variáveis de ambiente)
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://lmxuixmmrglrqxjrhpgn.supabase.co';
@@ -994,6 +995,10 @@ export default function WhatsAppChatApp({ podeFazer }: { podeFazer?: (accao: str
                     .wa-conversa, .wa-pastilha, .wa-procura, .wa-enviar { transition: none; }
                 }
 
+                /* A barra das seccoes mede-se a si propria, para o nome da
+                   seccao aberta poder desaparecer antes de o botao ser espremido. */
+                .wa-topo-seccoes { container-type: inline-size; }
+
                 /* ---------- Lista de conversas ----------
                    O desenho e o do WhatsApp Web de proposito. Nao e capricho:
                    e onde as pessoas passam o dia, e qualquer coisa diferente
@@ -1172,29 +1177,27 @@ export default function WhatsAppChatApp({ podeFazer }: { podeFazer?: (accao: str
 `}</style>
 
             <div style={{ width: '30%', minWidth: '300px', borderRight: '1px solid #D5D7DA', display: 'flex', flexDirection: 'column', backgroundColor: 'white' }}>
-                <div style={{ padding: '10px 16px', backgroundColor: '#F5F6F7', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '59px', borderBottom: '1px solid #D5D7DA' }}>
-                    <div style={{ fontWeight: 600, color: '#1D2D3E', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <MessageSquare size={20} color="#0E5A6B" /> WhatsApp
+                <div className="wa-topo-seccoes" style={{
+                    padding: '10px 14px', background: '#F5F6F7', display: 'flex',
+                    justifyContent: 'space-between', alignItems: 'center', gap: '10px',
+                    height: '59px', borderBottom: '1px solid #D5D7DA',
+                }}>
+                    <div style={{
+                        fontWeight: 600, color: '#1D2D3E', display: 'flex', alignItems: 'center',
+                        gap: '8px', minWidth: 0,
+                    }}>
+                        <MessageSquare size={20} color="#0E5A6B" style={{ flexShrink: 0 }} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>WhatsApp</span>
                     </div>
-                    <div style={{ display: 'flex', gap: '16px', color: '#5B738B' }}>
-                        {/* Grupos, Campanhas e Templates nunca aparecem activos aqui:
-                            esses ecras saem logo acima (if currentView === ...) e esta barra
-                            so chega a ser desenhada em "chats" e "settings". As comparacoes
-                            que ca estavam eram sempre falsas. */}
-                        <span title="Conversas"><MessageSquare size={20} style={{ cursor: 'pointer', color: currentView === 'chats' ? '#0E5A6B' : '#5B738B' }} onClick={() => setCurrentView('chats')} /></span>
-                        <span title="Grupos"><Users size={20} style={{ cursor: 'pointer', color: '#5B738B' }} onClick={() => setCurrentView('groups')} /></span>
-                        <span title="Campanhas"><Megaphone size={20} style={{ cursor: 'pointer', color: '#5B738B' }} onClick={() => setCurrentView('campaigns')} /></span>
-                        <span title="Templates de mensagem"><LayoutTemplate size={20} style={{ cursor: 'pointer', color: '#5B738B' }} onClick={() => setCurrentView('templates')} /></span>
-                        {/* So aparece a quem tem a permissao de ver auditoria. O
-                            servidor verifica o mesmo — isto evita mostrar um
-                            botao que so ia dar "nao tem permissao". */}
-                        {pode('wa.auditoria') && (
-                            <span title="Auditoria da empresa">
-                                <ClipboardList size={20} style={{ cursor: 'pointer', color: '#5B738B' }} onClick={() => setCurrentView('auditoria')} />
-                            </span>
-                        )}
-                        <span title="Configurações de Canais"><Settings size={20} style={{ cursor: 'pointer', color: currentView === 'settings' ? '#0E5A6B' : '#5B738B' }} onClick={() => setCurrentView('settings')} /></span>
-                    </div>
+
+                    {/* Eram seis icones sem nome encostados uns aos outros, a
+                        sobreporem-se ao titulo nesta coluna de 300px. Agora e um
+                        menu so, com cada seccao pelo nome. */}
+                    <MenuSeccoes
+                        actual={currentView}
+                        aoEscolher={setCurrentView}
+                        podeVerAuditoria={pode('wa.auditoria')}
+                    />
                 </div>
 
                 {currentView === 'chats' ? (
