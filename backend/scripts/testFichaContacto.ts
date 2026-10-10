@@ -31,8 +31,14 @@ function mockFrom(t: string) {
     const filtros: any[] = [];
     let op = 'select'; let payload: any = null; let contar = false;
     const self: any = {}; const ret = () => self;
+    let ordem: { col: string; asc: boolean } | null = null;
     self.select = (_c?: string, o?: any) => { if (o?.count) contar = true; return self; };
-    self.order = ret; self.limit = ret; self.not = ret; self.or = ret; self.is = ret; self.filter = ret;
+    // O `order` tem de ordenar mesmo: a rota das conversas confia na ordem
+    // para saber qual e a ULTIMA mensagem de cada uma. Um mock que o ignora
+    // dava sempre a primeira que tivesse sido semeada, e o teste passava por
+    // acidente (ou falhava sem culpa do codigo).
+    self.order = (col: string, o?: any) => { ordem = { col, asc: o?.ascending !== false }; return self; };
+    self.limit = ret; self.not = ret; self.or = ret; self.is = ret; self.filter = ret;
     self.neq = (col: string, val: any) => { filtros.push({ col, val, op: 'neq' }); return self; };
     self.insert = (p: any) => { op = 'insert'; payload = p; return self; };
     self.update = (p: any) => { op = 'update'; payload = p; return self; };
@@ -57,6 +63,10 @@ function mockFrom(t: string) {
         if (op === 'update') { const alvo = linhas.filter(l => bate(l, filtros)); alvo.forEach(l => Object.assign(l, payload)); return { data: alvo.map(l => JSON.parse(JSON.stringify(l))), error: null }; }
         if (op === 'delete') { const fora = linhas.filter(l => bate(l, filtros)); db[t] = linhas.filter(l => !bate(l, filtros)); return { data: fora, error: null }; }
         const achados = linhas.filter(l => bate(l, filtros)).map(l => JSON.parse(JSON.stringify(l)));
+        if (ordem) {
+            const od = ordem as { col: string; asc: boolean };
+            achados.sort((a: any, b: any) => (a[od.col] < b[od.col] ? -1 : a[od.col] > b[od.col] ? 1 : 0) * (od.asc ? 1 : -1));
+        }
         return contar ? { data: null, error: null, count: achados.length } : { data: achados, error: null };
     };
     const um = () => { const r = correr(); const d = Array.isArray(r.data) ? (r.data[0] ?? null) : r.data; return { data: d, error: r.error || (d ? null : { code: 'PGRST116' }) }; };
@@ -136,9 +146,11 @@ async function test(nome: string, fn: () => Promise<void>) {
         { id: 1, empresa_id: EMPRESA, nome: 'Maria Cliente', telefone: '244923000111', email: null, empresa: null, tags: ['cliente'], custom_fields: {}, criado_em: '2026-01-10T10:00:00Z' },
         { id: 9, empresa_id: OUTRA, nome: 'De outra', telefone: '244900000000', tags: ['segredo'], custom_fields: {} }
     );
+    // Com data: na base de dados real nenhuma linha fica sem ela, e a rota das
+    // conversas usa-a para saber qual e a ULTIMA mensagem.
     tabela('wa_messages').push(
-        { id: 'm1', conversation_id: 'conv-1', direction: 'inbound', content: 'Olá' },
-        { id: 'm2', conversation_id: 'conv-1', direction: 'outbound', content: 'Boa tarde' }
+        { id: 'm1', conversation_id: 'conv-1', direction: 'inbound', content: 'Olá', message_type: 'text', created_at: '2026-02-01T09:00:00.000Z' },
+        { id: 'm2', conversation_id: 'conv-1', direction: 'outbound', content: 'Boa tarde', message_type: 'text', created_at: '2026-02-01T09:05:00.000Z' }
     );
     try { await fn(); console.log(`  ✓ ${nome}`); passed++; }
     catch (e: any) { console.log(`  ✗ ${nome} — ${e.message}`); failed++; falhas.push(nome); }
@@ -228,6 +240,72 @@ const clienteDe = (id: number) => tabela('clientes').find(c => c.id === id)!;
         const [s] = await chamar('PUT', '/api/etiquetas/contacto/9', { adicionar: ['intruso'] });
         assert(s === 400, `devia recusar, deu ${s}`);
         assert(!clienteDe(9).tags.includes('intruso'), 'o contacto da outra empresa não podia ser tocado');
+    });
+
+    console.log('\n=== A previa de cada conversa ===\n');
+
+    const comMensagem = (conteudo: string, tipo = 'text', direccao = 'inbound') => {
+        tabela('wa_messages').push({
+            id: 'm-' + Math.random(), conversation_id: 'conv-1', empresa_id: EMPRESA,
+            content: conteudo, message_type: tipo, direction: direccao,
+            created_at: new Date().toISOString(), status: 'delivered',
+        });
+    };
+    const previaDe = async () => {
+        const [, d] = await chamar('GET', '/api/whatsapp/conversations');
+        return (d.conversations || []).find((c: any) => c.id === 'conv-1');
+    };
+
+    await test('mostra a ultima mensagem, nao o numero outra vez', async () => {
+        // A lista repetia o telefone por baixo do nome: a mesma informacao duas
+        // vezes, e nenhuma pista do que o cliente disse.
+        comMensagem('Bom dia, queria reservar um quarto');
+        const c = await previaDe();
+        assert(c.ultima_mensagem === 'Bom dia, queria reservar um quarto', `previa errada: "${c.ultima_mensagem}"`);
+    });
+
+    await test('o link interno do ficheiro nao aparece em cru', async () => {
+        // Aparecia: linhas inteiras de [MEDIA_URL:https://...supabase... onde
+        // devia estar a legenda ou "Foto".
+        comMensagem('Olha a foto do quarto\n[MEDIA_URL:https://exemplo.supabase.co/x/y.jpg]');
+        const c = await previaDe();
+        assert(!/MEDIA_URL|https?:/.test(c.ultima_mensagem), `deixou passar o link: "${c.ultima_mensagem}"`);
+        assert(c.ultima_mensagem === 'Olha a foto do quarto', `devia ficar so a legenda: "${c.ultima_mensagem}"`);
+    });
+
+    await test('media sem legenda le-se como uma pessoa diria', async () => {
+        comMensagem('[MEDIA_URL:https://exemplo.supabase.co/x/y.ogg]');
+        const c = await previaDe();
+        assert(c.ultima_mensagem === 'Anexo', `devia dizer Anexo: "${c.ultima_mensagem}"`);
+    });
+
+    await test('os marcadores [Imagem] e [Audio] viram palavras', async () => {
+        comMensagem('[Imagem]');
+        let c = await previaDe();
+        assert(c.ultima_mensagem === 'Foto', `devia dizer Foto: "${c.ultima_mensagem}"`);
+
+        comMensagem('[\u00c1udio]');
+        c = await previaDe();
+        assert(c.ultima_mensagem === 'Mensagem de voz', `devia dizer Mensagem de voz: "${c.ultima_mensagem}"`);
+    });
+
+    await test('o tipo da mensagem ganha ao conteudo', async () => {
+        comMensagem('qualquer coisa', 'image');
+        const c = await previaDe();
+        assert(c.ultima_mensagem === 'Foto', `devia dizer Foto: "${c.ultima_mensagem}"`);
+    });
+
+    await test('diz de que lado veio, para o ecra poder escrever "Eu:"', async () => {
+        comMensagem('ja respondi', 'text', 'outbound');
+        const c = await previaDe();
+        assert(c.ultima_direccao === 'outbound', `direccao errada: ${c.ultima_direccao}`);
+    });
+
+    await test('uma conversa sem mensagens nenhumas nao rebenta', async () => {
+        const [s2, d] = await chamar('GET', '/api/whatsapp/conversations');
+        const nova = (d.conversations || []).find((c: any) => c.id === 'conv-nova');
+        assert(s2 === 200 && !!nova, 'devia listar na mesma');
+        assert(nova.ultima_mensagem === '', `devia vir vazia: "${nova.ultima_mensagem}"`);
     });
 
     console.log('\n=== Etiquetas na lista de conversas ===\n');

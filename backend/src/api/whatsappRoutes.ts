@@ -652,7 +652,30 @@ router.get('/conversations', requireAuth, async (req: AuthRequest, res: Response
             // inteiro falhar, e o catch la em baixo engolia o erro: ficavam as
             // 97 conversas sem previa nenhuma e sem um unico sinal do porque.
             if (m.message_type && m.message_type !== 'text' && porTipo[m.message_type]) return porTipo[m.message_type];
-            return String(m.content || '').replace(/\s+/g, ' ').trim();
+
+            let texto = String(m.content || '');
+
+            // O conteudo guardado traz marcadores internos: o link do ficheiro
+            // em [MEDIA_URL:...] e, quando nao ha legenda, um [Imagem] ou
+            // [Audio] a fazer de texto. Na lista isso aparecia em cru — uma
+            // linha inteira de https://lmxuixmmrglrqxjrhpgn.supabase... onde
+            // devia estar "Foto".
+            const temMedia = /\[MEDIA_URL:/.test(texto);
+            texto = texto.replace(/\[MEDIA_URL:[^\]]*\]/g, ' ');
+
+            const marcadores: Record<string, string> = {
+                imagem: 'Foto', 'vídeo': 'Video', video: 'Video', 'áudio': 'Mensagem de voz',
+                audio: 'Mensagem de voz', documento: 'Documento', sticker: 'Autocolante', media: 'Anexo',
+            };
+            texto = texto.replace(/\[([^\]]+)\]/g, (_todo, dentro) => {
+                const chave = String(dentro).trim().toLowerCase().split(/\s+/)[0];
+                return marcadores[chave] ?? '';
+            });
+
+            texto = texto.replace(/\s+/g, ' ').trim();
+            // Media sem legenda nenhuma: melhor dizer "Anexo" do que uma linha vazia.
+            if (!texto && temMedia) return 'Anexo';
+            return texto;
         };
 
         const comEtiquetas = (data || []).map((conv: any) => {
