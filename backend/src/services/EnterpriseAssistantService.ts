@@ -17,6 +17,25 @@ async function empresaTemAgendamentoLicenciado(empresaId?: number): Promise<bool
     }
 }
 
+/**
+ * O nome que a conversa leva na lista lateral.
+ *
+ * Era `prompt.substring(0, 30)`, que cortava a meio da palavra: "Quando termina
+ * o contrato de c". Agora corta no fim da ultima palavra que cabe, e so poe
+ * reticencias quando sobrou mesmo texto por mostrar.
+ */
+function tituloDaPergunta(pergunta: string, limite = 44): string {
+    const limpo = String(pergunta || '').replace(/\s+/g, ' ').trim();
+    if (!limpo) return 'Nova conversa';
+    if (limpo.length <= limite) return limpo;
+
+    const corte = limpo.slice(0, limite);
+    const espaco = corte.lastIndexOf(' ');
+    // Sem espaco nenhum e uma palavra enorme: ai corta-se mesmo.
+    const base = espaco > limite * 0.5 ? corte.slice(0, espaco) : corte;
+    return base.replace(/[.,;:!?\-]+$/, '') + '...';
+}
+
 export class EnterpriseAssistantService {
     static async chat(userId: string, userRole: string, prompt: string, conversaId?: number, empresaId?: number, whatsappContext?: WhatsAppToolContext) {
         let currentConversaId = conversaId;
@@ -35,7 +54,7 @@ export class EnterpriseAssistantService {
             const { data, error } = await supabase.from('conversas_ia').insert({
                 empresa_id: empresaId || null,
                 utilizador_id: userId,
-                titulo: prompt.substring(0, 30)
+                titulo: tituloDaPergunta(prompt)
             }).select('id').single();
             if (error) throw error;
             currentConversaId = data.id;
