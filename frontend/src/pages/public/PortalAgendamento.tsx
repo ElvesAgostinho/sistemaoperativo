@@ -7,7 +7,11 @@ interface Profissional { id: number; nome: string; }
 const ACCENT = '#0E5A6B';
 const DARK = '#0A3B47';
 
-const styles: Record<string, React.CSSProperties> = {
+// Sem anotacao de propria: tres destas entradas (stepDot, option, slotBtn) sao
+// FUNCOES que devolvem estilos conforme o estado, e o `Record<string,
+// CSSProperties>` dizia que todas eram objectos. O codigo sempre funcionou; era
+// o tipo que estava errado, e sao oito dos erros que o typecheck acusava.
+const styles = {
   page: { minHeight: '100vh', background: '#F5F6F7', fontFamily: "'Roboto','Segoe UI',system-ui,sans-serif", color: '#1D2D3E' },
   header: { background: DARK, color: 'white', padding: '28px 20px 26px', textAlign: 'center' },
   headerTitle: { fontFamily: "'Roboto','Segoe UI',system-ui,sans-serif", fontWeight: 700, fontSize: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' },
@@ -31,7 +35,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: selected ? ACCENT : '#FAFAFA', color: selected ? '#FFFFFF' : '#1D2D3E', fontWeight: 700, fontSize: '13.5px',
     fontFamily: "'Roboto Mono',monospace", cursor: 'pointer', textAlign: 'center'
   }),
-};
+} satisfies Record<string, React.CSSProperties | ((...args: any[]) => React.CSSProperties)>;
 
 export default function PortalAgendamento() {
   const empresaId = window.location.pathname.split('/')[2];

@@ -79,7 +79,13 @@ export default function WhatsAppGruposApp({ onNavigate }: { onNavigate: (v: 'cha
                             <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ fontSize: '14.5px', color: '#1D2D3E', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.nome}</span>
-                                    {g.resposta_automatica_ativa && <Bot size={14} color="#0E5A6B" title="Resposta automática ativa" />}
+                                    {/* O title vai no span: os icones do lucide nao aceitam essa propriedade,
+                                        e sem ela o simbolo do bot nao se explicava a ninguem. */}
+                                    {g.resposta_automatica_ativa && (
+                                        <span title="Resposta automática ativa" style={{ display: 'inline-flex' }}>
+                                            <Bot size={14} color="#0E5A6B" />
+                                        </span>
+                                    )}
                                 </div>
                                 <div style={{ fontSize: '12px', color: '#5B738B', marginTop: '2px' }}>
                                     {g.mensagens_hoje || 0} mensagens hoje {!g.monitorizar && '· pausado'}

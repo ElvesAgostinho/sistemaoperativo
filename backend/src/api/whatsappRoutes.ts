@@ -3,6 +3,7 @@ import { WhatsAppTemplateService } from '../services/WhatsAppTemplateService';
 import { supabase, getSupabase } from '../lib/supabaseClient';
 import { requireAuth, AuthRequest } from '../middleware/authMiddleware';
 import { AuditoriaService } from '../services/AuditoriaService';
+import { EsperaFluxoService } from '../services/EsperaFluxoService';
 import { exigirPermissao } from '../middleware/permissaoMiddleware';
 import { AutomationEngine } from '../services/AutomationEngine';
 import { WhatsAppGroupService } from '../services/WhatsAppGroupService';
@@ -938,6 +939,15 @@ router.put('/conversations/:id/fluxo', requireAuth, exigirPermissao('wa.fluxo'),
         }).eq('id', conv.id).eq('empresa_id', empresaId);
         if (error) throw error;
 
+        // O fluxo anterior podia ter deixado uma pausa longa por cumprir. Se
+        // ninguém a cancelasse, horas depois a conversa recebia a mensagem
+        // seguinte de um fluxo que já não a atende — e ninguém ia perceber de
+        // onde tinha vindo.
+        await EsperaFluxoService.cancelarDaConversa(
+            conv.id,
+            automation_id ? 'Outro fluxo passou a atender esta conversa' : 'O fluxo foi retirado desta conversa'
+        );
+
         await AuditoriaService.registar({
             empresaId, quemId: req.user!.id,
             accao: automation_id ? 'fluxo_escolhido' : 'fluxo_removido',
@@ -1006,6 +1016,15 @@ router.post('/conversations/:id/fluxo/iniciar', requireAuth, exigirPermissao('wa
             automation_escolhida_em: new Date().toISOString(),
             automation_escolhida_por: req.user?.id
         }).eq('id', conv.id).eq('empresa_id', empresaId);
+
+        // Mandar um fluxo correr a mão é enviar mensagens ao cliente sem ele ter
+        // pedido nada. Faltava no registo: a auditoria mostrava quem ESCOLHEU o
+        // fluxo e não quem o mandou arrancar.
+        await AuditoriaService.registar({
+            empresaId, quemId: req.user!.id, accao: 'fluxo_disparado',
+            conversationId: conv.id, alvoTipo: 'fluxo', alvoId: fluxo.id,
+            detalhes: `mandou o fluxo "${fluxo.nome}" correr já nesta conversa.`,
+        });
 
         res.json({ success: true, message: `"${fluxo.nome}" começou nesta conversa.` });
     } catch (err: any) {

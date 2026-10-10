@@ -3,7 +3,7 @@ import { Zap, Plus, Trash2, PanelLeftClose, PanelLeftOpen, Pencil, Check, X, Hel
 import AutomationCanvas from './automation/AutomationCanvas';
 import HelpGuide from './automation/HelpGuide';
 import DisparosFluxo from './automation/DisparosFluxo';
-import { createBlankAutomationGraph, type Automation, type AutomationEdge, type AutomationNode } from './automation/types';
+import { createBlankAutomationGraph, type Automation, type AutomationEdge, type AutomationNode, type TriggerNodeData } from './automation/types';
 
 export default function AutomationApp({ onVoltar }: { onVoltar?: () => void }) {
   const [automations, setAutomations] = useState<Automation[]>([]);
@@ -50,9 +50,13 @@ export default function AutomationApp({ onVoltar }: { onVoltar?: () => void }) {
   // oportunidade de responder — a maioria das vezes isto acontece sem o dono se
   // aperceber, por isso avisamos aqui mesmo antes de acontecer.
   const catchAllAutomations = automations.filter(a =>
-    a.ativo && a.nodes?.some((n: AutomationNode) =>
-      n.type === 'trigger' && n.data?.triggerKind === 'whatsapp_message' && n.data?.matchMode === 'any'
-    )
+    a.ativo && a.nodes?.some((n: AutomationNode) => {
+      // O `data` de um no e a uniao de todos os tipos de bloco, e o `type` nao
+      // a estreita sozinho. Verificado o tipo, le-se o que um gatilho tem.
+      if (n.type !== 'trigger') return false;
+      const d = n.data as TriggerNodeData;
+      return d?.triggerKind === 'whatsapp_message' && d?.matchMode === 'any';
+    })
   );
 
   // Mesma regra de desempate do motor (AutomationEngine): entre gatilhos igualmente

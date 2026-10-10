@@ -9,6 +9,7 @@ import SeletorTemplate from './whatsapp/SeletorTemplate';
 import FichaContacto from './whatsapp/FichaContacto';
 import SeletorFluxo from './whatsapp/SeletorFluxo';
 import MenuAccoesConversa from './whatsapp/MenuAccoesConversa';
+import AuditoriaEmpresa from './whatsapp/AuditoriaEmpresa';
 
 // FIX #5 — Supabase client para Realtime (usa as mesmas variáveis de ambiente)
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://lmxuixmmrglrqxjrhpgn.supabase.co';
@@ -221,7 +222,7 @@ export default function WhatsAppChatApp({ podeFazer }: { podeFazer?: (accao: str
     const fileInputRef = useRef<HTMLInputElement>(null);
     
     // View state: 'chats', 'groups', 'campaigns' ou 'settings'
-    const [currentView, setCurrentView] = useState<'chats' | 'settings' | 'groups' | 'campaigns' | 'templates'>('chats');
+    const [currentView, setCurrentView] = useState<'chats' | 'settings' | 'groups' | 'campaigns' | 'templates' | 'auditoria'>('chats');
     
     // Evolution API Settings
     const [showQr, setShowQr] = useState(false);
@@ -899,6 +900,10 @@ export default function WhatsAppChatApp({ podeFazer }: { podeFazer?: (accao: str
         reader.readAsDataURL(file);
     };
 
+    if (currentView === 'auditoria') {
+        return <AuditoriaEmpresa aoVoltar={() => setCurrentView('chats')} />;
+    }
+
     if (currentView === 'groups') {
         return <WhatsAppGruposApp onNavigate={setCurrentView} />;
     }
@@ -1172,10 +1177,22 @@ export default function WhatsAppChatApp({ podeFazer }: { podeFazer?: (accao: str
                         <MessageSquare size={20} color="#0E5A6B" /> WhatsApp
                     </div>
                     <div style={{ display: 'flex', gap: '16px', color: '#5B738B' }}>
+                        {/* Grupos, Campanhas e Templates nunca aparecem activos aqui:
+                            esses ecras saem logo acima (if currentView === ...) e esta barra
+                            so chega a ser desenhada em "chats" e "settings". As comparacoes
+                            que ca estavam eram sempre falsas. */}
                         <span title="Conversas"><MessageSquare size={20} style={{ cursor: 'pointer', color: currentView === 'chats' ? '#0E5A6B' : '#5B738B' }} onClick={() => setCurrentView('chats')} /></span>
-                        <span title="Grupos"><Users size={20} style={{ cursor: 'pointer', color: currentView === 'groups' ? '#0E5A6B' : '#5B738B' }} onClick={() => setCurrentView('groups')} /></span>
-                        <span title="Campanhas"><Megaphone size={20} style={{ cursor: 'pointer', color: currentView === 'campaigns' ? '#0E5A6B' : '#5B738B' }} onClick={() => setCurrentView('campaigns')} /></span>
-                        <span title="Templates de mensagem"><LayoutTemplate size={20} style={{ cursor: 'pointer', color: currentView === 'templates' ? '#0E5A6B' : '#5B738B' }} onClick={() => setCurrentView('templates')} /></span>
+                        <span title="Grupos"><Users size={20} style={{ cursor: 'pointer', color: '#5B738B' }} onClick={() => setCurrentView('groups')} /></span>
+                        <span title="Campanhas"><Megaphone size={20} style={{ cursor: 'pointer', color: '#5B738B' }} onClick={() => setCurrentView('campaigns')} /></span>
+                        <span title="Templates de mensagem"><LayoutTemplate size={20} style={{ cursor: 'pointer', color: '#5B738B' }} onClick={() => setCurrentView('templates')} /></span>
+                        {/* So aparece a quem tem a permissao de ver auditoria. O
+                            servidor verifica o mesmo — isto evita mostrar um
+                            botao que so ia dar "nao tem permissao". */}
+                        {pode('wa.auditoria') && (
+                            <span title="Auditoria da empresa">
+                                <ClipboardList size={20} style={{ cursor: 'pointer', color: '#5B738B' }} onClick={() => setCurrentView('auditoria')} />
+                            </span>
+                        )}
                         <span title="Configurações de Canais"><Settings size={20} style={{ cursor: 'pointer', color: currentView === 'settings' ? '#0E5A6B' : '#5B738B' }} onClick={() => setCurrentView('settings')} /></span>
                     </div>
                 </div>

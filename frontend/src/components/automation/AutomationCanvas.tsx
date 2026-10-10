@@ -41,7 +41,9 @@ const defaultEdgeOptions = {
 // o React Flow reenquadrar (fitView) e mudar o tamanho dos nós a cada entrada.
 const VIEWPORT_STORAGE_PREFIX = 'businessos_automation_viewport_';
 
-function loadSavedViewport(automationId: string): { x: number; y: number; zoom: number } | null {
+// O id do fluxo vem da base de dados como numero; aqui so serve de chave no
+// localStorage. Aceitar os dois evita um `String()` espalhado por cada chamada.
+function loadSavedViewport(automationId: string | number): { x: number; y: number; zoom: number } | null {
   try {
     const raw = localStorage.getItem(VIEWPORT_STORAGE_PREFIX + automationId);
     return raw ? JSON.parse(raw) : null;
@@ -50,7 +52,7 @@ function loadSavedViewport(automationId: string): { x: number; y: number; zoom: 
   }
 }
 
-function saveViewport(automationId: string, viewport: { x: number; y: number; zoom: number }) {
+function saveViewport(automationId: string | number, viewport: { x: number; y: number; zoom: number }) {
   try {
     localStorage.setItem(VIEWPORT_STORAGE_PREFIX + automationId, JSON.stringify(viewport));
   } catch {

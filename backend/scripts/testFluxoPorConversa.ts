@@ -393,6 +393,48 @@ const ditas = () => enviadas.map(e => e.content).join(' | ');
         assert(seguimento.soAMao && !seguimento.reageAMensagens, `seguimento mal marcado: ${JSON.stringify(seguimento)}`);
     });
 
+    console.log('\n=== Pausas longas que ficam do fluxo anterior ===\n');
+
+    await test('trocar de fluxo cancela a pausa que o anterior deixou', async () => {
+        tabela('automations').push(fluxoQueDiz(1, 'Antigo', 'ANTIGO'), fluxoQueDiz(2, 'Novo', 'NOVO'));
+        // Sem isto, horas depois a conversa recebia a mensagem seguinte de um
+        // fluxo que ja nao a atende — e ninguem ia perceber de onde veio.
+        tabela('fluxo_esperas').push({
+            id: 'esp-1', empresa_id: EMPRESA, conversation_id: 'conv-a',
+            automation_id: 1, node_id: 'a2', contexto: {},
+            retomar_em: new Date(Date.now() + 3 * 3600 * 1000).toISOString(), estado: 'A_espera',
+        });
+
+        const [st] = await chamar('PUT', '/api/whatsapp/conversations/conv-a/fluxo', { automation_id: 2 });
+        assert(st === 200, `devia trocar, deu ${st}`);
+
+        const esp = tabela('fluxo_esperas')[0];
+        assert(esp.estado === 'Cancelado', `a pausa do fluxo antigo devia ficar cancelada, ficou ${esp.estado}`);
+        assert(/Outro fluxo/.test(esp.erro || ''), `devia dizer porque: ${esp.erro}`);
+    });
+
+    await test('largar o fluxo tambem cancela a pausa', async () => {
+        tabela('fluxo_esperas').push({
+            id: 'esp-1', empresa_id: EMPRESA, conversation_id: 'conv-a',
+            automation_id: 1, node_id: 'a2', contexto: {},
+            retomar_em: new Date(Date.now() + 3 * 3600 * 1000).toISOString(), estado: 'A_espera',
+        });
+
+        const [st] = await chamar('PUT', '/api/whatsapp/conversations/conv-a/fluxo', { automation_id: null });
+        assert(st === 200, `devia largar, deu ${st}`);
+        assert(tabela('fluxo_esperas')[0].estado === 'Cancelado', 'a pausa devia ficar cancelada');
+    });
+
+    await test('a pausa de OUTRA conversa fica em paz', async () => {
+        tabela('fluxo_esperas').push(
+            { id: 'esp-1', empresa_id: EMPRESA, conversation_id: 'conv-a', automation_id: 1, node_id: 'a2', contexto: {}, retomar_em: new Date().toISOString(), estado: 'A_espera' },
+            { id: 'esp-2', empresa_id: EMPRESA, conversation_id: 'conv-b', automation_id: 1, node_id: 'a2', contexto: {}, retomar_em: new Date().toISOString(), estado: 'A_espera' },
+        );
+        await chamar('PUT', '/api/whatsapp/conversations/conv-a/fluxo', { automation_id: null });
+        const outra = tabela('fluxo_esperas').find(e => e.id === 'esp-2')!;
+        assert(outra.estado === 'A_espera', `nao podia mexer na outra conversa: ${outra.estado}`);
+    });
+
     servidor.unref();
     console.log(`\n=== Resultado: ${passed} passaram, ${failed} falharam ===`);
     if (falhas.length) console.log('Falhou:\n  - ' + falhas.join('\n  - '));
