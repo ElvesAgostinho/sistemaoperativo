@@ -834,20 +834,20 @@ router.post('/canal/testar-botoes', requireAuth, exigirPermissao('wa.canal'), as
         const empresaId = req.user!.empresa_id;
         const { data: canal } = await getSupabase(req).from('wa_channels')
             .select('id, provider, credentials').eq('empresa_id', empresaId).limit(1).maybeSingle();
-        if (!canal) return res.status(404).json({ success: false, error: 'Nao ha nenhum canal de WhatsApp ligado.' });
+        if (!canal) return res.status(404).json({ success: false, error: 'Não há nenhum canal de WhatsApp ligado.' });
 
         const telefone = String(req.body?.telefone || '').replace(/\D/g, '');
         if (telefone.length < 8) {
-            return res.status(400).json({ success: false, error: 'Indique o numero que vai receber o teste.' });
+            return res.status(400).json({ success: false, error: 'Indique o número que vai receber o teste.' });
         }
 
         if (canal.provider !== 'evolution') {
-            return res.json({ success: true, enviado: false, nota: 'Pela API oficial da Meta os botoes funcionam sempre — nao e preciso testar.' });
+            return res.json({ success: true, enviado: false, nota: 'Pela API oficial da Meta os botões funcionam sempre — não é preciso testar.' });
         }
 
         const base = (process.env.EVOLUTION_API_URL || '').trim().replace(/\/+$/, '');
         const instancia = canal.credentials?.instanceName;
-        if (!base || !instancia) return res.status(400).json({ success: false, error: 'Canal sem instancia configurada.' });
+        if (!base || !instancia) return res.status(400).json({ success: false, error: 'Canal sem instância configurada.' });
 
         const r = await fetch(`${base}/message/sendButtons/${instancia}`, {
             method: 'POST',
@@ -856,8 +856,8 @@ router.post('/canal/testar-botoes', requireAuth, exigirPermissao('wa.canal'), as
                 number: telefone, title: '', footer: '',
                 description: 'TESTE DOS BOTOES\n\nSe vir dois botoes a clicar por baixo desta mensagem, eles funcionam no seu WhatsApp. Se vir so este texto, nao funcionam.',
                 buttons: [
-                    { type: 'reply', displayText: 'Vejo os botoes', id: 'sim' },
-                    { type: 'reply', displayText: 'So vejo texto', id: 'nao' },
+                    { type: 'reply', displayText: 'Vejo os botões', id: 'sim' },
+                    { type: 'reply', displayText: 'Só vejo texto', id: 'nao' },
                 ],
             }),
         });
@@ -882,7 +882,7 @@ router.put('/canal/botoes', requireAuth, exigirPermissao('wa.canal'), async (req
 
         const { data: canal } = await getSupabase(req).from('wa_channels')
             .select('id, credentials').eq('empresa_id', empresaId).limit(1).maybeSingle();
-        if (!canal) return res.status(404).json({ success: false, error: 'Nao ha nenhum canal de WhatsApp ligado.' });
+        if (!canal) return res.status(404).json({ success: false, error: 'Não há nenhum canal de WhatsApp ligado.' });
 
         const credenciais = { ...(canal.credentials || {}), botoesFiaveis: funcionam };
         const { error } = await getSupabase(req).from('wa_channels')
@@ -893,8 +893,8 @@ router.put('/canal/botoes', requireAuth, exigirPermissao('wa.canal'), async (req
             empresaId, quemId: req.user!.id, accao: 'canal_botoes',
             alvoTipo: 'conversa', alvoId: canal.id,
             detalhes: funcionam
-                ? 'confirmou que os botoes funcionam neste WhatsApp — os menus passam a sair como botoes.'
-                : 'marcou que os botoes nao funcionam neste WhatsApp — os menus saem como sondagem.',
+                ? 'confirmou que os botões funcionam neste WhatsApp — os menus passam a sair como botões.'
+                : 'marcou que os botões não funcionam neste WhatsApp — os menus saem como sondagem.',
         });
 
         res.json({ success: true, funcionam });
