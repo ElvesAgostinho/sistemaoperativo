@@ -401,14 +401,39 @@ export class AutomationEngine {
      * acontecido. `estado` é o ponto onde a simulação anterior ficou (null = começa
      * do gatilho). Não toca na base de dados nem envia nada.
      */
+    /**
+     * O canal desta empresa envia botoes que CHEGAM mesmo?
+     *
+     * Numa Evolution 2.3.x nao: eles saem com 201 e ficam em PENDING para
+     * sempre. So serve para o simulador nao prometer o que o cliente nao vai
+     * receber.
+     */
+    private static async canalFazBotoes(empresaId: any): Promise<boolean> {
+        if (!empresaId) return false;
+        try {
+            const { data } = await supabase.from('wa_channels')
+                .select('provider, credentials').eq('empresa_id', empresaId).limit(1).maybeSingle();
+            if (!data) return false;
+            return data.provider === 'meta' || data.credentials?.botoesFiaveis === true;
+        } catch {
+            return false;
+        }
+    }
+
     public static async simular(automation: any, mensagem: string, estado: { nodeId: string; contexto: any; tentativas: number } | null, contextoInicial: Record<string, any> = {}): Promise<Simulacao> {
         const { nodes, edges } = this.parseGraph(automation);
         const sim: Simulacao = { passos: [], mensagens: [], pendente: null, terminou: false };
         const trigger = nodes.find((n: FlowNode) => n.type === 'trigger');
 
+        // O que o canal desta empresa CONSEGUE mesmo enviar. Sem isto o
+        // simulador dizia "chega como botoes" e o cliente recebia uma sondagem
+        // — uma simulacao que mente e pior do que nenhuma.
+        const podeBotoes = await this.canalFazBotoes(automation.empresa_id);
+
         const contextoBase = {
             telefone: '244900000000', nome_whatsapp: 'Cliente de teste', tags: '',
-            ...contextoInicial, ...(estado?.contexto || {}), mensagem, resposta: mensagem
+            ...contextoInicial, ...(estado?.contexto || {}), mensagem, resposta: mensagem,
+            __sim_botoes: podeBotoes,
         };
 
         if (estado?.nodeId) {
@@ -979,10 +1004,12 @@ export class AutomationEngine {
             // O simulador mostrava so a pergunta — exactamente como quando os
             // menus eram texto. Quem simula tem de ver o que o cliente ve: as
             // opcoes, e em que formato elas chegam.
-            const formato = opcoes.length === 0 ? 'texto'
-                : opcoes.length <= 3 ? 'botoes'
-                : opcoes.length <= 12 ? 'sondagem'
-                : 'texto';
+            // A MESMA regra do envio, com o que o canal consegue. Duas copias
+            // da regra e o simulador a dizer uma coisa e o cliente a receber
+            // outra.
+            const formato = WhatsAppInterativoService.formatoIdeal(
+                opcoes.length, false, context?.__sim_botoes === true,
+            )[0];
             const comoSeLe: Record<string, string> = {
                 botoes: 'botoes a clicar', sondagem: 'sondagem a clicar', texto: 'lista numerada (o cliente escreve)',
             };
