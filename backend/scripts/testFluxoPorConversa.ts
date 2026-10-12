@@ -595,6 +595,68 @@ const enviadoPor = (caminho: string) => pedidosEvolution.filter(p => p.url.inclu
         assert(ditas().includes('Como posso ajudar'), `a pergunta devia sair na mesma: ${ditas()}`);
     });
 
+    console.log('\n=== Os blocos saem nos OUTROS nos, pelo motor ===\n');
+
+    /** Um fluxo com um no qualquer que leve blocos antes do que faz. */
+    const fluxoComNo = (actionType: string, config: any, blocos: any[]) => ({
+        id: 13, nome: 'Com blocos', ativo: true, empresa_id: EMPRESA,
+        nodes: [
+            { id: 't1', type: 'trigger', data: { triggerKind: 'whatsapp_message', matchMode: 'any' } },
+            { id: 'a1', type: 'action', data: { actionType, config: { ...config, blocos } } },
+        ],
+        edges: [{ id: 'e1', source: 't1', target: 'a1' }],
+    });
+
+    await test('o Campo Personalizado diz "ficou guardado" sem precisar de outro no', async () => {
+        // Era o pedido do cliente: guardar o campo E dizer logo qualquer coisa,
+        // sem ter de ligar mais um no por uma seta.
+        tabela('clientes').push({ id: 77, empresa_id: EMPRESA, telefone: '244900000001', custom_fields: {} });
+        tabela('automations').push(fluxoComNo('SET_CUSTOM_FIELD',
+            { campo: 'origem', valor: 'whatsapp' },
+            [{ tipo: 'texto', texto: 'Obrigado, ficou guardado.' }]));
+
+        await receber('244900000001', 'Ola');
+        assert(ditas().includes('Obrigado, ficou guardado'), `o bloco devia sair: ${ditas()}`);
+    });
+
+    await test('o Transferir para Humano despede-se antes de passar', async () => {
+        tabela('automations').push(fluxoComNo('HANDOFF_HUMAN', {},
+            [{ tipo: 'texto', texto: 'Um colega vai continuar consigo.' }]));
+        await receber('244900000001', 'Ola');
+        assert(ditas().includes('Um colega vai continuar'), `o bloco devia sair: ${ditas()}`);
+    });
+
+    await test('o Aguardar resposta tambem leva blocos antes da pergunta', async () => {
+        tabela('automations').push({
+            id: 14, nome: 'Perguntar', ativo: true, empresa_id: EMPRESA,
+            nodes: [
+                { id: 't1', type: 'trigger', data: { triggerKind: 'whatsapp_message', matchMode: 'any' } },
+                {
+                    id: 'w1', type: 'action',
+                    data: {
+                        actionType: 'WAIT_REPLY',
+                        blocos: [{ tipo: 'texto', texto: 'So mais uma coisa' }],
+                        config: { mensagem: 'Qual e o seu nome?' },
+                    },
+                },
+            ],
+            edges: [{ id: 'e1', source: 't1', target: 'w1' }],
+        });
+        await receber('244900000001', 'Ola');
+        const d = ditas();
+        assert(d.includes('So mais uma coisa'), `faltou o bloco: ${d}`);
+        assert(d.includes('Qual e o seu nome'), `faltou a pergunta: ${d}`);
+        assert(d.indexOf('So mais uma coisa') < d.indexOf('Qual e o seu nome'), `a pergunta tem de vir depois: ${d}`);
+    });
+
+    await test('um no SEM blocos continua a funcionar como sempre', async () => {
+        tabela('clientes').push({ id: 78, empresa_id: EMPRESA, telefone: '244900000001', custom_fields: {} });
+        tabela('automations').push(fluxoComNo('SET_CUSTOM_FIELD', { campo: 'origem', valor: 'whatsapp' }, []));
+        await receber('244900000001', 'Ola');
+        // Nao fala, e nao tem de falar.
+        assert(!/Obrigado/.test(ditas()), `nao devia inventar nada: ${ditas()}`);
+    });
+
     servidor.unref();
     console.log(`\n=== Resultado: ${passed} passaram, ${failed} falharam ===`);
     if (falhas.length) console.log('Falhou:\n  - ' + falhas.join('\n  - '));

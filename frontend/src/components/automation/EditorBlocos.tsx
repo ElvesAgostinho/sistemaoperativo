@@ -45,6 +45,21 @@ const BOTOES: { tipo: TipoBotao; nome: string; nota: string; icone: any; exemplo
   { tipo: 'copiar', nome: 'Copiar código', nota: 'Copia um código de desconto, um IBAN', icone: Copy, exemplo: 'PROMO20' },
 ];
 
+/**
+ * Os nós que FALAM com o cliente, e por isso levam blocos.
+ *
+ * Tem de ser a mesma lista do servidor (AutomationEngine.ACCOES_COM_BLOCOS),
+ * senão o painel oferece blocos num nó que nunca os envia — ou esconde-os num
+ * que os enviaria. Há um teste a comparar as duas.
+ *
+ * REPLY_MESSAGE não está aqui porque é TODO feito de blocos: o painel dele é o
+ * editor inteiro, não um editor por cima de outra coisa.
+ */
+export const ACCOES_COM_BLOCOS = [
+  'AI_REPLY', 'HANDOFF_HUMAN', 'CHECK_SLOTS', 'CREATE_BOOKING',
+  'LIST_BOOKINGS', 'SET_CUSTOM_FIELD', 'WAIT_REPLY',
+];
+
 /** O máximo de segundos que uma pausa dentro de um nó aguenta (igual ao servidor). */
 export const PAUSA_MAX_SEGUNDOS = 30;
 

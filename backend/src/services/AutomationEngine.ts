@@ -752,6 +752,11 @@ export class AutomationEngine {
                 if (node.data?.actionType === 'WAIT_REPLY') {
                     const seguinte = edges.find(e => e.source === node.id)?.target;
                     if (!mensagemDisponivel) {
+                        // Este no tem a mesma forma do menu — manda uma pergunta
+                        // e espera — por isso leva blocos pela mesma razao: uma
+                        // saudacao ou uma foto antes de perguntar deixava de
+                        // precisar de um no so para isso.
+                        await this.enviarBlocosDoNo(node, context, empresa_id, sim);
                         const pergunta = node.data?.config?.mensagem;
                         if (pergunta) await this.responderNoWhatsApp(context, this.parseString(pergunta, context), sim);
                         registar(node, 'Aguardar resposta do cliente');
@@ -866,45 +871,70 @@ export class AutomationEngine {
      * sondagem acima disso, e a lista numerada de sempre se nada funcionar.
      * Nunca fica pior do que estava.
      */
-    private static async perguntarMenu(node: FlowNode, context: any, empresaId: any, sim?: Simulacao): Promise<void> {
-        // A empresa VEM POR PARAMETRO, nao do contexto.
-        //
-        // O contexto de um fluxo tem o telefone, o canal e a conversa, mas NUNCA
-        // teve `empresa_id`. Eu li-o de la e o resultado foi que a condicao era
-        // sempre falsa: o menu clicavel que escrevi nunca chegou a enviar um
-        // botao — caia sempre no texto numerado, em silencio. Os testes nao o
-        // apanharam porque exercitavam o servico de envio directamente, sem
-        // passar pelo motor.
-        // Um menu tambem pode ter BLOCOS antes da pergunta: uma saudacao, uma
-        // foto do produto, uma pausa para a conversa respirar. Sem isto era
-        // preciso um no de mensagem antes de cada menu, ligado por uma seta, e
-        // o fluxo dava mais um passo so para dizer "ola".
-        //
-        // Os blocos saem primeiro; a pergunta com as opcoes clicaveis vem no
-        // fim, que e onde o cliente a espera.
-        const blocosAntes = Array.isArray((node.data as any)?.blocos) ? (node.data as any).blocos : [];
-        if (blocosAntes.length && !sim && context?.channel_id && context?.telefone && empresaId) {
-            const r = await BlocosMensagemService.enviar(
-                blocosAntes,
-                {
-                    empresaId, channelId: context.channel_id,
-                    telefone: context.telefone, conversationId: context.conversation_id,
-                },
-                (t: string) => this.parseString(t, context),
-            );
-            if (r.falhados.length) {
-                const resumo = r.falhados.map((f: any) => `#${f.indice + 1} (${f.tipo}): ${f.erro}`).join(' | ');
-                console.error('[AUTOPILOT] Blocos do menu que nao sairam:', resumo);
-                await AuditoriaService.registar({
-                    empresaId, quemId: null, accao: 'mensagem_falhou',
-                    conversationId: context.conversation_id || null,
-                    alvoTipo: 'conversa', alvoId: context.conversation_id || null,
-                    detalhes: `nao conseguiu enviar ${r.falhados.length} bloco(s) antes de um menu. ${resumo}`,
-                    extra: { falhados: r.falhados },
-                });
+    /**
+     * Os blocos de um nó, enviados antes do que ele faz.
+     *
+     * Vários nós falam com o cliente — perguntam, confirmam, despedem-se — e
+     * todos eles ganham com poder dizer mais do que uma coisa. Escrever isto
+     * uma vez por nó eram sete cópias do mesmo, e a sétima estaria errada.
+     *
+     * Devolve o número de blocos que saíram. Um bloco que falhe fica registado
+     * na auditoria: uma mensagem que não chega ao cliente não pode ficar só num
+     * log de servidor que ninguém lê.
+     */
+    public static async enviarBlocosDoNo(node: FlowNode, context: any, empresaId: any, sim?: Simulacao): Promise<number> {
+        // Os blocos vivem em dois sitios conforme o tipo de no: um no de accao
+        // guarda a configuracao toda dentro de `config`, e o de menu guarda-a
+        // em `data` directamente. Ler so um deles deixava metade dos nos sem
+        // blocos — e em silencio, que e o pior.
+        const d: any = node.data || {};
+        const blocos = Array.isArray(d.blocos) ? d.blocos
+            : Array.isArray(d.config?.blocos) ? d.config.blocos
+            : [];
+        if (blocos.length === 0) return 0;
+
+        if (sim) {
+            for (const b of blocos) {
+                if (b.tipo === 'pausa') continue;
+                const t = b.tipo === 'texto'
+                    ? this.parseString(b.texto || '', context)
+                    : `[${b.tipo}] ${this.parseString(b.texto || b.url || '', context)}`;
+                if (t.trim()) sim.mensagens.push({ de: 'bot', texto: t });
             }
-            for (const b of blocosAntes) {
-                if (b.tipo === 'pausa' || !context.conversation_id) continue;
+            return blocos.length;
+        }
+
+        if (!context?.channel_id || !context?.telefone || !empresaId) {
+            console.error('[AUTOPILOT] Blocos sem canal, telefone ou empresa — nao sairam.');
+            return 0;
+        }
+
+        const r = await BlocosMensagemService.enviar(
+            blocos,
+            {
+                empresaId, channelId: context.channel_id,
+                telefone: context.telefone, conversationId: context.conversation_id,
+            },
+            (t: string) => this.parseString(t, context),
+        );
+
+        if (r.falhados.length) {
+            const resumo = r.falhados.map((f: any) => `#${f.indice + 1} (${f.tipo}): ${f.erro}`).join(' | ');
+            console.error('[AUTOPILOT] Blocos que nao sairam:', resumo);
+            await AuditoriaService.registar({
+                empresaId, quemId: null, accao: 'mensagem_falhou',
+                conversationId: context.conversation_id || null,
+                alvoTipo: 'conversa', alvoId: context.conversation_id || null,
+                detalhes: `nao conseguiu enviar ${r.falhados.length} bloco(s) de uma mensagem. ${resumo}`,
+                extra: { falhados: r.falhados, no: node.id },
+            });
+        }
+
+        // Sem isto a mensagem chega ao telemovel mas nunca aparece na conversa
+        // dentro do CRM — ninguem na equipa ve o que o Autopilot respondeu.
+        if (context.conversation_id) {
+            for (const b of blocos) {
+                if (b.tipo === 'pausa') continue;
                 const conteudo = this.parseString(b.texto || '', context) || `[${b.tipo}]`;
                 if (!conteudo.trim()) continue;
                 await this.saveMessage(context.conversation_id, {
@@ -912,15 +942,15 @@ export class AutomationEngine {
                     contact_name: 'Autopilot', content: conteudo, direction: 'outbound',
                 });
             }
-        } else if (blocosAntes.length && sim) {
-            for (const b of blocosAntes) {
-                if (b.tipo === 'pausa') continue;
-                const t = b.tipo === 'texto'
-                    ? this.parseString(b.texto || '', context)
-                    : `[${b.tipo}] ${this.parseString(b.texto || b.url || '', context)}`;
-                if (t.trim()) sim.mensagens.push({ de: 'bot', texto: t });
-            }
         }
+
+        return r.enviados;
+    }
+
+    private static async perguntarMenu(node: FlowNode, context: any, empresaId: any, sim?: Simulacao): Promise<void> {
+        // Um menu tambem pode ter blocos antes da pergunta: uma saudacao, uma
+        // foto do produto, uma pausa para a conversa respirar.
+        await this.enviarBlocosDoNo(node, context, empresaId, sim);
 
         const pergunta = this.parseString(node.data?.pergunta || '', context);
         const opcoes = (Array.isArray(node.data?.options) ? node.data.options : [])
@@ -1019,8 +1049,40 @@ export class AutomationEngine {
         return alvos;
     }
 
+    /**
+     * Os nos que FALAM com o cliente, e por isso levam blocos.
+     *
+     * A regra e esta: quem manda mensagens ao cliente ganha com poder dizer
+     * mais do que uma coisa de seguida. Quem nao fala — Condicao, Etiquetas,
+     * API, Log — nao leva, porque nao ha nada para dizer.
+     *
+     * REPLY_MESSAGE nao esta aqui porque e TODO feito de blocos; corre-os ele
+     * proprio. Os de media sao eles proprios um bloco. SEND_TEMPLATE nao leva
+     * porque a Meta define o formato e nada pode ir antes.
+     */
+    public static readonly ACCOES_COM_BLOCOS: string[] = [
+        'AI_REPLY',          // um "deixe-me ver isso" antes da resposta da IA
+        'HANDOFF_HUMAN',     // a despedida antes de passar a um colega
+        'CHECK_SLOTS',       // "vou ver a agenda..." antes dos horarios
+        'CREATE_BOOKING',    // o que dizer antes de confirmar a marcacao
+        'LIST_BOOKINGS',     // antes de listar as marcacoes
+        'SET_CUSTOM_FIELD',  // "obrigado, ficou guardado"
+        // O WAIT_REPLY nunca chega a este switch — e tratado mais acima, no
+        // executeGraph, porque e um no que ESPERA. Fica na lista na mesma para
+        // ela dizer a verdade sobre quem leva blocos, e para o painel poder
+        // comparar-se com uma lista so.
+        'WAIT_REPLY',
+    ];
+
     private static async executeAction(node: FlowNode, context: any, empresa_id: number | null, allNodes: FlowNode[], allEdges: FlowEdge[], cadeiaFluxos: number[] = [], sim?: Simulacao) {
         const config = node.data?.config || {};
+
+        // Os blocos saem ANTES do que o no faz. Um so sitio, em vez de a mesma
+        // chamada repetida em cada caso do switch — a setima copia estaria
+        // errada.
+        if (AutomationEngine.ACCOES_COM_BLOCOS.includes(String(node.data?.actionType || ''))) {
+            await this.enviarBlocosDoNo(node, context, empresa_id, sim);
+        }
 
         // Simulação: nada sai para o mundo real. Regista-se o que seria feito, com
         // as variáveis já substituídas, para se ver exatamente o que o cliente receberia.

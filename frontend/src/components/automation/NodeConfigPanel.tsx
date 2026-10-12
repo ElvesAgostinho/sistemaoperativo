@@ -5,7 +5,7 @@ import type { ActionNodeData, ActionType, Automation, AutomationNode, ConditionN
 import { ACTION_LABELS, createDefaultMenuOption, VARIAVEIS_CONVERSA } from './types';
 import { duracaoDaPausa, emSegundos, pausaPorExtenso, UNIDADES, ESPERA_GUARDADA_ACIMA_DE, type Unidade } from './tempoDaPausa';
 import PreVisualizacaoEscolha from './PreVisualizacaoEscolha';
-import EditorBlocos, { type Bloco } from './EditorBlocos';
+import EditorBlocos, { type Bloco, ACCOES_COM_BLOCOS } from './EditorBlocos';
 
 interface NodeConfigPanelProps {
   node: AutomationNode;
@@ -365,6 +365,24 @@ export default function NodeConfigPanel({ node, todosOsNos = [], automations, cu
           </select>
 
 
+
+          {/* Os nos que FALAM com o cliente levam blocos antes do que fazem:
+              uma saudacao, uma foto, uma pausa. A lista vive no EditorBlocos e
+              e a mesma do servidor — ha um teste a compara-las. */}
+          {ACCOES_COM_BLOCOS.includes(d.actionType) && (
+            <div style={{ marginBottom: '18px' }}>
+              <EditorBlocos
+                blocos={Array.isArray(config.blocos) ? config.blocos : []}
+                aoMudar={(b: Bloco[]) => updateConfig({ blocos: b })}
+              />
+              <div style={{
+                marginTop: '10px', paddingTop: '12px', borderTop: '1px solid #E7E9EB',
+                fontSize: '11px', fontWeight: 700, letterSpacing: '.04em', color: '#475569',
+              }}>
+                E DEPOIS, O QUE ESTE NÓ FAZ
+              </div>
+            </div>
+          )}
 
           {d.actionType === 'REPLY_MESSAGE' && (() => {
             // Um no de mensagem passou a ter varios BLOCOS. Os fluxos antigos

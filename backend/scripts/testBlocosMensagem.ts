@@ -339,6 +339,65 @@ async function test(nome: string, fn: () => Promise<void>) {
         }
     });
 
+    console.log('\n=== Quem leva blocos ===\n');
+
+    const motor = () => require(path.join(__dirname, '..', 'src', 'services', 'AutomationEngine')).AutomationEngine;
+    const doEcra = () => {
+        const fs = require('fs');
+        const fonte = fs.readFileSync(
+            path.join(__dirname, '..', '..', 'frontend', 'src', 'components', 'automation', 'EditorBlocos.tsx'), 'utf8');
+        const m = fonte.match(/export const ACCOES_COM_BLOCOS = \[([\s\S]*?)\]/);
+        if (!m) throw new Error('nao encontrei a lista no painel');
+        return m[1].split(',').map((x: string) => x.trim().replace(/['"]/g, '')).filter(Boolean);
+    };
+
+    await test('o painel e o servidor concordam em quem leva blocos', async () => {
+        // Sao duas listas. Se divergirem, o painel oferece blocos num no que
+        // nunca os envia — ou esconde-os num que os enviaria. As duas coisas
+        // sao silenciosas.
+        const servidor = [...motor().ACCOES_COM_BLOCOS].sort();
+        const ecra = [...doEcra()].sort();
+        assert(servidor.join(',') === ecra.join(','),
+            `servidor: ${servidor.join(',')}\n      painel:   ${ecra.join(',')}`);
+    });
+
+    await test('quem FALA com o cliente leva blocos', async () => {
+        // A regra, escrita. Um no novo que fale com o cliente e nasca sem
+        // blocos cai aqui, em vez de ninguem reparar durante meses.
+        const devem = ['AI_REPLY', 'HANDOFF_HUMAN', 'CHECK_SLOTS', 'CREATE_BOOKING',
+                       'LIST_BOOKINGS', 'SET_CUSTOM_FIELD', 'WAIT_REPLY'];
+        const lista = motor().ACCOES_COM_BLOCOS;
+        for (const a of devem) {
+            assert(lista.includes(a), `"${a}" fala com o cliente e devia levar blocos`);
+        }
+    });
+
+    await test('quem NAO fala com o cliente nao leva blocos', async () => {
+        // Encher estes nos de blocos tornava o cartao ilegivel sem dar nada.
+        const naoDevem = [
+            'ADD_TAG', 'REMOVE_TAG', 'EXTERNAL_REQUEST', 'LOG_MESSAGE',
+            'JUMP_TO_WORKFLOW', 'DELAY', 'GOTO_MENU',
+            'NOTIFY_TEAM',       // fala com a EQUIPA, nao com o cliente
+            'SEND_EMAIL',        // e email; os blocos sao feitos para WhatsApp
+            'SEND_TEMPLATE',     // a Meta define o formato, nada vai antes
+            'SEND_IMAGE', 'SEND_VIDEO', 'SEND_AUDIO', 'SEND_DOCUMENT',  // sao eles proprios um bloco
+            'REPLY_MESSAGE',     // e TODO feito de blocos; corre-os ele proprio
+        ];
+        const lista = motor().ACCOES_COM_BLOCOS;
+        for (const a of naoDevem) {
+            assert(!lista.includes(a), `"${a}" nao devia levar blocos`);
+        }
+    });
+
+    await test('todos os nomes da lista existem mesmo', async () => {
+        const fs = require('fs');
+        const tipos = fs.readFileSync(
+            path.join(__dirname, '..', '..', 'frontend', 'src', 'components', 'automation', 'types.ts'), 'utf8');
+        for (const a of motor().ACCOES_COM_BLOCOS) {
+            assert(tipos.includes(`'${a}'`), `"${a}" nao e um tipo de no que exista`);
+        }
+    });
+
     console.log(`\n=== Resultado: ${passed} passaram, ${failed} falharam ===`);
     if (falhas.length) console.log('Falhou:\n  - ' + falhas.join('\n  - '));
     process.exit(failed === 0 ? 0 : 1);
