@@ -146,7 +146,7 @@ async function test(nome: string, fn: () => Promise<void>) {
     // fechado. Este teste nao e sobre permissoes, por isso o utilizador e dono.
     tabela('perfis').push({ id: 'agente-1', nome: 'Elves', role: 'admin', empresa_id: EMPRESA, ativo: true, permissoes: null });
     tabela('configuracoes').push({ id: 'lic-1', empresa_id: EMPRESA, chave: 'modulos_empresa', valor: JSON.stringify(['wa', 'crm', 'auto', 'email']) });
-    enviadas.length = 0; seq = 100;
+    enviadas.length = 0; pedidosEvolution.length = 0; seq = 100;
     tabela('wa_channels').push({ id: CANAL, empresa_id: EMPRESA, provider: 'evolution', status: 'connected', credentials: { instanceName: 'inst' } });
     // O Assistente IA responde por omissao a tudo — desligado para se medir so os fluxos.
     tabela('configuracoes').push({ id: 'cfg', empresa_id: EMPRESA, chave: 'ia_whatsapp_ativa', valor: 'false' });
@@ -165,6 +165,31 @@ async function test(nome: string, fn: () => Promise<void>) {
 
 const conv = (id: string) => tabela('wa_conversations').find(c => c.id === id)!;
 const ditas = () => enviadas.map(e => e.content).join(' | ');
+
+/**
+ * O que foi pedido a Evolution.
+ *
+ * Os testes do servico de envio exercitavam-no directamente e passavam todos —
+ * mas o motor nunca lhe chegava a chamar, porque lia a empresa de um sitio onde
+ * ela nunca esteve. Daqui ve-se o que sai MESMO, ponta a ponta.
+ */
+const pedidosEvolution: { url: string; corpo: any }[] = [];
+const fetchOriginal = global.fetch;
+(global as any).fetch = async (url: string, opts: any) => {
+    const u = String(url);
+    if (/\/message\//.test(u)) {
+        const corpo = opts?.body ? JSON.parse(opts.body) : {};
+        pedidosEvolution.push({ url: u, corpo });
+        // Uma pergunta enviada como botoes ou sondagem nao passa pelo
+        // sendMessage. Entra na mesma lista, para o `ditas()` continuar a ver
+        // TUDO o que o cliente recebeu, pela ordem em que recebeu.
+        const texto = corpo.description || corpo.name || corpo.text || '';
+        if (texto) enviadas.push({ content: texto } as any);
+        return { status: 201, json: async () => ({ key: { id: 'evo-1' } }) } as any;
+    }
+    return fetchOriginal ? (fetchOriginal as any)(url, opts) : ({ status: 404, json: async () => ({}) } as any);
+};
+const enviadoPor = (caminho: string) => pedidosEvolution.filter(p => p.url.includes('/message/' + caminho + '/'));
 
 (async () => {
     console.log('\n=== Escolher quem atende cada cliente ===\n');
@@ -453,6 +478,121 @@ const ditas = () => enviadas.map(e => e.content).join(' | ');
         await chamar('PUT', '/api/whatsapp/conversations/conv-a/fluxo', { automation_id: null });
         const outra = tabela('fluxo_esperas').find(e => e.id === 'esp-2')!;
         assert(outra.estado === 'A_espera', `nao podia mexer na outra conversa: ${outra.estado}`);
+    });
+
+    console.log('\n=== Blocos antes da pergunta de um menu ===\n');
+
+    /** Um fluxo com um menu que diz coisas ANTES de perguntar. */
+    const fluxoComMenu = (blocos: any[]) => ({
+        id: 9, nome: 'Com menu', ativo: true, empresa_id: EMPRESA,
+        nodes: [
+            { id: 't1', type: 'trigger', data: { triggerKind: 'whatsapp_message', matchMode: 'any' } },
+            {
+                id: 'm1', type: 'menu',
+                data: {
+                    pergunta: 'Como posso ajudar?',
+                    blocos,
+                    options: [
+                        { id: 'op1', label: 'Precos', matchValue: '1' },
+                        { id: 'op2', label: 'Reservar', matchValue: '2' },
+                    ],
+                },
+            },
+        ],
+        edges: [{ id: 'e1', source: 't1', target: 'm1' }],
+    });
+
+    await test('os blocos saem ANTES da pergunta, pela ordem certa', async () => {
+        // Sem isto era preciso um no de mensagem antes de cada menu, ligado por
+        // uma seta, so para dizer "ola" — mais um passo do fluxo por nada.
+        tabela('automations').push(fluxoComMenu([
+            { tipo: 'texto', texto: 'Ola, bem-vindo' },
+            { tipo: 'texto', texto: 'Somos a Residencial' },
+        ]));
+        await receber('244900000001', 'Ola');
+
+        const d = ditas();
+        assert(d.includes('Ola, bem-vindo'), `faltou o primeiro bloco: ${d}`);
+        assert(d.includes('Somos a Residencial'), `faltou o segundo bloco: ${d}`);
+        assert(d.includes('Como posso ajudar'), `faltou a pergunta: ${d}`);
+
+        const iPrimeiro = d.indexOf('Ola, bem-vindo');
+        const iSegundo = d.indexOf('Somos a Residencial');
+        const iPergunta = d.indexOf('Como posso ajudar');
+        assert(iPrimeiro < iSegundo, `ordem trocada entre os blocos: ${d}`);
+        assert(iSegundo < iPergunta, `a pergunta tem de vir no FIM: ${d}`);
+    });
+
+    await test('um menu sem blocos continua a funcionar como sempre', async () => {
+        // Os menus que ja existem nao tem blocos nenhuns.
+        tabela('automations').push(fluxoComMenu([]));
+        await receber('244900000001', 'Ola');
+        assert(ditas().includes('Como posso ajudar'), `a pergunta devia sair na mesma: ${ditas()}`);
+    });
+
+    await test('as variaveis funcionam nos blocos do menu', async () => {
+        tabela('automations').push(fluxoComMenu([{ tipo: 'texto', texto: 'Ola {{nome_whatsapp}}' }]));
+        await receber('244900000001', 'Ola');
+        assert(ditas().includes('Ola Cliente'), `devia substituir a variavel: ${ditas()}`);
+    });
+
+    await test('depois dos blocos, o menu continua a esperar a escolha', async () => {
+        // O que importa e que os blocos nao atropelam o funcionamento do menu:
+        // ele tem de continuar parado a espera da resposta seguinte.
+        tabela('automations').push(fluxoComMenu([{ tipo: 'texto', texto: 'Ola' }]));
+        await receber('244900000001', 'Ola');
+        const antes = ditas();
+        assert(antes.includes('Como posso ajudar'), `devia perguntar: ${antes}`);
+        // A resposta seguinte e tratada como a ESCOLHA, nao como um novo comeco.
+        await receber('244900000001', '2');
+        assert(!ditas().replace(antes, '').includes('Ola'), `nao devia repetir a saudacao: ${ditas()}`);
+    });
+
+    console.log('\n=== Os botoes saem MESMO, pelo motor ===\n');
+
+    const fluxoMenuSimples = (nOpcoes: number) => ({
+        id: 11, nome: 'Menu', ativo: true, empresa_id: EMPRESA,
+        nodes: [
+            { id: 't1', type: 'trigger', data: { triggerKind: 'whatsapp_message', matchMode: 'any' } },
+            {
+                id: 'm1', type: 'menu',
+                data: {
+                    pergunta: 'Como posso ajudar?',
+                    options: Array.from({ length: nOpcoes }, (_, i) => ({
+                        id: 'op' + (i + 1), label: 'Opcao ' + (i + 1), matchValue: String(i + 1),
+                    })),
+                },
+            },
+        ],
+        edges: [{ id: 'e1', source: 't1', target: 'm1' }],
+    });
+
+    await test('tres opcoes saem como BOTOES, nao como texto numerado', async () => {
+        // Este e o teste que faltava. Os do servico passavam todos, mas o motor
+        // nunca lhe chamava: lia a empresa do contexto, onde ela nunca esteve, e
+        // caia sempre no texto — em silencio.
+        tabela('automations').push(fluxoMenuSimples(3));
+        await receber('244900000001', 'Ola');
+
+        const botoes = enviadoPor('sendButtons');
+        assert(botoes.length === 1, `devia ter chamado o sendButtons uma vez, chamou ${botoes.length}`);
+        assert(botoes[0].corpo.buttons.length === 3, `deviam ir 3 botoes, foram ${botoes[0].corpo.buttons.length}`);
+        assert(botoes[0].corpo.buttons[0].id === 'op1', `o id da opcao tem de ir no botao: ${JSON.stringify(botoes[0].corpo.buttons[0])}`);
+    });
+
+    await test('cinco opcoes saem como SONDAGEM', async () => {
+        tabela('automations').push(fluxoMenuSimples(5));
+        await receber('244900000001', 'Ola');
+        const sondagens = enviadoPor('sendPoll');
+        assert(sondagens.length === 1, `devia ter chamado o sendPoll, chamou ${sondagens.length}`);
+        assert(sondagens[0].corpo.values.length === 5, `deviam ir 5 opcoes, foram ${sondagens[0].corpo.values.length}`);
+    });
+
+    await test('um menu sem opcoes nenhumas continua a ser texto', async () => {
+        tabela('automations').push(fluxoMenuSimples(0));
+        await receber('244900000001', 'Ola');
+        assert(enviadoPor('sendButtons').length === 0, 'nao havia nada para por em botoes');
+        assert(ditas().includes('Como posso ajudar'), `a pergunta devia sair na mesma: ${ditas()}`);
     });
 
     servidor.unref();

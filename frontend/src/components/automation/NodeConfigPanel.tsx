@@ -230,6 +230,21 @@ export default function NodeConfigPanel({ node, todosOsNos = [], automations, cu
 
       return (
         <>
+          {/* Blocos ANTES da pergunta: uma saudacao, uma foto, uma pausa. Sem
+              isto era preciso um no de mensagem antes de cada menu, ligado por
+              uma seta, so para dizer "ola". */}
+          <EditorBlocos
+            blocos={Array.isArray((d as any).blocos) ? (d as any).blocos : []}
+            aoMudar={(b: Bloco[]) => updateData({ blocos: b } as any)}
+          />
+
+          <div style={{
+            marginTop: '18px', fontSize: '11px', fontWeight: 700,
+            letterSpacing: '.04em', color: '#475569',
+          }}>
+            E DEPOIS, A PERGUNTA
+          </div>
+
           <label style={labelStyle}>Pergunta a enviar</label>
           <textarea style={{ ...fieldStyle, minHeight: '64px' }} value={d.pergunta || ''} onChange={e => updateData({ pergunta: e.target.value })}
             placeholder={'Como posso ajudar?'} />

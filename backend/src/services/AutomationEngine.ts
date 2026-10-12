@@ -647,7 +647,7 @@ export class AutomationEngine {
                 // pela mensagem seguinte do cliente.
                 if (!mensagemDisponivel) {
                     if (node.data?.pergunta) {
-                        await this.perguntarMenu(node, context, sim);
+                        await this.perguntarMenu(node, context, empresa_id, sim);
                     }
                     registar(node, 'Menu: à espera da resposta');
                     if (sim) { sim.pendente = { nodeId: node.id, contexto: context, tentativas: 0 }; return context; }
@@ -866,7 +866,62 @@ export class AutomationEngine {
      * sondagem acima disso, e a lista numerada de sempre se nada funcionar.
      * Nunca fica pior do que estava.
      */
-    private static async perguntarMenu(node: FlowNode, context: any, sim?: Simulacao): Promise<void> {
+    private static async perguntarMenu(node: FlowNode, context: any, empresaId: any, sim?: Simulacao): Promise<void> {
+        // A empresa VEM POR PARAMETRO, nao do contexto.
+        //
+        // O contexto de um fluxo tem o telefone, o canal e a conversa, mas NUNCA
+        // teve `empresa_id`. Eu li-o de la e o resultado foi que a condicao era
+        // sempre falsa: o menu clicavel que escrevi nunca chegou a enviar um
+        // botao — caia sempre no texto numerado, em silencio. Os testes nao o
+        // apanharam porque exercitavam o servico de envio directamente, sem
+        // passar pelo motor.
+        // Um menu tambem pode ter BLOCOS antes da pergunta: uma saudacao, uma
+        // foto do produto, uma pausa para a conversa respirar. Sem isto era
+        // preciso um no de mensagem antes de cada menu, ligado por uma seta, e
+        // o fluxo dava mais um passo so para dizer "ola".
+        //
+        // Os blocos saem primeiro; a pergunta com as opcoes clicaveis vem no
+        // fim, que e onde o cliente a espera.
+        const blocosAntes = Array.isArray((node.data as any)?.blocos) ? (node.data as any).blocos : [];
+        if (blocosAntes.length && !sim && context?.channel_id && context?.telefone && empresaId) {
+            const r = await BlocosMensagemService.enviar(
+                blocosAntes,
+                {
+                    empresaId, channelId: context.channel_id,
+                    telefone: context.telefone, conversationId: context.conversation_id,
+                },
+                (t: string) => this.parseString(t, context),
+            );
+            if (r.falhados.length) {
+                const resumo = r.falhados.map((f: any) => `#${f.indice + 1} (${f.tipo}): ${f.erro}`).join(' | ');
+                console.error('[AUTOPILOT] Blocos do menu que nao sairam:', resumo);
+                await AuditoriaService.registar({
+                    empresaId, quemId: null, accao: 'mensagem_falhou',
+                    conversationId: context.conversation_id || null,
+                    alvoTipo: 'conversa', alvoId: context.conversation_id || null,
+                    detalhes: `nao conseguiu enviar ${r.falhados.length} bloco(s) antes de um menu. ${resumo}`,
+                    extra: { falhados: r.falhados },
+                });
+            }
+            for (const b of blocosAntes) {
+                if (b.tipo === 'pausa' || !context.conversation_id) continue;
+                const conteudo = this.parseString(b.texto || '', context) || `[${b.tipo}]`;
+                if (!conteudo.trim()) continue;
+                await this.saveMessage(context.conversation_id, {
+                    channel_id: context.channel_id, phone_number: context.telefone,
+                    contact_name: 'Autopilot', content: conteudo, direction: 'outbound',
+                });
+            }
+        } else if (blocosAntes.length && sim) {
+            for (const b of blocosAntes) {
+                if (b.tipo === 'pausa') continue;
+                const t = b.tipo === 'texto'
+                    ? this.parseString(b.texto || '', context)
+                    : `[${b.tipo}] ${this.parseString(b.texto || b.url || '', context)}`;
+                if (t.trim()) sim.mensagens.push({ de: 'bot', texto: t });
+            }
+        }
+
         const pergunta = this.parseString(node.data?.pergunta || '', context);
         const opcoes = (Array.isArray(node.data?.options) ? node.data.options : [])
             .map((o: any, i: number) => ({
@@ -884,14 +939,14 @@ export class AutomationEngine {
             return;
         }
 
-        if (opcoes.length === 0 || !context?.channel_id || !context?.telefone || !context?.empresa_id) {
+        if (opcoes.length === 0 || !context?.channel_id || !context?.telefone || !empresaId) {
             // Sem opções (ou sem saber por onde enviar) é uma pergunta simples.
             await this.responderNoWhatsApp(context, pergunta, sim);
             return;
         }
 
         const r = await WhatsAppInterativoService.perguntar({
-            empresaId: context.empresa_id,
+            empresaId,
             channelId: context.channel_id,
             telefone: context.telefone,
             texto: pergunta,
@@ -907,7 +962,7 @@ export class AutomationEngine {
                     id: r.messageId, channel_id: context.channel_id, phone_number: context.telefone,
                     contact_name: 'Autopilot',
                     content: WhatsAppInterativoService.comoTexto({
-                        empresaId: context.empresa_id, channelId: context.channel_id,
+                        empresaId, channelId: context.channel_id,
                         telefone: context.telefone, texto: pergunta, opcoes,
                     }),
                     direction: 'outbound',
