@@ -74,8 +74,25 @@ export class WhatsAppInterativoService {
      * Acima disso seria preciso a lista; enquanto ela não funcionar, a sondagem
      * faz o mesmo trabalho — o cliente escolhe sem escrever, que é o que conta.
      */
-    public static formatoIdeal(quantas: number, listaDisponivel = false): Formato[] {
+    public static formatoIdeal(quantas: number, listaDisponivel = false, botoesFiaveis = true): Formato[] {
         if (quantas <= 0) return ['texto'];
+
+        // Os botoes sao o melhor formato — ficam a vista, sem mais um toque
+        // para abrir. MAS numa Evolution 2.3.x eles saem com 201 e nunca sao
+        // entregues: a mensagem fica em PENDING para sempre e o cliente nao
+        // recebe NADA. Estao dois relatos disso no GitHub do projecto (as
+        // questoes 2390 e 2404) e nunca consegui confirmar o contrario aqui.
+        //
+        // Entre um formato bonito que pode nao chegar e uma sondagem que
+        // confirmadamente chega — o Elves votou numa — escolhe-se a que chega.
+        // Assim que os botoes estiverem confirmados num canal, `botoesFiaveis`
+        // volta a por-los a frente.
+        if (!botoesFiaveis) {
+            if (quantas <= LIMITES.lista.opcoes && listaDisponivel) return ['lista', 'sondagem', 'texto'];
+            if (quantas <= LIMITES.sondagem.opcoes) return ['sondagem', 'texto'];
+            return ['texto'];
+        }
+
         if (quantas <= LIMITES.botoes.opcoes) return ['botoes', 'sondagem', 'texto'];
         if (quantas <= LIMITES.lista.opcoes && listaDisponivel) return ['lista', 'sondagem', 'texto'];
         if (quantas <= LIMITES.sondagem.opcoes) return ['sondagem', 'lista', 'texto'];
@@ -106,7 +123,7 @@ export class WhatsAppInterativoService {
             return { ok: false, formato: 'texto', tentativas: [{ formato: 'texto', erro: 'canal não encontrado' }] };
         }
 
-        for (const formato of WhatsAppInterativoService.formatoIdeal(p.opcoes.length, canal.listaDisponivel)) {
+        for (const formato of WhatsAppInterativoService.formatoIdeal(p.opcoes.length, canal.listaDisponivel, canal.botoesFiaveis)) {
             try {
                 const id = await WhatsAppInterativoService.enviarNoFormato(formato, p, canal);
                 if (id !== false) {
@@ -128,10 +145,22 @@ export class WhatsAppInterativoService {
             .eq('id', channelId).eq('empresa_id', empresaId).maybeSingle();
         if (!data) return null;
 
-        // A lista só se tenta onde se sabe que funciona. Na Evolution desta
-        // instalação não funciona, e tentá-la a cada menu era uma chamada
-        // perdida e um erro no log a cada pergunta.
-        return { ...data, listaDisponivel: data.provider === 'meta' };
+        // O que este canal consegue mesmo fazer.
+        //
+        // Pela Meta (API oficial) tudo funciona e esta documentado. Pela
+        // Evolution 2.3.x a lista rebenta (erro interno do Baileys) e os botoes
+        // saem sem erro mas nao sao entregues — a mensagem fica em PENDING.
+        // So a sondagem esta confirmada a chegar.
+        //
+        // Quem tiver uma Evolution onde os botoes funcionem (a 2.3.6, por
+        // exemplo) liga-os na configuracao do canal, e eles voltam a ser o
+        // primeiro formato.
+        const meta = data.provider === 'meta';
+        return {
+            ...data,
+            listaDisponivel: meta,
+            botoesFiaveis: meta || data.credentials?.botoesFiaveis === true,
+        };
     }
 
     private static async enviarNoFormato(formato: Formato, p: PedidoEscolha, canal: any): Promise<string | boolean> {

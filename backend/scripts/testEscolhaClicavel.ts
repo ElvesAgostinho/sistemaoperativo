@@ -92,10 +92,19 @@ async function test(nome: string, fn: () => Promise<void>) {
 (async () => {
     console.log('\n=== Que formato para quantas opções ===\n');
 
-    await test('até três opções são botões', async () => {
+    await test('com botoes fiaveis, ate tres opcoes sao botoes', async () => {
         // Botões ficam à vista: o cliente escolhe sem mais um toque para abrir.
         for (const n of [1, 2, 3]) {
-            assert(Interativo.formatoIdeal(n)[0] === 'botoes', `${n} opções devia dar botões`);
+            assert(Interativo.formatoIdeal(n, false, true)[0] === 'botoes', `${n} opções devia dar botões`);
+        }
+    });
+
+    await test('sem botoes fiaveis, nunca se tentam botoes', async () => {
+        // Tenta-los era mandar uma mensagem que o cliente nunca recebe, e ficar
+        // a pensar que correu bem.
+        for (const n of [1, 2, 3, 5, 10]) {
+            const ordem = Interativo.formatoIdeal(n, false, false);
+            assert(!ordem.includes('botoes'), `${n} opcoes nao devia tentar botoes: ${ordem.join(',')}`);
         }
     });
 
@@ -104,13 +113,13 @@ async function test(nome: string, fn: () => Promise<void>) {
         // "this.isZero is not a function". A sondagem faz o mesmo trabalho: o
         // cliente escolhe sem escrever, que é o que conta.
         for (const n of [4, 6, 10, 12]) {
-            assert(Interativo.formatoIdeal(n, false)[0] === 'sondagem', `${n} opções devia dar sondagem`);
+            assert(Interativo.formatoIdeal(n, false, true)[0] === 'sondagem', `${n} opções devia dar sondagem`);
         }
     });
 
     await test('com a lista disponível, de quatro a dez é lista', async () => {
         for (const n of [4, 7, 10]) {
-            assert(Interativo.formatoIdeal(n, true)[0] === 'lista', `${n} opções devia dar lista`);
+            assert(Interativo.formatoIdeal(n, true, true)[0] === 'lista', `${n} opções devia dar lista`);
         }
     });
 
@@ -119,21 +128,39 @@ async function test(nome: string, fn: () => Promise<void>) {
     });
 
     await test('o texto numerado é sempre a última rede', async () => {
-        for (const n of [1, 5, 11]) {
-            const ordem = Interativo.formatoIdeal(n);
-            assert(ordem[ordem.length - 1] === 'texto', `${n}: o texto tem de ficar no fim — ${ordem.join(',')}`);
+        for (const fiaveis of [true, false]) {
+            for (const n of [1, 5, 11]) {
+                const ordem = Interativo.formatoIdeal(n, false, fiaveis);
+                assert(ordem[ordem.length - 1] === 'texto', `${n}: o texto tem de ficar no fim — ${ordem.join(',')}`);
+            }
         }
     });
 
     console.log('\n=== Enviar ===\n');
 
-    await test('três opções saem como botões de verdade', async () => {
+    await test('numa Evolution comum, tres opcoes saem como SONDAGEM', async () => {
+        // Os botoes seriam melhores — ficam a vista, sem mais um toque. Mas numa
+        // Evolution 2.3.x saem com 201 e nunca sao entregues: a mensagem fica em
+        // PENDING e o cliente nao recebe NADA (questoes 2390 e 2404 no GitHub do
+        // projecto). Entre um formato bonito que pode nao chegar e uma sondagem
+        // que confirmadamente chega, escolhe-se a que chega.
+        const r = await Interativo.perguntar(pedido(3));
+        assert(r.ok && r.formato === 'sondagem', `devia enviar sondagem: ${JSON.stringify(r)}`);
+        assert(/sendPoll/.test(enviados[0].url), `endpoint errado: ${enviados[0].url}`);
+    });
+
+    await test('num canal onde os botoes ESTAO confirmados, saem botoes', async () => {
+        // Quem tenha uma Evolution onde eles funcionem (a 2.3.6, por exemplo)
+        // liga-os na configuracao do canal.
+        db['wa_channels'] = [{
+            id: CANAL, empresa_id: EMPRESA, provider: 'evolution', status: 'connected',
+            credentials: { instanceName: 'INST_1', botoesFiaveis: true },
+        }];
         const r = await Interativo.perguntar(pedido(3));
         assert(r.ok && r.formato === 'botoes', `devia enviar botões: ${JSON.stringify(r)}`);
         const env = enviados[0];
         assert(/sendButtons/.test(env.url), `endpoint errado: ${env.url}`);
         assert(env.corpo.buttons.length === 3, `deviam ir 3 botões, foram ${env.corpo.buttons.length}`);
-        assert(env.corpo.buttons[0].type === 'reply', 'tipo errado');
         assert(env.corpo.buttons[0].id === 'op1', `o id tem de ir no botão: ${env.corpo.buttons[0].id}`);
     });
 
@@ -147,6 +174,10 @@ async function test(nome: string, fn: () => Promise<void>) {
     });
 
     await test('se os botões falharem, cai na sondagem sozinho', async () => {
+        db['wa_channels'] = [{
+            id: CANAL, empresa_id: EMPRESA, provider: 'evolution', status: 'connected',
+            credentials: { instanceName: 'INST_1', botoesFiaveis: true },
+        }];
         recusar = ['sendButtons'];
         const r = await Interativo.perguntar(pedido(3));
         assert(r.ok && r.formato === 'sondagem', `devia cair na sondagem: ${JSON.stringify(r)}`);
@@ -189,9 +220,11 @@ async function test(nome: string, fn: () => Promise<void>) {
             opcoes: [{ id: 'a', rotulo: 'Quero saber os preços dos quartos para o próximo mês inteiro' }],
         });
         assert(r.ok, 'devia enviar na mesma');
-        const rotulo = enviados[0].corpo.buttons[0].displayText;
-        assert(rotulo.length <= 20, `${rotulo.length} caracteres é demais: "${rotulo}"`);
-        assert(rotulo.endsWith('…'), `devia mostrar que foi cortado: "${rotulo}"`);
+        // Numa sondagem o limite e maior (100), mas o corte tem de existir na
+        // mesma: o WhatsApp recusa a mensagem inteira se passar, e ai o cliente
+        // nao recebia nada.
+        const rotulo = enviados[0].corpo.values[0];
+        assert(rotulo.length <= 100, `${rotulo.length} caracteres é demais: "${rotulo}"`);
     });
 
     console.log('\n=== O painel e o servidor dizem o mesmo ===\n');

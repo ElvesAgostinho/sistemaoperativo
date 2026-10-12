@@ -567,17 +567,22 @@ const enviadoPor = (caminho: string) => pedidosEvolution.filter(p => p.url.inclu
         edges: [{ id: 'e1', source: 't1', target: 'm1' }],
     });
 
-    await test('tres opcoes saem como BOTOES, nao como texto numerado', async () => {
+    await test('tres opcoes saem CLICAVEIS, nao como texto numerado', async () => {
         // Este e o teste que faltava. Os do servico passavam todos, mas o motor
         // nunca lhe chamava: lia a empresa do contexto, onde ela nunca esteve, e
         // caia sempre no texto — em silencio.
         tabela('automations').push(fluxoMenuSimples(3));
         await receber('244900000001', 'Ola');
 
-        const botoes = enviadoPor('sendButtons');
-        assert(botoes.length === 1, `devia ter chamado o sendButtons uma vez, chamou ${botoes.length}`);
-        assert(botoes[0].corpo.buttons.length === 3, `deviam ir 3 botoes, foram ${botoes[0].corpo.buttons.length}`);
-        assert(botoes[0].corpo.buttons[0].id === 'op1', `o id da opcao tem de ir no botao: ${JSON.stringify(botoes[0].corpo.buttons[0])}`);
+        // Numa Evolution comum os botoes saem com 201 e nunca sao entregues
+        // (questoes 2390 e 2404 no GitHub do projecto), por isso o sistema manda
+        // uma sondagem — o unico formato clicavel confirmado a chegar. O que
+        // este teste segura e que NAO se cai no texto numerado.
+        const clicavel = [...enviadoPor('sendButtons'), ...enviadoPor('sendPoll')];
+        assert(clicavel.length === 1, `devia ter enviado algo clicavel, enviou ${clicavel.length}`);
+        const corpo = clicavel[0].corpo;
+        const quantas = corpo.buttons ? corpo.buttons.length : (corpo.values || []).length;
+        assert(quantas === 3, `deviam ir 3 opcoes, foram ${quantas}`);
     });
 
     await test('cinco opcoes saem como SONDAGEM', async () => {

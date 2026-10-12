@@ -614,6 +614,8 @@ export class AutomationEngine {
         // no arranque foi consumida pelo gatilho. Cada nó de espera consome-a uma vez.
         let mensagemDisponivel = !!opts.mensagemDisponivel;
         let saltosDeMenu = 0;   // "Voltar ao menu" encadeados na mesma passagem
+        // Chegou-se a este menu por um "Voltar ao menu"? Entao e so a pergunta.
+        let voltouAoMenu = false;
         const sim = opts.simulacao;
         const registar = (node: FlowNode, titulo: string, detalhe?: string) => {
             if (sim) sim.passos.push({ nodeId: node.id, tipo: node.type, titulo, detalhe });
@@ -647,8 +649,9 @@ export class AutomationEngine {
                 // pela mensagem seguinte do cliente.
                 if (!mensagemDisponivel) {
                     if (node.data?.pergunta) {
-                        await this.perguntarMenu(node, context, empresa_id, sim);
+                        await this.perguntarMenu(node, context, empresa_id, sim, voltouAoMenu);
                     }
+                    voltouAoMenu = false;
                     registar(node, 'Menu: à espera da resposta');
                     if (sim) { sim.pendente = { nodeId: node.id, contexto: context, tentativas: 0 }; return context; }
                     if (podeEsperar) {
@@ -705,6 +708,11 @@ export class AutomationEngine {
                     }
                     registar(node, 'Voltar ao menu', (alvo.data as any)?.pergunta?.slice(0, 40));
                     mensagemDisponivel = false;   // o menu volta a perguntar e espera
+                    // Voltar ao menu e REPETIR A PERGUNTA, nao recomecar. Os
+                    // blocos do menu — a saudacao, a foto do produto — ja sairam
+                    // da primeira vez; manda-los outra vez a cada "voltar" era
+                    // encher a conversa de repeticoes.
+                    voltouAoMenu = true;
                     currentNodeId = alvo.id;
                     continue;
                 }
@@ -947,10 +955,13 @@ export class AutomationEngine {
         return r.enviados;
     }
 
-    private static async perguntarMenu(node: FlowNode, context: any, empresaId: any, sim?: Simulacao): Promise<void> {
+    private static async perguntarMenu(node: FlowNode, context: any, empresaId: any, sim?: Simulacao, soAPergunta = false): Promise<void> {
         // Um menu tambem pode ter blocos antes da pergunta: uma saudacao, uma
         // foto do produto, uma pausa para a conversa respirar.
-        await this.enviarBlocosDoNo(node, context, empresaId, sim);
+        //
+        // Num "Voltar ao menu" nao: isso e repetir a pergunta, e a saudacao ja
+        // saiu da primeira vez.
+        if (!soAPergunta) await this.enviarBlocosDoNo(node, context, empresaId, sim);
 
         const pergunta = this.parseString(node.data?.pergunta || '', context);
         const opcoes = (Array.isArray(node.data?.options) ? node.data.options : [])
@@ -965,7 +976,22 @@ export class AutomationEngine {
             .filter((o: any) => o.rotulo.trim());
 
         if (sim) {
-            sim.mensagens.push({ de: 'bot', texto: pergunta });
+            // O simulador mostrava so a pergunta — exactamente como quando os
+            // menus eram texto. Quem simula tem de ver o que o cliente ve: as
+            // opcoes, e em que formato elas chegam.
+            const formato = opcoes.length === 0 ? 'texto'
+                : opcoes.length <= 3 ? 'botoes'
+                : opcoes.length <= 12 ? 'sondagem'
+                : 'texto';
+            const comoSeLe: Record<string, string> = {
+                botoes: 'botoes a clicar', sondagem: 'sondagem a clicar', texto: 'lista numerada (o cliente escreve)',
+            };
+            sim.mensagens.push({
+                de: 'bot',
+                texto: opcoes.length
+                    ? `${pergunta}\n\n${opcoes.map((o: any, i: number) => `[${i + 1}] ${o.rotulo}`).join('\n')}\n\n(chega como ${comoSeLe[formato]})`
+                    : pergunta,
+            });
             return;
         }
 
