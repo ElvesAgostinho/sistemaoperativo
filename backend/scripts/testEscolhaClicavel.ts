@@ -60,7 +60,7 @@ const fetchReal = global.fetch;
 process.env.EVOLUTION_API_URL = 'https://evolution.exemplo.pt';
 process.env.AUTHENTICATION_API_KEY = 'chave';
 
-const { WhatsAppInterativoService: Interativo } = require(path.join(__dirname, '..', 'src', 'services', 'WhatsAppInterativoService'));
+const { WhatsAppInterativoService: Interativo, LIMITES: LIMITES_SERVIDOR } = require(path.join(__dirname, '..', 'src', 'services', 'WhatsAppInterativoService'));
 const { WhatsAppEscolhaRecebida: Escolha } = require(path.join(__dirname, '..', 'src', 'services', 'WhatsAppEscolhaRecebida'));
 
 const EMPRESA = 'empresa-1';
@@ -192,6 +192,49 @@ async function test(nome: string, fn: () => Promise<void>) {
         const rotulo = enviados[0].corpo.buttons[0].displayText;
         assert(rotulo.length <= 20, `${rotulo.length} caracteres é demais: "${rotulo}"`);
         assert(rotulo.endsWith('…'), `devia mostrar que foi cortado: "${rotulo}"`);
+    });
+
+    console.log('\n=== O painel e o servidor dizem o mesmo ===\n');
+
+    await test('a previsao do painel bate certo com o que o servidor faz', async () => {
+        // Sao duas copias da mesma regra — uma no navegador, para desenhar a
+        // pre-visualizacao, outra aqui — e nada no compilador as obriga a
+        // concordar. Se divergirem, o painel mostra botoes e o cliente recebe
+        // uma lista numerada, que e exactamente a surpresa que nao queremos.
+        const ts = require('typescript');
+        const fs = require('fs');
+        const fonte = fs.readFileSync(
+            path.join(__dirname, '..', '..', 'frontend', 'src', 'components', 'automation', 'PreVisualizacaoEscolha.tsx'), 'utf8'
+        );
+        const ini = fonte.indexOf('const LIMITES');
+        const fim = fonte.indexOf('\n}', fonte.indexOf('export function formatoPrevisto')) + 2;
+        const pedaco = fonte.slice(ini, fim).replace('export function', 'function');
+        const js = ts.transpileModule(pedaco, {
+            compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2019 },
+        }).outputText;
+        // O codigo transpilado escreve em `exports`; sem lho dar, rebenta.
+        const doEcra = new Function('exports', js + '\nreturn formatoPrevisto;')({});
+
+        for (let n = 0; n <= 15; n++) {
+            for (const comLista of [false, true]) {
+                const servidor = Interativo.formatoIdeal(n, comLista)[0];
+                const ecra = doEcra(n, comLista);
+                assert(servidor === ecra,
+                    `${n} opcoes${comLista ? ' (com lista)' : ''}: servidor diz "${servidor}", painel mostra "${ecra}"`);
+            }
+        }
+    });
+
+    await test('os limites sao os mesmos dos dois lados', async () => {
+        const fs = require('fs');
+        const fonte = fs.readFileSync(
+            path.join(__dirname, '..', '..', 'frontend', 'src', 'components', 'automation', 'PreVisualizacaoEscolha.tsx'), 'utf8'
+        );
+        const m = fonte.match(/const LIMITES = \{ botoes: (\d+), lista: (\d+), sondagem: (\d+) \}/);
+        assert(!!m, 'nao encontrei os limites no painel');
+        assert(Number(m[1]) === LIMITES_SERVIDOR.botoes.opcoes, `botoes: painel ${m[1]}, servidor ${LIMITES_SERVIDOR.botoes.opcoes}`);
+        assert(Number(m[2]) === LIMITES_SERVIDOR.lista.opcoes, `lista: painel ${m[2]}, servidor ${LIMITES_SERVIDOR.lista.opcoes}`);
+        assert(Number(m[3]) === LIMITES_SERVIDOR.sondagem.opcoes, `sondagem: painel ${m[3]}, servidor ${LIMITES_SERVIDOR.sondagem.opcoes}`);
     });
 
     console.log('\n=== Ler o toque ===\n');

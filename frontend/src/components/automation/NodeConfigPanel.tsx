@@ -4,6 +4,7 @@ import { X, Trash2, Loader2, Plus, Upload } from 'lucide-react';
 import type { ActionNodeData, ActionType, Automation, AutomationNode, ConditionNodeData, MenuNodeData, TriggerNodeData } from './types';
 import { ACTION_LABELS, createDefaultMenuOption, VARIAVEIS_CONVERSA } from './types';
 import { duracaoDaPausa, emSegundos, pausaPorExtenso, UNIDADES, ESPERA_GUARDADA_ACIMA_DE, type Unidade } from './tempoDaPausa';
+import PreVisualizacaoEscolha from './PreVisualizacaoEscolha';
 
 interface NodeConfigPanelProps {
   node: AutomationNode;
@@ -229,37 +230,63 @@ export default function NodeConfigPanel({ node, todosOsNos = [], automations, cu
       return (
         <>
           <label style={labelStyle}>Pergunta a enviar</label>
-          <textarea style={{ ...fieldStyle, minHeight: '80px' }} value={d.pergunta || ''} onChange={e => updateData({ pergunta: e.target.value })}
-            placeholder={'Escolha uma opção:\n1 - Preços\n2 - Reservar\n3 - Falar com alguém'} />
-          <div style={{ fontSize: '11px', color: '#666', marginTop: '4px', lineHeight: 1.5 }}>
-            O menu envia este texto e fica à espera da resposta seguinte. É também o que volta a ser enviado quando alguém usa o nó <b>"Voltar ao menu"</b>.
+          <textarea style={{ ...fieldStyle, minHeight: '64px' }} value={d.pergunta || ''} onChange={e => updateData({ pergunta: e.target.value })}
+            placeholder={'Como posso ajudar?'} />
+          <div style={{ fontSize: '11px', color: '#666', marginTop: '4px', lineHeight: 1.55 }}>
+            Escreva só a pergunta. <b>Não numere as opções aqui</b> — elas vão em baixo,
+            e o sistema envia-as como botões para o cliente tocar. É também esta pergunta
+            que volta quando alguém usa o nó <b>"Voltar ao menu"</b>.
           </div>
 
-          <label style={labelStyle}>Variável avaliada</label>
-          <input style={fieldStyle} type="text" value={d.variable || '{{mensagem}}'} onChange={e => updateData({ variable: e.target.value })} />
+          {/* ---------- As opcoes ---------- */}
+          <div style={{
+            marginTop: '18px', display: 'flex', alignItems: 'center',
+            justifyContent: 'space-between', gap: '8px',
+          }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '.04em', color: '#475569' }}>
+              OPÇÕES QUE O CLIENTE PODE TOCAR
+            </span>
+            <span style={{ fontSize: '11px', color: '#8696A0' }}>{options.length}</span>
+          </div>
 
-          <label style={labelStyle}>Se a resposta não for nenhuma das opções</label>
-          <input style={fieldStyle} type="text" value={d.mensagemInvalida || ''} onChange={e => updateData({ mensagemInvalida: e.target.value })}
-            placeholder="(por omissão repete a pergunta)" />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', marginTop: '8px' }}>
+            {options.map((opt, i) => (
+              <div key={opt.id} style={{
+                border: '1px solid #E2E8F0', borderRadius: '8px', padding: '9px 10px',
+                background: '#FBFCFD', display: 'flex', gap: '9px', alignItems: 'flex-start',
+              }}>
+                <span style={{
+                  width: '22px', height: '22px', borderRadius: '50%', flexShrink: 0, marginTop: '2px',
+                  background: '#E1EEF0', color: '#0E5A6B', fontSize: '11px', fontWeight: 700,
+                  display: 'grid', placeItems: 'center',
+                }}>{i + 1}</span>
 
-          <label style={labelStyle}>Tentativas antes de desistir</label>
-          <input style={fieldStyle} type="number" min={1} max={10} value={d.maxTentativas ?? 3} onChange={e => updateData({ maxTentativas: Number(e.target.value) })} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <input
+                    style={{ ...fieldStyle, marginBottom: '6px', fontWeight: 600 }}
+                    type="text"
+                    value={opt.label}
+                    onChange={e => updateOption(opt.id, { label: e.target.value })}
+                    placeholder="O que aparece no botão. Ex: Ver preços"
+                  />
+                  <input
+                    style={{ ...fieldStyle, fontSize: '12px' }}
+                    type="text"
+                    value={opt.matchValue}
+                    onChange={e => updateOption(opt.id, { matchValue: e.target.value })}
+                    placeholder="Palavra que também serve, se o cliente escrever. Ex: preços"
+                  />
+                </div>
 
-          <div style={{ marginTop: '16px', fontSize: '11px', fontWeight: 'bold', color: '#475569' }}>OPÇÕES</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
-            {options.map(opt => (
-              <div key={opt.id} style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px', position: 'relative' }}>
                 <button
                   onClick={() => removeOption(opt.id)}
-                  title="Remover opção"
-                  style={{ position: 'absolute', top: '6px', right: '6px', background: 'none', border: 'none', cursor: 'pointer', color: '#f87171', padding: 0 }}
+                  title="Remover esta opção"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#CBD5E1', padding: '2px', marginTop: '2px' }}
+                  onMouseEnter={e => { e.currentTarget.style.color = '#DC2626'; }}
+                  onMouseLeave={e => { e.currentTarget.style.color = '#CBD5E1'; }}
                 >
-                  <X size={14} />
+                  <X size={15} />
                 </button>
-                <label style={{ ...labelStyle, marginTop: 0 }}>Rótulo (visível no cartão)</label>
-                <input style={fieldStyle} type="text" value={opt.label} onChange={e => updateOption(opt.id, { label: e.target.value })} placeholder="Ex: Quero um orçamento" />
-                <label style={labelStyle}>Casa quando a mensagem contém</label>
-                <input style={fieldStyle} type="text" value={opt.matchValue} onChange={e => updateOption(opt.id, { matchValue: e.target.value })} placeholder="Ex: orçamento" />
               </div>
             ))}
           </div>
@@ -267,16 +294,42 @@ export default function NodeConfigPanel({ node, todosOsNos = [], automations, cu
           <button
             onClick={addOption}
             style={{
-              marginTop: '10px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-              padding: '8px', background: '#ecfeff', color: '#0891b2', border: '1px dashed #67e8f9',
-              borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold'
+              marginTop: '9px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+              padding: '9px', background: '#fff', color: '#0E5A6B', border: '1px dashed #9FC4CC',
+              borderRadius: '8px', cursor: 'pointer', fontSize: '12.5px', fontWeight: 600, fontFamily: 'inherit',
             }}
           >
-            <Plus size={14} /> Adicionar Opção
+            <Plus size={14} /> Adicionar opção
           </button>
 
-          <div style={{ marginTop: '12px', fontSize: '11px', color: '#666' }}>
-            Cada opção liga a uma saída própria no cartão — conecte cada uma ao caminho correspondente. Se nenhuma opção corresponder à mensagem, o fluxo termina ali.
+          {/* ---------- Como vai chegar ---------- */}
+          <PreVisualizacaoEscolha
+            pergunta={d.pergunta || ''}
+            opcoes={options.map(o => ({ id: o.id, label: o.label }))}
+          />
+
+          <div style={{ marginTop: '12px', fontSize: '11px', color: '#666', lineHeight: 1.6 }}>
+            Cada opção tem a sua própria saída no cartão — ligue cada uma ao caminho que
+            lhe corresponde. A <b>palavra que também serve</b> é para quem escreve em vez
+            de tocar: continua a funcionar como sempre funcionou.
+          </div>
+
+          {/* ---------- O que fazer quando a resposta nao bate ---------- */}
+          <div style={{ marginTop: '18px', fontSize: '11px', fontWeight: 700, letterSpacing: '.04em', color: '#475569' }}>
+            SE A RESPOSTA NÃO FOR NENHUMA DELAS
+          </div>
+
+          <label style={labelStyle}>O que responder</label>
+          <input style={fieldStyle} type="text" value={d.mensagemInvalida || ''} onChange={e => updateData({ mensagemInvalida: e.target.value })}
+            placeholder="(por omissão repete a pergunta)" />
+
+          <label style={labelStyle}>Tentativas antes de desistir</label>
+          <input style={fieldStyle} type="number" min={1} max={10} value={d.maxTentativas ?? 3} onChange={e => updateData({ maxTentativas: Number(e.target.value) })} />
+
+          <label style={labelStyle}>Variável avaliada</label>
+          <input style={fieldStyle} type="text" value={d.variable || '{{mensagem}}'} onChange={e => updateData({ variable: e.target.value })} />
+          <div style={{ fontSize: '11px', color: '#666', marginTop: '4px', lineHeight: 1.5 }}>
+            Deixe <code>{'{{mensagem}}'}</code> — é o que o cliente escreveu ou tocou.
           </div>
         </>
       );
