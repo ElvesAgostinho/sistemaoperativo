@@ -219,7 +219,47 @@ async function test(nome: string, fn: () => Promise<void>) {
 
     console.log('\n=== Botões de acção ===\n');
 
+    /**
+     * Os testes de formato abaixo descrevem um canal onde os botões JÁ foram
+     * confirmados a chegar (o interruptor "Botões nos menus", ou a API oficial
+     * da Meta). Num canal comum eles nem se tentam — ver os dois testes a seguir.
+     */
+    const comBotoesConfirmados = () => {
+        db['wa_channels'] = [{
+            id: 'chan-1', empresa_id: 'empresa-1', provider: 'evolution',
+            credentials: { instanceName: 'INST_1', botoesFiaveis: true },
+        }];
+    };
+
+    await test('num canal comum, um bloco com botões vai como TEXTO — e chega', async () => {
+        // Este era o pior erro que o sistema tinha. O sendButtons devolvia 201,
+        // o bloco contava como enviado, e o cliente não recebia NADA: perdia a
+        // mensagem toda, não só os botões. E em silêncio.
+        const r = await Blocos.enviar([{
+            tipo: 'texto', texto: 'Veja o e-book',
+            botoes: [{ tipo: 'link', rotulo: 'COMPRAR', valor: 'https://exemplo.pt/ebook' }],
+        }], DESTINO, parse);
+
+        assert(pedidos.length === 0, 'não devia ter chamado o sendButtons neste canal');
+        assert(r.falhados.length === 0, JSON.stringify(r.falhados));
+        assert(saiu.length === 1, `devia ter saído uma mensagem de texto, saíram ${saiu.length}`);
+        const t = JSON.stringify(saiu[0]);
+        assert(t.includes('Veja o e-book'), `o texto devia ir: ${t}`);
+        assert(t.includes('exemplo.pt/ebook'), `o endereço devia ir escrito: ${t}`);
+    });
+
+    await test('num canal comum, o número de telefone também vai escrito', async () => {
+        await Blocos.enviar([{
+            tipo: 'texto', texto: 'Ligue-nos',
+            botoes: [{ tipo: 'chamada', rotulo: 'Ligar agora', valor: '+244 928 053 925' }],
+        }], DESTINO, parse);
+        const t = JSON.stringify(saiu[0]);
+        assert(t.includes('Ligar agora'), t);
+        assert(t.includes('244 928 053 925'), `o número devia ir escrito: ${t}`);
+    });
+
     await test('um botão de link sai no formato certo', async () => {
+        comBotoesConfirmados();
         await Blocos.enviar([{
             tipo: 'texto', texto: 'Veja o e-book',
             botoes: [{ tipo: 'link', rotulo: 'COMPRAR E-BOOK', valor: 'https://exemplo.pt/ebook' }],
@@ -232,6 +272,7 @@ async function test(nome: string, fn: () => Promise<void>) {
     });
 
     await test('um botão de chamada leva o número limpo', async () => {
+        comBotoesConfirmados();
         await Blocos.enviar([{
             tipo: 'texto', texto: 'Ligue-nos',
             botoes: [{ tipo: 'chamada', rotulo: 'Ligar agora', valor: '+244 928 053 925' }],
@@ -241,6 +282,7 @@ async function test(nome: string, fn: () => Promise<void>) {
     });
 
     await test('um botão de copiar leva o código', async () => {
+        comBotoesConfirmados();
         await Blocos.enviar([{
             tipo: 'texto', texto: 'O seu código',
             botoes: [{ tipo: 'copiar', rotulo: 'Copiar', valor: 'PROMO20' }],
@@ -252,6 +294,7 @@ async function test(nome: string, fn: () => Promise<void>) {
     await test('nunca vão mais de três botões', async () => {
         // O WhatsApp recusa a mensagem inteira acima de três, e aí o cliente
         // não recebia nada.
+        comBotoesConfirmados();
         await Blocos.enviar([{
             tipo: 'texto', texto: 'x',
             botoes: [1, 2, 3, 4, 5].map(i => ({ tipo: 'link', rotulo: 'B' + i, valor: 'https://x/' + i })),
@@ -260,6 +303,7 @@ async function test(nome: string, fn: () => Promise<void>) {
     });
 
     await test('botões sem rótulo ou sem destino são deitados fora', async () => {
+        comBotoesConfirmados();
         await Blocos.enviar([{
             tipo: 'texto', texto: 'x',
             botoes: [
@@ -272,6 +316,7 @@ async function test(nome: string, fn: () => Promise<void>) {
     });
 
     await test('um rótulo comprido é encurtado, não recusado', async () => {
+        comBotoesConfirmados();
         await Blocos.enviar([{
             tipo: 'texto', texto: 'x',
             botoes: [{ tipo: 'link', rotulo: 'Carregue aqui para comprar o e-book completo hoje', valor: 'https://x' }],
@@ -280,6 +325,7 @@ async function test(nome: string, fn: () => Promise<void>) {
     });
 
     await test('as variáveis também funcionam nos botões', async () => {
+        comBotoesConfirmados();
         await Blocos.enviar([{
             tipo: 'texto', texto: 'x',
             botoes: [{ tipo: 'link', rotulo: 'Para {{nome}}', valor: 'https://x/{{nome}}' }],

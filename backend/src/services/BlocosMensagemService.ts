@@ -187,6 +187,23 @@ export class BlocosMensagemService {
         if (!canal) throw new Error('canal não encontrado');
 
         if (canal.provider === 'evolution') {
+            // Num número ligado por QR code o `sendButtons` devolve 201 e a
+            // mensagem NUNCA é entregue. O 201 era o pior dos dois mundos: o
+            // sistema contava o bloco como enviado e o cliente não recebia nada
+            // — não só perdia os botões, perdia a mensagem inteira, em silêncio.
+            //
+            // Enquanto os botões não estiverem confirmados neste canal, o link
+            // (ou o número, ou o código) vai escrito no texto. Fica menos
+            // bonito e chega — que é a única coisa que conta. É a mesma decisão
+            // que os menus tomam em WhatsAppInterativoService.formatoIdeal.
+            if (canal.credentials?.botoesFiaveis !== true) {
+                const { WhatsAppChannelManager } = require('./WhatsAppChannelManager');
+                return !!(await WhatsAppChannelManager.sendMessage(
+                    supabase, destino.channelId, destino.telefone,
+                    BlocosMensagemService.botoesComoTexto(texto, botoes, parse),
+                ));
+            }
+
             const base = (process.env.EVOLUTION_API_URL || '').trim().replace(/\/+$/, '');
             const instancia = canal.credentials?.instanceName;
             if (!base || !instancia) throw new Error('Evolution sem URL ou sem instância');
