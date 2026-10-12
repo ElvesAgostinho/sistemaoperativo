@@ -11,6 +11,7 @@ import SeletorFluxo from './whatsapp/SeletorFluxo';
 import MenuAccoesConversa from './whatsapp/MenuAccoesConversa';
 import AuditoriaEmpresa from './whatsapp/AuditoriaEmpresa';
 import MenuSeccoes from './whatsapp/MenuSeccoes';
+import TesteDosBotoes from './whatsapp/TesteDosBotoes';
 
 // FIX #5 — Supabase client para Realtime (usa as mesmas variáveis de ambiente)
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://lmxuixmmrglrqxjrhpgn.supabase.co';
@@ -1349,6 +1350,10 @@ export default function WhatsAppChatApp({ podeFazer }: { podeFazer?: (accao: str
                 ) : (
                     <div style={{ padding: '20px', flex: 1, overflowY: 'auto', backgroundColor: '#fff' }}>
                         <h3 style={{ margin: '0 0 20px 0', color: '#1D2D3E' }}>Gestão de Canais</h3>
+
+                        {/* Os botoes funcionam MESMO neste WhatsApp? So quem tem o
+                            telemovel na mao e que sabe — a API nao o diz. */}
+                        <TesteDosBotoes />
 
                         {hasChatLicense ? (
                             <div style={{ border: `1px solid ${aiFallbackEnabled ? '#D5D7DA' : '#F6DEDE'}`, borderRadius: '2px', padding: '16px', marginBottom: '20px', backgroundColor: aiFallbackEnabled ? 'white' : '#F6DEDE' }}>

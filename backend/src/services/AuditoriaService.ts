@@ -27,7 +27,7 @@ export type AccaoAuditada =
     | 'disparo_criado' | 'disparo_iniciado' | 'disparo_pausado' | 'disparo_cancelado' | 'disparo_apagado'
     | 'campanha_email_criada'
     | 'etiqueta_adicionada' | 'etiqueta_removida'
-    | 'contacto_editado' | 'historico_importado' | 'mensagem_falhou'
+    | 'contacto_editado' | 'historico_importado' | 'mensagem_falhou' | 'canal_botoes'
     // Nao ha 'mensagem_enviada' de proposito: as mensagens para o cliente ja
     // estao na propria conversa, que as mostra com a hora e o lado. Duplica-las
     // aqui enchia a auditoria de ruido e afogava o que ela serve para responder.

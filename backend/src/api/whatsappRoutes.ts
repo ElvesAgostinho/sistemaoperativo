@@ -818,6 +818,108 @@ router.get('/conversations/:id/audit', requireAuth, exigirPermissao('wa.auditori
     }
 });
 
+/**
+ * Os botoes funcionam MESMO neste WhatsApp?
+ *
+ * Nao ha forma de o saber pela API: a Evolution devolve 201 e nao guarda recibo
+ * de entrega nenhum. Em algumas versoes (a 2.3.7, por exemplo) a mensagem sai e
+ * nunca chega — fica em PENDING para sempre e o cliente nao recebe nada.
+ *
+ * Quem sabe e quem tem o telemovel na mao. Esta rota manda um botao de teste
+ * para o proprio numero da empresa; a pessoa olha e diz. Se funcionar, liga o
+ * interruptor e o sistema passa a usar botoes em vez de sondagens.
+ */
+router.post('/canal/testar-botoes', requireAuth, exigirPermissao('wa.canal'), async (req: AuthRequest, res: Response) => {
+    try {
+        const empresaId = req.user!.empresa_id;
+        const { data: canal } = await getSupabase(req).from('wa_channels')
+            .select('id, provider, credentials').eq('empresa_id', empresaId).limit(1).maybeSingle();
+        if (!canal) return res.status(404).json({ success: false, error: 'Nao ha nenhum canal de WhatsApp ligado.' });
+
+        const telefone = String(req.body?.telefone || '').replace(/\D/g, '');
+        if (telefone.length < 8) {
+            return res.status(400).json({ success: false, error: 'Indique o numero que vai receber o teste.' });
+        }
+
+        if (canal.provider !== 'evolution') {
+            return res.json({ success: true, enviado: false, nota: 'Pela API oficial da Meta os botoes funcionam sempre — nao e preciso testar.' });
+        }
+
+        const base = (process.env.EVOLUTION_API_URL || '').trim().replace(/\/+$/, '');
+        const instancia = canal.credentials?.instanceName;
+        if (!base || !instancia) return res.status(400).json({ success: false, error: 'Canal sem instancia configurada.' });
+
+        const r = await fetch(`${base}/message/sendButtons/${instancia}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', apikey: process.env.AUTHENTICATION_API_KEY || '' },
+            body: JSON.stringify({
+                number: telefone, title: '', footer: '',
+                description: 'TESTE DOS BOTOES\n\nSe vir dois botoes a clicar por baixo desta mensagem, eles funcionam no seu WhatsApp. Se vir so este texto, nao funcionam.',
+                buttons: [
+                    { type: 'reply', displayText: 'Vejo os botoes', id: 'sim' },
+                    { type: 'reply', displayText: 'So vejo texto', id: 'nao' },
+                ],
+            }),
+        });
+
+        if (r.status >= 300) {
+            const d: any = await r.json().catch(() => ({}));
+            const m = d?.response?.message || d?.message || `estado ${r.status}`;
+            return res.status(400).json({ success: false, error: typeof m === 'string' ? m : JSON.stringify(m).slice(0, 200) });
+        }
+
+        res.json({ success: true, enviado: true });
+    } catch (e: any) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+/** Ligar ou desligar os botoes, depois de a pessoa ver o teste no telemovel. */
+router.put('/canal/botoes', requireAuth, exigirPermissao('wa.canal'), async (req: AuthRequest, res: Response) => {
+    try {
+        const empresaId = req.user!.empresa_id;
+        const funcionam = req.body?.funcionam === true;
+
+        const { data: canal } = await getSupabase(req).from('wa_channels')
+            .select('id, credentials').eq('empresa_id', empresaId).limit(1).maybeSingle();
+        if (!canal) return res.status(404).json({ success: false, error: 'Nao ha nenhum canal de WhatsApp ligado.' });
+
+        const credenciais = { ...(canal.credentials || {}), botoesFiaveis: funcionam };
+        const { error } = await getSupabase(req).from('wa_channels')
+            .update({ credentials: credenciais }).eq('id', canal.id).eq('empresa_id', empresaId);
+        if (error) throw error;
+
+        await AuditoriaService.registar({
+            empresaId, quemId: req.user!.id, accao: 'canal_botoes',
+            alvoTipo: 'conversa', alvoId: canal.id,
+            detalhes: funcionam
+                ? 'confirmou que os botoes funcionam neste WhatsApp — os menus passam a sair como botoes.'
+                : 'marcou que os botoes nao funcionam neste WhatsApp — os menus saem como sondagem.',
+        });
+
+        res.json({ success: true, funcionam });
+    } catch (e: any) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+/** O estado actual, para o ecra saber o que mostrar. */
+router.get('/canal/botoes', requireAuth, async (req: AuthRequest, res: Response) => {
+    try {
+        const { data: canal } = await getSupabase(req).from('wa_channels')
+            .select('provider, credentials').eq('empresa_id', req.user!.empresa_id).limit(1).maybeSingle();
+        res.json({
+            success: true,
+            provider: canal?.provider || null,
+            funcionam: canal?.provider === 'meta' || canal?.credentials?.botoesFiaveis === true,
+            // Pela Meta nao ha nada a decidir: funciona sempre.
+            decidivel: canal?.provider === 'evolution',
+        });
+    } catch (e: any) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 /** Tudo o que aconteceu na empresa, nao so numa conversa. */
 router.get('/auditoria', requireAuth, exigirPermissao('wa.auditoria'), async (req: AuthRequest, res: Response) => {
     try {
