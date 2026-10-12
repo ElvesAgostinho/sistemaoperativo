@@ -3,6 +3,7 @@ import { WhatsAppTemplateService } from '../services/WhatsAppTemplateService';
 import { supabase, getSupabase } from '../lib/supabaseClient';
 import { requireAuth, AuthRequest } from '../middleware/authMiddleware';
 import { AuditoriaService } from '../services/AuditoriaService';
+import { WhatsAppEscolhaRecebida } from '../services/WhatsAppEscolhaRecebida';
 import { EsperaFluxoService } from '../services/EsperaFluxoService';
 import { exigirPermissao } from '../middleware/permissaoMiddleware';
 import { AutomationEngine } from '../services/AutomationEngine';
@@ -116,6 +117,19 @@ async function extrairConteudo(
     msg: any,
     instanceName?: string
 ): Promise<{ content: string; mediaUrl: string | null; mediaType: string | null; mediaFilename: string | null }> {
+    // Um toque num botao, numa linha do menu ou numa sondagem nao e texto: vem
+    // noutra forma. Antes caia no fundo desta funcao e era gravado como
+    // "[Mensagem Multimedia/Outro]" — foi o que aconteceu com os testes que
+    // enviei ao Elves. Agora le-se primeiro: e a resposta mais clara que o
+    // cliente pode dar, e o fluxo tem de a ver como tal.
+    const escolhaTocada = WhatsAppEscolhaRecebida.ler(msg);
+    if (escolhaTocada) {
+        return {
+            content: WhatsAppEscolhaRecebida.comoTexto(escolhaTocada),
+            mediaUrl: null, mediaType: null, mediaFilename: null,
+        };
+    }
+
     let content: string = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
         let mediaUrl: string | null = null;
         let mediaType: string | null = null;
@@ -205,6 +219,49 @@ async function extrairConteudo(
 
 
 /**
+ * Um voto numa sondagem.
+ *
+ * Chega pelo evento `messages.update`, nao pelo `upsert` — e esse bloco so
+ * mexia no estado de entrega e deitava fora tudo o resto. Era por isso que o
+ * voto do Elves na sondagem de teste nunca apareceu no sistema.
+ *
+ * Daqui para a frente segue o mesmo caminho de uma mensagem escrita: o motor
+ * recebe o texto da opcao escolhida e o fluxo continua como se a pessoa o
+ * tivesse digitado. Nao ha um caminho novo a manter.
+ */
+async function tratarVotoDeSondagem(msg: any, voto: { texto: string }, instanceName?: string) {
+    const jid = msg?.key?.remoteJid || '';
+    if (!jid || jid.includes('@g.us')) return;   // sondagens de grupo nao entram nos fluxos
+
+    let telefone = (msg.key.remoteJidAlt || jid).split('@')[0];
+    if (telefone.includes(':')) telefone = telefone.split(':')[0];
+    telefone = telefone.replace(/\D/g, '');
+    if (!telefone) return;
+
+    const { data: canal } = await supabase.from('wa_channels').select('id')
+        .eq('provider', 'evolution')
+        .filter('credentials->>instanceName', 'eq', instanceName)
+        .maybeSingle();
+    if (!canal?.id) {
+        console.warn('[Webhook] Voto numa sondagem sem canal conhecido:', instanceName);
+        return;
+    }
+
+    console.log(`[Webhook] Voto de ${telefone}: "${voto.texto}"`);
+
+    await AutomationEngine.processIncomingWhatsAppMessage({
+        channel_id: canal.id,
+        phone_number: telefone,
+        contact_name: msg.pushName || telefone,
+        content: voto.texto,
+        direction: 'inbound',
+        // O id do voto e diferente do da sondagem: sem isto, o travao de
+        // eventos repetidos tomava-o pela mensagem original e ignorava-o.
+        id: (msg.key.id || '') + ':voto',
+    });
+}
+
+/**
  * Webhook para Evolution API
  * Evolution envia os eventos em POST para esta rota
  */
@@ -231,8 +288,21 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
             if (Array.isArray(body.data)) msgs = body.data;
             else if (body.data) msgs = [body.data];
 
+            const instanceName = body.instance || req.body?.instance;
+
             for (const msg of msgs) {
                 if (!msg.key?.id) continue;
+
+                // Os votos das sondagens chegam por AQUI. Este bloco so mexia no
+                // estado de entrega ("enviada", "entregue", "lida") e deitava
+                // fora tudo o resto.
+                const voto = WhatsAppEscolhaRecebida.lerVoto(msg, []);
+                if (voto && !msg.key?.fromMe) {
+                    tratarVotoDeSondagem(msg, voto, instanceName)
+                        .catch(e => console.error('[Webhook] Falha a tratar o voto:', e?.message || e));
+                    continue;
+                }
+
                 let newStatus = 'delivered'; // fallback
                 if (msg.update?.status === 3 || msg.update?.status === 'READ') newStatus = 'read';
                 else if (msg.update?.status === 2 || msg.update?.status === 'DELIVERY_ACK') newStatus = 'delivered';

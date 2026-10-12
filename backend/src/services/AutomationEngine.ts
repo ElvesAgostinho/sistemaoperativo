@@ -2,6 +2,7 @@ import { KnowledgeBaseService } from './KnowledgeBaseService';
 import { AIGatewayService } from './AIGatewayService';
 import { supabase } from '../lib/supabaseClient'; // Service role client
 import { EsperaFluxoService } from './EsperaFluxoService';
+import { WhatsAppInterativoService } from './WhatsAppInterativoService';
 
 export interface WhatsAppMessage {
     id?: string;
@@ -641,7 +642,9 @@ export class AutomationEngine {
                 // Um menu é uma pergunta: envia-a (se estiver configurada) e espera
                 // pela mensagem seguinte do cliente.
                 if (!mensagemDisponivel) {
-                    if (node.data?.pergunta) await this.responderNoWhatsApp(context, this.parseString(node.data.pergunta, context), sim);
+                    if (node.data?.pergunta) {
+                        await this.perguntarMenu(node, context, sim);
+                    }
                     registar(node, 'Menu: à espera da resposta');
                     if (sim) { sim.pendente = { nodeId: node.id, contexto: context, tentativas: 0 }; return context; }
                     if (podeEsperar) {
@@ -848,6 +851,73 @@ export class AutomationEngine {
      * matchValue apareça na mensagem do utilizador. Sem correspondência, o fluxo
      * termina ali (mesma semântica de "sem aresta de saída" do nó de condição).
      */
+    /**
+     * A pergunta de um menu, com as opções clicáveis.
+     *
+     * Era texto: "1 - Preços | 2 - Reservar", e o cliente tinha de escrever o
+     * número. Quem escrevia "preços" levava com "Não percebi essa resposta" —
+     * atrito a cada passo de cada fluxo.
+     *
+     * Agora vai no melhor formato que o canal aceitar: botões até três opções,
+     * sondagem acima disso, e a lista numerada de sempre se nada funcionar.
+     * Nunca fica pior do que estava.
+     */
+    private static async perguntarMenu(node: FlowNode, context: any, sim?: Simulacao): Promise<void> {
+        const pergunta = this.parseString(node.data?.pergunta || '', context);
+        const opcoes = (Array.isArray(node.data?.options) ? node.data.options : [])
+            .map((o: any, i: number) => ({
+                // O id da opção é o que liga à saída certa no desenho, e é ele
+                // que volta no toque — por isso acerta sempre, sem depender de
+                // maiúsculas, acentos ou de dois rótulos parecidos.
+                id: String(o.id || o.matchValue || i + 1),
+                rotulo: this.parseString(String(o.label || o.matchValue || `Opção ${i + 1}`), context),
+                descricao: o.descricao ? this.parseString(String(o.descricao), context) : undefined,
+            }))
+            .filter((o: any) => o.rotulo.trim());
+
+        if (sim) {
+            sim.mensagens.push({ de: 'bot', texto: pergunta });
+            return;
+        }
+
+        if (opcoes.length === 0 || !context?.channel_id || !context?.telefone || !context?.empresa_id) {
+            // Sem opções (ou sem saber por onde enviar) é uma pergunta simples.
+            await this.responderNoWhatsApp(context, pergunta, sim);
+            return;
+        }
+
+        const r = await WhatsAppInterativoService.perguntar({
+            empresaId: context.empresa_id,
+            channelId: context.channel_id,
+            telefone: context.telefone,
+            texto: pergunta,
+            opcoes,
+            rodape: node.data?.rodape ? this.parseString(String(node.data.rodape), context) : undefined,
+            textoDoBotao: node.data?.textoDoBotao ? this.parseString(String(node.data.textoDoBotao), context) : undefined,
+        });
+
+        if (r.ok) {
+            console.log(`[AUTOPILOT] Menu enviado como ${r.formato}${r.tentativas.length ? ` (falharam: ${r.tentativas.map(t => t.formato).join(', ')})` : ''}.`);
+            if (context.conversation_id) {
+                await this.saveMessage(context.conversation_id, {
+                    id: r.messageId, channel_id: context.channel_id, phone_number: context.telefone,
+                    contact_name: 'Autopilot',
+                    content: WhatsAppInterativoService.comoTexto({
+                        empresaId: context.empresa_id, channelId: context.channel_id,
+                        telefone: context.telefone, texto: pergunta, opcoes,
+                    }),
+                    direction: 'outbound',
+                });
+            }
+            return;
+        }
+
+        // Nem o texto saiu: fica dito em voz alta, porque uma pergunta que não
+        // chega deixa o cliente à espera sem ninguém dar por isso.
+        console.error('[AUTOPILOT] O menu não chegou a sair:',
+            r.tentativas.map(t => `${t.formato}: ${t.erro}`).join(' | '));
+    }
+
     private static evaluateMenu(data: any, context: any): { id: string } | undefined {
         const mensagem = this.normalizarTexto(this.resolverVariavel(data?.variable || '{{mensagem}}', context));
         const options: any[] = Array.isArray(data?.options) ? data.options : [];
@@ -855,6 +925,12 @@ export class AutomationEngine {
         // responder "1" também "batia" na opção "10"/"11" (o "1" está contido lá
         // dentro), e o fluxo saltava para o ramo errado. Só cai para "contém" como
         // fallback, para continuar a aceitar respostas em texto livre por palavra-chave.
+        // O id da opção primeiro: é o que volta quando o cliente TOCA num botão
+        // ou numa linha do menu, e acerta sem depender de maiúsculas, acentos
+        // ou de dois rótulos parecidos.
+        const porId = options.find(opt => opt.id && mensagem === this.normalizarTexto(String(opt.id)));
+        if (porId) return porId;
+
         const exact = options.find(opt => opt.matchValue && mensagem === this.normalizarTexto(opt.matchValue));
         if (exact) return exact;
         // Também aceita a etiqueta escrita por extenso ("preços" em vez de "1").
