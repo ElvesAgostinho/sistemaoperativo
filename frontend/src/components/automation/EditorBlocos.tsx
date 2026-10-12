@@ -3,6 +3,7 @@ import {
   Type, Image as ImagemIcone, Video, Mic, FileText, Clock,
   Plus, X, ChevronUp, ChevronDown, Link2, Phone, Copy, AlertTriangle,
 } from 'lucide-react';
+import { useCanalBotoes } from './useCanalBotoes';
 
 /**
  * Vários blocos dentro de um nó de mensagem.
@@ -74,6 +75,10 @@ export default function EditorBlocos({ blocos, aoMudar }: {
   aoMudar: (b: Bloco[]) => void;
 }) {
   const [aEscolher, setAEscolher] = useState(false);
+
+  // Prometer um botao que o canal nao entrega era o mesmo erro do simulador:
+  // o painel dizia uma coisa e o cliente recebia outra.
+  const { botoesFiaveis } = useCanalBotoes();
 
   const mudar = (i: number, patch: Partial<Bloco>) =>
     aoMudar(blocos.map((b, j) => (j === i ? { ...b, ...patch } : b)));
@@ -196,7 +201,9 @@ export default function EditorBlocos({ blocos, aoMudar }: {
                             style={{ ...campo, marginBottom: '5px' }}
                             value={bt.rotulo}
                             onChange={e => mudarBotao(i, j, { rotulo: e.target.value })}
-                            placeholder="O que se lê no botão (máx. 20 letras)"
+                            placeholder={botoesFiaveis
+                              ? 'O que se lê no botão (máx. 20 letras)'
+                              : 'O que se lê antes do endereço'}
                           />
                           <input
                             style={campo}
@@ -204,9 +211,24 @@ export default function EditorBlocos({ blocos, aoMudar }: {
                             onChange={e => mudarBotao(i, j, { valor: e.target.value })}
                             placeholder={defBt.exemplo}
                           />
-                          {bt.rotulo.trim().length > 20 && (
+                          {botoesFiaveis && bt.rotulo.trim().length > 20 && (
                             <div style={{ marginTop: '5px', fontSize: '11px', color: '#92400E', display: 'flex', gap: '5px', alignItems: 'center' }}>
                               <AlertTriangle size={11} /> O WhatsApp corta aos 20 caracteres.
+                            </div>
+                          )}
+
+                          {/* Como isto chega MESMO, neste canal. */}
+                          {!botoesFiaveis && (bt.rotulo.trim() || bt.valor.trim()) && (
+                            <div style={{
+                              marginTop: '6px', padding: '6px 8px', borderRadius: '4px',
+                              background: '#F8FAFC', border: '1px solid #E2E8F0',
+                              fontSize: '11px', color: '#5B738B', lineHeight: 1.6,
+                            }}>
+                              Chega escrito na mensagem:{' '}
+                              <span style={{ color: '#1D2D3E', fontFamily: 'monospace' }}>
+                                {(bt.rotulo.trim() || 'Rótulo')}: {(bt.valor.trim() || defBt.exemplo)}
+                              </span>
+                              <br />O WhatsApp torna o endereço clicável, por isso o cliente toca e abre.
                             </div>
                           )}
                         </div>
@@ -227,7 +249,9 @@ export default function EditorBlocos({ blocos, aoMudar }: {
                       </button>
                     ) : (
                       <div style={{ marginTop: '7px', fontSize: '11px', color: '#8696A0', textAlign: 'center' }}>
-                        Três botões é o máximo que o WhatsApp mostra.
+                        {botoesFiaveis
+                          ? 'Três botões é o máximo que o WhatsApp mostra.'
+                          : 'Três é o máximo. Para mais endereços, escreva-os no texto do bloco.'}
                       </div>
                     )}
                   </>

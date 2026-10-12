@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
 import { MessageSquare, List, BarChart3, Type, AlertTriangle } from 'lucide-react';
+import { useCanalBotoes } from './useCanalBotoes';
 
 /**
  * Como é que esta pergunta vai mesmo chegar ao telemóvel do cliente.
@@ -58,22 +58,9 @@ export default function PreVisualizacaoEscolha({ pergunta, opcoes }: {
 }) {
   // O que o canal desta empresa CONSEGUE mesmo enviar. Sem perguntar, a
   // pre-visualizacao desenhava botoes e o cliente recebia uma lista numerada —
-  // uma pre-visualizacao que mente nao serve para nada.
-  const [canal, setCanal] = useState<{ funcionam: boolean; provider: string | null } | null>(null);
-  useEffect(() => {
-    (async () => {
-      try {
-        const r = await fetch(`${import.meta.env.VITE_API_URL}/api/whatsapp/canal/botoes`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('os_auth_token')}` },
-        });
-        const d = await r.json();
-        if (d.success) setCanal({ funcionam: d.funcionam, provider: d.provider });
-      } catch { /* sem isto mostra-se o caso mais conservador */ }
-    })();
-  }, []);
-
-  const botoesFiaveis = canal?.funcionam === true;
-  const listaDisponivel = canal?.provider === 'meta';
+  // uma pre-visualizacao que mente nao serve para nada. O mesmo gancho serve o
+  // editor de blocos, para os dois paineis nao divergirem.
+  const { botoesFiaveis, listaDisponivel } = useCanalBotoes();
 
   const validas = opcoes.filter(o => (o.label || '').trim());
   const formato = formatoPrevisto(validas.length, listaDisponivel, botoesFiaveis);
