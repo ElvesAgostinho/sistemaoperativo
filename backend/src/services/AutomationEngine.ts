@@ -1011,7 +1011,10 @@ export class AutomationEngine {
                 opcoes.length, false, context?.__sim_botoes === true,
             )[0];
             const comoSeLe: Record<string, string> = {
-                botoes: 'botoes a clicar', sondagem: 'sondagem a clicar', texto: 'lista numerada (o cliente escreve)',
+                botoes: 'botões a clicar',
+                lista: 'menu a abrir',
+                sondagem: 'sondagem a clicar',
+                texto: 'lista numerada — o cliente escreve o número',
             };
             sim.mensagens.push({
                 de: 'bot',

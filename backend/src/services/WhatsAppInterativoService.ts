@@ -74,28 +74,30 @@ export class WhatsAppInterativoService {
      * Acima disso seria preciso a lista; enquanto ela não funcionar, a sondagem
      * faz o mesmo trabalho — o cliente escolhe sem escrever, que é o que conta.
      */
-    public static formatoIdeal(quantas: number, listaDisponivel = false, botoesFiaveis = true): Formato[] {
+    public static formatoIdeal(quantas: number, listaDisponivel = false, botoesFiaveis = true, sondagensAtivas = false): Formato[] {
         if (quantas <= 0) return ['texto'];
 
-        // Os botoes sao o melhor formato — ficam a vista, sem mais um toque
-        // para abrir. MAS numa Evolution 2.3.x eles saem com 201 e nunca sao
-        // entregues: a mensagem fica em PENDING para sempre e o cliente nao
-        // recebe NADA. Estao dois relatos disso no GitHub do projecto (as
-        // questoes 2390 e 2404) e nunca consegui confirmar o contrario aqui.
+        // Num numero ligado pelo Baileys (a Evolution, a mesma via da aplicacao
+        // normal) os botoes interativos saem com 201 e NUNCA sao entregues. A
+        // Meta deita-os fora em silencio. Provei-o no numero do cliente, em duas
+        // versoes da Evolution e com os tres tipos de botao.
         //
-        // Entre um formato bonito que pode nao chegar e uma sondagem que
-        // confirmadamente chega — o Elves votou numa — escolhe-se a que chega.
-        // Assim que os botoes estiverem confirmados num canal, `botoesFiaveis`
-        // volta a por-los a frente.
+        // A sondagem chega, mas uma sondagem com contagem de votos nao e um menu
+        // de atendimento — e um inquerito. O cliente foi claro: nao a quer. Por
+        // isso, onde os botoes nao chegam, volta-se a lista numerada de sempre:
+        // o cliente escreve "1" e o fluxo entende. Funciona, e nao finge ser
+        // outra coisa.
+        //
+        // Quem quiser mesmo a sondagem liga-a no canal (`sondagens: true`).
         if (!botoesFiaveis) {
-            if (quantas <= LIMITES.lista.opcoes && listaDisponivel) return ['lista', 'sondagem', 'texto'];
-            if (quantas <= LIMITES.sondagem.opcoes) return ['sondagem', 'texto'];
+            if (quantas <= LIMITES.lista.opcoes && listaDisponivel) return ['lista', 'texto'];
+            if (sondagensAtivas && quantas <= LIMITES.sondagem.opcoes) return ['sondagem', 'texto'];
             return ['texto'];
         }
 
-        if (quantas <= LIMITES.botoes.opcoes) return ['botoes', 'sondagem', 'texto'];
-        if (quantas <= LIMITES.lista.opcoes && listaDisponivel) return ['lista', 'sondagem', 'texto'];
-        if (quantas <= LIMITES.sondagem.opcoes) return ['sondagem', 'lista', 'texto'];
+        // Pela API oficial da Meta funciona tudo, e esta documentado.
+        if (quantas <= LIMITES.botoes.opcoes) return ['botoes', 'texto'];
+        if (quantas <= LIMITES.lista.opcoes && listaDisponivel) return ['lista', 'texto'];
         return ['texto'];
     }
 
@@ -123,7 +125,9 @@ export class WhatsAppInterativoService {
             return { ok: false, formato: 'texto', tentativas: [{ formato: 'texto', erro: 'canal não encontrado' }] };
         }
 
-        for (const formato of WhatsAppInterativoService.formatoIdeal(p.opcoes.length, canal.listaDisponivel, canal.botoesFiaveis)) {
+        for (const formato of WhatsAppInterativoService.formatoIdeal(
+            p.opcoes.length, canal.listaDisponivel, canal.botoesFiaveis, canal.sondagensAtivas,
+        )) {
             try {
                 const id = await WhatsAppInterativoService.enviarNoFormato(formato, p, canal);
                 if (id !== false) {
@@ -160,6 +164,9 @@ export class WhatsAppInterativoService {
             ...data,
             listaDisponivel: meta,
             botoesFiaveis: meta || data.credentials?.botoesFiaveis === true,
+            // Desligadas por omissao: o cliente nao as quer, e com razao. Ficam
+            // disponiveis para quem as queira ligar.
+            sondagensAtivas: data.credentials?.sondagens === true,
         };
     }
 

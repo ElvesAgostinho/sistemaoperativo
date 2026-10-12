@@ -567,30 +567,34 @@ const enviadoPor = (caminho: string) => pedidosEvolution.filter(p => p.url.inclu
         edges: [{ id: 'e1', source: 't1', target: 'm1' }],
     });
 
-    await test('tres opcoes saem CLICAVEIS, nao como texto numerado', async () => {
+    await test('o motor passa MESMO pelo servico de escolha, com a empresa certa', async () => {
         // Este e o teste que faltava. Os do servico passavam todos, mas o motor
         // nunca lhe chamava: lia a empresa do contexto, onde ela nunca esteve, e
-        // caia sempre no texto — em silencio.
+        // caia sempre numa pergunta pelada — em silencio.
+        //
+        // Nesta Evolution o formato escolhido e a lista numerada (os botoes
+        // saem com 201 e nunca chegam). O que este teste segura e que a pergunta
+        // passa pelo servico: se o motor voltar a perder a empresa, sai so o
+        // texto da pergunta, SEM as opcoes numeradas por baixo.
         tabela('automations').push(fluxoMenuSimples(3));
         await receber('244900000001', 'Ola');
 
-        // Numa Evolution comum os botoes saem com 201 e nunca sao entregues
-        // (questoes 2390 e 2404 no GitHub do projecto), por isso o sistema manda
-        // uma sondagem — o unico formato clicavel confirmado a chegar. O que
-        // este teste segura e que NAO se cai no texto numerado.
-        const clicavel = [...enviadoPor('sendButtons'), ...enviadoPor('sendPoll')];
-        assert(clicavel.length === 1, `devia ter enviado algo clicavel, enviou ${clicavel.length}`);
-        const corpo = clicavel[0].corpo;
-        const quantas = corpo.buttons ? corpo.buttons.length : (corpo.values || []).length;
-        assert(quantas === 3, `deviam ir 3 opcoes, foram ${quantas}`);
+        const texto = ditas();
+        assert(texto.includes('Como posso ajudar'), `devia perguntar: ${texto}`);
+        for (let i = 1; i <= 3; i++) {
+            assert(texto.includes(`${i} - Opcao ${i}`), `faltava a opcao ${i} numerada: ${texto}`);
+        }
     });
 
-    await test('cinco opcoes saem como SONDAGEM', async () => {
+    await test('as opcoes saem todas numeradas, sejam tres ou cinco', async () => {
         tabela('automations').push(fluxoMenuSimples(5));
         await receber('244900000001', 'Ola');
-        const sondagens = enviadoPor('sendPoll');
-        assert(sondagens.length === 1, `devia ter chamado o sendPoll, chamou ${sondagens.length}`);
-        assert(sondagens[0].corpo.values.length === 5, `deviam ir 5 opcoes, foram ${sondagens[0].corpo.values.length}`);
+        const texto = ditas();
+        for (let i = 1; i <= 5; i++) {
+            assert(texto.includes(`${i} - Opcao ${i}`), `faltava a opcao ${i}: ${texto}`);
+        }
+        // E nada de sondagens: o cliente pediu-as fora.
+        assert(enviadoPor('sendPoll').length === 0, 'nao devia ter mandado sondagem nenhuma');
     });
 
     await test('um menu sem opcoes nenhumas continua a ser texto', async () => {

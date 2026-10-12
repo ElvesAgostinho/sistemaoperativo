@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { MessageSquare, List, BarChart3, Type, AlertTriangle } from 'lucide-react';
 
 /**
@@ -20,11 +21,15 @@ const LIMITES = { botoes: 3, lista: 10, sondagem: 12 };
 export type FormatoPrevisto = 'botoes' | 'lista' | 'sondagem' | 'texto';
 
 /** A mesma regra do servidor (WhatsAppInterativoService.formatoIdeal). */
-export function formatoPrevisto(quantas: number, listaDisponivel: boolean): FormatoPrevisto {
+export function formatoPrevisto(quantas: number, listaDisponivel: boolean, botoesFiaveis = false): FormatoPrevisto {
   if (quantas <= 0) return 'texto';
+  // Num numero ligado pelo Baileys os botoes nao sao entregues — a Meta
+  // deita-os fora em silencio. Ai o menu volta a ser a lista numerada.
+  if (!botoesFiaveis) {
+    return (quantas <= LIMITES.lista && listaDisponivel) ? 'lista' : 'texto';
+  }
   if (quantas <= LIMITES.botoes) return 'botoes';
   if (quantas <= LIMITES.lista && listaDisponivel) return 'lista';
-  if (quantas <= LIMITES.sondagem) return 'sondagem';
   return 'texto';
 }
 
@@ -43,17 +48,35 @@ const EXPLICACAO: Record<FormatoPrevisto, { nome: string; icone: any; cor: strin
   },
   texto: {
     nome: 'Lista numerada', icone: Type, cor: '#64748B',
-    nota: 'Acima de 12 opções nenhum formato clicável aguenta — o cliente volta a ter de escrever o número.',
+    nota: 'O cliente escreve o número da opção. É assim num número ligado por QR code: o WhatsApp não entrega botões a quem não usa a API oficial da Meta.',
   },
 };
 
-export default function PreVisualizacaoEscolha({ pergunta, opcoes, listaDisponivel = false }: {
+export default function PreVisualizacaoEscolha({ pergunta, opcoes }: {
   pergunta: string;
   opcoes: OpcaoPreVisualizacao[];
-  listaDisponivel?: boolean;
 }) {
+  // O que o canal desta empresa CONSEGUE mesmo enviar. Sem perguntar, a
+  // pre-visualizacao desenhava botoes e o cliente recebia uma lista numerada —
+  // uma pre-visualizacao que mente nao serve para nada.
+  const [canal, setCanal] = useState<{ funcionam: boolean; provider: string | null } | null>(null);
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch(`${import.meta.env.VITE_API_URL}/api/whatsapp/canal/botoes`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('os_auth_token')}` },
+        });
+        const d = await r.json();
+        if (d.success) setCanal({ funcionam: d.funcionam, provider: d.provider });
+      } catch { /* sem isto mostra-se o caso mais conservador */ }
+    })();
+  }, []);
+
+  const botoesFiaveis = canal?.funcionam === true;
+  const listaDisponivel = canal?.provider === 'meta';
+
   const validas = opcoes.filter(o => (o.label || '').trim());
-  const formato = formatoPrevisto(validas.length, listaDisponivel);
+  const formato = formatoPrevisto(validas.length, listaDisponivel, botoesFiaveis);
   const info = EXPLICACAO[formato];
   const Icone = info.icone;
 
@@ -136,7 +159,7 @@ export default function PreVisualizacaoEscolha({ pergunta, opcoes, listaDisponiv
           )}
 
           {/* Texto: os números que o cliente tem de escrever */}
-          {formato === 'texto' && validas.length > 0 && (
+          {formato === 'texto' && validas.length > 0 && validas.length <= LIMITES.lista && (
             <div style={{ marginTop: '7px', color: '#54656F' }}>
               {validas.map((o, i) => <div key={o.id}>{i + 1} - {o.label.trim()}</div>)}
             </div>
@@ -162,7 +185,19 @@ export default function PreVisualizacaoEscolha({ pergunta, opcoes, listaDisponiv
         </div>
       )}
 
-      {validas.length > LIMITES.sondagem && (
+      {formato === 'texto' && validas.length > 0 && (
+        <div style={{
+          marginTop: '8px', padding: '8px 10px', borderRadius: '4px',
+          background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#5B738B',
+          fontSize: '11.5px', lineHeight: 1.65,
+        }}>
+          Para o cliente poder <b>tocar</b> em vez de escrever, o número tem de estar
+          ligado pela <b>API oficial da Meta</b>. Num número ligado por QR code o
+          WhatsApp não entrega botões — a mensagem sai e nunca chega.
+        </div>
+      )}
+
+      {validas.length > LIMITES.lista && (
         <div style={{
           marginTop: '8px', padding: '8px 10px', borderRadius: '4px',
           background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C',
@@ -170,8 +205,9 @@ export default function PreVisualizacaoEscolha({ pergunta, opcoes, listaDisponiv
         }}>
           <AlertTriangle size={13} style={{ flexShrink: 0, marginTop: '2px' }} />
           <span>
-            <b>{validas.length} opções é demais.</b> O máximo clicável são {LIMITES.sondagem}.
-            Divida este menu em dois, ou o cliente volta a ter de escrever o número.
+            <b>{validas.length} opções não cabem em nenhum formato clicável</b> — o máximo
+            são {LIMITES.lista}, e isso só pela API oficial da Meta. Assim, o cliente escreve o
+            número da opção. Divida este menu em dois se quiser que ele possa tocar.
           </span>
         </div>
       )}

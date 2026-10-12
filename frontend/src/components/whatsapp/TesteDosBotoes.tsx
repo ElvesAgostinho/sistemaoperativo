@@ -9,8 +9,9 @@ import { MousePointerClick, Send, Check, X, Loader, AlertTriangle } from 'lucide
  * nunca chega: fica em PENDING para sempre e o cliente não recebe nada.
  *
  * Quem sabe é quem tem o telemóvel na mão. Aqui manda-se um botão de teste, a
- * pessoa olha, e diz. O sistema passa a usar botões ou sondagens conforme a
- * resposta — em vez de eu decidir por ela a partir de relatos da internet.
+ * pessoa olha, e diz. Se os botões chegarem, os menus passam a usá-los; se não
+ * chegarem, fica a lista numerada — o cliente escreve "1" — que chega sempre.
+ * Quem decide é quem viu o telemóvel, não relatos da internet.
  */
 export default function TesteDosBotoes({ telefoneDaEmpresa }: { telefoneDaEmpresa?: string }) {
   const [estado, setEstado] = useState<{ funcionam: boolean; decidivel: boolean; provider: string | null } | null>(null);
@@ -107,14 +108,15 @@ export default function TesteDosBotoes({ telefoneDaEmpresa }: { telefoneDaEmpres
           background: estado.funcionam ? '#DCEEE2' : '#FEF3C7',
           color: estado.funcionam ? '#107E3E' : '#92400E',
         }}>
-          {estado.funcionam ? 'A usar botões' : 'A usar sondagens'}
+          {estado.funcionam ? 'A usar botões' : 'A usar lista numerada'}
         </span>
       </div>
 
       <p style={{ margin: '0 0 12px', fontSize: '12.5px', color: '#5B738B', lineHeight: 1.65 }}>
         Em algumas versões da Evolution os botões saem sem erro nenhum e <b>nunca chegam</b> ao
         telemóvel do cliente. Não há forma de o saber pela API — só olhando. Mande o teste abaixo,
-        veja no WhatsApp, e diga o que viu.
+        veja no WhatsApp, e diga o que viu. Enquanto não chegarem, os menus saem como
+        <b>lista numerada</b>: o cliente responde com o número da opção.
       </p>
 
       {!enviado ? (
