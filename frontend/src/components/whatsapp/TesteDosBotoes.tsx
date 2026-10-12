@@ -18,6 +18,7 @@ export default function TesteDosBotoes({ telefoneDaEmpresa }: { telefoneDaEmpres
   const [telefone, setTelefone] = useState(telefoneDaEmpresa || '');
   const [aEnviar, setAEnviar] = useState(false);
   const [enviado, setEnviado] = useState(false);
+  const [resultado, setResultado] = useState<{ textoOk?: boolean; botoesOk?: boolean } | null>(null);
   const [aGravar, setAGravar] = useState(false);
   const [erro, setErro] = useState('');
 
@@ -45,6 +46,7 @@ export default function TesteDosBotoes({ telefoneDaEmpresa }: { telefoneDaEmpres
       });
       const d = await r.json();
       if (!r.ok || !d.success) throw new Error(d.error || 'Não foi possível enviar o teste.');
+      setResultado({ textoOk: d.textoOk, botoesOk: d.botoesOk });
       setEnviado(true);
     } catch (e: any) {
       setErro(e.message);
@@ -151,8 +153,15 @@ export default function TesteDosBotoes({ telefoneDaEmpresa }: { telefoneDaEmpres
             border: '1px solid #D5D7DA', fontSize: '12.5px', color: '#1D2D3E',
             lineHeight: 1.6, marginBottom: '10px',
           }}>
-            Enviado. Veja a mensagem <b>"TESTE DOS BOTÕES"</b> no WhatsApp do número
-            que indicou e responda aqui:
+            Enviadas <b>duas</b> mensagens para esse número: a <b>TESTE 1 de 2</b> é texto
+            simples, a <b>TESTE 2 de 2</b> devia trazer dois botões por baixo.
+            {resultado && resultado.botoesOk === false && (
+              <> O servidor já recusou a segunda, por isso só a primeira deve chegar.</>
+            )}
+            <div style={{ marginTop: '7px', color: '#5B738B', fontSize: '11.5px', lineHeight: 1.7 }}>
+              Se não chegar <b>nenhuma</b>, o problema é o número (indicativo, ou não ter
+              WhatsApp) — não os botões. Se chegar só a primeira, são os botões.
+            </div>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button onClick={() => responder(true)} disabled={aGravar} style={botaoResposta(true)}>
@@ -177,9 +186,12 @@ export default function TesteDosBotoes({ telefoneDaEmpresa }: { telefoneDaEmpres
 
       {!estado.funcionam && (
         <div style={{ marginTop: '12px', fontSize: '11.5px', color: '#92400E', lineHeight: 1.7 }}>
-          <b>Se não funcionarem</b>, há dois caminhos para os ter: descer a sua Evolution para a
-          versão <b>2.3.6</b> (onde há relatos de que botões e menus funcionam), ou ligar este
-          número pela <b>API oficial da Meta</b>, onde funcionam sempre e são documentados.
+          <b>Se não funcionarem</b>, os menus saem como lista numerada e tudo continua a
+          trabalhar — o cliente escreve o número da opção. Para os ter a clicar, o caminho
+          que resta é ligar este número pela <b>API oficial da Meta</b>, onde funcionam
+          sempre e estão documentados. Já experimentámos descer a Evolution à versão 2.3.6
+          e <b>não resolveu</b>: o menu continuou avariado e os botões continuaram a não
+          chegar.
         </div>
       )}
 

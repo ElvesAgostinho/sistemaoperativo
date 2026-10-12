@@ -849,26 +849,56 @@ router.post('/canal/testar-botoes', requireAuth, exigirPermissao('wa.canal'), as
         const instancia = canal.credentials?.instanceName;
         if (!base || !instancia) return res.status(400).json({ success: false, error: 'Canal sem instância configurada.' });
 
+        // PRIMEIRO um texto simples, como controlo.
+        //
+        // Sem ele, um "nao recebi nada" nao se consegue ler: pode ser que os
+        // botoes nao sejam entregues, ou pode ser que o numero nem receba (mal
+        // escrito, sem indicativo, bloqueado). Sao dois problemas diferentes com
+        // dois consertos diferentes, e a resposta tem de dizer qual deles e.
+        let textoOk = false;
+        let erroTexto: string | null = null;
+        try {
+            const { WhatsAppChannelManager } = require('../services/WhatsAppChannelManager');
+            textoOk = !!(await WhatsAppChannelManager.sendMessage(
+                getSupabase(req), canal.id, telefone,
+                'TESTE 1 de 2 — texto simples.\n\nSe recebeu esta mensagem, o número está a receber bem. A seguir vai a segunda, com botões.',
+            ));
+        } catch (e: any) {
+            erroTexto = e?.message || 'falhou';
+        }
+
+        // DEPOIS os botoes.
+        let botoesOk = false;
+        let erroBotoes: string | null = null;
         const r = await fetch(`${base}/message/sendButtons/${instancia}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', apikey: process.env.AUTHENTICATION_API_KEY || '' },
             body: JSON.stringify({
                 number: telefone, title: '', footer: '',
-                description: 'TESTE DOS BOTOES\n\nSe vir dois botoes a clicar por baixo desta mensagem, eles funcionam no seu WhatsApp. Se vir so este texto, nao funcionam.',
+                description: 'TESTE 2 de 2 — botões.\n\nSe vir dois botões a clicar por baixo desta mensagem, eles funcionam no seu WhatsApp. Se vir só este texto, nao funcionam.',
                 buttons: [
                     { type: 'reply', displayText: 'Vejo os botões', id: 'sim' },
                     { type: 'reply', displayText: 'Só vejo texto', id: 'nao' },
                 ],
             }),
         });
-
-        if (r.status >= 300) {
+        if (r.status < 300) {
+            botoesOk = true;
+        } else {
             const d: any = await r.json().catch(() => ({}));
             const m = d?.response?.message || d?.message || `estado ${r.status}`;
-            return res.status(400).json({ success: false, error: typeof m === 'string' ? m : JSON.stringify(m).slice(0, 200) });
+            erroBotoes = typeof m === 'string' ? m : JSON.stringify(m).slice(0, 200);
         }
 
-        res.json({ success: true, enviado: true });
+        // Se NENHUMA das duas saiu, nao ha nada para a pessoa ir ver.
+        if (!textoOk && !botoesOk) {
+            return res.status(400).json({
+                success: false,
+                error: erroTexto || erroBotoes || 'Não foi possível enviar o teste.',
+            });
+        }
+
+        res.json({ success: true, enviado: true, textoOk, botoesOk, erroTexto, erroBotoes });
     } catch (e: any) {
         res.status(500).json({ success: false, error: e.message });
     }
