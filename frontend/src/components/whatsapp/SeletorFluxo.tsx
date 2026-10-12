@@ -188,15 +188,17 @@ export default function SeletorFluxo({
                       ? ' · só à mão — nunca responde sozinho'
                       : f.ativo
                         ? ' · ligado, responde a toda a gente'
-                        : ' · desligado no Autopilot'}
+                        : ' · desligado para todos — atende só quem escolher aqui'}
                   </div>
 
                   <div style={{ display: 'flex', gap: '6px', paddingLeft: '15px' }}>
                     {!ativo && (
                       <button
                         onClick={() => atenderCom(f)}
-                        disabled={(!f.ativo && !f.soAMao) || ocupado !== null}
-                        title={(f.ativo || f.soAMao) ? 'A próxima mensagem deste cliente é tratada por este fluxo' : 'Ligue o fluxo no Autopilot primeiro'}
+                        disabled={ocupado !== null}
+                        title={(f.ativo || f.soAMao)
+                          ? 'A próxima mensagem deste cliente é tratada por este fluxo'
+                          : 'Atende só este cliente. Continua desligado para toda a gente.'}
                         style={{ padding: '5px 10px', background: 'white', color: (f.ativo || f.soAMao) ? '#0E5A6B' : '#B8C2CC', border: `1px solid ${(f.ativo || f.soAMao) ? '#0E5A6B' : '#D5D7DA'}`, borderRadius: '2px', fontSize: '12px', fontWeight: 600, cursor: (f.ativo || f.soAMao) ? 'pointer' : 'not-allowed' }}
                       >
                         {ocupado === f.id ? <Loader2 size={12} className="spin" /> : 'Atender com este'}

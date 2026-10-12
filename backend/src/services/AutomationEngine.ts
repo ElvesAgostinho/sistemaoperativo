@@ -256,19 +256,21 @@ export class AutomationEngine {
                 console.warn(`[AUTOPILOT] O fluxo escolhido para a conversa ${conversationId} já não existe — o sistema volta a decidir.`);
                 return null;
             }
-            // "Desligado" só quer dizer alguma coisa para um fluxo que responde a
-            // mensagens: desligá-lo no Autopilot tem mesmo de o calar em todo o lado.
-            // Num fluxo "só quando eu mandar" o interruptor não significa nada — ele
-            // nunca responde sozinho —, por isso continuar a honrar a escolha de quem
-            // atende é o correto. Sem esta distinção, escolher um desses para uma
-            // conversa deixava o cliente sem resposta, em silêncio.
-            const { nodes } = this.parseGraph(automation);
-            const gatilho = nodes.find((n: FlowNode) => n.type === 'trigger');
-            const respondeAMensagens = gatilho?.data?.triggerKind === 'whatsapp_message';
-
-            if (!automation.ativo && respondeAMensagens) {
-                console.warn(`[AUTOPILOT] O fluxo "${automation.nome}" está desligado — a conversa ${conversationId} volta ao normal.`);
-                return null;
+            // O interruptor do Autopilot e esta escolha respondem a perguntas
+            // diferentes: "ligado" quer dizer "responde a TODA A GENTE sozinho",
+            // e isto quer dizer "quero ESTE fluxo a atender ESTE cliente".
+            //
+            // Eu tinha-os amarrado um ao outro, e o resultado foi um beco sem
+            // saída: uma empresa com todos os fluxos desligados — que é o estado
+            // normal de quem ainda não os quer a responder a toda a gente — não
+            // conseguia escolher nenhum para ninguém. O painel só mostrava
+            // botões mortos.
+            //
+            // Uma escolha deliberada de uma pessoa, para um cliente concreto,
+            // ganha ao interruptor geral. Quem a quiser desfazer larga-a no
+            // mesmo sítio onde a fez.
+            if (!automation.ativo) {
+                console.log(`[AUTOPILOT] "${automation.nome}" está desligado no Autopilot, mas foi escolhido para a conversa ${conversationId} — atende só este cliente.`);
             }
             return automation;
         } catch (e) {

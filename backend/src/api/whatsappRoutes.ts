@@ -989,17 +989,11 @@ router.put('/conversations/:id/fluxo', requireAuth, exigirPermissao('wa.fluxo'),
             if (!fluxo) return res.status(404).json({ error: 'Fluxo não encontrado.' });
             nomeDoFluxo = fluxo.nome || '';
 
-            // "Ligado" quer dizer "responde a toda a gente". Para um fluxo que só
-            // corre quando alguém o manda correr isso não faz sentido nenhum —
-            // exigi-lo obrigava a ligá-lo, e ligá-lo transformava-o num fluxo para
-            // todos, que é exatamente o que se quer evitar.
-            const nodes = typeof fluxo.nodes === 'string' ? JSON.parse(fluxo.nodes || '[]') : (fluxo.nodes || []);
-            const gatilho = nodes.find((n: any) => n.type === 'trigger');
-            const reageAMensagens = gatilho?.data?.triggerKind === 'whatsapp_message';
-
-            if (reageAMensagens && !fluxo.ativo) {
-                return res.status(400).json({ error: `"${fluxo.nome}" está desligado. Ligue-o no Autopilot antes de o pôr a atender.` });
-            }
+            // Nao se exige que o fluxo esteja ligado. "Ligado" quer dizer
+            // "responde a toda a gente sozinho"; isto quer dizer "atende este
+            // cliente". Exigir as duas coisas deixava uma empresa com os fluxos
+            // todos desligados sem conseguir escolher nenhum para ninguem — foi
+            // o que aconteceu a um cliente, com o painel cheio de botoes mortos.
         }
 
         const { error } = await client.from('wa_conversations').update({

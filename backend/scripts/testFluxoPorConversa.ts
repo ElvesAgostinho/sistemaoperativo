@@ -210,14 +210,32 @@ const ditas = () => enviadas.map(e => e.content).join(' | ');
 
     console.log('\n=== Quando a escolha deixa de valer ===\n');
 
-    await test('um fluxo desligado não deixa a conversa muda', async () => {
-        // Sem isto, desligar um fluxo no Autopilot calava todos os clientes que
-        // o tivessem escolhido, sem ninguém perceber porquê.
+    await test('um fluxo escolhido atende mesmo estando desligado para todos', async () => {
+        // O interruptor do Autopilot e esta escolha respondem a perguntas
+        // diferentes: "ligado" quer dizer "responde a TODA A GENTE sozinho", e
+        // isto quer dizer "quero ESTE fluxo a atender ESTE cliente".
+        //
+        // Eu tinha-os amarrado um ao outro e o resultado foi um beco sem saida:
+        // uma empresa com os fluxos todos desligados — que e o estado normal de
+        // quem ainda nao os quer a responder a toda a gente — nao conseguia
+        // escolher nenhum para ninguem. Aconteceu a um cliente: o painel so lhe
+        // mostrava botoes mortos.
         tabela('automations').push(fluxoQueDiz(1, 'Geral', 'GERAL'), fluxoQueDiz(2, 'Cobranças', 'COBRANCAS'));
         await chamar('PUT', '/api/whatsapp/conversations/conv-a/fluxo', { automation_id: 2 });
         tabela('automations').find(a => a.id === 2)!.ativo = false;
         await receber('244900000001', 'Olá');
-        assert(ditas().includes('GERAL'), `devia cair no automático: ${ditas()}`);
+        assert(ditas().includes('COBRANCAS'), `a escolha devia ganhar ao interruptor: ${ditas()}`);
+        assert(!ditas().includes('GERAL'), `o automatico nao podia responder: ${ditas()}`);
+    });
+
+    await test('um fluxo desligado e escolhido NAO passa a responder a toda a gente', async () => {
+        // O outro lado da mesma moeda: escolhe-lo para UMA conversa nao o torna
+        // global. As outras continuam com o que o sistema escolheria.
+        tabela('automations').push(fluxoQueDiz(1, 'Geral', 'GERAL'), fluxoQueDiz(2, 'Cobranças', 'COBRANCAS', false));
+        await chamar('PUT', '/api/whatsapp/conversations/conv-a/fluxo', { automation_id: 2 });
+        await receber('244900000002', 'Olá');   // outro cliente, sem escolha nenhuma
+        assert(ditas().includes('GERAL'), `o outro cliente devia levar com o automatico: ${ditas()}`);
+        assert(!ditas().includes('COBRANCAS'), `o desligado nao podia responder a este: ${ditas()}`);
     });
 
     await test('um fluxo apagado também não a deixa muda', async () => {
@@ -228,10 +246,12 @@ const ditas = () => enviadas.map(e => e.content).join(' | ');
         assert(ditas().includes('GERAL'), `devia cair no automático: ${ditas()}`);
     });
 
-    await test('não deixa escolher um fluxo desligado, e diz porquê', async () => {
+    await test('deixa escolher um fluxo desligado — nao ha beco sem saida', async () => {
+        // Antes dava 400 e o painel ficava com um botao morto. Uma empresa com
+        // tudo desligado nao conseguia comecar a usar a funcionalidade.
         tabela('automations').push(fluxoQueDiz(2, 'Cobranças', 'COBRANCAS', false));
         const [s, d] = await chamar('PUT', '/api/whatsapp/conversations/conv-a/fluxo', { automation_id: 2 });
-        assert(s === 400 && /desligado/i.test(d.error || ''), `devia explicar: ${s} ${JSON.stringify(d)}`);
+        assert(s === 200 && d.success, `devia deixar escolher: ${s} ${JSON.stringify(d)}`);
     });
 
     await test('não escolhe um fluxo de outra empresa', async () => {
@@ -357,10 +377,10 @@ const ditas = () => enviadas.map(e => e.content).join(' | ');
         assert(ditas().includes('SEGUIMENTO'), `escolhido, devia atender: ${ditas()}`);
     });
 
-    await test('um fluxo de mensagem desligado continua a ser recusado', async () => {
+    await test('um fluxo de mensagem desligado tambem se pode escolher', async () => {
         tabela('automations').push(fluxoQueDiz(2, 'Cobrancas', 'COBRANCAS', false));
         const [s, d] = await chamar('PUT', '/api/whatsapp/conversations/conv-a/fluxo', { automation_id: 2 });
-        assert(s === 400 && /desligado/i.test(d.error || ''), `devia recusar: ${s} ${JSON.stringify(d)}`);
+        assert(s === 200 && d.success, `devia deixar: ${s} ${JSON.stringify(d)}`);
     });
 
     await test('um fluxo SEM bloco de gatilho corre na mesma', async () => {
