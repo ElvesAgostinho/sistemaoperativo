@@ -940,7 +940,17 @@ export default function WhatsAppChatApp({ podeFazer }: { podeFazer?: (accao: str
                    tres pontos) abrem por baixo com position:absolute — cortar o que
                    sai da barra fazia-os desaparecer por completo. O nome do contacto
                    corta-se sozinho, com overflow no proprio texto. */
-                .wa-topo { container-type: inline-size; }
+                /* O container-type nao e so medida: cria um contexto de
+                   empilhamento novo. Isso prendia o z-index dos menus do
+                   cabecalho (escolher fluxo, tres pontos) DENTRO desta barra, e
+                   eles abriam por BAIXO das mensagens — que vem a seguir no
+                   documento. O position relative com z-index poe a barra
+                   inteira por cima da conversa, e os menus vao com ela. */
+                .wa-topo {
+                    container-type: inline-size;
+                    position: relative;
+                    z-index: 30;
+                }
                 @container (max-width: 620px) {
                     .wa-bot-rotulo { display: none; }
                 }
@@ -997,7 +1007,12 @@ export default function WhatsAppChatApp({ podeFazer }: { podeFazer?: (accao: str
 
                 /* A barra das seccoes mede-se a si propria, para o nome da
                    seccao aberta poder desaparecer antes de o botao ser espremido. */
-                .wa-topo-seccoes { container-type: inline-size; }
+                /* O mesmo aqui: o menu das seccoes abre por cima da lista. */
+                .wa-topo-seccoes {
+                    container-type: inline-size;
+                    position: relative;
+                    z-index: 30;
+                }
 
                 /* ---------- Lista de conversas ----------
                    O desenho e o do WhatsApp Web de proposito. Nao e capricho:

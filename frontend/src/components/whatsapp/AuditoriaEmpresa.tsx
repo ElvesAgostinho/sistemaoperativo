@@ -37,6 +37,9 @@ const FAMILIAS: { teste: RegExp; nome: string; icone: any; cor: string }[] = [
   { teste: /^fluxo_/, nome: 'Fluxos', icone: Zap, cor: '#0E5A6B' },
   { teste: /^contacto_/, nome: 'Fichas', icone: IdCard, cor: '#0F766E' },
   { teste: /^historico_/, nome: 'Histórico', icone: History, cor: '#64748B' },
+  // A vermelho e no topo da lista de propósito: uma mensagem que não chegou ao
+  // cliente é a coisa mais urgente que esta página pode ter para mostrar.
+  { teste: /_falhou$/, nome: 'Não chegou', icone: ShieldAlert, cor: '#DC2626' },
   { teste: /^permissoes_|^papel_|^utilizador_/, nome: 'Equipa', icone: KeyRound, cor: '#DC2626' },
 ];
 

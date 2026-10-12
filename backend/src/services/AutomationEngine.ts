@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient'; // Service role client
 import { EsperaFluxoService } from './EsperaFluxoService';
 import { WhatsAppInterativoService } from './WhatsAppInterativoService';
 import { BlocosMensagemService } from './BlocosMensagemService';
+import { AuditoriaService } from './AuditoriaService';
 
 export interface WhatsAppMessage {
     id?: string;
@@ -1492,8 +1493,28 @@ export class AutomationEngine {
                     );
 
                     if (r.falhados.length) {
-                        console.error('[AUTOPILOT] Blocos que nao sairam:',
-                            r.falhados.map(f => `#${f.indice + 1} (${f.tipo}): ${f.erro}`).join(' | '));
+                        const resumo = r.falhados.map(f => `#${f.indice + 1} (${f.tipo}): ${f.erro}`).join(' | ');
+                        console.error('[AUTOPILOT] Blocos que nao sairam:', resumo);
+
+                        // Uma mensagem que nao chega ao cliente nao pode ficar
+                        // so num log de servidor que ninguem le. O dono tem de a
+                        // ver onde ja vai ver o resto: na auditoria da conversa.
+                        //
+                        // O fluxo continua de proposito: parar aqui deixava o
+                        // cliente com meia conversa e sem ninguem avisado. Assim
+                        // recebe o resto, e fica escrito o que faltou.
+                        await AuditoriaService.registar({
+                            empresaId: empresa_id as any,
+                            quemId: null,
+                            accao: 'mensagem_falhou',
+                            conversationId: context['conversation_id'] || null,
+                            alvoTipo: 'conversa',
+                            alvoId: context['conversation_id'] || null,
+                            detalhes: r.falhados.length === 1
+                                ? `nao conseguiu enviar 1 bloco desta mensagem (${r.falhados[0].tipo}): ${r.falhados[0].erro}`
+                                : `nao conseguiu enviar ${r.falhados.length} blocos desta mensagem. ${resumo}`,
+                            extra: { falhados: r.falhados, enviados: r.enviados },
+                        });
                     }
 
                     // Sem isto a mensagem chega ao telemovel do cliente mas nunca

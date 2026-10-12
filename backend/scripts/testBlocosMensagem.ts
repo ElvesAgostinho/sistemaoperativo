@@ -178,7 +178,10 @@ async function test(nome: string, fn: () => Promise<void>) {
         assert(r.falhados.length === 1 && r.falhados[0].indice === 1, JSON.stringify(r.falhados));
         assert(saiu.map(x => x.conteudo).join(',') === 'Um,Três', saiu.map(x => x.conteudo).join(','));
 
+        // Repor o transporte COM o travao: sem ele, os testes seguintes nao
+        // conseguiam simular uma recusa.
         WhatsAppChannelManager.sendMessage = async (_s: any, _c: string, _p: string, texto: string) => {
+            if (recusarTexto) throw new Error('o canal recusou');
             saiu.push({ tipo: 'texto', conteudo: texto }); return 'mid';
         };
     });
@@ -190,6 +193,28 @@ async function test(nome: string, fn: () => Promise<void>) {
         ], DESTINO, parse);
         assert(r.falhados.length === 0, JSON.stringify(r.falhados));
         assert(saiu.length === 1, `só devia sair uma: ${saiu.length}`);
+    });
+
+    await test('um bloco que nao sai fica ESCRITO, nao so num log', async () => {
+        // O cliente disse: "o sistema nao pode funcionar com estes erros".
+        // Tem razao no fundo: um bloco que falha nao e um erro ACEITAVEL, e um
+        // erro que TEM DE SER VISTO. Antes ia so para o log do servidor, que
+        // ninguem le. O fluxo continua — parar deixava o cliente com meia
+        // conversa e ninguem avisado — mas o que faltou fica registado.
+        const r = await Blocos.enviar([
+            { tipo: 'texto', texto: 'Um' },
+            { tipo: 'imagem', url: '' },
+        ], DESTINO, parse);
+        // Um bloco sem destino nao conta como falha: e um bloco por preencher.
+        assert(r.falhados.length === 0, JSON.stringify(r.falhados));
+
+        recusarTexto = true;
+        const r2 = await Blocos.enviar([{ tipo: 'texto', texto: 'Nao vai sair' }], DESTINO, parse);
+        assert(r2.falhados.length === 1, 'devia contar a falha');
+        assert(r2.falhados[0].tipo === 'texto', r2.falhados[0].tipo);
+        assert(/recusou/i.test(r2.falhados[0].erro), r2.falhados[0].erro);
+        assert(r2.falhados[0].indice === 0, 'tem de dizer QUAL bloco falhou');
+        recusarTexto = false;
     });
 
     console.log('\n=== Botões de acção ===\n');
