@@ -5,6 +5,7 @@ import type { ActionNodeData, ActionType, Automation, AutomationNode, ConditionN
 import { ACTION_LABELS, createDefaultMenuOption, VARIAVEIS_CONVERSA } from './types';
 import { duracaoDaPausa, emSegundos, pausaPorExtenso, UNIDADES, ESPERA_GUARDADA_ACIMA_DE, type Unidade } from './tempoDaPausa';
 import PreVisualizacaoEscolha from './PreVisualizacaoEscolha';
+import EditorBlocos, { type Bloco } from './EditorBlocos';
 
 interface NodeConfigPanelProps {
   node: AutomationNode;
@@ -350,14 +351,29 @@ export default function NodeConfigPanel({ node, todosOsNos = [], automations, cu
 
 
 
-          {d.actionType === 'REPLY_MESSAGE' && (
-            <>
-              <label style={labelStyle}>Telefone (opcional, padrão é quem enviou)</label>
-              <input style={fieldStyle} type="text" value={config.telefone || ''} onChange={e => updateConfig({ telefone: e.target.value })} placeholder="{{telefone}}" />
-              <label style={labelStyle}>Mensagem</label>
-              <textarea style={{ ...fieldStyle, resize: 'vertical' }} rows={4} value={config.mensagem || ''} onChange={e => updateConfig({ mensagem: e.target.value })} placeholder="Olá {{nome_whatsapp}}..." />
-            </>
-          )}
+          {d.actionType === 'REPLY_MESSAGE' && (() => {
+            // Um no de mensagem passou a ter varios BLOCOS. Os fluxos antigos
+            // tem so um campo `mensagem`: leem-se como um bloco de texto, para
+            // continuarem a abrir e a correr na mesma.
+            const blocos: Bloco[] = Array.isArray(config.blocos) && config.blocos.length
+              ? config.blocos
+              : (config.mensagem ? [{ tipo: 'texto', texto: config.mensagem }] : []);
+
+            const guardar = (b: Bloco[]) =>
+              // O campo antigo e limpo assim que ha blocos, senao ficavam os
+              // dois e nunca se saberia qual deles e que o cliente recebe.
+              updateConfig({ blocos: b, mensagem: undefined });
+
+            return (
+              <>
+                <EditorBlocos blocos={blocos} aoMudar={guardar} />
+
+                <label style={labelStyle}>Telefone (opcional, padrão é quem enviou)</label>
+                <input style={fieldStyle} type="text" value={config.telefone || ''}
+                  onChange={e => updateConfig({ telefone: e.target.value })} placeholder="{{telefone}}" />
+              </>
+            );
+          })()}
 
           {d.actionType === 'SEND_EMAIL' && (
             <>

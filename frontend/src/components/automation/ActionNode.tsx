@@ -33,7 +33,16 @@ function renderIcon(actionType: string) {
 function summarize(d: ActionNodeData): string {
   const c = d.config || {};
   switch (d.actionType) {
-    case 'REPLY_MESSAGE': return c.mensagem || '(sem texto)';
+    case 'REPLY_MESSAGE': {
+      // Um no de mensagem pode ter varios blocos. Sem isto o cartao dizia
+      // "(sem texto)" em todos os nos novos, porque so olhava para o campo
+      // antigo.
+      const bs: any[] = Array.isArray(c.blocos) ? c.blocos : [];
+      if (bs.length === 0) return c.mensagem || '(sem texto)';
+      const primeiro = bs.find(b => b?.tipo === 'texto' && String(b.texto || '').trim());
+      const resumo = primeiro ? String(primeiro.texto).trim() : `${bs.length} bloco${bs.length === 1 ? '' : 's'}`;
+      return bs.length > 1 ? `${resumo}  (+${bs.length - 1})` : resumo;
+    }
     case 'SEND_EMAIL': return c.assunto || c.para || '(sem assunto)';
     case 'SEND_IMAGE': case 'SEND_VIDEO': case 'SEND_AUDIO': case 'SEND_DOCUMENT':
       return c.legenda || c.ficheiro || '(sem ficheiro)';

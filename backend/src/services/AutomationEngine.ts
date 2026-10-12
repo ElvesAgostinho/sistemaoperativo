@@ -3,6 +3,7 @@ import { AIGatewayService } from './AIGatewayService';
 import { supabase } from '../lib/supabaseClient'; // Service role client
 import { EsperaFluxoService } from './EsperaFluxoService';
 import { WhatsAppInterativoService } from './WhatsAppInterativoService';
+import { BlocosMensagemService } from './BlocosMensagemService';
 
 export interface WhatsAppMessage {
     id?: string;
@@ -969,7 +970,17 @@ export class AutomationEngine {
         // as variáveis já substituídas, para se ver exatamente o que o cliente receberia.
         if (sim) {
             const tipo = String(node.data?.actionType || '');
-            const texto = this.parseString(config.mensagem || config.message || '', context);
+            // Um no de mensagem pode ter varios blocos. O resumo tem de os
+            // mostrar todos, senao a simulacao diz menos do que o cliente recebe.
+            const blocosSim = BlocosMensagemService.lerBlocos(config);
+            const texto = blocosSim.length
+                ? blocosSim.map(b => b.tipo === 'pausa'
+                    ? `(espera ${BlocosMensagemService.segundosDaPausa(b)}s)`
+                    : b.tipo === 'texto'
+                        ? this.parseString(b.texto || '', context)
+                        : `[${b.tipo}] ${this.parseString(b.texto || b.url || '', context)}`)
+                    .filter(Boolean).join('\n')
+                : this.parseString(config.mensagem || config.message || '', context);
             const resumo: Record<string, string> = {
                 REPLY_MESSAGE: texto, SEND_WHATSAPP: texto, AI_REPLY: '(resposta gerada pela IA a partir da Base de Conhecimento)',
                 SEND_IMAGE: `imagem: ${config.ficheiro || '(sem ficheiro)'}`, SEND_VIDEO: `vídeo: ${config.ficheiro || '(sem ficheiro)'}`,
@@ -1442,40 +1453,69 @@ export class AutomationEngine {
             case 'SEND_WHATSAPP':
             case 'REPLY_MESSAGE': {
                 const waPhone = this.parseString(config.telefone || config.phone || '{{telefone}}', context);
-                const waMessage = this.parseString(config.mensagem || config.message, context);
-                const waChannelId = config.channel_id || context['channel_id'];
+                let waChannelId = config.channel_id || context['channel_id'];
 
-                if (waPhone && waMessage) {
-                    try {
-                        const { WhatsAppChannelManager } = require('./WhatsAppChannelManager');
-                        let finalChannel = waChannelId;
-                        if (!finalChannel) {
-                            const { data: channel } = empresa_id
-                            ? await supabase.from('wa_channels').select('id').eq('empresa_id', empresa_id).limit(1).single()
-                            : { data: null }; // sem empresa_id não há como escolher um canal em segurança — nunca usar "o primeiro canal da tabela toda" (vazamento cross-tenant)
-                            if (channel) finalChannel = channel.id;
-                        }
+                if (!waChannelId && empresa_id) {
+                    // Sem empresa_id nao ha como escolher um canal em seguranca:
+                    // "o primeiro canal da tabela toda" era uma fuga entre empresas.
+                    const { data: channel } = await supabase.from('wa_channels')
+                        .select('id').eq('empresa_id', empresa_id).limit(1).single();
+                    if (channel) waChannelId = channel.id;
+                }
 
-                        if (finalChannel) {
-                            const sentId = await WhatsAppChannelManager.sendMessage(supabase, finalChannel, waPhone, waMessage);
-                            console.log(`[AUTOPILOT] WhatsApp enviado para ${waPhone}`);
-                            // Sem isto, a mensagem chega mesmo ao telemóvel do cliente (a API
-                            // externa foi chamada com sucesso) mas nunca aparece na conversa
-                            // dentro do CRM — ninguém na equipa vê o que o Autopilot respondeu.
-                            if (context['conversation_id']) {
-                                await this.saveMessage(context['conversation_id'], {
-                                    id: typeof sentId === 'string' ? sentId : undefined,
-                                    channel_id: finalChannel,
-                                    phone_number: waPhone,
-                                    contact_name: 'Autopilot',
-                                    content: waMessage,
-                                    direction: 'outbound'
-                                });
-                            }
-                        }
-                    } catch (e) {
-                        console.error('[AUTOPILOT] Erro ao enviar WhatsApp:', e);
+                // Um no de mensagem pode ter varios BLOCOS — texto, imagem, video,
+                // audio, ficheiro, pausa — que saem por ordem. Antes era preciso um
+                // no por mensagem, ligados por setas, e cada um era um passo do
+                // motor; era disso que o cliente se queixava.
+                //
+                // Os fluxos antigos continuam a correr na mesma: um `mensagem` sem
+                // blocos e lido como um unico bloco de texto.
+                const blocos = BlocosMensagemService.lerBlocos(config);
+
+                if (!waPhone || !waChannelId || blocos.length === 0) {
+                    if (blocos.length > 0) {
+                        console.error('[AUTOPILOT] Mensagem sem telefone ou sem canal — nao saiu.');
                     }
+                    break;
+                }
+
+                try {
+                    const r = await BlocosMensagemService.enviar(
+                        blocos,
+                        {
+                            empresaId: empresa_id as any,
+                            channelId: waChannelId,
+                            telefone: waPhone,
+                            conversationId: context['conversation_id'],
+                        },
+                        (t: string) => this.parseString(t, context),
+                    );
+
+                    if (r.falhados.length) {
+                        console.error('[AUTOPILOT] Blocos que nao sairam:',
+                            r.falhados.map(f => `#${f.indice + 1} (${f.tipo}): ${f.erro}`).join(' | '));
+                    }
+
+                    // Sem isto a mensagem chega ao telemovel do cliente mas nunca
+                    // aparece na conversa dentro do CRM — ninguem na equipa ve o
+                    // que o Autopilot respondeu.
+                    if (context['conversation_id']) {
+                        for (const b of blocos) {
+                            if (b.tipo === 'pausa') continue;
+                            const conteudo = b.tipo === 'texto'
+                                ? this.parseString(b.texto || '', context)
+                                : this.parseString(b.texto || '', context) || `[${b.tipo}]`;
+                            if (!conteudo.trim()) continue;
+                            await this.saveMessage(context['conversation_id'], {
+                                channel_id: waChannelId, phone_number: waPhone,
+                                contact_name: 'Autopilot', content: conteudo, direction: 'outbound',
+                            });
+                        }
+                    }
+
+                    console.log(`[AUTOPILOT] ${r.enviados} bloco(s) enviados para ${waPhone}.`);
+                } catch (e) {
+                    console.error('[AUTOPILOT] Erro ao enviar WhatsApp:', e);
                 }
                 break;
             }
