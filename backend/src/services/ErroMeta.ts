@@ -43,9 +43,14 @@ export class ErroMeta {
         // que a Meta mostra na página "Introdução" dura 24 horas e morre com a
         // sessão do Facebook. É o erro que quase toda a gente apanha à primeira.
         if (codigo === 190 && (sub === 467 || sub === 463 || /logged out|expired|session/i.test(msg))) {
+            // A Meta diz "a sessão terminou" para várias coisas diferentes, e eu
+            // afirmei a primeira como se fosse a única. O cliente mostrou que o
+            // token dele é permanente e funciona noutros sistemas — e tinha
+            // razão. Lista-se o que pode ser, por ordem do que é mais comum,
+            // sem decidir por quem está a ler.
             return {
-                texto: 'O token de acesso expirou. O que colou é um token temporário — ele dura 24 horas e morre quando a sua sessão do Facebook termina.',
-                comoResolver: 'Crie um token permanente: business.facebook.com → Definições do Negócio → Utilizadores de sistema → adicione um utilizador, dê-lhe a sua conta do WhatsApp em "Adicionar activos", e gere um token com validade "Nunca expira" e as permissões whatsapp_business_messaging e whatsapp_business_management.',
+                texto: 'A Meta diz que este token de acesso já não é válido.',
+                comoResolver: 'Costuma ser uma de três: (1) o token enviado não é o que pensa — se deixou o campo em branco, foi usado o que estava guardado de uma tentativa anterior, por isso cole-o de novo; (2) é um token temporário da página "Introdução", que dura 24 horas — o permanente faz-se em business.facebook.com → Definições do Negócio → Utilizadores de sistema, com validade "Nunca expira"; (3) a palavra-passe do Facebook mudou ou as sessões foram terminadas, o que mata tokens de utilizador mas não os de Utilizador de Sistema.',
             };
         }
 

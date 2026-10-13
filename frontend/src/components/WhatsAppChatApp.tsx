@@ -301,6 +301,17 @@ export default function WhatsAppChatApp({ podeFazer }: { podeFazer?: (accao: str
 
     useEffect(() => { carregarConfigMeta(); }, []);
 
+    /** Qual token foi parar à Meta: o do ecrã ou o que estava guardado. */
+    const descreverTokenUsado = (t?: { fim: string; tamanho: number; origem: string }) => {
+        if (!t || !t.tamanho) return '';
+        const origem = t.origem === 'guardado'
+            ? 'foi usado o token JÁ GUARDADO (o campo estava em branco)'
+            : 'foi usado o token que escreveu agora';
+        return `
+
+Para comparar: ${origem}, tem ${t.tamanho} caracteres e acaba em "${t.fim}".`;
+    };
+
     const handleTestarMeta = async () => {
         setMetaATestar(true); setMetaTeste(null);
         try {
@@ -318,7 +329,10 @@ export default function WhatsAppChatApp({ podeFazer }: { podeFazer?: (accao: str
             });
             const d = await r.json();
             if (!r.ok || !d.success) {
-                setMetaTeste({ ok: false, texto: d.error || 'Não foi possível falar com a Meta.' });
+                setMetaTeste({
+                    ok: false,
+                    texto: (d.error || 'Não foi possível falar com a Meta.') + descreverTokenUsado(d.tokenUsado),
+                });
             } else {
                 const partes = [d.nome, d.telefone].filter(Boolean).join(' — ');
                 const mau = d.templatesOk === false
@@ -362,11 +376,12 @@ export default function WhatsAppChatApp({ podeFazer }: { podeFazer?: (accao: str
                 // para se poder ler com calma e seguir os passos.
                 setMetaTeste({
                     ok: false,
-                    texto: data.tokenDeVerificacaoGuardado
+                    texto: (data.tokenDeVerificacaoGuardado
                         ? `${data.error}
 
 ${data.nota}`
-                        : String(data.error || 'Não foi possível guardar.'),
+                        : String(data.error || 'Não foi possível guardar.'))
+                        + descreverTokenUsado(data.tokenUsado),
                 });
                 if (data.tokenDeVerificacaoGuardado) carregarConfigMeta();
             }

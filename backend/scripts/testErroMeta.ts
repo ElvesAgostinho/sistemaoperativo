@@ -23,17 +23,26 @@ function test(nome: string, fn: () => void) {
 (async () => {
     console.log('\n=== O erro que o cliente apanhou ===\n');
 
-    test('o token temporário é explicado, e diz-se como fazer o permanente', () => {
+    test('lista as causas em vez de decidir qual é', () => {
+        // Eu afirmei "o que colou é um token temporário" como se fosse facto. O
+        // cliente mostrou que o dele é permanente e funciona noutros sistemas —
+        // e tinha razão. A Meta devolve este mesmo erro para várias situações
+        // diferentes; dizer uma delas como certa manda a pessoa pelo caminho
+        // errado com toda a confiança.
         const r = ErroMeta.explicar({
             message: 'Error validating access token: The session is invalid because the user logged out.',
             code: 190, error_subcode: 467, type: 'OAuthException',
         }, 400);
 
-        assert(/tempor[áa]rio/i.test(r.texto), `devia dizer que o token é temporário: ${r.texto}`);
-        assert(/24 horas/.test(r.texto), `devia dizer quanto dura: ${r.texto}`);
+        assert(!/(é|e) um token tempor[áa]rio/i.test(r.texto),
+            `não pode afirmar qual é a causa: ${r.texto}`);
         assert(!!r.comoResolver, 'tem de dizer o que fazer');
-        assert(/Utilizadores de sistema/i.test(r.comoResolver), `devia indicar o caminho: ${r.comoResolver}`);
-        assert(/Nunca expira/i.test(r.comoResolver), 'devia dizer qual a validade a escolher');
+
+        // As três causas reais têm de lá estar.
+        assert(/em branco|guardado/i.test(r.comoResolver), `falta a do token guardado: ${r.comoResolver}`);
+        assert(/24 horas/.test(r.comoResolver), `falta a do token temporário: ${r.comoResolver}`);
+        assert(/palavra-passe|sess[õo]es/i.test(r.comoResolver), `falta a da sessão terminada: ${r.comoResolver}`);
+        assert(/Utilizadores de sistema/i.test(r.comoResolver), 'devia indicar o caminho do permanente');
     });
 
     test('nada do que se mostra está em inglês', () => {

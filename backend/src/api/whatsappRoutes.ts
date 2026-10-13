@@ -623,11 +623,18 @@ router.post('/config/meta', requireAuth, exigirPermissao('wa.canal'), async (req
         .eq('empresa_id', empresaId)
         .maybeSingle();
 
+    // Um token colado traz quase sempre espacos ou uma quebra de linha atras.
+    // Isso parte o cabecalho `Authorization` e a Meta devolve um erro de
+    // autenticacao que nao tem nada a ver com o token em si — manda-se limpo.
+    accessToken = String(accessToken || '').trim();
+
     // O token nao volta ao ecra por seguranca, por isso tambem nao volta de la.
     // Sem isto, gravar depois de mudar so o WABA apagava o token e deixava o
     // canal morto — e ninguem percebia porque.
+    let tokenGuardadoUsado = false;
     if (!accessToken && canalAnterior?.credentials?.accessToken) {
-        accessToken = canalAnterior.credentials.accessToken;
+        accessToken = String(canalAnterior.credentials.accessToken).trim();
+        tokenGuardadoUsado = true;
     }
 
     if (!phoneNumberId || !accessToken || !verifyToken) {
@@ -682,6 +689,9 @@ router.post('/config/meta', requireAuth, exigirPermissao('wa.canal'), async (req
             return res.status(400).json({
                 success: false,
                 error: ErroMeta.numaLinha(errorData?.error, metaRes.status),
+                // De onde veio o token que falhou. Sem isto, quem deixou o campo
+                // em branco julga que testou o token novo e testou o antigo.
+                tokenUsado: descreverToken(accessToken, tokenGuardadoUsado),
                 tokenDeVerificacaoGuardado: true,
                 nota: 'O token de verificação ficou guardado — já pode validar o webhook no painel da Meta. O canal fica por ligar até o token de acesso servir.',
             });
@@ -729,6 +739,23 @@ router.post('/config/meta', requireAuth, exigirPermissao('wa.canal'), async (req
 });
 
 /**
+ * O token usado, descrito sem ser revelado.
+ *
+ * Quando a Meta recusa um token que o dono jura que funciona noutro lado, a
+ * primeira pergunta e se o token enviado e mesmo o que ele pensa. Os ultimos
+ * quatro caracteres chegam para ele comparar com o que tem a mao, e o tamanho
+ * denuncia um token cortado a meio na colagem. O token inteiro nunca sai daqui.
+ */
+function descreverToken(token: string, veioDoGuardado: boolean): { fim: string; tamanho: number; origem: string } {
+    const t = String(token || '');
+    return {
+        fim: t.length > 4 ? t.slice(-4) : '',
+        tamanho: t.length,
+        origem: veioDoGuardado ? 'guardado' : 'escrito',
+    };
+}
+
+/**
  * O que esta configurado na Meta, para o painel o mostrar.
  *
  * Sem isto, reabrir as definicoes mostrava campos vazios e ninguem sabia o que
@@ -773,6 +800,8 @@ router.get('/config/meta', requireAuth, async (req: AuthRequest, res: Response) 
 router.post('/config/meta/testar', requireAuth, exigirPermissao('wa.canal'), async (req: AuthRequest, res: Response) => {
     try {
         let { phoneNumberId, accessToken, wabaId } = req.body;
+        accessToken = String(accessToken || '').trim();
+        let tokenGuardadoUsado = false;
 
         if (!accessToken || !phoneNumberId) {
             const { data: canal } = await getSupabase(req)
@@ -781,7 +810,10 @@ router.post('/config/meta/testar', requireAuth, exigirPermissao('wa.canal'), asy
                 .eq('provider', 'meta')
                 .eq('empresa_id', req.user!.empresa_id)
                 .maybeSingle();
-            accessToken = accessToken || canal?.credentials?.accessToken;
+            if (!accessToken && canal?.credentials?.accessToken) {
+                accessToken = String(canal.credentials.accessToken).trim();
+                tokenGuardadoUsado = true;
+            }
             phoneNumberId = phoneNumberId || canal?.credentials?.phoneNumberId;
             wabaId = wabaId || canal?.credentials?.wabaId;
         }
@@ -800,6 +832,7 @@ router.post('/config/meta/testar', requireAuth, exigirPermissao('wa.canal'), asy
             return res.status(400).json({
                 success: false,
                 error: ErroMeta.numaLinha(d?.error, r.status),
+                tokenUsado: descreverToken(accessToken, tokenGuardadoUsado),
             });
         }
 
@@ -819,6 +852,7 @@ router.post('/config/meta/testar', requireAuth, exigirPermissao('wa.canal'), asy
             telefone: d.display_phone_number || null,
             qualidade: d.quality_rating || null,
             templatesOk,
+            tokenUsado: descreverToken(accessToken, tokenGuardadoUsado),
         });
     } catch (e: any) {
         res.status(500).json({ success: false, error: e.message });
