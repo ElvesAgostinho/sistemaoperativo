@@ -6,6 +6,7 @@ import { AuditoriaService } from '../services/AuditoriaService';
 import { WhatsAppEscolhaRecebida } from '../services/WhatsAppEscolhaRecebida';
 import { EsperaFluxoService } from '../services/EsperaFluxoService';
 import { exigirPermissao } from '../middleware/permissaoMiddleware';
+import { ErroMeta } from '../services/ErroMeta';
 import { AutomationEngine } from '../services/AutomationEngine';
 import { WhatsAppGroupService } from '../services/WhatsAppGroupService';
 
@@ -649,8 +650,41 @@ router.post('/config/meta', requireAuth, exigirPermissao('wa.canal'), async (req
         });
         
         if (!metaRes.ok) {
-            const errorData = await metaRes.json();
-            return res.status(400).json({ success: false, error: `Credenciais inválidas: ${errorData.error?.message || 'Erro de autenticação com a Meta'}` });
+            const errorData: any = await metaRes.json().catch(() => ({}));
+
+            // O token de verificação guarda-se na mesma. A Meta valida o webhook
+            // num passo à parte, e quase sempre ANTES de o resto estar bom; sem
+            // isto ficava um nó cego — não se podia guardar nada enquanto o token
+            // de acesso não prestasse, e sem nada guardado a verificação do
+            // webhook falhava sempre, com a Meta a dizer que o URL ou o token
+            // não serviam quando o problema era outro.
+            const porLigar: any = { phoneNumberId, verifyToken };
+            if (appId) porLigar.appId = appId;
+            if (wabaId) porLigar.wabaId = wabaId;
+            if (accessToken) porLigar.accessToken = accessToken;
+
+            if (canalAnterior) {
+                await getSupabase(req).from('wa_channels').update({
+                    credentials: { ...(canalAnterior.credentials || {}), ...porLigar },
+                    status: 'pending',
+                    updated_at: new Date().toISOString(),
+                }).eq('id', canalAnterior.id);
+            } else {
+                await getSupabase(req).from('wa_channels').insert({
+                    name: 'WhatsApp Business (por ligar)',
+                    provider: 'meta',
+                    status: 'pending',
+                    credentials: porLigar,
+                    empresa_id: empresaId,
+                });
+            }
+
+            return res.status(400).json({
+                success: false,
+                error: ErroMeta.numaLinha(errorData?.error, metaRes.status),
+                tokenDeVerificacaoGuardado: true,
+                nota: 'O token de verificação ficou guardado — já pode validar o webhook no painel da Meta. O canal fica por ligar até o token de acesso servir.',
+            });
         }
 
         const businessData = await metaRes.json();
@@ -765,7 +799,7 @@ router.post('/config/meta/testar', requireAuth, exigirPermissao('wa.canal'), asy
         if (!r.ok) {
             return res.status(400).json({
                 success: false,
-                error: d?.error?.message || `A Meta recusou (estado ${r.status}).`,
+                error: ErroMeta.numaLinha(d?.error, r.status),
             });
         }
 

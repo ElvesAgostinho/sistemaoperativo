@@ -357,7 +357,18 @@ export default function WhatsAppChatApp({ podeFazer }: { podeFazer?: (accao: str
                 fetchTemplates();
             } else {
                 setMetaStatus('error');
-                alert("Erro ao guardar: " + data.error);
+                // Um alert() do navegador desaparece mal se carregue em OK, e
+                // tapa o painel enquanto está aberto. A mensagem fica no sítio,
+                // para se poder ler com calma e seguir os passos.
+                setMetaTeste({
+                    ok: false,
+                    texto: data.tokenDeVerificacaoGuardado
+                        ? `${data.error}
+
+${data.nota}`
+                        : String(data.error || 'Não foi possível guardar.'),
+                });
+                if (data.tokenDeVerificacaoGuardado) carregarConfigMeta();
             }
         } catch (err) {
             setMetaStatus('error');
@@ -1795,7 +1806,7 @@ export default function WhatsAppChatApp({ podeFazer }: { podeFazer?: (accao: str
                                                     type={metaVerToken ? 'text' : 'password'}
                                                     value={metaConfig.accessToken}
                                                     onChange={e => setMetaConfig({ ...metaConfig, accessToken: e.target.value })}
-                                                    placeholder={metaTemToken ? '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022' : 'Cole aqui o token permanente'}
+                                                    placeholder={metaTemToken ? '••••••••••••••' : 'Cole aqui o token permanente'}
                                                     style={{ ...CAMPO_META, paddingRight: '40px' }}
                                                 />
                                                 <button
@@ -1809,14 +1820,14 @@ export default function WhatsAppChatApp({ podeFazer }: { podeFazer?: (accao: str
                                             </div>
                                             <div style={AJUDA_META}>
                                                 {metaTemToken
-                                                    ? 'O token est\u00e1 oculto por seguran\u00e7a. Introduza-o novamente s\u00f3 se o quiser mudar \u2014 deixar em branco mant\u00e9m o actual.'
-                                                    : 'Um token permanente, n\u00e3o o tempor\u00e1rio de 24 horas: esse expira e o canal cai sozinho.'}
+                                                    ? 'O token está oculto por segurança. Introduza-o novamente só se o quiser mudar — deixar em branco mantém o actual.'
+                                                    : 'Um token permanente, não o temporário de 24 horas: esse expira e o canal cai sozinho.'}
                                             </div>
                                         </div>
                                         <div>
-                                            <label style={{ display: 'block', fontSize: '13px', color: '#5B738B', marginBottom: '6px', fontWeight: 500 }}>Token de verifica\u00e7\u00e3o do webhook</label>
-                                            <input type="text" value={metaConfig.verifyToken} onChange={e => setMetaConfig({ ...metaConfig, verifyToken: e.target.value })} placeholder="Crie um token de verifica\u00e7\u00e3o personalizado" style={CAMPO_META} />
-                                            <div style={AJUDA_META}>Uma palavra-passe criada por si. Tem de ser igual \u00e0 que puser nas configura\u00e7\u00f5es do webhook da Meta.</div>
+                                            <label style={{ display: 'block', fontSize: '13px', color: '#5B738B', marginBottom: '6px', fontWeight: 500 }}>Token de verificação do webhook</label>
+                                            <input type="text" value={metaConfig.verifyToken} onChange={e => setMetaConfig({ ...metaConfig, verifyToken: e.target.value })} placeholder="Crie um token de verificação personalizado" style={CAMPO_META} />
+                                            <div style={AJUDA_META}>Uma palavra-passe criada por si. Tem de ser igual à que puser nas configurações do webhook da Meta.</div>
                                         </div>
                                         <div>
                                             <label style={{ display: 'block', fontSize: '13px', color: '#5B738B', marginBottom: '6px', fontWeight: 500 }}>URL de callback do webhook</label>
@@ -1835,13 +1846,14 @@ export default function WhatsAppChatApp({ podeFazer }: { podeFazer?: (accao: str
                                                     {metaCopiado ? <><Check size={14} /> Copiado</> : <><Copy size={14} /> Copiar</>}
                                                 </button>
                                             </div>
-                                            <div style={AJUDA_META}>Use este endere\u00e7o como callback do webhook no painel da aplica\u00e7\u00e3o Meta.</div>
+                                            <div style={AJUDA_META}>Use este endereço como callback do webhook no painel da aplicação Meta.</div>
                                         </div>
                                     </div>
 
                                     {metaTeste && (
                                         <div style={{
-                                            marginBottom: '12px', padding: '10px 12px', borderRadius: '2px', fontSize: '13px', lineHeight: 1.6,
+                                            marginBottom: '12px', padding: '11px 13px', borderRadius: '2px', fontSize: '13px', lineHeight: 1.65,
+                                            whiteSpace: 'pre-wrap',
                                             background: metaTeste.ok ? '#E8F5EC' : '#FDECEC',
                                             border: `1px solid ${metaTeste.ok ? '#A8D5B8' : '#F5B5B5'}`,
                                             color: metaTeste.ok ? '#107E3E' : '#B91C1C',

@@ -346,6 +346,58 @@ const conversa = () => tabela('wa_conversations')[0];
         delete process.env.META_VERIFY_TOKEN;
     });
 
+    await test('o token de verificacao guarda-se mesmo com o token de acesso recusado', async () => {
+        // O no cego. A Meta valida o webhook num passo separado e quase sempre
+        // ANTES de tudo o resto estar bom. Com a regra antiga, um token de acesso
+        // expirado impedia de guardar o que quer que fosse — e sem nada guardado
+        // a verificacao do webhook falhava sempre, com a Meta a queixar-se do URL
+        // ou do token quando o problema era outro. Foi exactamente o que o
+        // cliente apanhou nas duas pontas ao mesmo tempo.
+        db['wa_channels'] = [];
+        delete process.env.META_VERIFY_TOKEN;
+
+        const r = await fetchReal(`${B}/api/whatsapp/config/meta`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                phoneNumberId: '1108136615719262',
+                wabaId: '993787080042283',
+                accessToken: 'um-token-que-expirou',
+                verifyToken: 'jairotech',
+            }),
+        });
+
+        const d: any = await r.json();
+        assert(r.status === 400, `o token de acesso e mau, devia dizer que sim: ${r.status}`);
+        assert(d.tokenDeVerificacaoGuardado === true, `devia avisar que guardou: ${JSON.stringify(d)}`);
+
+        const canal = tabela('wa_channels')[0];
+        assert(!!canal, 'devia ter guardado o canal, mesmo por ligar');
+        assert(canal.status === 'pending', `devia ficar por ligar: ${canal.status}`);
+        assert(canal.credentials.verifyToken === 'jairotech', JSON.stringify(canal.credentials));
+
+        // E agora a Meta consegue validar o webhook — que era o objectivo.
+        const v = await fetchReal(
+            `${B}/api/whatsapp/webhook/meta?hub.mode=subscribe&hub.verify_token=jairotech&hub.challenge=abc`,
+        );
+        assert(v.status === 200, `a Meta devia conseguir validar, deu ${v.status}`);
+        assert((await v.text()) === 'abc', 'tem de devolver o desafio');
+    });
+
+    await test('o erro que volta ao painel esta em portugues', async () => {
+        db['wa_channels'] = [];
+        const r = await fetchReal(`${B}/api/whatsapp/config/meta`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                phoneNumberId: '111', accessToken: 'expirado', verifyToken: 'x',
+            }),
+        });
+        const d: any = await r.json();
+        const semOriginal = String(d.error || '').split('(a Meta disse:')[0];
+        assert(!/the session is invalid/i.test(semOriginal), `nao devia vir em ingles: ${semOriginal}`);
+    });
+
     servidor.unref();
     console.log(`\n=== Resultado: ${passed} passaram, ${failed} falharam ===`);
     if (falhas.length) console.log('Falhou:\n  - ' + falhas.join('\n  - '));

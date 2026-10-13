@@ -29,9 +29,15 @@ export class WhatsAppChannelManager {
             .select('id, status, provider').eq('empresa_id', empresaId);
         const canais: any[] = Array.isArray(data) ? data : (data ? [data] : []);
         if (!canais.length) return null;
-        return canais.find(c => c.status === 'connected')
-            || canais.find(c => !c.status)
-            || canais[0];
+        // Um canal 'pending' e um canal cujo token de acesso ainda nao serve:
+        // guardou-se so para a Meta poder validar o webhook. Tentar enviar por
+        // ele daria um erro garantido, e em ultimo recurso era exactamente o que
+        // acontecia — `canais[0]` apanhava-o.
+        const utilizaveis = canais.filter(c => c.status !== 'pending');
+        return utilizaveis.find(c => c.status === 'connected')
+            || utilizaveis.find(c => !c.status)
+            || utilizaveis[0]
+            || null;
     }
 
     /**
