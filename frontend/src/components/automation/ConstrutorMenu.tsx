@@ -67,19 +67,21 @@ function agrupar(opcoes: OpcaoMenu[]): { titulo: string; opcoes: OpcaoMenu[] }[]
 }
 
 export default function ConstrutorMenu({
-  pergunta, opcoes, cabecalho, rodape, textoDoBotao,
-  aoMudarPergunta, aoMudarOpcoes, aoMudarCabecalho, aoMudarRodape, aoMudarTextoDoBotao,
+  pergunta, opcoes, cabecalho, rodape, textoDoBotao, formatoPreferido,
+  aoMudarPergunta, aoMudarOpcoes, aoMudarCabecalho, aoMudarRodape, aoMudarTextoDoBotao, aoMudarFormato,
 }: {
   pergunta: string;
   opcoes: OpcaoMenu[];
   cabecalho?: Cabecalho;
   rodape?: string;
   textoDoBotao?: string;
+  formatoPreferido?: 'botoes' | 'lista';
   aoMudarPergunta: (v: string) => void;
   aoMudarOpcoes: (o: OpcaoMenu[]) => void;
   aoMudarCabecalho: (c: Cabecalho | undefined) => void;
   aoMudarRodape: (v: string) => void;
   aoMudarTextoDoBotao: (v: string) => void;
+  aoMudarFormato: (f: 'botoes' | 'lista' | undefined) => void;
 }) {
   const [aberta, setAberta] = useState<string | null>(null);
 
@@ -100,7 +102,7 @@ export default function ConstrutorMenu({
   const { botoesFiaveis, listaDisponivel } = useCanalBotoes();
 
   const validas = opcoes.filter(o => (o.label || '').trim());
-  const formato = formatoPrevisto(validas.length, listaDisponivel, botoesFiaveis);
+  const formato = formatoPrevisto(validas.length, listaDisponivel, botoesFiaveis, formatoPreferido);
   const cab = cabecalho || {};
 
   const mudar = (id: string, patch: Partial<OpcaoMenu>) =>
@@ -184,6 +186,40 @@ export default function ConstrutorMenu({
           onChange={e => aoMudarPergunta(e.target.value)}
           placeholder="Como posso ajudar?"
         />
+
+        <label style={rotulo}>COMO SAI</label>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          {([
+            { v: undefined, nome: 'Automático', nota: 'até 3 botões, acima disso menu' },
+            { v: 'botoes' as const, nome: 'Botões', nota: 'até 3, à vista' },
+            { v: 'lista' as const, nome: 'Menu que abre', nota: 'até 10, com descrições' },
+          ]).map(op => {
+            const activo = formatoPreferido === op.v;
+            const impossivel =
+              (op.v === 'botoes' && (!botoesFiaveis || validas.length > LIMITE_BOTOES))
+              || (op.v === 'lista' && (!listaDisponivel || validas.length > LIMITE_LISTA));
+            return (
+              <button
+                key={op.nome}
+                type="button"
+                onClick={() => aoMudarFormato(op.v)}
+                title={impossivel ? 'Este número não consegue este formato com estas opções' : op.nota}
+                style={{
+                  flex: 1, padding: '7px 6px', borderRadius: '7px', cursor: 'pointer',
+                  border: `1px solid ${activo ? '#0E5A6B' : '#E2E8F0'}`,
+                  background: activo ? '#0E5A6B' : '#fff',
+                  color: activo ? '#fff' : (impossivel ? '#CBD5E1' : '#1D2D3E'),
+                  fontSize: '11.5px', fontWeight: 600, fontFamily: 'inherit', lineHeight: 1.3,
+                }}
+              >
+                {op.nome}
+                <span style={{ display: 'block', fontSize: '10px', fontWeight: 500, opacity: activo ? 0.85 : 0.6 }}>
+                  {op.nota}
+                </span>
+              </button>
+            );
+          })}
+        </div>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
           <label style={rotulo}>AS OPÇÕES</label>
@@ -463,6 +499,12 @@ export default function ConstrutorMenu({
         )}
         {formato === 'botoes' && validas.some(o => o.label.trim().length > 20) && (
           <Aviso tom="aviso">Um rótulo passa das 20 letras e será cortado no telemóvel.</Aviso>
+        )}
+        {formatoPreferido && formato !== formatoPreferido && validas.length > 0 && (
+          <Aviso tom="aviso">
+            Pediu <b>{formatoPreferido === 'lista' ? 'o menu que abre' : 'botões'}</b>, mas com estas
+            opções e este número não é possível — sai como <b>{comoChega.nome.toLowerCase()}</b>.
+          </Aviso>
         )}
         {formato === 'botoes' && validas.some(o => (o.seccao || '').trim()) && (
           <Aviso tom="neutro">

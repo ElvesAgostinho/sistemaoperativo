@@ -21,8 +21,16 @@ const LIMITES = { botoes: 3, lista: 10, sondagem: 12 };
 export type FormatoPrevisto = 'botoes' | 'lista' | 'sondagem' | 'texto';
 
 /** A mesma regra do servidor (WhatsAppInterativoService.formatoIdeal). */
-export function formatoPrevisto(quantas: number, listaDisponivel: boolean, botoesFiaveis = false): FormatoPrevisto {
+export function formatoPrevisto(
+  quantas: number,
+  listaDisponivel: boolean,
+  botoesFiaveis = false,
+  preferido?: FormatoPrevisto,
+): FormatoPrevisto {
   if (quantas <= 0) return 'texto';
+  // Quem pediu o menu que abre, leva-o — mesmo com duas ou três opções.
+  if (preferido === 'lista' && listaDisponivel && quantas <= LIMITES.lista) return 'lista';
+  if (preferido === 'botoes' && botoesFiaveis && quantas <= LIMITES.botoes) return 'botoes';
   // Num numero ligado pelo Baileys os botoes nao sao entregues — a Meta
   // deita-os fora em silencio. Ai o menu volta a ser a lista numerada.
   if (!botoesFiaveis) {

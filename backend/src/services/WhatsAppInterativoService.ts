@@ -70,6 +70,12 @@ export interface PedidoEscolha {
     titulo?: string;
     /** Imagem, vídeo, documento ou uma linha por cima da pergunta. */
     cabecalho?: CabecalhoEscolha;
+    /**
+     * O formato que quem montou o menu pediu. Sem isto, o sistema escolhe pelo
+     * número de opções — e com três ou menos nunca dá o menu que abre, mesmo
+     * quando é esse que serve.
+     */
+    formatoPreferido?: Formato;
 }
 
 export type Formato = 'botoes' | 'lista' | 'sondagem' | 'texto';
@@ -101,8 +107,26 @@ export class WhatsAppInterativoService {
      * Acima disso seria preciso a lista; enquanto ela não funcionar, a sondagem
      * faz o mesmo trabalho — o cliente escolhe sem escrever, que é o que conta.
      */
-    public static formatoIdeal(quantas: number, listaDisponivel = false, botoesFiaveis = true, sondagensAtivas = false): Formato[] {
+    public static formatoIdeal(
+        quantas: number,
+        listaDisponivel = false,
+        botoesFiaveis = true,
+        sondagensAtivas = false,
+        preferido?: Formato,
+    ): Formato[] {
         if (quantas <= 0) return ['texto'];
+
+        // Quem pede o menu que abre, leva o menu que abre — mesmo com duas ou
+        // três opções, onde o sistema escolheria botões. Não é capricho: só o
+        // menu mostra a linha de descrição por baixo de cada opção, e só ele
+        // agrupa em secções. Com uma opção comprida ("Quarto duplo com vista
+        // para o mar"), um botão corta aos 20 caracteres e o menu não.
+        if (preferido === 'lista' && listaDisponivel && quantas <= LIMITES.lista.opcoes) {
+            return ['lista', 'texto'];
+        }
+        if (preferido === 'botoes' && botoesFiaveis && quantas <= LIMITES.botoes.opcoes) {
+            return ['botoes', 'texto'];
+        }
 
         // Num numero ligado pelo Baileys (a Evolution, a mesma via da aplicacao
         // normal) os botoes interativos saem com 201 e NUNCA sao entregues. A
@@ -174,7 +198,7 @@ export class WhatsAppInterativoService {
         }
 
         for (const formato of WhatsAppInterativoService.formatoIdeal(
-            p.opcoes.length, canal.listaDisponivel, canal.botoesFiaveis, canal.sondagensAtivas,
+            p.opcoes.length, canal.listaDisponivel, canal.botoesFiaveis, canal.sondagensAtivas, p.formatoPreferido,
         )) {
             try {
                 const id = await WhatsAppInterativoService.enviarNoFormato(formato, p, canal);

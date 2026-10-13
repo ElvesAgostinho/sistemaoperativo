@@ -263,6 +263,8 @@ export default function NodeConfigPanel({ node, todosOsNos = [], automations, cu
             aoMudarCabecalho={c => updateData({ cabecalho: c } as any)}
             aoMudarRodape={v => updateData({ rodape: v } as any)}
             aoMudarTextoDoBotao={v => updateData({ textoDoBotao: v } as any)}
+            formatoPreferido={(d as any).formatoPreferido}
+            aoMudarFormato={f => updateData({ formatoPreferido: f } as any)}
           />
 
           {/* ---------- O que fazer quando a resposta nao bate ---------- */}

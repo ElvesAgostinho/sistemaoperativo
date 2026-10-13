@@ -126,7 +126,14 @@ const TELEFONE = '244923000111';
 const whatsappRoutes = require(path.join(__dirname, '..', 'src', 'api', 'whatsappRoutes')).default;
 
 const app = express();
-app.use(express.json({ limit: '20mb' }));
+// O mesmo que o index.ts faz em producao: guardar o corpo EM BRUTO. A
+// assinatura da Meta e calculada sobre os bytes exactos que ela enviou, e sem
+// isto a verificacao era saltada — o teste passava a dizer que estava tudo bem
+// numa aplicacao onde ninguem verificava nada.
+app.use(express.json({
+    limit: '20mb',
+    verify: (req: any, _res: any, buf: Buffer) => { req.rawBody = buf; },
+}));
 app.use('/api/whatsapp', whatsappRoutes);
 const servidor = app.listen(0);
 const PORTA = (servidor.address() as any).port;
@@ -448,6 +455,104 @@ const conversa = () => tabela('wa_conversations')[0];
         const d = await verCanal();
         assert(d.success === true, JSON.stringify(d));
         assert(d.provider === 'meta', `devia ver o canal que ha: ${d.provider}`);
+    });
+
+    console.log('\n=== Varios clientes, cada um com a sua aplicacao Meta ===\n');
+
+    const assinar = (chave: string, corpo: any) => {
+        const crypto = require('crypto');
+        return 'sha256=' + crypto.createHmac('sha256', chave).update(JSON.stringify(corpo)).digest('hex');
+    };
+
+    const avisoDaMeta = (idDoNumero: string) => ({
+        object: 'whatsapp_business_account',
+        entry: [{ changes: [{ value: { metadata: { phone_number_id: idDoNumero }, statuses: [] } }] }],
+    });
+
+    const mandar = async (corpo: any, assinatura?: string) => fetchReal(`${B}/api/whatsapp/webhook/meta`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(assinatura ? { 'x-hub-signature-256': assinatura } : {}) },
+        body: JSON.stringify(corpo),
+    });
+
+    await test('cada cliente e conferido com a chave DA SUA aplicacao', async () => {
+        // Era uma chave unica de ambiente. Com varios clientes isso nao serve:
+        // ou so passava o dono dessa chave — e as mensagens de todos os outros
+        // iam para o lixo em silencio — ou a verificacao era saltada para toda a
+        // gente e qualquer um que soubesse o endereco injectava mensagens falsas
+        // numa conta que nao era dele.
+        delete process.env.META_APP_SECRET;
+        db['wa_channels'] = [
+            { id: 'c-a', empresa_id: 'empresa-A', provider: 'meta', status: 'connected', credentials: { phoneNumberId: '111', appSecret: 'chave-do-A' } },
+            { id: 'c-b', empresa_id: 'empresa-B', provider: 'meta', status: 'connected', credentials: { phoneNumberId: '222', appSecret: 'chave-do-B' } },
+        ];
+
+        const corpoA = avisoDaMeta('111');
+        const rA = await mandar(corpoA, assinar('chave-do-A', corpoA));
+        assert(rA.status === 200, `o cliente A devia passar, deu ${rA.status}`);
+
+        const corpoB = avisoDaMeta('222');
+        const rB = await mandar(corpoB, assinar('chave-do-B', corpoB));
+        assert(rB.status === 200, `o cliente B devia passar, deu ${rB.status}`);
+    });
+
+    await test('a chave de um cliente nao serve para a conta do outro', async () => {
+        delete process.env.META_APP_SECRET;
+        db['wa_channels'] = [
+            { id: 'c-a', empresa_id: 'empresa-A', provider: 'meta', status: 'connected', credentials: { phoneNumberId: '111', appSecret: 'chave-do-A' } },
+            { id: 'c-b', empresa_id: 'empresa-B', provider: 'meta', status: 'connected', credentials: { phoneNumberId: '222', appSecret: 'chave-do-B' } },
+        ];
+        const corpoB = avisoDaMeta('222');
+        const r = await mandar(corpoB, assinar('chave-do-A', corpoB));
+        assert(r.status === 401, `devia recusar, deu ${r.status}`);
+    });
+
+    await test('uma assinatura inventada nao passa', async () => {
+        delete process.env.META_APP_SECRET;
+        db['wa_channels'] = [
+            { id: 'c-a', empresa_id: 'empresa-A', provider: 'meta', status: 'connected', credentials: { phoneNumberId: '111', appSecret: 'chave-do-A' } },
+            { id: 'c-b', empresa_id: 'empresa-B', provider: 'meta', status: 'connected', credentials: { phoneNumberId: '222', appSecret: 'chave-do-B' } },
+        ];
+        const corpo = avisoDaMeta('111');
+        const r = await mandar(corpo, 'sha256=0000000000000000000000000000000000000000000000000000000000000000');
+        assert(r.status === 401, `devia recusar, deu ${r.status}`);
+    });
+
+    await test('sem chave guardada, deixa passar — como antes, mas avisa', async () => {
+        // Nem toda a gente a tem configurada ainda. Fechar a porta de repente
+        // deixava esses clientes sem receber mensagem nenhuma.
+        db['wa_channels'] = [
+            { id: 'c-c', empresa_id: 'empresa-C', provider: 'meta', status: 'connected', credentials: { phoneNumberId: '333' } },
+        ];
+        const corpo = avisoDaMeta('333');
+        const r = await mandar(corpo, assinar('seja-o-que-for', corpo));
+        assert(r.status === 200, `devia deixar passar, deu ${r.status}`);
+    });
+
+    await test('a chave do servidor continua a valer, para quem ja a tinha', async () => {
+        process.env.META_APP_SECRET = 'a-do-servidor';
+        db['wa_channels'] = [
+            { id: 'c-d', empresa_id: 'empresa-D', provider: 'meta', status: 'connected', credentials: { phoneNumberId: '444' } },
+        ];
+        const corpo = avisoDaMeta('444');
+        const r = await mandar(corpo, assinar('a-do-servidor', corpo));
+        assert(r.status === 200, `devia passar, deu ${r.status}`);
+        delete process.env.META_APP_SECRET;
+    });
+
+    await test('dois numeros da MESMA conta Meta podem ser de empresas diferentes', async () => {
+        // A pergunta do cliente: ele tem dois numeros na mesma conta da Meta e
+        // quer usar o outro noutra conta do sistema. O encaminhamento e pelo id
+        // do NUMERO, nao pela conta — por isso funciona.
+        delete process.env.META_APP_SECRET;
+        db['wa_channels'] = [
+            { id: 'c-x', empresa_id: 'empresa-X', provider: 'meta', status: 'connected', credentials: { phoneNumberId: '555', appSecret: 'mesma-app' } },
+            { id: 'c-y', empresa_id: 'empresa-Y', provider: 'meta', status: 'connected', credentials: { phoneNumberId: '666', appSecret: 'mesma-app' } },
+        ];
+        const c1 = avisoDaMeta('555');
+        const c2 = avisoDaMeta('666');
+        assert((await mandar(c1, assinar('mesma-app', c1))).status === 200, 'o numero 555 devia passar');
+        assert((await mandar(c2, assinar('mesma-app', c2))).status === 200, 'o numero 666 devia passar');
     });
 
     servidor.unref();

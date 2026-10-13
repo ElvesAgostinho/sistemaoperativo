@@ -530,19 +530,20 @@ router.get('/webhook/meta', async (req: Request, res: Response) => {
 
 router.post('/webhook/meta', async (req: Request, res: Response) => {
     try {
-        const signature = req.headers['x-hub-signature-256'] as string;
-        const appSecret = process.env.META_APP_SECRET;
-
-        // Validar signature se a App Secret estiver configurada
-        if (signature && appSecret) {
-            const crypto = require('crypto');
-            const expectedSignature = 'sha256=' + crypto.createHmac('sha256', appSecret).update((req as any).rawBody).digest('hex');
-            if (signature !== expectedSignature) {
-                return res.status(401).send('Signature mismatch');
-            }
-        }
-
         const body = req.body;
+
+        // De quem e esta mensagem? Vem no proprio corpo, e e preciso saber-se
+        // ANTES de validar a assinatura: cada cliente tem a sua aplicacao Meta e
+        // a sua chave, e a assinatura so se confere com a chave certa.
+        const idDoNumero = body?.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id;
+
+        const assinaturaOk = await WhatsAppAssinaturaMeta.confere(
+            req.headers['x-hub-signature-256'] as string,
+            (req as any).rawBody,
+            idDoNumero,
+        );
+        if (!assinaturaOk) return res.status(401).send('Signature mismatch');
+
         if (body.object) {
             const change = body.entry?.[0]?.changes?.[0]?.value;
 
@@ -620,7 +621,7 @@ router.post('/webhook/meta', async (req: Request, res: Response) => {
 
 // Rota para gravar as configurações da Meta
 router.post('/config/meta', requireAuth, exigirPermissao('wa.canal'), async (req: AuthRequest, res: Response) => {
-    const { appId, wabaId, phoneNumberId, verifyToken } = req.body;
+    const { appId, wabaId, phoneNumberId, verifyToken, appSecret } = req.body;
     let { accessToken } = req.body;
     const empresaId = req.user?.empresa_id;
 
@@ -676,6 +677,7 @@ router.post('/config/meta', requireAuth, exigirPermissao('wa.canal'), async (req
             // webhook falhava sempre, com a Meta a dizer que o URL ou o token
             // não serviam quando o problema era outro.
             const porLigar: any = { phoneNumberId, verifyToken };
+            if (appSecret) porLigar.appSecret = appSecret;
             if (appId) porLigar.appId = appId;
             if (wabaId) porLigar.wabaId = wabaId;
             if (accessToken) porLigar.accessToken = accessToken;
@@ -718,7 +720,12 @@ router.post('/config/meta', requireAuth, exigirPermissao('wa.canal'), async (req
         // O wabaId e o que o servico de templates precisa para falar com a
         // Meta (`/{waba-id}/message_templates`). Ele ja o sabia ler; era o
         // painel que nunca o pedia, e por isso os templates nao se sincronizavam.
-        const creds: any = { appId, wabaId, phoneNumberId, accessToken, verifyToken };
+        const creds: any = { appId, wabaId, phoneNumberId, accessToken, verifyToken, appSecret };
+        // Como o token de acesso, a chave da aplicacao nao volta ao ecra — por
+        // isso tambem nao volta de la. Gravar sem a reescrever mantem a actual.
+        if (!appSecret && canalAnterior?.credentials?.appSecret) {
+            creds.appSecret = canalAnterior.credentials.appSecret;
+        }
         for (const k of Object.keys(creds)) if (!creds[k]) delete creds[k];
 
         if (existingChannel) {
@@ -890,6 +897,74 @@ function descreverToken(token: string, veioDoGuardado: boolean): { fim: string; 
 }
 
 /**
+ * A assinatura do webhook da Meta, conferida com a chave do cliente certo.
+ *
+ * Era conferida com uma chave unica de ambiente. Com um cliente so isso chega;
+ * com varios nao: ou so passa o dono da chave (e as mensagens dos outros sao
+ * deitadas fora caladamente), ou a verificacao e saltada para toda a gente e
+ * qualquer um que saiba o endereco pode injectar mensagens falsas numa conta
+ * que nao e dele.
+ *
+ * Agora cada canal guarda a chave da SUA aplicacao, e a mensagem e conferida com
+ * a do numero a que pertence.
+ */
+class WhatsAppAssinaturaMeta {
+
+    public static async confere(assinatura: string | undefined, corpoEmBruto: any, idDoNumero?: string): Promise<boolean> {
+        // Sem assinatura nao ha o que conferir. A Meta envia-a sempre que a
+        // aplicacao tem chave; deixar passar aqui e o comportamento de sempre.
+        if (!assinatura || !corpoEmBruto) return true;
+
+        const chaves = await WhatsAppAssinaturaMeta.chavesPara(idDoNumero);
+        if (!chaves.length) {
+            // Nenhuma chave configurada: nao se pode conferir. Deixa passar,
+            // como antes, mas fica dito — e uma porta aberta, nao um detalhe.
+            console.warn('[Webhook Meta] mensagem sem chave para conferir a assinatura. '
+                + 'Guarde a App Secret da aplicacao Meta nas definicoes do canal.');
+            return true;
+        }
+
+        const crypto = require('crypto');
+        for (const chave of chaves) {
+            const esperada = 'sha256=' + crypto.createHmac('sha256', chave).update(corpoEmBruto).digest('hex');
+            // Comparacao de tempo constante: comparar segredos com `!==` deixa
+            // medir quantos caracteres batem certo.
+            try {
+                const a = Buffer.from(assinatura);
+                const b = Buffer.from(esperada);
+                if (a.length === b.length && crypto.timingSafeEqual(a, b)) return true;
+            } catch { /* tamanhos diferentes: nao bate */ }
+        }
+
+        console.warn('[Webhook Meta] assinatura nao confere para o numero', idDoNumero || '(desconhecido)');
+        return false;
+    }
+
+    /** A chave do canal deste numero, e a do servidor se existir. */
+    private static async chavesPara(idDoNumero?: string): Promise<string[]> {
+        const chaves: string[] = [];
+
+        if (idDoNumero) {
+            try {
+                const { data } = await supabase.from('wa_channels')
+                    .select('credentials')
+                    .eq('provider', 'meta')
+                    .filter('credentials->>phoneNumberId', 'eq', idDoNumero)
+                    .maybeSingle();
+                const doCanal = data?.credentials?.appSecret;
+                if (doCanal) chaves.push(String(doCanal));
+            } catch (e: any) {
+                console.error('[Webhook Meta] nao consegui ler a chave do canal:', e?.message || e);
+            }
+        }
+
+        // A variavel de ambiente continua a valer, para quem ja a tinha.
+        if (process.env.META_APP_SECRET) chaves.push(String(process.env.META_APP_SECRET));
+        return chaves;
+    }
+}
+
+/**
  * Os numeros desta empresa, para o painel dos fluxos os poder escolher.
  *
  * So o que e preciso para os mostrar numa lista: nada de credenciais.
@@ -947,6 +1022,7 @@ router.get('/config/meta', requireAuth, async (req: AuthRequest, res: Response) 
             phoneNumberId: c.phoneNumberId || '',
             verifyToken: c.verifyToken || '',
             temToken: !!c.accessToken,
+            temChaveDaApp: !!c.appSecret,
             // O painel mostrava "https://seu-dominio.com/..." — um exemplo, nao
             // um endereco. Quem o copiasse para a Meta punha la isso mesmo.
             webhookUrl: `${publicUrl}/api/whatsapp/webhook/meta`,

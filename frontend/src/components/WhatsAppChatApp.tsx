@@ -176,7 +176,8 @@ export default function WhatsAppChatApp({ podeFazer }: { podeFazer?: (accao: str
     const [qrStatus, setQrStatus] = useState<string>('');
 
     // Meta API Settings
-    const [metaConfig, setMetaConfig] = useState({ appId: '', wabaId: '', phoneNumberId: '', accessToken: '', webhookUrl: '', verifyToken: '' });
+    const [metaConfig, setMetaConfig] = useState({ appId: '', wabaId: '', phoneNumberId: '', accessToken: '', webhookUrl: '', verifyToken: '', appSecret: '' });
+    const [metaTemChave, setMetaTemChave] = useState(false);
     // O token de acesso nunca volta do servidor. Isto diz se ha um guardado, para
     // o campo poder ficar vazio sem dar a entender que nao esta configurado.
     const [metaTemToken, setMetaTemToken] = useState(false);
@@ -295,6 +296,7 @@ export default function WhatsAppChatApp({ podeFazer }: { podeFazer?: (accao: str
                 webhookUrl: d.webhookUrl || c.webhookUrl,
             }));
             setMetaTemToken(!!d.temToken);
+            setMetaTemChave(!!d.temChaveDaApp);
             if (d.configurado) setMetaStatus('connected');
         } catch { /* o painel abre vazio, que e o que ja fazia */ }
     };
@@ -444,9 +446,11 @@ ${data.diagnostico}` : '')
             phoneNumberId: '',
             accessToken: '',
             verifyToken: '',
+            appSecret: '',
             webhookUrl: c.webhookUrl,
         }));
         setMetaTemToken(false);
+        setMetaTemChave(false);
         setMetaTeste(null);
         setMetaStatus('disconnected');
         setMetaBusinessInfo(null);
@@ -1889,6 +1893,22 @@ ${data.diagnostico}` : '')
                                             <label style={{ display: 'block', fontSize: '13px', color: '#5B738B', marginBottom: '6px', fontWeight: 500 }}>Token de verificação do webhook</label>
                                             <input type="text" value={metaConfig.verifyToken} onChange={e => setMetaConfig({ ...metaConfig, verifyToken: e.target.value })} placeholder="Crie um token de verificação personalizado" style={CAMPO_META} />
                                             <div style={AJUDA_META}>Uma palavra-passe criada por si. Tem de ser igual à que puser nas configurações do webhook da Meta.</div>
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '13px', color: '#5B738B', marginBottom: '6px', fontWeight: 500 }}>Chave secreta da aplicação (App Secret)</label>
+                                            <input
+                                                type="password"
+                                                value={metaConfig.appSecret}
+                                                onChange={e => setMetaConfig({ ...metaConfig, appSecret: e.target.value })}
+                                                placeholder={metaTemChave ? '••••••••••••••' : 'Definições básicas da aplicação Meta → Chave secreta'}
+                                                style={CAMPO_META}
+                                            />
+                                            <div style={AJUDA_META}>
+                                                É com esta que confirmamos que um aviso veio mesmo da Meta e não de outra
+                                                pessoa que descobriu o endereço. {metaTemChave
+                                                    ? 'Já há uma guardada — deixar em branco mantém a actual.'
+                                                    : 'Sem ela, qualquer um que saiba o endereço do webhook pode injectar mensagens falsas nesta conta.'}
+                                            </div>
                                         </div>
                                         <div>
                                             <label style={{ display: 'block', fontSize: '13px', color: '#5B738B', marginBottom: '6px', fontWeight: 500 }}>URL de callback do webhook</label>

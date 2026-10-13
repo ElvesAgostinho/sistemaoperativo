@@ -251,6 +251,55 @@ async function test(nome: string, fn: () => Promise<void>) {
         assert(rotulo.endsWith('…'), `devia mostrar que foi cortado: "${rotulo}"`);
     });
 
+    console.log('\n=== O formato que se pede ===\n');
+
+    await test('com duas opcoes dava botoes; pedindo o menu, sai o menu', async () => {
+        // So o menu mostra a descricao por baixo de cada opcao e agrupa em
+        // seccoes. Com um rotulo comprido ("Quarto duplo com vista para o mar"),
+        // um botao corta aos 20 caracteres e o menu nao. Nao havia como pedi-lo.
+        assert(Interativo.formatoIdeal(2, true, true)[0] === 'botoes', 'por omissao, botoes');
+        assert(Interativo.formatoIdeal(2, true, true, false, 'lista')[0] === 'lista', 'pedindo, o menu');
+    });
+
+    await test('pedir botoes acima de tres nao os inventa', async () => {
+        // O limite e da Meta. Prometer o impossivel fazia a mensagem ser
+        // recusada inteira, e o cliente nao recebia nada.
+        assert(Interativo.formatoIdeal(6, true, true, false, 'botoes')[0] === 'lista',
+            'acima de tres nao ha botoes, pedidos ou nao');
+    });
+
+    await test('pedir o menu num canal que nao o tem cai no texto', async () => {
+        assert(Interativo.formatoIdeal(2, false, false, false, 'lista')[0] === 'texto',
+            'sem lista disponivel, nao se finge que ha');
+    });
+
+    await test('o painel e o servidor concordam tambem no formato pedido', async () => {
+        const ts = require('typescript');
+        const fs = require('fs');
+        const fonte = fs.readFileSync(
+            path.join(__dirname, '..', '..', 'frontend', 'src', 'components', 'automation', 'PreVisualizacaoEscolha.tsx'), 'utf8'
+        );
+        const ini = fonte.indexOf('const LIMITES');
+        const fim = fonte.indexOf('\n}', fonte.indexOf('export function formatoPrevisto')) + 2;
+        const js = ts.transpileModule(fonte.slice(ini, fim).replace('export function', 'function'), {
+            compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2019 },
+        }).outputText;
+        const doEcra = new Function('exports', js + '\nreturn formatoPrevisto;')({});
+
+        for (const pedido of [undefined, 'botoes', 'lista']) {
+            for (let n = 0; n <= 12; n++) {
+                for (const comLista of [false, true]) {
+                    for (const comBotoes of [false, true]) {
+                        const servidor = Interativo.formatoIdeal(n, comLista, comBotoes, false, pedido)[0];
+                        const ecra = doEcra(n, comLista, comBotoes, pedido);
+                        assert(servidor === ecra,
+                            `pedido ${pedido} com ${n} opcoes (lista:${comLista} botoes:${comBotoes}): servidor "${servidor}", painel "${ecra}"`);
+                    }
+                }
+            }
+        }
+    });
+
     console.log('\n=== Cabeçalho e secções (como no ManyChat) ===\n');
 
     const canalMeta = () => {

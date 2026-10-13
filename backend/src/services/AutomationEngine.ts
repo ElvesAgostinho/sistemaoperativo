@@ -1084,7 +1084,7 @@ export class AutomationEngine {
             // da regra e o simulador a dizer uma coisa e o cliente a receber
             // outra.
             const formato = WhatsAppInterativoService.formatoIdeal(
-                opcoes.length, false, context?.__sim_botoes === true,
+                opcoes.length, false, context?.__sim_botoes === true, false, node.data?.formatoPreferido,
             )[0];
             const comoSeLe: Record<string, string> = {
                 botoes: 'botões a clicar',
@@ -1125,6 +1125,8 @@ export class AutomationEngine {
             texto: pergunta,
             opcoes,
             cabecalho,
+            // 'lista' força o menu que abre mesmo com duas ou três opções.
+            formatoPreferido: node.data?.formatoPreferido || undefined,
             rodape: node.data?.rodape ? this.parseString(String(node.data.rodape), context) : undefined,
             textoDoBotao: node.data?.textoDoBotao ? this.parseString(String(node.data.textoDoBotao), context) : undefined,
         });
