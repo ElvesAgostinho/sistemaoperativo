@@ -4,6 +4,7 @@ import {
   Plus, X, ChevronUp, ChevronDown, Link2, Phone, Copy, AlertTriangle,
 } from 'lucide-react';
 import { useCanalBotoes } from './useCanalBotoes';
+import CampoFicheiro from './CampoFicheiro';
 
 /**
  * Vários blocos dentro de um nó de mensagem.
@@ -26,6 +27,8 @@ export interface Bloco {
   tipo: TipoBloco;
   texto?: string;
   url?: string;
+  /** O nome original do ficheiro carregado, para o mostrar no painel. */
+  nomeDoFicheiro?: string;
   duracao?: number;
   unidade?: string;
   botoes?: BotaoAccao[];
@@ -259,11 +262,11 @@ export default function EditorBlocos({ blocos, aoMudar }: {
 
                 {['imagem', 'video', 'audio', 'documento'].includes(b.tipo) && (
                   <>
-                    <input
-                      style={{ ...campo, marginBottom: '6px' }}
-                      value={b.url || ''}
-                      onChange={e => mudar(i, { url: e.target.value })}
-                      placeholder="Link do ficheiro (https://…)"
+                    <CampoFicheiro
+                      tipo={b.tipo as 'imagem' | 'video' | 'audio' | 'documento'}
+                      url={b.url || ''}
+                      nome={b.nomeDoFicheiro}
+                      aoMudar={patch => mudar(i, patch)}
                     />
                     {b.tipo !== 'audio' && (
                       <input

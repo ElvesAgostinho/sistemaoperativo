@@ -124,6 +124,26 @@ async function test(nome: string, fn: () => Promise<void>) {
         assert(saiu[2].conteudo === 'Terceira', saiu[2].conteudo);
     });
 
+    await test('um ficheiro carregado chega com o nome que tinha', async () => {
+        // O painel passou a deixar carregar o ficheiro do computador, e nao so
+        // colar um endereco. Quando se carrega, guarda-se o nome original — e e
+        // esse que o cliente ve no WhatsApp. Sem isto, um contrato chegava como
+        // "ficheiro.pdf", que nao diz nada a ninguem.
+        await Blocos.enviar([{
+            tipo: 'documento',
+            url: 'https://storage/empresa/1762_Contrato_de_Arrendamento.pdf',
+            nomeDoFicheiro: 'Contrato de Arrendamento.pdf',
+        }], DESTINO, parse);
+        assert(saiu[0].extra.nome === 'Contrato de Arrendamento.pdf', JSON.stringify(saiu[0].extra));
+    });
+
+    await test('sem nome guardado, inventa-se um pelo tipo', async () => {
+        // Os fluxos que ja existem foram gravados so com o endereco. Nao podem
+        // deixar de funcionar por causa de um campo novo.
+        await Blocos.enviar([{ tipo: 'documento', url: 'https://x/seja-o-que-for' }], DESTINO, parse);
+        assert(saiu[0].extra.nome === 'ficheiro.pdf', JSON.stringify(saiu[0].extra));
+    });
+
     await test('as variáveis são substituídas em todos os blocos', async () => {
         await Blocos.enviar([
             { tipo: 'texto', texto: 'Olá {{nome}}' },

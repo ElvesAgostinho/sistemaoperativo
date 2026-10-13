@@ -173,8 +173,10 @@ export class BlocosMensagemService {
     /**
      * Texto com botões de acção (link, chamada, copiar).
      *
-     * Confirmei na Evolution desta instalação que os três tipos passam e saem
-     * no formato moderno — o mesmo que o ManyChat usa.
+     * Os três tipos são aceites pela Evolution (201) mas NUNCA entregues —
+     * provado no número do dono e num segundo número. Por isso, sem
+     * `botoesFiaveis`, o endereço vai escrito no texto. Só pela API oficial da
+     * Meta é que eles chegam mesmo como botões.
      */
     private static async enviarTextoComBotoes(
         texto: string,
