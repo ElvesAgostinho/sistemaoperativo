@@ -51,10 +51,18 @@ const fetchReal = global.fetch;
     const corpo = opts?.body ? JSON.parse(opts.body) : {};
     enviados.push({ url: String(url), corpo });
     const caminho = String(url).split('/message/')[1]?.split('/')[0] || String(url);
+    // O `ok` faz parte da resposta real e havia codigo nosso a testa-lo. Sem
+    // ele aqui, um caminho inteiro dava-se por falhado em silencio e o teste
+    // nao dizia porque — perdi tempo a procurar um bug que era do mock.
     if (recusar.some(r => String(url).includes(r))) {
-        return { status: 400, json: async () => ({ response: { message: ['TypeError: this.isZero is not a function'] } }) } as any;
+        return { ok: false, status: 400, headers: { get: () => null }, json: async () => ({ response: { message: ['TypeError: this.isZero is not a function'] } }) } as any;
     }
-    return { status: 201, json: async () => ({ key: { id: 'msg-' + caminho } }) } as any;
+    return {
+        ok: true, status: 201,
+        headers: { get: (h: string) => (h.toLowerCase() === 'content-type' ? 'image/jpeg' : null) },
+        arrayBuffer: async () => new ArrayBuffer(8),
+        json: async () => ({ key: { id: 'msg-' + caminho } }),
+    } as any;
 };
 
 process.env.EVOLUTION_API_URL = 'https://evolution.exemplo.pt';
@@ -241,6 +249,123 @@ async function test(nome: string, fn: () => Promise<void>) {
         const rotulo = enviados[0].corpo.buttons[0].displayText;
         assert(rotulo.length <= 20, `${rotulo.length} caracteres é demais: "${rotulo}"`);
         assert(rotulo.endsWith('…'), `devia mostrar que foi cortado: "${rotulo}"`);
+    });
+
+    console.log('\n=== Cabeçalho e secções (como no ManyChat) ===\n');
+
+    const canalMeta = () => {
+        db['wa_channels'] = [{
+            id: CANAL, empresa_id: EMPRESA, provider: 'meta', status: 'connected',
+            credentials: { phoneNumberId: '111', accessToken: 'tok' },
+        }];
+    };
+
+    await test('uma imagem vai DENTRO da mensagem de botões', async () => {
+        // É o que faz o menu parecer de uma marca em vez de uma linha de texto
+        // com botões por baixo. Só a mensagem de botões da Meta a leva por dentro.
+        canalMeta();
+        await Interativo.perguntar({
+            ...pedido(3),
+            cabecalho: { tipo: 'imagem', url: 'https://x/capa.jpg' },
+        });
+        const env = enviados[enviados.length - 1];
+        const h = env.corpo.interactive.header;
+        assert(h && h.type === 'image', `devia ir imagem no cabeçalho: ${JSON.stringify(h)}`);
+        assert(h.image.link === 'https://x/capa.jpg', JSON.stringify(h));
+    });
+
+    await test('na lista, a imagem vai à frente numa mensagem própria', async () => {
+        // A lista da Meta aceita cabeçalho, mas só de texto. Em vez de deitar a
+        // imagem fora, ela segue antes — perde-se o encaixe, não a imagem.
+        canalMeta();
+        await Interativo.perguntar({
+            ...pedido(6),
+            cabecalho: { tipo: 'imagem', url: 'https://x/capa.jpg' },
+        });
+        const lista = enviados[enviados.length - 1];
+        assert(lista.corpo.interactive.type === 'list', JSON.stringify(lista.corpo.interactive.type));
+        assert(!lista.corpo.interactive.header, 'a lista não pode levar imagem por dentro');
+        const media = enviados.filter(e => e.corpo?.type === 'image');
+        assert(media.length === 1, `a imagem devia ter saído à parte: ${media.length}`);
+        assert(media[0].corpo.image.link === 'https://x/capa.jpg', JSON.stringify(media[0].corpo));
+    });
+
+    await test('um cabeçalho de texto cabe na lista', async () => {
+        canalMeta();
+        await Interativo.perguntar({
+            ...pedido(6),
+            cabecalho: { tipo: 'texto', texto: 'Residencial Paraíso' },
+        });
+        const h = enviados[enviados.length - 1].corpo.interactive.header;
+        assert(h && h.type === 'text' && h.text === 'Residencial Paraíso', JSON.stringify(h));
+    });
+
+    await test('as opções agrupam-se em secções', async () => {
+        canalMeta();
+        await Interativo.perguntar({
+            ...pedido(0),
+            opcoes: [
+                { id: 'q1', rotulo: 'Simples', seccao: 'Quartos' },
+                { id: 'q2', rotulo: 'Duplo', seccao: 'Quartos' },
+                { id: 's1', rotulo: 'Pequeno-almoço', seccao: 'Serviços' },
+                { id: 's2', rotulo: 'Transfer', seccao: 'Serviços' },
+            ],
+        });
+        const sec = enviados[enviados.length - 1].corpo.interactive.action.sections;
+        assert(sec.length === 2, `deviam ser 2 secções, são ${sec.length}`);
+        assert(sec[0].title === 'Quartos' && sec[0].rows.length === 2, JSON.stringify(sec[0]));
+        assert(sec[1].title === 'Serviços' && sec[1].rows.length === 2, JSON.stringify(sec[1]));
+    });
+
+    await test('dez linhas continua a ser o tecto, por mais secções que haja', async () => {
+        // O limite da Meta é no TOTAL das linhas. Passar dele faz a Meta recusar
+        // a mensagem inteira — e aí o cliente não recebia nada.
+        canalMeta();
+        await Interativo.perguntar({
+            ...pedido(0),
+            opcoes: Array.from({ length: 18 }, (_, i) => ({
+                id: 'o' + i, rotulo: 'Opção ' + i, seccao: 'Grupo ' + (i % 6),
+            })),
+        });
+        const env = enviados[enviados.length - 1];
+        if (env.corpo.interactive) {
+            const total = env.corpo.interactive.action.sections
+                .reduce((n: number, g: any) => n + g.rows.length, 0);
+            assert(total <= 10, `${total} linhas é demais`);
+        }
+    });
+
+    await test('sem secções nenhumas, fica tudo num grupo só — como antes', async () => {
+        canalMeta();
+        await Interativo.perguntar(pedido(6));
+        const sec = enviados[enviados.length - 1].corpo.interactive.action.sections;
+        assert(sec.length === 1, `devia ser 1 secção, são ${sec.length}`);
+        assert(sec[0].rows.length === 6, JSON.stringify(sec[0].rows.length));
+    });
+
+    await test('no texto numerado, as secções vêem-se e a numeração não reinicia', async () => {
+        // Sem isto, uma lista agrupada chegava como dez linhas seguidas, sem se
+        // perceber o que ia com o quê. E se a numeração reiniciasse por grupo,
+        // havia dois "1" e o fluxo não sabia qual era qual.
+        const t = Interativo.comoTexto({
+            ...pedido(0),
+            texto: 'Como posso ajudar?',
+            opcoes: [
+                { id: 'a', rotulo: 'Simples', seccao: 'Quartos' },
+                { id: 'b', rotulo: 'Duplo', seccao: 'Quartos' },
+                { id: 'c', rotulo: 'Transfer', seccao: 'Serviços' },
+            ],
+        });
+        assert(t.includes('*Quartos*') && t.includes('*Serviços*'), t);
+        assert(t.includes('1 - Simples') && t.includes('2 - Duplo') && t.includes('3 - Transfer'), t);
+    });
+
+    await test('a linha do cabeçalho não se perde no texto numerado', async () => {
+        const t = Interativo.comoTexto({
+            ...pedido(2),
+            cabecalho: { tipo: 'texto', texto: 'Residencial Paraíso' },
+        });
+        assert(t.startsWith('Residencial Paraíso'), t.slice(0, 60));
     });
 
     console.log('\n=== O painel e o servidor dizem o mesmo ===\n');

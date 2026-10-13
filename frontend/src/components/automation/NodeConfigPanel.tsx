@@ -6,6 +6,7 @@ import { ACTION_LABELS, createDefaultMenuOption, VARIAVEIS_CONVERSA } from './ty
 import { duracaoDaPausa, emSegundos, pausaPorExtenso, UNIDADES, ESPERA_GUARDADA_ACIMA_DE, type Unidade } from './tempoDaPausa';
 import PreVisualizacaoEscolha from './PreVisualizacaoEscolha';
 import EditorBlocos, { type Bloco, ACCOES_COM_BLOCOS } from './EditorBlocos';
+import CampoFicheiro from './CampoFicheiro';
 
 interface NodeConfigPanelProps {
   node: AutomationNode;
@@ -218,7 +219,10 @@ export default function NodeConfigPanel({ node, todosOsNos = [], automations, cu
       const d = node.data as MenuNodeData;
       const options = d.options || [];
 
-      const updateOption = (id: string, patch: Partial<{ label: string; matchValue: string }>) => {
+      const cab = (d as any).cabecalho || {};
+      const mudarCabecalho = (patch: any) => updateData({ cabecalho: { ...cab, ...patch } } as any);
+
+      const updateOption = (id: string, patch: Partial<{ label: string; matchValue: string; seccao: string }>) => {
         updateData({ options: options.map(o => o.id === id ? { ...o, ...patch } : o) });
       };
       const addOption = () => {
@@ -243,6 +247,54 @@ export default function NodeConfigPanel({ node, todosOsNos = [], automations, cu
             letterSpacing: '.04em', color: '#475569',
           }}>
             E DEPOIS, A PERGUNTA
+          </div>
+
+          {/* ---------- O cabecalho ---------- */}
+          <div style={{
+            marginTop: '18px', fontSize: '11px', fontWeight: 700,
+            letterSpacing: '.04em', color: '#475569', marginBottom: '7px',
+          }}>
+            POR CIMA DA PERGUNTA (OPCIONAL)
+          </div>
+
+          <select
+            style={{ ...fieldStyle, marginBottom: cab.tipo && cab.tipo !== 'nada' ? '7px' : '4px' }}
+            value={cab.tipo || 'nada'}
+            onChange={e => {
+              const t = e.target.value;
+              updateData({ cabecalho: t === 'nada' ? undefined : { tipo: t } } as any);
+            }}
+          >
+            <option value="nada">Nada — só a pergunta</option>
+            <option value="texto">Uma linha de texto</option>
+            <option value="imagem">Uma imagem</option>
+            <option value="video">Um vídeo</option>
+            <option value="documento">Um documento</option>
+          </select>
+
+          {cab.tipo === 'texto' && (
+            <input
+              style={fieldStyle}
+              type="text"
+              value={cab.texto || ''}
+              onChange={e => mudarCabecalho({ texto: e.target.value })}
+              placeholder="Ex: Residencial Paraíso (máx. 60 letras)"
+            />
+          )}
+
+          {['imagem', 'video', 'documento'].includes(cab.tipo) && (
+            <CampoFicheiro
+              tipo={cab.tipo}
+              url={cab.url || ''}
+              nome={cab.nomeDoFicheiro}
+              aoMudar={patch => mudarCabecalho({ url: patch.url, nomeDoFicheiro: patch.nomeDoFicheiro })}
+            />
+          )}
+
+          <div style={{ fontSize: '11px', color: '#666', marginTop: '4px', lineHeight: 1.55, marginBottom: '14px' }}>
+            É isto que faz o menu parecer de uma marca em vez de uma linha de texto.
+            Com <b>até 3 opções</b> a imagem vai colada à mensagem; com mais, vai na
+            mensagem logo antes. Só funciona pela API oficial da Meta.
           </div>
 
           <label style={labelStyle}>Pergunta a enviar</label>
@@ -286,11 +338,18 @@ export default function NodeConfigPanel({ node, todosOsNos = [], automations, cu
                     placeholder="O que aparece no botão. Ex: Ver preços"
                   />
                   <input
-                    style={{ ...fieldStyle, fontSize: '12px' }}
+                    style={{ ...fieldStyle, fontSize: '12px', marginBottom: '6px' }}
                     type="text"
                     value={opt.matchValue}
                     onChange={e => updateOption(opt.id, { matchValue: e.target.value })}
                     placeholder="Palavra que também serve, se o cliente escrever. Ex: preços"
+                  />
+                  <input
+                    style={{ ...fieldStyle, fontSize: '12px' }}
+                    type="text"
+                    value={(opt as any).seccao || ''}
+                    onChange={e => updateOption(opt.id, { seccao: e.target.value })}
+                    placeholder="Grupo onde aparece no menu. Ex: Quartos (opcional)"
                   />
                 </div>
 
@@ -323,6 +382,17 @@ export default function NodeConfigPanel({ node, todosOsNos = [], automations, cu
             pergunta={d.pergunta || ''}
             opcoes={options.map(o => ({ id: o.id, label: o.label }))}
           />
+
+          {options.some(o => ((o as any).seccao || '').trim()) && (
+            <div style={{
+              marginTop: '8px', padding: '8px 10px', borderRadius: '4px',
+              background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#5B738B',
+              fontSize: '11.5px', lineHeight: 1.65,
+            }}>
+              Os <b>grupos</b> só aparecem quando o menu sai como lista — a partir de
+              4 opções. Com 3 ou menos são botões, e os botões não têm grupos.
+            </div>
+          )}
 
           <div style={{ marginTop: '12px', fontSize: '11px', color: '#666', lineHeight: 1.6 }}>
             Cada opção tem a sua própria saída no cartão — ligue cada uma ao caminho que

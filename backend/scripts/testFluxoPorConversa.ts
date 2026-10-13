@@ -177,19 +177,28 @@ const pedidosEvolution: { url: string; corpo: any }[] = [];
 const fetchOriginal = global.fetch;
 (global as any).fetch = async (url: string, opts: any) => {
     const u = String(url);
-    if (/\/message\//.test(u)) {
+    // A Evolution usa `/message/<accao>/`; a Meta usa `/messages`. Captar so a
+    // primeira deixava os envios pela API oficial a passar para a rede de
+    // verdade — e o teste a dizer que nao saiu nada.
+    if (/\/message\//.test(u) || /graph\.facebook\.com/.test(u)) {
         const corpo = opts?.body ? JSON.parse(opts.body) : {};
         pedidosEvolution.push({ url: u, corpo });
         // Uma pergunta enviada como botoes ou sondagem nao passa pelo
         // sendMessage. Entra na mesma lista, para o `ditas()` continuar a ver
         // TUDO o que o cliente recebeu, pela ordem em que recebeu.
-        const texto = corpo.description || corpo.name || corpo.text || '';
+        const texto = corpo.description || corpo.name || corpo.text
+            || corpo.interactive?.body?.text || corpo.text?.body || '';
         if (texto) enviadas.push({ content: texto } as any);
-        return { status: 201, json: async () => ({ key: { id: 'evo-1' } }) } as any;
+        return {
+            ok: true, status: 201,
+            json: async () => ({ key: { id: 'evo-1' }, messages: [{ id: 'meta-1' }] }),
+        } as any;
     }
     return fetchOriginal ? (fetchOriginal as any)(url, opts) : ({ status: 404, json: async () => ({}) } as any);
 };
 const enviadoPor = (caminho: string) => pedidosEvolution.filter(p => p.url.includes('/message/' + caminho + '/'));
+/** O que foi para a API oficial da Meta — outro endereço, outro filtro. */
+const enviadoParaMeta = () => pedidosEvolution.filter(p => p.url.includes('graph.facebook.com'));
 
 (async () => {
     console.log('\n=== Escolher quem atende cada cliente ===\n');
@@ -602,6 +611,53 @@ const enviadoPor = (caminho: string) => pedidosEvolution.filter(p => p.url.inclu
         await receber('244900000001', 'Ola');
         assert(enviadoPor('sendButtons').length === 0, 'nao havia nada para por em botoes');
         assert(ditas().includes('Como posso ajudar'), `a pergunta devia sair na mesma: ${ditas()}`);
+    });
+
+    await test('o cabecalho e as seccoes do no chegam ao envio', async () => {
+        // O servico ja os sabia enviar. O que este teste segura e a ponte: se o
+        // motor deixar de os ler do no, o cliente recebe um menu pelado e o
+        // painel continua a mostrar a imagem — que foi o tipo de falha que me
+        // escapou antes com o empresa_id.
+        db['wa_channels'] = [{
+            id: CANAL, empresa_id: EMPRESA, provider: 'meta', status: 'connected',
+            credentials: { phoneNumberId: '111', accessToken: 'tok' },
+        }];
+
+        tabela('automations').push({
+            id: 12, nome: 'Menu com cara', ativo: true, empresa_id: EMPRESA,
+            nodes: [
+                { id: 't1', type: 'trigger', data: { triggerKind: 'whatsapp_message', matchMode: 'any' } },
+                {
+                    id: 'm1', type: 'menu',
+                    data: {
+                        pergunta: 'Como posso ajudar?',
+                        cabecalho: { tipo: 'imagem', url: 'https://x/capa.jpg' },
+                        options: [
+                            { id: 'q1', label: 'Simples', matchValue: '1', seccao: 'Quartos' },
+                            { id: 'q2', label: 'Duplo', matchValue: '2', seccao: 'Quartos' },
+                            { id: 's1', label: 'Transfer', matchValue: '3', seccao: 'Servicos' },
+                            { id: 's2', label: 'Lavandaria', matchValue: '4', seccao: 'Servicos' },
+                        ],
+                    },
+                },
+            ],
+            edges: [{ id: 'e1', source: 't1', target: 'm1' }],
+        });
+
+        await receber('244900000001', 'Ola');
+
+        const paraMeta = enviadoParaMeta();
+        const lista = paraMeta.find(e => e.corpo?.interactive?.type === 'list');
+        assert(!!lista, `devia ter saido uma lista: ${JSON.stringify(paraMeta.map(e => e.corpo?.type))}`);
+
+        const sec = lista!.corpo.interactive.action.sections;
+        assert(sec.length === 2, `deviam ser 2 grupos, sao ${sec.length}`);
+        assert(sec[0].title === 'Quartos', JSON.stringify(sec[0].title));
+
+        // A imagem vai a frente, porque a lista nao a leva por dentro.
+        const imagem = paraMeta.find(e => e.corpo?.type === 'image');
+        assert(!!imagem, 'a imagem do cabecalho devia ter saido');
+        assert(imagem!.corpo.image.link === 'https://x/capa.jpg', JSON.stringify(imagem!.corpo.image));
     });
 
     console.log('\n=== Os blocos saem nos OUTROS nos, pelo motor ===\n');

@@ -31,6 +31,28 @@ export interface OpcaoEscolha {
     id: string;
     /** Só a lista mostra isto, por baixo do rótulo. */
     descricao?: string;
+    /**
+     * Só a lista: o título do grupo onde esta opção aparece ("Quartos",
+     * "Serviços"). Opções sem secção ficam juntas, por ordem, antes das outras.
+     */
+    seccao?: string;
+}
+
+/**
+ * O que vai por cima da pergunta.
+ *
+ * É a diferença entre um menu que parece de uma marca e uma linha de texto com
+ * botões por baixo — e era o que faltava para isto se parecer com o ManyChat.
+ * A Meta aceita imagem, vídeo, documento ou uma linha de texto; onde não há
+ * cabeçalho (a Evolution, o texto numerado), a linha de texto junta-se à
+ * pergunta e a média segue como mensagem própria, antes dela.
+ */
+export interface CabecalhoEscolha {
+    tipo: 'texto' | 'imagem' | 'video' | 'documento';
+    /** tipo 'texto': a linha. Média: nada. */
+    texto?: string;
+    /** Média: o endereço do ficheiro. */
+    url?: string;
 }
 
 export interface PedidoEscolha {
@@ -46,6 +68,8 @@ export interface PedidoEscolha {
     textoDoBotao?: string;
     /** Para o registo e para o ecrã saberem o que foi tentado. */
     titulo?: string;
+    /** Imagem, vídeo, documento ou uma linha por cima da pergunta. */
+    cabecalho?: CabecalhoEscolha;
 }
 
 export type Formato = 'botoes' | 'lista' | 'sondagem' | 'texto';
@@ -61,8 +85,11 @@ export interface ResultadoEnvio {
 /** O que o WhatsApp aceita em cada formato. Passar daqui é recusa certa. */
 export const LIMITES = {
     botoes: { opcoes: 3, rotulo: 20 },
-    lista: { opcoes: 10, rotulo: 24, descricao: 72 },
+    // Dez linhas NO TOTAL, não dez por secção — é o tecto da Meta, e as secções
+    // só mudam como elas se agrupam. O título de uma secção aceita 24.
+    lista: { opcoes: 10, rotulo: 24, descricao: 72, seccoes: 10, tituloSeccao: 24 },
     sondagem: { opcoes: 12, rotulo: 100 },
+    cabecalho: { texto: 60 },
 } as const;
 
 export class WhatsAppInterativoService {
@@ -99,6 +126,27 @@ export class WhatsAppInterativoService {
         if (quantas <= LIMITES.botoes.opcoes) return ['botoes', 'texto'];
         if (quantas <= LIMITES.lista.opcoes && listaDisponivel) return ['lista', 'texto'];
         return ['texto'];
+    }
+
+    /**
+     * As opções agrupadas em secções, pela ordem em que as secções aparecem.
+     *
+     * Quem não puser secção nenhuma fica com uma só, sem título — que é
+     * exactamente o que havia antes, e continua a ser o caso normal.
+     */
+    public static agrupar(opcoes: OpcaoEscolha[], tituloPorOmissao = 'Opções'): { titulo: string; opcoes: OpcaoEscolha[] }[] {
+        const ordem: string[] = [];
+        const grupos: Record<string, OpcaoEscolha[]> = {};
+
+        for (const o of opcoes) {
+            const chave = (o.seccao || '').trim() || tituloPorOmissao;
+            if (!grupos[chave]) { grupos[chave] = []; ordem.push(chave); }
+            grupos[chave].push(o);
+        }
+
+        return ordem
+            .slice(0, LIMITES.lista.seccoes)
+            .map(t => ({ titulo: WhatsAppInterativoService.encurtar(t, LIMITES.lista.tituloSeccao), opcoes: grupos[t] }));
     }
 
     /** Corta um rótulo ao que o formato aceita, sem o deixar a meio da palavra. */
@@ -174,6 +222,7 @@ export class WhatsAppInterativoService {
         const { WhatsAppChannelManager } = require('./WhatsAppChannelManager');
 
         if (formato === 'texto') {
+            await WhatsAppInterativoService.enviarCabecalhoAparte(p);
             return WhatsAppChannelManager.sendMessage(
                 supabase, p.channelId, p.telefone, WhatsAppInterativoService.comoTexto(p)
             );
@@ -190,8 +239,28 @@ export class WhatsAppInterativoService {
 
     /** A pergunta como texto numerado — o que o sistema fazia antes, e a última rede. */
     public static comoTexto(p: PedidoEscolha): string {
-        const linhas = p.opcoes.map((o, i) => `${i + 1} - ${o.rotulo}`);
-        return [p.texto, '', ...linhas].join('\n');
+        // Onde não há cabeçalho a sério, a linha de texto dele não se perde: vai
+        // por cima da pergunta, que é onde ela ia aparecer de qualquer forma.
+        const topo = p.cabecalho?.tipo === 'texto' && p.cabecalho.texto?.trim()
+            ? [p.cabecalho.texto.trim(), '']
+            : [];
+
+        // As secções também se vêem no texto: sem elas, uma lista agrupada de
+        // dez opções chegava como dez linhas seguidas, sem se perceber o que ia
+        // com o quê.
+        const grupos = WhatsAppInterativoService.agrupar(p.opcoes, '');
+        const temSeccoes = grupos.length > 1 || (grupos[0] && grupos[0].titulo);
+
+        const linhas: string[] = [];
+        let n = 0;
+        for (const g of grupos) {
+            if (temSeccoes && g.titulo) linhas.push(`*${g.titulo}*`);
+            for (const o of g.opcoes) linhas.push(`${++n} - ${o.rotulo}`);
+            if (temSeccoes) linhas.push('');
+        }
+        while (linhas.length && linhas[linhas.length - 1] === '') linhas.pop();
+
+        return [...topo, p.texto, '', ...linhas].join('\n');
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -272,6 +341,67 @@ export class WhatsAppInterativoService {
     // Meta (API oficial)
     // ─────────────────────────────────────────────────────────────
 
+    /**
+     * A média do cabeçalho enviada como mensagem própria, antes da pergunta.
+     *
+     * Só a mensagem de botões da Meta leva uma imagem por dentro. Na lista o
+     * cabeçalho só aceita texto, e no texto numerado não há cabeçalho nenhum —
+     * nesses casos a imagem vai à frente em vez de desaparecer.
+     *
+     * Falhar aqui não impede a pergunta de sair: ficar sem a foto é mau, ficar
+     * sem o menu é pior.
+     */
+    private static async enviarCabecalhoAparte(p: PedidoEscolha): Promise<void> {
+        const c = p.cabecalho;
+        if (!c || c.tipo === 'texto' || !c.url) return;
+        try {
+            const canal = await WhatsAppInterativoService.canal(p.channelId, p.empresaId);
+
+            // Pela Meta vai o LINK, directo. O caminho geral descarrega o
+            // ficheiro e volta a enviá-lo para a Meta, o que aqui é trabalho a
+            // dobrar: estes ficheiros já estão num endereço público nosso, e a
+            // Meta aceita-o — é o mesmo `link` que o cabeçalho embutido usa.
+            if (canal?.provider === 'meta') {
+                const { phoneNumberId, accessToken } = canal.credentials || {};
+                const campo = c.tipo === 'imagem' ? 'image' : c.tipo === 'video' ? 'video' : 'document';
+                const r = await fetch(`https://graph.facebook.com/v20.0/${phoneNumberId}/messages`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+                    body: JSON.stringify({
+                        messaging_product: 'whatsapp',
+                        to: String(p.telefone).replace(/\D/g, ''),
+                        type: campo,
+                        [campo]: { link: c.url },
+                    }),
+                });
+                if (r.status >= 300) {
+                    const d: any = await r.json().catch(() => ({}));
+                    throw new Error(d?.error?.message || `estado ${r.status}`);
+                }
+                return;
+            }
+
+            const { WhatsAppChannelManager } = require('./WhatsAppChannelManager');
+            const nome = { imagem: 'imagem.jpg', video: 'video.mp4', documento: 'ficheiro.pdf' }[c.tipo] || 'ficheiro';
+            await WhatsAppChannelManager.sendMediaMessage(supabase, p.channelId, p.telefone, c.url, nome, '');
+        } catch (e: any) {
+            console.warn('[ESCOLHA] o cabeçalho não saiu, a pergunta segue na mesma:', e?.message || e);
+        }
+    }
+
+    /** O cabeçalho no formato da Meta, ou nada se não houver. */
+    private static cabecalhoMeta(c?: CabecalhoEscolha): any | null {
+        if (!c) return null;
+        if (c.tipo === 'texto') {
+            const t = WhatsAppInterativoService.encurtar(c.texto || '', LIMITES.cabecalho.texto);
+            return t ? { type: 'text', text: t } : null;
+        }
+        if (!c.url) return null;
+        if (c.tipo === 'imagem') return { type: 'image', image: { link: c.url } };
+        if (c.tipo === 'video') return { type: 'video', video: { link: c.url } };
+        return { type: 'document', document: { link: c.url } };
+    }
+
     private static async enviarPelaMeta(formato: Formato, p: PedidoEscolha, canal: any): Promise<string | boolean> {
         const { phoneNumberId, accessToken } = canal.credentials || {};
         if (!phoneNumberId || !accessToken) throw new Error('canal Meta sem credenciais');
@@ -279,9 +409,13 @@ export class WhatsAppInterativoService {
         const telefone = String(p.telefone).replace(/\D/g, '');
         let interactive: any;
 
+        // O cabeçalho é igual nos dois formatos.
+        const cabecalho = WhatsAppInterativoService.cabecalhoMeta(p.cabecalho);
+
         if (formato === 'botoes') {
             interactive = {
                 type: 'button',
+                ...(cabecalho ? { header: cabecalho } : {}),
                 body: { text: p.texto },
                 ...(p.rodape ? { footer: { text: p.rodape } } : {}),
                 action: {
@@ -292,20 +426,34 @@ export class WhatsAppInterativoService {
                 },
             };
         } else if (formato === 'lista') {
+            // O corte é no TOTAL das linhas, antes de agrupar: a Meta recusa a
+            // mensagem inteira acima de dez, por mais secções que haja — e aí o
+            // cliente não receberia nada.
+            // A lista não leva imagem por dentro: ela vai antes, à parte.
+            if (p.cabecalho && p.cabecalho.tipo !== 'texto') {
+                await WhatsAppInterativoService.enviarCabecalhoAparte(p);
+            }
+
+            const cabem = p.opcoes.slice(0, LIMITES.lista.opcoes);
+            const grupos = WhatsAppInterativoService.agrupar(cabem, p.titulo || 'Opções');
+
             interactive = {
                 type: 'list',
+                // A lista só aceita cabeçalho de TEXTO. Com uma imagem, ela vai
+                // à frente, numa mensagem própria — ver `enviarCabecalhoAparte`.
+                ...(cabecalho && cabecalho.type === 'text' ? { header: cabecalho } : {}),
                 body: { text: p.texto },
                 ...(p.rodape ? { footer: { text: p.rodape } } : {}),
                 action: {
                     button: WhatsAppInterativoService.encurtar(p.textoDoBotao || 'Ver opções', 20),
-                    sections: [{
-                        title: WhatsAppInterativoService.encurtar(p.titulo || 'Opções', 24),
-                        rows: p.opcoes.slice(0, LIMITES.lista.opcoes).map(o => ({
+                    sections: grupos.map(g => ({
+                        title: g.titulo,
+                        rows: g.opcoes.map(o => ({
                             id: o.id,
                             title: WhatsAppInterativoService.encurtar(o.rotulo, LIMITES.lista.rotulo),
                             ...(o.descricao ? { description: WhatsAppInterativoService.encurtar(o.descricao, LIMITES.lista.descricao) } : {}),
                         })),
-                    }],
+                    })),
                 },
             };
         } else {

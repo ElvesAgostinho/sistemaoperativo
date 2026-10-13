@@ -997,6 +997,9 @@ export class AutomationEngine {
                 id: String(o.id || o.matchValue || i + 1),
                 rotulo: this.parseString(String(o.label || o.matchValue || `Opção ${i + 1}`), context),
                 descricao: o.descricao ? this.parseString(String(o.descricao), context) : undefined,
+                // Agrupa as opções sob um título, só na lista. Quem não puser
+                // nada fica com um grupo só, que é o que havia antes.
+                seccao: o.seccao ? this.parseString(String(o.seccao), context) : undefined,
             }))
             .filter((o: any) => o.rotulo.trim());
 
@@ -1031,12 +1034,24 @@ export class AutomationEngine {
             return;
         }
 
+        // Uma imagem (ou vídeo, ou uma linha) por cima da pergunta. É o que
+        // faz o menu parecer de uma marca, e é configurado no nó.
+        const c = node.data?.cabecalho;
+        const cabecalho = c?.tipo && (c.url || c.texto)
+            ? {
+                tipo: c.tipo,
+                texto: c.texto ? this.parseString(String(c.texto), context) : undefined,
+                url: c.url ? this.parseString(String(c.url), context) : undefined,
+            }
+            : undefined;
+
         const r = await WhatsAppInterativoService.perguntar({
             empresaId,
             channelId: context.channel_id,
             telefone: context.telefone,
             texto: pergunta,
             opcoes,
+            cabecalho,
             rodape: node.data?.rodape ? this.parseString(String(node.data.rodape), context) : undefined,
             textoDoBotao: node.data?.textoDoBotao ? this.parseString(String(node.data.textoDoBotao), context) : undefined,
         });
@@ -1049,7 +1064,7 @@ export class AutomationEngine {
                     contact_name: 'Autopilot',
                     content: WhatsAppInterativoService.comoTexto({
                         empresaId, channelId: context.channel_id,
-                        telefone: context.telefone, texto: pergunta, opcoes,
+                        telefone: context.telefone, texto: pergunta, opcoes, cabecalho,
                     }),
                     direction: 'outbound',
                 });
