@@ -776,7 +776,11 @@ export default function NodeConfigPanel({ node, todosOsNos = [], automations, cu
 
   return (
     <div style={{
-      position: 'absolute', top: 0, right: 0, bottom: 0, width: '320px',
+      position: 'absolute', top: 0, right: 0, bottom: 0,
+      // O menu monta-se a ver o telemovel ao lado, e isso nao cabe em 320px:
+      // as duas colunas sobrepunham-se e o painel ficava ilegivel. E o no mais
+      // complexo que ha — merece a largura.
+      width: node.type === 'menu' ? 'min(780px, 94vw)' : '320px',
       backgroundColor: 'white', borderLeft: '1px solid var(--odoo-border)',
       boxShadow: '-4px 0 12px rgba(0,0,0,0.05)', zIndex: 20,
       display: 'flex', flexDirection: 'column'

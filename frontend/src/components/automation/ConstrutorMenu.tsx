@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Plus, X, ChevronUp, ChevronDown, Image as ImagemIcone,
   MessageSquare, List as ListaIcone, Type, AlertTriangle, Layers,
@@ -82,6 +82,21 @@ export default function ConstrutorMenu({
   aoMudarTextoDoBotao: (v: string) => void;
 }) {
   const [aberta, setAberta] = useState<string | null>(null);
+
+  // Duas colunas so quando ha largura para elas. Sem isto, num painel estreito
+  // o telemovel sobrepunha-se ao formulario e nao se lia nenhum dos dois — foi
+  // exactamente o que aconteceu ao cliente.
+  const caixa = useRef<HTMLDivElement>(null);
+  const [largura, setLargura] = useState(0);
+  useEffect(() => {
+    const el = caixa.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const obs = new ResizeObserver(e => setLargura(e[0].contentRect.width));
+    obs.observe(el);
+    setLargura(el.getBoundingClientRect().width);
+    return () => obs.disconnect();
+  }, []);
+  const ladoALado = largura >= 620;
   const { botoesFiaveis, listaDisponivel } = useCanalBotoes();
 
   const validas = opcoes.filter(o => (o.label || '').trim());
@@ -117,7 +132,14 @@ export default function ConstrutorMenu({
   const Icone = comoChega.icone;
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 272px', gap: '16px', alignItems: 'start' }}>
+    <div
+      ref={caixa}
+      style={{
+        display: 'grid',
+        gridTemplateColumns: ladoALado ? 'minmax(0, 1fr) 272px' : 'minmax(0, 1fr)',
+        gap: '16px', alignItems: 'start',
+      }}
+    >
 
       {/* ───────────────── montar ───────────────── */}
       <div style={{ minWidth: 0 }}>
@@ -299,7 +321,7 @@ export default function ConstrutorMenu({
       </div>
 
       {/* ───────────────── o telemóvel ───────────────── */}
-      <div style={{ position: 'sticky', top: '10px' }}>
+      <div style={ladoALado ? { position: 'sticky', top: '10px' } : { minWidth: 0 }}>
         <div style={{
           display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '7px',
           fontSize: '11px', fontWeight: 700, letterSpacing: '.04em', color: '#5B738B',
@@ -316,7 +338,11 @@ export default function ConstrutorMenu({
 
         <div style={{
           background: '#EFE7DE', borderRadius: '12px', padding: '12px 10px',
-          border: '1px solid #E2E8F0', maxHeight: '560px', overflowY: 'auto',
+          border: '1px solid #E2E8F0',
+          ...(ladoALado ? { maxHeight: '560px', overflowY: 'auto' as const } : {}),
+          // Empilhado, uma largura de telemovel a serio em vez de uma faixa
+          // esticada de ponta a ponta.
+          ...(ladoALado ? {} : { maxWidth: '320px' }),
         }}>
           {/* A bolha */}
           <div style={{
