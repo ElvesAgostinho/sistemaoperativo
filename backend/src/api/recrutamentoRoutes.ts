@@ -190,7 +190,12 @@ router.put('/candidaturas/:id/etapa', async (req: Request, res: Response) => {
                     // empresa_id, um número de telefone que coincidisse com uma
                     // conversa de OUTRA empresa recebia esta mensagem de feedback
                     // de recrutamento por engano.
-                    const { data: conv } = await supabase.from('wa_conversations').select('id').eq('phone_number', c.telefone).eq('empresa_id', empresa_id).single();
+                    // O `.single()` atirava quando o candidato tinha duas
+                    // conversas (uma por canal), e o `catch` em volta engolia
+                    // isso em silencio: o feedback simplesmente nao saia.
+                    const { data: conv } = await supabase.from('wa_conversations').select('id')
+                        .eq('phone_number', c.telefone).eq('empresa_id', empresa_id)
+                        .order('last_message_at', { ascending: false }).limit(1).maybeSingle();
                     if (conv) {
                         await supabase.from('wa_messages').insert({ conversation_id: conv.id, direction: 'outbound', content: feedbackGerado, status: 'sending' });
                         await supabase.from('wa_conversations').update({ last_message_at: new Date().toISOString() }).eq('id', conv.id);

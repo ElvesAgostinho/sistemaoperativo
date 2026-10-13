@@ -32,8 +32,12 @@ export class CrmService {
         const telefone = String(cliente.telefone || '').replace(/\D/g, '');
         let conversa = null;
         if (telefone) {
+            // Com dois canais (o numero antigo e o da API oficial) o mesmo
+            // cliente pode ter duas conversas. Sem a ordem e o limite, o
+            // `maybeSingle` dava erro e a ficha ficava sem o atalho para o chat.
             const { data } = await supabase.from('wa_conversations')
-                .select('id, last_message_at').eq('empresa_id', empresa_id).eq('phone_number', telefone).maybeSingle();
+                .select('id, last_message_at').eq('empresa_id', empresa_id).eq('phone_number', telefone)
+                .order('last_message_at', { ascending: false }).limit(1).maybeSingle();
             conversa = data || null;
         }
 

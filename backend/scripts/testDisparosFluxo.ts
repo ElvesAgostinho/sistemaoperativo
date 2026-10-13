@@ -36,7 +36,12 @@ function mockFrom(t: string) {
     let op = 'select'; let payload: any = null; let limite = Infinity; let contar = false;
     const self: any = {}; const ret = () => self;
     self.select = (_c?: string, o?: any) => { if (o?.count) contar = true; return self; };
-    self.order = ret; self.not = ret; self.or = ret; self.is = ret; self.filter = ret; self.ilike = ret;
+    // O `order` tem de ordenar mesmo. Como no-op, um teste que verificasse "a
+    // conversa mais recente" estaria a medir o mock e nao o codigo — e passaria
+    // na mesma com a ordem tirada do servico.
+    let ordem: { col: string; asc: boolean } | null = null;
+    self.order = (col: string, o?: any) => { ordem = { col, asc: o?.ascending !== false }; return self; };
+    self.not = ret; self.or = ret; self.is = ret; self.filter = ret; self.ilike = ret;
     self.limit = (n: number) => { limite = n; return self; };
     self.insert = (p: any) => { op = 'insert'; payload = p; return self; };
     self.update = (p: any) => { op = 'update'; payload = p; return self; };
@@ -60,7 +65,13 @@ function mockFrom(t: string) {
         }
         if (op === 'update') { const alvo = linhas.filter(l => bate(l, filtros)); alvo.forEach(l => Object.assign(l, payload)); return { data: alvo.map(l => JSON.parse(JSON.stringify(l))), error: null }; }
         if (op === 'delete') { const fora = linhas.filter(l => bate(l, filtros)); db[t] = linhas.filter(l => !bate(l, filtros)); return { data: fora, error: null }; }
-        const achados = linhas.filter(l => bate(l, filtros)).slice(0, limite).map(l => JSON.parse(JSON.stringify(l)));
+        let achados = linhas.filter(l => bate(l, filtros));
+        if (ordem) {
+            const od = ordem as { col: string; asc: boolean };
+            achados = [...achados].sort((a: any, b: any) =>
+                (a[od.col] < b[od.col] ? -1 : a[od.col] > b[od.col] ? 1 : 0) * (od.asc ? 1 : -1));
+        }
+        achados = achados.slice(0, limite).map(l => JSON.parse(JSON.stringify(l)));
         return contar ? { data: null, error: null, count: achados.length } : { data: achados, error: null };
     };
     const um = () => { const r = correr(); const d = Array.isArray(r.data) ? (r.data[0] ?? null) : r.data; return { data: d, error: r.error || (d ? null : { code: 'PGRST116' }) }; };
@@ -329,6 +340,81 @@ const correrTudo = async (voltas = 8) => { for (let i = 0; i < voltas; i++) awai
         await FluxoDisparoService.iniciar(EMPRESA, r.id);
         await correrTudo();
         assert(corridos.length === 2, `devia correr para os 2, correu ${corridos.length}`);
+    });
+
+    console.log('\n=== O mesmo numero em dois canais ===\n');
+
+    await test('o disparo usa a conversa mais recente, em vez de rebentar', async () => {
+        // Enquanto houve um canal so, nunca havia duas conversas para o mesmo
+        // numero: isto funcionou por sorte. Com a API oficial ligada ao lado da
+        // Evolution passa a haver uma por numero da empresa, e o
+        // `.maybeSingle()` do Supabase devolve ERRO com duas linhas — nao
+        // escolhe, rebenta. Num disparo em massa isso nao e um detalhe: era o
+        // envio a falhar para toda a gente que ja tivesse falado pelos dois.
+        db['wa_conversations'] = [
+            { id: 'c-velha', empresa_id: EMPRESA, channel_id: 'chan-evo', phone_number: '244900000777', last_message_at: '2026-01-01T10:00:00Z' },
+            { id: 'c-nova', empresa_id: EMPRESA, channel_id: 'chan-meta', phone_number: '244900000777', last_message_at: '2026-06-01T10:00:00Z' },
+        ];
+        const id = await (FluxoDisparoService as any).conversaDe(EMPRESA, { telefone: '244900000777', nome: 'Teste' });
+        assert(id === 'c-nova', `devia usar a mais recente: ${id}`);
+    });
+
+    await test('uma conversa nova nasce no canal da Meta, se houver', async () => {
+        // Um disparo de fluxo quase sempre leva um menu, e os menus so chegam
+        // clicaveis pela API oficial. Nascer na Evolution condenava-os a lista
+        // numerada sem necessidade.
+        db['wa_conversations'] = [];
+        db['wa_channels'] = [
+            { id: 'chan-evo', empresa_id: EMPRESA, provider: 'evolution', status: 'connected' },
+            { id: 'chan-meta', empresa_id: EMPRESA, provider: 'meta', status: 'connected' },
+        ];
+        const id = await (FluxoDisparoService as any).conversaDe(EMPRESA, { telefone: '244900000888', nome: 'Novo' });
+        const criada = tabela('wa_conversations').find(c => c.id === id);
+        assert(!!criada, `devia ter criado a conversa: ${id}`);
+        assert(criada.channel_id === 'chan-meta', `devia nascer na Meta: ${criada.channel_id}`);
+    });
+
+    await test('um canal Meta por ligar nao serve para nascer la', async () => {
+        // 'pending' e o canal que existe so para a Meta validar o webhook: o
+        // token dele ainda nao serve, e enviar por ele falhava de certeza.
+        db['wa_conversations'] = [];
+        db['wa_channels'] = [
+            { id: 'chan-evo', empresa_id: EMPRESA, provider: 'evolution', status: 'connected' },
+            { id: 'chan-meta', empresa_id: EMPRESA, provider: 'meta', status: 'pending' },
+        ];
+        const id = await (FluxoDisparoService as any).conversaDe(EMPRESA, { telefone: '244900000999', nome: 'Novo' });
+        const criada = tabela('wa_conversations').find(c => c.id === id);
+        assert(criada.channel_id === 'chan-evo', `devia ficar na Evolution: ${criada.channel_id}`);
+    });
+
+    await test('os QUATRO sitios que procuram a conversa pelo numero estao protegidos', async () => {
+        // Nao ha arnes para o CRM nem para o recrutamento, e montar um so para
+        // isto era desproporcionado. Mas a regra e a mesma nos quatro, e o que
+        // interessa guardar e que ninguem volte a tirar a ordem e o limite —
+        // sem eles, o `maybeSingle` rebenta com duas conversas.
+        const fs = require('fs');
+        const sitios = [
+            ['src/services/CrmService.ts', 'a ficha do contacto'],
+            ['src/services/FluxoDisparoService.ts', 'os disparos em massa'],
+            ['src/api/whatsappRoutes.ts', 'a auditoria do bot pausado'],
+            ['src/api/recrutamentoRoutes.ts', 'o feedback de recrutamento'],
+        ];
+
+        for (const [ficheiro, nome] of sitios) {
+            const fonte = fs.readFileSync(path.join(__dirname, '..', ficheiro), 'utf8');
+            // Cada bloco que filtre por phone_number sem channel_id tem de levar
+            // a ordem por last_message_at logo a seguir.
+            const blocos = fonte.split("from('wa_conversations')").slice(1);
+            for (const b of blocos) {
+                const pedaco = b.slice(0, 420);
+                const porTelefone = /\.eq\('phone_number'/.test(pedaco);
+                const porCanal = /\.eq\('channel_id'/.test(pedaco);
+                const umaSo = /maybeSingle\(\)|\.single\(\)/.test(pedaco);
+                if (!porTelefone || porCanal || !umaSo) continue;
+                assert(/order\('last_message_at'/.test(pedaco),
+                    `${nome} (${ficheiro}) procura pelo numero e espera uma linha so, sem ordenar`);
+            }
+        }
     });
 
     console.log(`\n=== Resultado: ${passed} passaram, ${failed} falharam ===`);

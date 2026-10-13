@@ -2463,7 +2463,8 @@ router.put('/toggle-bot/:telefone', requireAuth, exigirPermissao('wa.bot'), asyn
         // Desligar o bot a um cliente e das coisas que depois ninguem sabe
         // explicar ("porque e que este nao foi atendido?"). Fica registado.
         const { data: conv } = await getSupabase(req).from('wa_conversations')
-            .select('id').eq('empresa_id', empresaId).eq('phone_number', String(telefone).replace(/\D/g, '')).maybeSingle();
+            .select('id').eq('empresa_id', empresaId).eq('phone_number', String(telefone).replace(/\D/g, ''))
+            .order('last_message_at', { ascending: false }).limit(1).maybeSingle();
         await AuditoriaService.registar({
             empresaId, quemId: req.user!.id,
             accao: paused ? 'bot_pausado' : 'bot_retomado',

@@ -265,14 +265,25 @@ export class FluxoDisparoService {
      * assentar nem ficaria registo do que foi enviado.
      */
     private static async conversaDe(empresaId: string, destinatario: any): Promise<string | null> {
+        // Com dois canais o mesmo numero pode ter duas conversas, e o
+        // `maybeSingle` rebentava em vez de escolher. Vale a mais recente: e
+        // por onde o cliente falou da ultima vez.
         const { data: existente } = await supabase.from('wa_conversations')
-            .select('id').eq('empresa_id', empresaId).eq('phone_number', destinatario.telefone).maybeSingle();
+            .select('id').eq('empresa_id', empresaId).eq('phone_number', destinatario.telefone)
+            .order('last_message_at', { ascending: false }).limit(1).maybeSingle();
         if (existente) return existente.id;
 
         const { data: canal } = await supabase.from('wa_channels')
-            .select('id, status').eq('empresa_id', empresaId);
+            .select('id, status, provider').eq('empresa_id', empresaId);
         const lista: any[] = Array.isArray(canal) ? canal : (canal ? [canal] : []);
-        const escolhido = lista.find(c => c.status === 'connected') || lista[0];
+        // A Meta ligada ganha: e o unico canal onde os botoes e os menus
+        // chegam, e um disparo de fluxo quase sempre leva um menu. Um canal
+        // 'pending' nao conta — o token dele ainda nao serve.
+        const vivos = lista.filter(c => c.status !== 'pending');
+        const candidatos = vivos.length ? vivos : lista;
+        const escolhido = candidatos.find((c: any) => c.provider === 'meta' && c.status === 'connected')
+            || candidatos.find((c: any) => c.status === 'connected')
+            || candidatos[0];
         if (!escolhido) return null;
 
         const { data: nova } = await supabase.from('wa_conversations').insert({
