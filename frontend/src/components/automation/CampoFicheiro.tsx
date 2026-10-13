@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { Upload, Link2, X, Loader, AlertTriangle, Check } from 'lucide-react';
+import { Upload, Link2, X, Loader, AlertTriangle } from 'lucide-react';
+import MediaWhatsApp from '../whatsapp/MediaWhatsApp';
 
 /**
  * O ficheiro de um bloco de multimédia: carregado do computador OU por endereço.
@@ -100,40 +101,38 @@ export default function CampoFicheiro({ tipo, url, nome, aoMudar }: {
     if (url) {
         return (
             <div style={{ marginBottom: '6px' }}>
+                {/* Como o cliente vai ver isto no telemovel. E a MESMA peca que
+                    desenha a bolha da conversa — nao uma imitacao dela. */}
                 <div style={{
-                    display: 'flex', alignItems: 'center', gap: '8px',
-                    padding: '7px 9px', borderRadius: '6px',
-                    border: '1px solid #9FC4CC', background: '#F4FAFB',
+                    padding: '9px', borderRadius: '8px',
+                    border: '1px solid #E2E8F0', background: '#EFE7DE',
                 }}>
-                    {tipo === 'imagem' ? (
-                        <img
-                            src={url} alt=""
-                            style={{ width: '34px', height: '34px', objectFit: 'cover', borderRadius: '4px', flexShrink: 0 }}
-                            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                        />
-                    ) : (
-                        <Check size={15} color="#107E3E" style={{ flexShrink: 0 }} />
-                    )}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{
-                            fontSize: '12px', color: '#1D2D3E', fontWeight: 600,
-                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                        }}>
-                            {nome || 'Ficheiro por endereço'}
-                        </div>
-                        <div style={{
-                            fontSize: '10.5px', color: '#5B738B',
-                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                        }}>
-                            {url}
-                        </div>
+                    <div style={{
+                        background: '#fff', borderRadius: '7px', padding: '6px',
+                        boxShadow: '0 1px 1px rgba(11,20,26,0.13)',
+                    }}>
+                        <MediaWhatsApp tipo={tipo} url={url} nome={nome} />
                     </div>
+                </div>
+
+                <div style={{
+                    display: 'flex', alignItems: 'center', gap: '7px', marginTop: '5px',
+                    fontSize: '10.5px', color: '#8696A0',
+                }}>
+                    <span style={{
+                        flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}>
+                        {nome || url}
+                    </span>
                     <button
                         onClick={limpar}
-                        title="Tirar este ficheiro"
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8696A0', padding: 0, display: 'flex', flexShrink: 0 }}
+                        style={{
+                            background: 'none', border: 'none', cursor: 'pointer', color: '#B91C1C',
+                            padding: 0, display: 'flex', alignItems: 'center', gap: '3px',
+                            fontSize: '10.5px', fontFamily: 'inherit', flexShrink: 0,
+                        }}
                     >
-                        <X size={14} />
+                        <X size={11} /> Tirar
                     </button>
                 </div>
 

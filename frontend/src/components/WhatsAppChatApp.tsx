@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { MessageSquare, Phone, MoreVertical, Search, Paperclip, Smile, Send, Bot, Settings, QrCode, Key, Plus, UserPlus, ClipboardList, Filter, Check, CheckCheck, Clock, AlertCircle, Users, Megaphone, Play, Pause, LayoutTemplate, History, X } from 'lucide-react';
+import { MessageSquare, Phone, MoreVertical, Search, Paperclip, Smile, Send, Bot, Settings, QrCode, Key, Plus, UserPlus, ClipboardList, Filter, Check, CheckCheck, Clock, AlertCircle, Users, Megaphone, LayoutTemplate, History, X } from 'lucide-react';
 import EmojiPicker from 'emoji-picker-react';
 import { createClient } from '@supabase/supabase-js';
 import WhatsAppGruposApp from './WhatsAppGruposApp';
@@ -10,6 +10,7 @@ import FichaContacto from './whatsapp/FichaContacto';
 import SeletorFluxo from './whatsapp/SeletorFluxo';
 import MenuAccoesConversa from './whatsapp/MenuAccoesConversa';
 import AuditoriaEmpresa from './whatsapp/AuditoriaEmpresa';
+import MediaWhatsApp, { VoiceNotePlayer } from './whatsapp/MediaWhatsApp';
 import MenuSeccoes from './whatsapp/MenuSeccoes';
 import TesteDosBotoes from './whatsapp/TesteDosBotoes';
 
@@ -109,66 +110,6 @@ interface Agent {
     id: string;
     nome: string;
     role: string;
-}
-
-// Nota de voz com "ar" de WhatsApp (botão redondo + barra de progresso),
-// em vez do leitor genérico do navegador (<audio controls>) — o pedido foi
-// explicitamente que o áudio enviado pelos nós do Autopilot (e qualquer
-// áudio na conversa) tivesse o mesmo aspecto do WhatsApp real, natural.
-function VoiceNotePlayer({ src, outbound }: { src: string; outbound: boolean }) {
-    const audioRef = useRef<HTMLAudioElement>(null);
-    const [playing, setPlaying] = useState(false);
-    const [duration, setDuration] = useState(0);
-    const [currentTime, setCurrentTime] = useState(0);
-
-    const toggle = () => {
-        const el = audioRef.current;
-        if (!el) return;
-        if (playing) { el.pause(); } else { el.play().catch(() => {}); }
-    };
-
-    const formatTime = (s: number) => {
-        if (!isFinite(s) || s < 0) return '0:00';
-        const m = Math.floor(s / 60);
-        const sec = Math.floor(s % 60).toString().padStart(2, '0');
-        return `${m}:${sec}`;
-    };
-
-    const progress = duration > 0 ? Math.min(1, currentTime / duration) : 0;
-    const accent = outbound ? '#0E5A6B' : '#25D366';
-
-    return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '4px', minWidth: '220px' }}>
-            <audio
-                ref={audioRef}
-                src={src}
-                onPlay={() => setPlaying(true)}
-                onPause={() => setPlaying(false)}
-                onEnded={() => setPlaying(false)}
-                onLoadedMetadata={e => setDuration(e.currentTarget.duration)}
-                onTimeUpdate={e => setCurrentTime(e.currentTarget.currentTime)}
-                style={{ display: 'none' }}
-            />
-            <button
-                onClick={toggle}
-                style={{
-                    width: '34px', height: '34px', borderRadius: '50%', border: 'none', flexShrink: 0,
-                    backgroundColor: accent, color: 'white', display: 'flex', alignItems: 'center',
-                    justifyContent: 'center', cursor: 'pointer'
-                }}
-                aria-label={playing ? 'Pausar' : 'Reproduzir'}
-            >
-                {playing ? <Pause size={16} fill="white" /> : <Play size={16} fill="white" style={{ marginLeft: '2px' }} />}
-            </button>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <div style={{ position: 'relative', height: '3px', borderRadius: '2px', backgroundColor: 'rgba(11,20,26,0.15)' }}>
-                    <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${progress * 100}%`, borderRadius: '2px', backgroundColor: accent }} />
-                    <div style={{ position: 'absolute', top: '-3.5px', left: `calc(${progress * 100}% - 4px)`, width: '9px', height: '9px', borderRadius: '50%', backgroundColor: accent }} />
-                </div>
-                <span style={{ fontSize: '11px', color: '#5B738B' }}>{formatTime(playing || currentTime > 0 ? currentTime : duration)}</span>
-            </div>
-        </div>
-    );
 }
 
 /** Dois dias diferentes? Entao vai um separador entre as mensagens. */
@@ -1626,22 +1567,14 @@ export default function WhatsAppChatApp({ podeFazer }: { podeFazer?: (accao: str
                                                 if (mediaUrlMatch) {
                                                     const cleanText = content.replace(mediaUrlMatch[0], '').trim();
                                                     const url = mediaUrlMatch[1];
-                                                    const ext = url.split('?')[0].split('.').pop()?.toLowerCase() || '';
-                                                    const isImage = ['jpg','jpeg','png','gif','webp'].includes(ext);
-                                                    const isVideo = ['mp4','mpeg','mov','avi','webm'].includes(ext);
-                                                    const isAudio = ['ogg','mp3','wav','m4a','aac'].includes(ext);
-
-                                                    let mediaEl = null;
-                                                    if (isImage) {
-                                                        mediaEl = <img className="wa-media" src={url} alt="media" style={{ maxWidth: '100%', maxHeight: '320px', borderRadius: '6px', marginTop: cleanText ? '6px' : '0', cursor: 'pointer', display: 'block' }} onClick={() => window.open(url, '_blank')} />;
-                                                    } else if (isVideo) {
-                                                        mediaEl = <video className="wa-media" src={url} controls style={{ maxWidth: '100%', maxHeight: '320px', borderRadius: '6px', marginTop: cleanText ? '6px' : '0', display: 'block' }} />;
-                                                    } else if (isAudio) {
-                                                        mediaEl = <VoiceNotePlayer src={url} outbound={msg.direction === 'outbound'} />;
-                                                    } else {
-                                                        const fname = url.split('/').pop()?.split('?')[0] || 'ficheiro';
-                                                        mediaEl = <a href={url} target="_blank" rel="noreferrer" download style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: cleanText ? '8px' : '0', color: '#0E5A6B', textDecoration: 'underline' }}>&#128196; {decodeURIComponent(fname)}</a>;
-                                                    }
+                                                    // A MESMA peca que o editor de blocos mostra a quem
+                                                    // configura o fluxo. Ver uma coisa no painel e o cliente
+                                                    // receber outra foi o erro que mais vezes repeti.
+                                                    const mediaEl = (
+                                                        <div style={{ marginTop: cleanText ? '6px' : '0' }}>
+                                                            <MediaWhatsApp url={url} outbound={msg.direction === 'outbound'} />
+                                                        </div>
+                                                    );
                                                     return (<>{cleanText && <div>{cleanText}</div>}{mediaEl}</>);
                                                 }
 
