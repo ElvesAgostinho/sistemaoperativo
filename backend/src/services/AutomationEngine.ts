@@ -719,8 +719,18 @@ export class AutomationEngine {
                     return context;
                 }
                 registar(node, `Menu: opção "${(matchedOption as any).label || matchedOption.id}"`);
+
+                // O que ESTA opção leva consigo: um texto, uma foto, um PDF, uma
+                // pausa. Sai antes de a conversa seguir — e sem precisar de mais
+                // um nó ligado por uma seta só para dizer o preço.
+                await this.enviarBlocosDaOpcao(matchedOption, context, empresa_id, sim);
+
                 const edge = edges.find(e => e.source === node.id && e.sourceHandle === matchedOption.id);
                 if (!edge) {
+                    // Sem ligação, a conversa acaba aqui — mas os blocos da
+                    // opção já saíram. Para muitas opções ("ver o horário", "ver
+                    // a morada") isto é tudo o que é preciso, e o desenho fica
+                    // com um cartão em vez de seis.
                     console.log(`[AUTOPILOT] Menu ${node.id}: opção "${matchedOption.id}" sem ligação — o fluxo termina aqui.`);
                     break;
                 }
@@ -1004,6 +1014,43 @@ export class AutomationEngine {
         if (!Array.isArray(canais) || canais.length === 0) return true;
         if (!channelId) return true;
         return canais.map(String).includes(String(channelId));
+    }
+
+    /**
+     * Os blocos que a opção escolhida leva consigo.
+     *
+     * Vale a mesma regra dos blocos de um nó: um que falhe não trava os
+     * seguintes, e o que falhou fica dito. O cliente acabou de tocar numa opção
+     * — ficar sem resposta nenhuma é o pior desfecho possível.
+     */
+    private static async enviarBlocosDaOpcao(opcao: any, context: any, empresaId: any, sim?: Simulacao): Promise<void> {
+        const blocos = Array.isArray(opcao?.blocos) ? opcao.blocos : [];
+        if (!blocos.length) return;
+
+        if (sim) {
+            for (const b of blocos) {
+                const texto = b?.tipo === 'pausa'
+                    ? `(pausa de ${b.duracao || 1} ${b.unidade || 'segundos'})`
+                    : b?.tipo === 'texto'
+                        ? this.parseString(String(b.texto || ''), context)
+                        : `(${b?.tipo}${b?.nomeDoFicheiro ? `: ${b.nomeDoFicheiro}` : ''})`;
+                if (texto) sim.mensagens.push({ de: 'bot', texto });
+            }
+            return;
+        }
+
+        if (!context?.channel_id || !context?.telefone || !empresaId) return;
+
+        const { BlocosMensagemService } = require('./BlocosMensagemService');
+        const r = await BlocosMensagemService.enviar(
+            blocos,
+            { empresaId, channelId: context.channel_id, telefone: context.telefone, conversationId: context.conversation_id },
+            (t: string) => this.parseString(t, context),
+        );
+        if (r.falhados?.length) {
+            console.warn(`[AUTOPILOT] Opção "${opcao?.id}": ${r.falhados.length} bloco(s) não saíram:`,
+                r.falhados.map((f: any) => `${f.tipo}: ${f.erro}`).join(' | '));
+        }
     }
 
     private static async perguntarMenu(node: FlowNode, context: any, empresaId: any, sim?: Simulacao, soAPergunta = false): Promise<void> {

@@ -79,7 +79,14 @@ const enviadas: { phone: string; content: string }[] = [];
 const waPath = require.resolve(path.join(__dirname, '..', 'src', 'services', 'WhatsAppChannelManager'));
 const { WhatsAppChannelManager: WaReal } = require(waPath);
 WaReal.sendMessage = async (_s: any, _c: string, phone: string, content: string) => { enviadas.push({ phone, content }); return 'mid'; };
-WaReal.sendMediaMessage = async () => true;
+// Registar, nao so devolver true: um `async () => true` faz os testes passarem
+// sem nunca poderem ver o que saiu. Perdi tempo a procurar um envio que estava a
+// acontecer e era invisivel.
+const midias: { telefone: string; url: string; nome: string; legenda?: string }[] = [];
+WaReal.sendMediaMessage = async (_s: any, _c: string, telefone: string, url: string, nome: string, legenda?: string) => {
+    midias.push({ telefone, url, nome, legenda });
+    return true;
+};
 
 const emailPath = require.resolve(path.join(__dirname, '..', 'src', 'services', 'EmailService'));
 require.cache[emailPath] = fake({ EmailService: { enviarEmailPersonalizado: async () => true, isConfigured: async () => true } }, emailPath);
@@ -146,7 +153,7 @@ async function test(nome: string, fn: () => Promise<void>) {
     // fechado. Este teste nao e sobre permissoes, por isso o utilizador e dono.
     tabela('perfis').push({ id: 'agente-1', nome: 'Elves', role: 'admin', empresa_id: EMPRESA, ativo: true, permissoes: null });
     tabela('configuracoes').push({ id: 'lic-1', empresa_id: EMPRESA, chave: 'modulos_empresa', valor: JSON.stringify(['wa', 'crm', 'auto', 'email']) });
-    enviadas.length = 0; pedidosEvolution.length = 0; seq = 100;
+    enviadas.length = 0; pedidosEvolution.length = 0; midias.length = 0; seq = 100;
     tabela('wa_channels').push({ id: CANAL, empresa_id: EMPRESA, provider: 'evolution', status: 'connected', credentials: { instanceName: 'inst' } });
     // O Assistente IA responde por omissao a tudo — desligado para se medir so os fluxos.
     tabela('configuracoes').push({ id: 'cfg', empresa_id: EMPRESA, chave: 'ia_whatsapp_ativa', valor: 'false' });
@@ -555,6 +562,89 @@ const enviadoParaMeta = () => pedidosEvolution.filter(p => p.url.includes('graph
         // A resposta seguinte e tratada como a ESCOLHA, nao como um novo comeco.
         await receber('244900000001', '2');
         assert(!ditas().replace(antes, '').includes('Ola'), `nao devia repetir a saudacao: ${ditas()}`);
+    });
+
+    console.log('\n=== Cada opcao leva o que e dela ===\n');
+
+    const menuComBlocosNaOpcao = () => ({
+        id: 90, nome: 'Menu com blocos nas opcoes', ativo: true, empresa_id: EMPRESA,
+        nodes: [
+            { id: 't1', type: 'trigger', data: { triggerKind: 'whatsapp_message', matchMode: 'any' } },
+            {
+                id: 'm1', type: 'menu',
+                data: {
+                    pergunta: 'Como posso ajudar?',
+                    options: [
+                        {
+                            id: 'precos', label: 'Ver precos', matchValue: '1',
+                            blocos: [
+                                { tipo: 'texto', texto: 'Quarto simples: 45.000 Kz' },
+                                { tipo: 'documento', url: 'https://x/tabela.pdf', nomeDoFicheiro: 'tabela.pdf' },
+                            ],
+                        },
+                        { id: 'reservar', label: 'Reservar', matchValue: '2' },
+                    ],
+                },
+            },
+            { id: 'a1', type: 'action', data: { actionType: 'REPLY_MESSAGE', config: { mensagem: 'VOU-SEGUIR' } } },
+        ],
+        edges: [
+            { id: 'e1', source: 't1', target: 'm1' },
+            { id: 'e2', source: 'm1', target: 'a1', sourceHandle: 'reservar' },
+        ],
+    });
+
+    await test('escolher uma opcao envia os blocos DELA', async () => {
+        // Era isto que obrigava a um no por opcao: para "Ver precos" responder
+        // com um texto e um PDF, era preciso mais um cartao ligado por uma seta.
+        // Um menu de cinco opcoes virava seis cartoes, e perdia-se a vista do
+        // que e a conversa.
+        tabela('automations').push(menuComBlocosNaOpcao());
+        await receber('244900000001', 'Ola');
+        const antes = ditas();
+        await receber('244900000001', '1');
+
+        const depois = ditas().replace(antes, '');
+        assert(depois.includes('Quarto simples: 45.000 Kz'), `o texto da opcao devia sair: ${depois}`);
+        assert(midias.length === 1, `o documento da opcao devia sair: ${JSON.stringify(midias)}`);
+        assert(midias[0].url === 'https://x/tabela.pdf', JSON.stringify(midias[0]));
+        assert(midias[0].nome === 'tabela.pdf', `devia levar o nome verdadeiro: ${midias[0].nome}`);
+    });
+
+    await test('uma opcao sem blocos continua a funcionar como sempre', async () => {
+        tabela('automations').push(menuComBlocosNaOpcao());
+        await receber('244900000001', 'Ola');
+        const antes = ditas();
+        await receber('244900000001', '2');
+        const depois = ditas().replace(antes, '');
+        assert(depois.includes('VOU-SEGUIR'), `devia seguir pela seta: ${depois}`);
+    });
+
+    await test('os blocos da opcao saem ANTES de a conversa seguir', async () => {
+        // A ordem importa: o preco antes do "quer reservar?", nao depois.
+        const fluxo = menuComBlocosNaOpcao();
+        fluxo.edges.push({ id: 'e3', source: 'm1', target: 'a1', sourceHandle: 'precos' });
+        tabela('automations').push(fluxo);
+
+        await receber('244900000001', 'Ola');
+        const antes = ditas();
+        await receber('244900000001', '1');
+
+        const depois = ditas().replace(antes, '');
+        const iPreco = depois.indexOf('45.000 Kz');
+        const iSeguir = depois.indexOf('VOU-SEGUIR');
+        assert(iPreco >= 0 && iSeguir >= 0, `deviam sair os dois: ${depois}`);
+        assert(iPreco < iSeguir, `o preco devia vir primeiro: ${depois}`);
+    });
+
+    await test('uma opcao com blocos e SEM seta nao da erro — acaba ali', async () => {
+        // Para muitas opcoes ("ver o horario", "ver a morada") isto e tudo o que
+        // e preciso, e o desenho fica com um cartao em vez de seis.
+        tabela('automations').push(menuComBlocosNaOpcao());
+        await receber('244900000001', 'Ola');
+        const antes = ditas();
+        await receber('244900000001', '1');
+        assert(ditas().replace(antes, '').includes('45.000 Kz'), 'os blocos deviam sair na mesma');
     });
 
     console.log('\n=== Cada fluxo no seu numero ===\n');

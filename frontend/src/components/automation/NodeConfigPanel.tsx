@@ -4,10 +4,10 @@ import { X, Trash2, Loader2, Plus, Upload } from 'lucide-react';
 import type { ActionNodeData, ActionType, Automation, AutomationNode, ConditionNodeData, MenuNodeData, TriggerNodeData } from './types';
 import { ACTION_LABELS, createDefaultMenuOption, VARIAVEIS_CONVERSA } from './types';
 import { duracaoDaPausa, emSegundos, pausaPorExtenso, UNIDADES, ESPERA_GUARDADA_ACIMA_DE, type Unidade } from './tempoDaPausa';
-import PreVisualizacaoEscolha from './PreVisualizacaoEscolha';
 import EditorBlocos, { type Bloco, ACCOES_COM_BLOCOS } from './EditorBlocos';
 import CampoFicheiro from './CampoFicheiro';
 import SelectorCanais from './SelectorCanais';
+import ConstrutorMenu from './ConstrutorMenu';
 
 interface NodeConfigPanelProps {
   node: AutomationNode;
@@ -249,163 +249,21 @@ export default function NodeConfigPanel({ node, todosOsNos = [], automations, cu
             aoMudar={(b: Bloco[]) => updateData({ blocos: b } as any)}
           />
 
-          <div style={{
-            marginTop: '18px', fontSize: '11px', fontWeight: 700,
-            letterSpacing: '.04em', color: '#475569',
-          }}>
-            E DEPOIS, A PERGUNTA
-          </div>
-
-          {/* ---------- O cabecalho ---------- */}
-          <div style={{
-            marginTop: '18px', fontSize: '11px', fontWeight: 700,
-            letterSpacing: '.04em', color: '#475569', marginBottom: '7px',
-          }}>
-            POR CIMA DA PERGUNTA (OPCIONAL)
-          </div>
-
-          <select
-            style={{ ...fieldStyle, marginBottom: cab.tipo && cab.tipo !== 'nada' ? '7px' : '4px' }}
-            value={cab.tipo || 'nada'}
-            onChange={e => {
-              const t = e.target.value;
-              updateData({ cabecalho: t === 'nada' ? undefined : { tipo: t } } as any);
-            }}
-          >
-            <option value="nada">Nada — só a pergunta</option>
-            <option value="texto">Uma linha de texto</option>
-            <option value="imagem">Uma imagem</option>
-            <option value="video">Um vídeo</option>
-            <option value="documento">Um documento</option>
-          </select>
-
-          {cab.tipo === 'texto' && (
-            <input
-              style={fieldStyle}
-              type="text"
-              value={cab.texto || ''}
-              onChange={e => mudarCabecalho({ texto: e.target.value })}
-              placeholder="Ex: Residencial Paraíso (máx. 60 letras)"
-            />
-          )}
-
-          {['imagem', 'video', 'documento'].includes(cab.tipo) && (
-            <CampoFicheiro
-              tipo={cab.tipo}
-              url={cab.url || ''}
-              nome={cab.nomeDoFicheiro}
-              aoMudar={patch => mudarCabecalho({ url: patch.url, nomeDoFicheiro: patch.nomeDoFicheiro })}
-            />
-          )}
-
-          <div style={{ fontSize: '11px', color: '#666', marginTop: '4px', lineHeight: 1.55, marginBottom: '14px' }}>
-            É isto que faz o menu parecer de uma marca em vez de uma linha de texto.
-            Com <b>até 3 opções</b> a imagem vai colada à mensagem; com mais, vai na
-            mensagem logo antes. Só funciona pela API oficial da Meta.
-          </div>
-
-          <label style={labelStyle}>Pergunta a enviar</label>
-          <textarea style={{ ...fieldStyle, minHeight: '64px' }} value={d.pergunta || ''} onChange={e => updateData({ pergunta: e.target.value })}
-            placeholder={'Como posso ajudar?'} />
-          <div style={{ fontSize: '11px', color: '#666', marginTop: '4px', lineHeight: 1.55 }}>
-            Escreva só a pergunta. <b>Não numere as opções aqui</b> — elas vão em baixo,
-            e o sistema envia-as como botões para o cliente tocar. É também esta pergunta
-            que volta quando alguém usa o nó <b>"Voltar ao menu"</b>.
-          </div>
-
-          {/* ---------- As opcoes ---------- */}
-          <div style={{
-            marginTop: '18px', display: 'flex', alignItems: 'center',
-            justifyContent: 'space-between', gap: '8px',
-          }}>
-            <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '.04em', color: '#475569' }}>
-              OPÇÕES QUE O CLIENTE PODE TOCAR
-            </span>
-            <span style={{ fontSize: '11px', color: '#8696A0' }}>{options.length}</span>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', marginTop: '8px' }}>
-            {options.map((opt, i) => (
-              <div key={opt.id} style={{
-                border: '1px solid #E2E8F0', borderRadius: '8px', padding: '9px 10px',
-                background: '#FBFCFD', display: 'flex', gap: '9px', alignItems: 'flex-start',
-              }}>
-                <span style={{
-                  width: '22px', height: '22px', borderRadius: '50%', flexShrink: 0, marginTop: '2px',
-                  background: '#E1EEF0', color: '#0E5A6B', fontSize: '11px', fontWeight: 700,
-                  display: 'grid', placeItems: 'center',
-                }}>{i + 1}</span>
-
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <input
-                    style={{ ...fieldStyle, marginBottom: '6px', fontWeight: 600 }}
-                    type="text"
-                    value={opt.label}
-                    onChange={e => updateOption(opt.id, { label: e.target.value })}
-                    placeholder="O que aparece no botão. Ex: Ver preços"
-                  />
-                  <input
-                    style={{ ...fieldStyle, fontSize: '12px', marginBottom: '6px' }}
-                    type="text"
-                    value={opt.matchValue}
-                    onChange={e => updateOption(opt.id, { matchValue: e.target.value })}
-                    placeholder="Palavra que também serve, se o cliente escrever. Ex: preços"
-                  />
-                  <input
-                    style={{ ...fieldStyle, fontSize: '12px' }}
-                    type="text"
-                    value={(opt as any).seccao || ''}
-                    onChange={e => updateOption(opt.id, { seccao: e.target.value })}
-                    placeholder="Grupo onde aparece no menu. Ex: Quartos (opcional)"
-                  />
-                </div>
-
-                <button
-                  onClick={() => removeOption(opt.id)}
-                  title="Remover esta opção"
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#CBD5E1', padding: '2px', marginTop: '2px' }}
-                  onMouseEnter={e => { e.currentTarget.style.color = '#DC2626'; }}
-                  onMouseLeave={e => { e.currentTarget.style.color = '#CBD5E1'; }}
-                >
-                  <X size={15} />
-                </button>
-              </div>
-            ))}
-          </div>
-
-          <button
-            onClick={addOption}
-            style={{
-              marginTop: '9px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-              padding: '9px', background: '#fff', color: '#0E5A6B', border: '1px dashed #9FC4CC',
-              borderRadius: '8px', cursor: 'pointer', fontSize: '12.5px', fontWeight: 600, fontFamily: 'inherit',
-            }}
-          >
-            <Plus size={14} /> Adicionar opção
-          </button>
-
-          {/* ---------- Como vai chegar ---------- */}
-          <PreVisualizacaoEscolha
+          {/* Montar a ver o que o cliente recebe. O painel antigo era um
+              formulario: so se descobria o resultado depois de gravar e de
+              escrever para o numero. */}
+          <ConstrutorMenu
             pergunta={d.pergunta || ''}
-            opcoes={options.map(o => ({ id: o.id, label: o.label }))}
+            opcoes={options as any}
+            cabecalho={(d as any).cabecalho}
+            rodape={(d as any).rodape}
+            textoDoBotao={(d as any).textoDoBotao}
+            aoMudarPergunta={v => updateData({ pergunta: v })}
+            aoMudarOpcoes={o => updateData({ options: o as any })}
+            aoMudarCabecalho={c => updateData({ cabecalho: c } as any)}
+            aoMudarRodape={v => updateData({ rodape: v } as any)}
+            aoMudarTextoDoBotao={v => updateData({ textoDoBotao: v } as any)}
           />
-
-          {options.some(o => ((o as any).seccao || '').trim()) && (
-            <div style={{
-              marginTop: '8px', padding: '8px 10px', borderRadius: '4px',
-              background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#5B738B',
-              fontSize: '11.5px', lineHeight: 1.65,
-            }}>
-              Os <b>grupos</b> só aparecem quando o menu sai como lista — a partir de
-              4 opções. Com 3 ou menos são botões, e os botões não têm grupos.
-            </div>
-          )}
-
-          <div style={{ marginTop: '12px', fontSize: '11px', color: '#666', lineHeight: 1.6 }}>
-            Cada opção tem a sua própria saída no cartão — ligue cada uma ao caminho que
-            lhe corresponde. A <b>palavra que também serve</b> é para quem escreve em vez
-            de tocar: continua a funcionar como sempre funcionou.
-          </div>
 
           {/* ---------- O que fazer quando a resposta nao bate ---------- */}
           <div style={{ marginTop: '18px', fontSize: '11px', fontWeight: 700, letterSpacing: '.04em', color: '#475569' }}>
