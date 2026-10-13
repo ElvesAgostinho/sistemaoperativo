@@ -191,6 +191,18 @@ export class AutomationEngine {
                     // fora desta disputa de propósito: existe para ser disparado à
                     // mão, e entrar aqui fazia dele mais um fluxo para toda a gente.
                     if (!trigger || trigger.data?.triggerKind !== 'whatsapp_message') return null;
+
+                    // Este fluxo responde no número por onde a mensagem entrou?
+                    //
+                    // Uma empresa pode ter o número antigo pela Evolution e o
+                    // novo pela API oficial. Sem isto, o fluxo de atendimento de
+                    // um respondia a quem escrevia para o outro — e a pessoa do
+                    // outro lado nem sabia que havia dois.
+                    //
+                    // Sem canais escolhidos responde em todos, que é o que os
+                    // fluxos já criados fazem hoje e têm de continuar a fazer.
+                    if (!this.fluxoServeOCanal(trigger.data, message.channel_id)) return null;
+
                     if (!this.evaluateWhatsAppTrigger(trigger.data, message.content)) return null;
                     return { automation, nodes, edges, trigger };
                 })
@@ -978,6 +990,20 @@ export class AutomationEngine {
         }
 
         return r.enviados;
+    }
+
+    /**
+     * Este fluxo responde no canal por onde a mensagem entrou?
+     *
+     * `canais` vazio, em falta, ou com o canal lá dentro: sim. É deliberado que
+     * "vazio" queira dizer "todos" — um fluxo que ficasse mudo por omissão era
+     * pior do que um fluxo a mais, e nenhum dos fluxos já criados tem este campo.
+     */
+    public static fluxoServeOCanal(dadosDoGatilho: any, channelId?: string | null): boolean {
+        const canais = dadosDoGatilho?.canais;
+        if (!Array.isArray(canais) || canais.length === 0) return true;
+        if (!channelId) return true;
+        return canais.map(String).includes(String(channelId));
     }
 
     private static async perguntarMenu(node: FlowNode, context: any, empresaId: any, sim?: Simulacao, soAPergunta = false): Promise<void> {

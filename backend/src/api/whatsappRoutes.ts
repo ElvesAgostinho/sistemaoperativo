@@ -576,13 +576,23 @@ router.post('/webhook/meta', async (req: Request, res: Response) => {
 
                 const phoneNumberId = change.metadata?.phone_number_id;
                 const { data: channelData } = await supabase.from('wa_channels')
-                    .select('id')
+                    .select('id, name, status, credentials')
                     .eq('provider', 'meta')
                     .filter('credentials->>phoneNumberId', 'eq', phoneNumberId)
                     .maybeSingle();
                 const channelId = channelData?.id;
 
                 if (channelId) {
+                    // Uma mensagem a chegar é a prova de que este canal trabalha.
+                    // O nome "(por ligar)" e o estado 'pending' são de quando só
+                    // se tinha guardado o token de verificação — ficavam lá para
+                    // sempre, a dizer à pessoa o contrário do que ela está a ver
+                    // na conversa. Corrige-se aqui, uma vez, sem ninguém pedir.
+                    if (channelData?.status !== 'connected' || /\(por ligar\)/i.test(String(channelData?.name || ''))) {
+                        arrumarCanalMeta(channelData).catch(e =>
+                            console.error('[Webhook Meta] não consegui arrumar o canal:', e?.message || e));
+                    }
+
                     // Fire-and-forget — ver nota equivalente no webhook Evolution acima.
                     AutomationEngine.processIncomingWhatsAppMessage({
                         channel_id: channelId,
@@ -769,6 +779,40 @@ async function canalPreferido(client: any, empresaId: string | null, campos = 'i
 }
 
 /**
+ * Põe o canal Meta com o nome e o estado certos, depois de ele provar que funciona.
+ *
+ * O nome provisorio ("WhatsApp Business (por ligar)") e o estado 'pending' vinham
+ * de quando so se tinha guardado o token de verificacao, para a Meta validar o
+ * webhook. Depois de o canal ligar, nada os corrigia — e o cabecalho da conversa
+ * dizia "(por ligar)" ao lado de mensagens a entrar e a sair.
+ */
+async function arrumarCanalMeta(canal: any): Promise<void> {
+    const { phoneNumberId, accessToken } = canal?.credentials || {};
+    const patch: any = { status: 'connected', updated_at: new Date().toISOString() };
+
+    if (phoneNumberId && accessToken) {
+        try {
+            const r = await fetch(
+                `https://graph.facebook.com/v19.0/${phoneNumberId}?fields=verified_name,display_phone_number`,
+                { headers: { Authorization: `Bearer ${accessToken}` } },
+            );
+            if (r.ok) {
+                const d: any = await r.json();
+                if (d?.verified_name) patch.name = d.verified_name;
+            }
+        } catch { /* sem o nome verdadeiro, pelo menos o estado fica certo */ }
+    }
+
+    // Se a Meta nao deu o nome, pelo menos tira-se o "(por ligar)" — era essa a
+    // parte que mentia.
+    if (!patch.name && /\(por ligar\)/i.test(String(canal?.name || ''))) {
+        patch.name = 'WhatsApp Business';
+    }
+
+    await supabase.from('wa_channels').update(patch).eq('id', canal.id);
+}
+
+/**
  * O que a Meta diz sobre o proprio token.
  *
  * Isto evita uma discussao que nao leva a lado nenhum. O tipo (USER ou
@@ -844,6 +888,35 @@ function descreverToken(token: string, veioDoGuardado: boolean): { fim: string; 
         origem: veioDoGuardado ? 'guardado' : 'escrito',
     };
 }
+
+/**
+ * Os numeros desta empresa, para o painel dos fluxos os poder escolher.
+ *
+ * So o que e preciso para os mostrar numa lista: nada de credenciais.
+ */
+router.get('/canais', requireAuth, async (req: AuthRequest, res: Response) => {
+    try {
+        const { data } = await getSupabase(req).from('wa_channels')
+            .select('id, name, provider, status, credentials')
+            .eq('empresa_id', req.user!.empresa_id);
+
+        const canais = (data || []).map((c: any) => ({
+            id: c.id,
+            provider: c.provider,
+            status: c.status,
+            // O nome provisorio de um canal por ligar nao serve para escolher.
+            nome: /\(por ligar\)/i.test(String(c.name || '')) || !c.name
+                ? (c.provider === 'meta' ? 'API oficial da Meta' : 'Evolution')
+                : c.name,
+            // Da para distinguir dois numeros sem mostrar segredos nenhuns.
+            numero: c.provider === 'meta' ? (c.credentials?.phoneNumberId || null) : (c.credentials?.instanceName || null),
+        }));
+
+        res.json({ success: true, canais });
+    } catch (e: any) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
 
 /**
  * O que esta configurado na Meta, para o painel o mostrar.

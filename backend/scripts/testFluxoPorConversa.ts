@@ -557,6 +557,54 @@ const enviadoParaMeta = () => pedidosEvolution.filter(p => p.url.includes('graph
         assert(!ditas().replace(antes, '').includes('Ola'), `nao devia repetir a saudacao: ${ditas()}`);
     });
 
+    console.log('\n=== Cada fluxo no seu numero ===\n');
+
+    const fluxoNoCanal = (id: number, nome: string, canais: string[] | undefined, resposta: string) => ({
+        id, nome, ativo: true, empresa_id: EMPRESA,
+        nodes: [
+            { id: 't1', type: 'trigger', data: { triggerKind: 'whatsapp_message', matchMode: 'any', canais } },
+            { id: 'a1', type: 'action', data: { actionType: 'REPLY_MESSAGE', config: { mensagem: resposta } } },
+        ],
+        edges: [{ id: 'e1', source: 't1', target: 'a1' }],
+    });
+
+    await test('um fluxo preso a um numero nao responde no outro', async () => {
+        // Com dois numeros — o antigo por QR code e o novo pela API oficial — um
+        // fluxo que respondesse nos dois punha o atendimento de um a falar com
+        // quem escreveu para o outro. A pessoa do outro lado nem sabe que ha dois.
+        tabela('automations').push(fluxoNoCanal(80, 'So no canal novo', ['chan-meta'], 'SOU-DO-NOVO'));
+        await receber('244900000001', 'Ola');
+        assert(!ditas().includes('SOU-DO-NOVO'), `nao devia responder neste canal: ${ditas()}`);
+    });
+
+    await test('o mesmo fluxo responde no numero que lhe foi dado', async () => {
+        tabela('automations').push(fluxoNoCanal(81, 'So neste', [CANAL], 'SOU-DESTE'));
+        await receber('244900000001', 'Ola');
+        assert(ditas().includes('SOU-DESTE'), `devia responder: ${ditas()}`);
+    });
+
+    await test('sem numeros escolhidos, responde em todos — como os fluxos antigos', async () => {
+        // Os fluxos ja criados nao tem este campo. Se "vazio" quisesse dizer
+        // "nenhum", todos eles ficavam mudos de um dia para o outro.
+        tabela('automations').push(fluxoNoCanal(82, 'Em todos', undefined, 'SOU-DE-TODOS'));
+        await receber('244900000001', 'Ola');
+        assert(ditas().includes('SOU-DE-TODOS'), `devia responder: ${ditas()}`);
+    });
+
+    await test('uma lista vazia tambem quer dizer todos', async () => {
+        tabela('automations').push(fluxoNoCanal(83, 'Lista vazia', [], 'LISTA-VAZIA'));
+        await receber('244900000001', 'Ola');
+        assert(ditas().includes('LISTA-VAZIA'), `devia responder: ${ditas()}`);
+    });
+
+    await test('um fluxo nos dois numeros responde nos dois', async () => {
+        // E o caso que o cliente pediu: poder usar o mesmo fluxo para atender os
+        // dois, se quiser.
+        tabela('automations').push(fluxoNoCanal(84, 'Nos dois', ['chan-meta', CANAL], 'NOS-DOIS'));
+        await receber('244900000001', 'Ola');
+        assert(ditas().includes('NOS-DOIS'), `devia responder: ${ditas()}`);
+    });
+
     console.log('\n=== Os botoes saem MESMO, pelo motor ===\n');
 
     const fluxoMenuSimples = (nOpcoes: number) => ({

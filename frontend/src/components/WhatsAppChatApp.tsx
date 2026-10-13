@@ -787,6 +787,30 @@ ${data.diagnostico}` : '')
         }
     }
 
+    /**
+     * As mensagens que já saíram do ecrã mas ainda não voltaram do servidor.
+     *
+     * Sem isto, a recolha de 15 em 15 segundos substituía a lista inteira e a
+     * mensagem acabada de enviar desaparecia — voltando só na recolha seguinte.
+     * Guardá-las aqui é o que as mantém no sítio enquanto não estão gravadas.
+     */
+    const porConfirmar = useRef<Message[]>([]);
+
+    /** Esta mensagem do servidor é a mesma que ficou por confirmar? */
+    const aMesma = (local: Message, doServidor: Message) =>
+        doServidor.direction === 'outbound'
+        && (doServidor.content || '').trim() === (local.content || '').trim()
+        && Math.abs(new Date(doServidor.created_at).getTime() - new Date(local.created_at).getTime()) < 5 * 60 * 1000;
+
+    /** O que o servidor tem, mais o que ainda está a caminho. */
+    const juntarComAsQueFaltam = (doServidor: Message[]): Message[] => {
+        porConfirmar.current = porConfirmar.current.filter(
+            local => !doServidor.some(sv => aMesma(local, sv))
+        );
+        if (!porConfirmar.current.length) return doServidor;
+        return [...doServidor, ...porConfirmar.current];
+    };
+
     async function fetchMessages() {
         if (!activeConv) return;
         const convId = activeConv.id;
@@ -811,7 +835,7 @@ ${data.diagnostico}` : '')
             }
             const data = await res.json();
             if (data.messages) {
-                setMessages(data.messages);
+                setMessages(juntarComAsQueFaltam(data.messages));
             } else {
                 setMessages([]);
             }
@@ -875,6 +899,7 @@ ${data.diagnostico}` : '')
         };
         
         setMessages([...messages, newMsg]);
+        porConfirmar.current = [...porConfirmar.current, newMsg];
         setInputText('');
 
         try {
@@ -887,15 +912,22 @@ ${data.diagnostico}` : '')
             const data = await res.json();
             if (data.success) {
                 setMessages(prev => prev.map(m => m.id === newMsg.id ? { ...m, status: 'delivered' } : m));
+                porConfirmar.current = porConfirmar.current.map(
+                    m => (m.id === newMsg.id ? { ...m, status: 'delivered' } : m)
+                );
                 setIsBotPaused(true); // Humano respondeu, bot é pausado automaticamente
             } else {
                 alert('Erro ao enviar mensagem: ' + (data.error || 'Erro desconhecido.'));
                 setMessages(prev => prev.map(m => m.id === newMsg.id ? { ...m, status: 'failed' } : m));
+                // Uma mensagem que falhou não volta do servidor: se ficasse por
+                // confirmar, ficava no ecrã para sempre a dizer que falhou.
+                porConfirmar.current = porConfirmar.current.filter(m => m.id !== newMsg.id);
             }
         } catch (err) {
             console.error(err);
             alert('Erro de rede ao enviar mensagem.');
             setMessages(prev => prev.map(m => m.id === newMsg.id ? { ...m, status: 'failed' } : m));
+            porConfirmar.current = porConfirmar.current.filter(m => m.id !== newMsg.id);
         }
     };
 
@@ -1434,7 +1466,14 @@ ${data.diagnostico}` : '')
                                         {displayContactName(activeConv.contact_name, activeConv.phone_number)}
                                     </div>
                                     <div style={{ fontSize: '12.5px', color: '#5B738B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                        {formatPhoneNumber(activeConv.phone_number)}{activeConv.wa_channels?.name ? ` · ${activeConv.wa_channels.name}` : ''}
+                                        {formatPhoneNumber(activeConv.phone_number)}{(() => {
+                                            // "(por ligar)" era o nome provisório de um canal Meta que
+                                            // ainda não tinha sido confirmado. Mostrá-lo numa conversa a
+                                            // funcionar diz à pessoa o contrário do que ela está a ver.
+                                            const nome = activeConv.wa_channels?.name || '';
+                                            if (/\(por ligar\)/i.test(nome)) return ' · API oficial';
+                                            return nome ? ` · ${nome}` : '';
+                                        })()}
                                     </div>
                                 </div>
                             </div>

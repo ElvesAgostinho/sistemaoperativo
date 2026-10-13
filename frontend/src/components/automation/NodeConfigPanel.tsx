@@ -7,6 +7,7 @@ import { duracaoDaPausa, emSegundos, pausaPorExtenso, UNIDADES, ESPERA_GUARDADA_
 import PreVisualizacaoEscolha from './PreVisualizacaoEscolha';
 import EditorBlocos, { type Bloco, ACCOES_COM_BLOCOS } from './EditorBlocos';
 import CampoFicheiro from './CampoFicheiro';
+import SelectorCanais from './SelectorCanais';
 
 interface NodeConfigPanelProps {
   node: AutomationNode;
@@ -126,6 +127,12 @@ export default function NodeConfigPanel({ node, todosOsNos = [], automations, cu
 
           {d.triggerKind === 'whatsapp_message' ? (
             <>
+              {/* Em que numeros responde. So aparece com mais do que um. */}
+              <SelectorCanais
+                escolhidos={Array.isArray((d as any).canais) ? (d as any).canais : []}
+                aoMudar={(ids) => updateData({ canais: ids } as any)}
+              />
+
               <label style={labelStyle}>Condição</label>
               <select style={fieldStyle} value={d.matchMode || 'any'} onChange={e => updateData({ matchMode: e.target.value })}>
                 <option value="any">Qualquer mensagem</option>
