@@ -10,6 +10,7 @@
  * numeradas), para o cliente ver o mesmo conteúdo.
  */
 import { supabase } from '../lib/supabaseClient';
+import { ErroMeta } from './ErroMeta';
 
 export type TipoCabecalho = 'NONE' | 'TEXT' | 'IMAGE' | 'VIDEO' | 'DOCUMENT';
 export interface BotaoTemplate {
@@ -187,7 +188,9 @@ export class WhatsAppTemplateService {
                 headers: { Authorization: `Bearer ${accessToken}` }
             });
             const d = await r.json();
-            if (d.error) return { ok: false, erro: d.error.message };
+            // O erro vinha em bruto, em ingles, directo da Meta para o ecra de
+            // quem esta a configurar — o mesmo problema do resto do painel.
+            if (d.error) return { ok: false, erro: ErroMeta.numaLinha(d.error, r.status) };
             const lista = d.data || [];
             // Substitui os que vieram da Meta; os rascunhos locais ficam.
             await supabase.from('wa_templates').delete().eq('channel_id', channel.id).eq('origem', 'meta');

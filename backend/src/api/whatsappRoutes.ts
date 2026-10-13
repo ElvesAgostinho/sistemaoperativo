@@ -692,6 +692,7 @@ router.post('/config/meta', requireAuth, exigirPermissao('wa.canal'), async (req
                 // De onde veio o token que falhou. Sem isto, quem deixou o campo
                 // em branco julga que testou o token novo e testou o antigo.
                 tokenUsado: descreverToken(accessToken, tokenGuardadoUsado),
+                diagnostico: await inspecionarToken(accessToken),
                 tokenDeVerificacaoGuardado: true,
                 nota: 'O token de verificação ficou guardado — já pode validar o webhook no painel da Meta. O canal fica por ligar até o token de acesso servir.',
             });
@@ -737,6 +738,56 @@ router.post('/config/meta', requireAuth, exigirPermissao('wa.canal'), async (req
         res.status(500).json({ success: false, error: err.message });
     }
 });
+
+/**
+ * O que a Meta diz sobre o proprio token.
+ *
+ * Isto evita uma discussao que nao leva a lado nenhum. O tipo (USER ou
+ * SYSTEM_USER) e a diferenca entre um token que morre quando alguem sai do
+ * Facebook e um que nao morre; `expires_at` a zero e o "nunca expira";
+ * `data_access_expires_at` e o prazo separado de 90 dias que quase ninguem
+ * conhece e que mata tokens que parecem bons.
+ */
+async function inspecionarToken(token: string): Promise<string | null> {
+    try {
+        const r = await fetch(
+            `https://graph.facebook.com/v19.0/debug_token?input_token=${encodeURIComponent(token)}&access_token=${encodeURIComponent(token)}`,
+        );
+        const d: any = await r.json().catch(() => ({}));
+        const i = d?.data;
+        if (!i) return null;
+
+        const quando = (seg: any) => {
+            const n = Number(seg);
+            if (!n) return 'nunca expira';
+            const data = new Date(n * 1000);
+            const passou = data.getTime() < Date.now();
+            return `${passou ? 'expirou' : 'expira'} a ${data.toLocaleDateString('pt-PT')}`;
+        };
+
+        const tipo = i.type === 'SYSTEM_USER'
+            ? 'de Utilizador de Sistema (o permanente)'
+            : i.type === 'USER'
+                ? 'de UTILIZADOR — este morre quando a sessão do Facebook termina ou a palavra-passe muda, mesmo sendo de longa duração'
+                : `do tipo ${i.type || 'desconhecido'}`;
+
+        const partes = [
+            `A Meta diz que este token é ${tipo}.`,
+            `Valido agora: ${i.is_valid ? 'sim' : 'NÃO'}.`,
+            `Token: ${quando(i.expires_at)}.`,
+            `Acesso aos dados: ${quando(i.data_access_expires_at)}.`,
+        ];
+        if (i.application) partes.push(`Aplicação: ${i.application}.`);
+
+        const faltam = ['whatsapp_business_messaging', 'whatsapp_business_management']
+            .filter(x => !(i.scopes || []).includes(x));
+        if (faltam.length) partes.push(`Faltam-lhe permissões: ${faltam.join(' e ')}.`);
+
+        return partes.join(' ');
+    } catch {
+        return null;
+    }
+}
 
 /**
  * O token usado, descrito sem ser revelado.
@@ -829,10 +880,13 @@ router.post('/config/meta/testar', requireAuth, exigirPermissao('wa.canal'), asy
         const d: any = await r.json().catch(() => ({}));
 
         if (!r.ok) {
+            // Em vez de adivinhar porque e que o token nao serve, pergunta-se.
+            const oQueEhOToken = await inspecionarToken(accessToken);
             return res.status(400).json({
                 success: false,
                 error: ErroMeta.numaLinha(d?.error, r.status),
                 tokenUsado: descreverToken(accessToken, tokenGuardadoUsado),
+                diagnostico: oQueEhOToken,
             });
         }
 

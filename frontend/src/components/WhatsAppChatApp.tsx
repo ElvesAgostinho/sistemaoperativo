@@ -331,7 +331,11 @@ Para comparar: ${origem}, tem ${t.tamanho} caracteres e acaba em "${t.fim}".`;
             if (!r.ok || !d.success) {
                 setMetaTeste({
                     ok: false,
-                    texto: (d.error || 'Não foi possível falar com a Meta.') + descreverTokenUsado(d.tokenUsado),
+                    texto: (d.error || 'Não foi possível falar com a Meta.')
+                        + (d.diagnostico ? `
+
+${d.diagnostico}` : '')
+                        + descreverTokenUsado(d.tokenUsado),
                 });
             } else {
                 const partes = [d.nome, d.telefone].filter(Boolean).join(' — ');
@@ -381,6 +385,9 @@ Para comparar: ${origem}, tem ${t.tamanho} caracteres e acaba em "${t.fim}".`;
 
 ${data.nota}`
                         : String(data.error || 'Não foi possível guardar.'))
+                        + (data.diagnostico ? `
+
+${data.diagnostico}` : '')
                         + descreverTokenUsado(data.tokenUsado),
                 });
                 if (data.tokenDeVerificacaoGuardado) carregarConfigMeta();
