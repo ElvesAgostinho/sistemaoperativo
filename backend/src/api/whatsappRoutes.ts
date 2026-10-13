@@ -492,17 +492,39 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
  * Webhook para Meta Cloud API (WhatsApp Oficial)
  * A Meta usa GET para validar o webhook e POST para enviar mensagens
  */
-router.get('/webhook/meta', (req: Request, res: Response) => {
-    const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN || 'businessos_token';
+router.get('/webhook/meta', async (req: Request, res: Response) => {
     const mode = req.query['hub.mode'];
-    const token = req.query['hub.verify_token'];
+    const token = String(req.query['hub.verify_token'] || '');
     const challenge = req.query['hub.challenge'];
 
-    if (mode === 'subscribe' && token === VERIFY_TOKEN) {
-        res.status(200).send(challenge);
-    } else {
-        res.sendStatus(403);
+    if (mode !== 'subscribe' || !token) return res.sendStatus(403);
+
+    // O painel pede a cada empresa um token de verificacao e guarda-o no canal
+    // dela. Mas esta rota so comparava com uma variavel de ambiente unica, igual
+    // para toda a gente: o token escrito no painel NUNCA era usado, e a
+    // verificacao da Meta falhava a quem nao adivinhasse o valor do servidor.
+    //
+    // Agora aceita-se o token de qualquer canal Meta que o tenha guardado. Sao
+    // segredos escolhidos por cada empresa; o que esta rota devolve e so o
+    // desafio da Meta, sem dados de ninguem.
+    try {
+        const { data: canais } = await supabase
+            .from('wa_channels')
+            .select('credentials')
+            .eq('provider', 'meta');
+
+        if ((canais || []).some((c: any) => c?.credentials?.verifyToken === token)) {
+            return res.status(200).send(challenge);
+        }
+    } catch (e) {
+        console.error('Erro a validar o webhook da Meta:', e);
     }
+
+    // A variavel de ambiente continua a valer, para quem ja a tinha a funcionar.
+    const doServidor = process.env.META_VERIFY_TOKEN;
+    if (doServidor && token === doServidor) return res.status(200).send(challenge);
+
+    return res.sendStatus(403);
 });
 
 router.post('/webhook/meta', async (req: Request, res: Response) => {
@@ -586,12 +608,32 @@ router.post('/webhook/meta', async (req: Request, res: Response) => {
 // ==============================================================
 
 // Rota para gravar as configurações da Meta
-router.post('/config/meta', requireAuth, async (req: AuthRequest, res: Response) => {
-    const { appId, phoneNumberId, accessToken, verifyToken } = req.body;
+router.post('/config/meta', requireAuth, exigirPermissao('wa.canal'), async (req: AuthRequest, res: Response) => {
+    const { appId, wabaId, phoneNumberId, verifyToken } = req.body;
+    let { accessToken } = req.body;
     const empresaId = req.user?.empresa_id;
 
-    if (!appId || !phoneNumberId || !accessToken || !verifyToken) {
-        return res.status(400).json({ success: false, error: 'Todos os campos são obrigatórios' });
+    // O canal que ja exista, lido ANTES de validar: e dele que vem o token
+    // quando a pessoa so quer corrigir um dos outros campos.
+    const { data: canalAnterior } = await getSupabase(req)
+        .from('wa_channels')
+        .select('id, credentials')
+        .eq('provider', 'meta')
+        .eq('empresa_id', empresaId)
+        .maybeSingle();
+
+    // O token nao volta ao ecra por seguranca, por isso tambem nao volta de la.
+    // Sem isto, gravar depois de mudar so o WABA apagava o token e deixava o
+    // canal morto — e ninguem percebia porque.
+    if (!accessToken && canalAnterior?.credentials?.accessToken) {
+        accessToken = canalAnterior.credentials.accessToken;
+    }
+
+    if (!phoneNumberId || !accessToken || !verifyToken) {
+        return res.status(400).json({
+            success: false,
+            error: 'Faltam campos: o ID do número, o token de acesso e o token de verificação são obrigatórios.',
+        });
     }
     if (!empresaId) {
         return res.status(400).json({ success: false, error: 'Empresa não encontrada' });
@@ -616,14 +658,13 @@ router.post('/config/meta', requireAuth, async (req: AuthRequest, res: Response)
         const businessPhone = businessData.display_phone_number || phoneNumberId;
 
         // 2. Se for válido, guardar no Supabase
-        const { data: existingChannel } = await getSupabase(req)
-            .from('wa_channels')
-            .select('id')
-            .eq('provider', 'meta')
-            .eq('empresa_id', empresaId)
-            .maybeSingle();
+        const existingChannel = canalAnterior;
 
-        const creds = { appId, phoneNumberId, accessToken, verifyToken };
+        // O wabaId e o que o servico de templates precisa para falar com a
+        // Meta (`/{waba-id}/message_templates`). Ele ja o sabia ler; era o
+        // painel que nunca o pedia, e por isso os templates nao se sincronizavam.
+        const creds: any = { appId, wabaId, phoneNumberId, accessToken, verifyToken };
+        for (const k of Object.keys(creds)) if (!creds[k]) delete creds[k];
 
         if (existingChannel) {
             await getSupabase(req).from('wa_channels').update({
@@ -650,6 +691,103 @@ router.post('/config/meta', requireAuth, async (req: AuthRequest, res: Response)
     } catch (err: any) {
         console.error('Erro a guardar config Meta:', err);
         res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+/**
+ * O que esta configurado na Meta, para o painel o mostrar.
+ *
+ * Sem isto, reabrir as definicoes mostrava campos vazios e ninguem sabia o que
+ * estava la — nem se sequer havia alguma coisa. O token de acesso nunca volta:
+ * sai so a indicacao de que existe.
+ */
+router.get('/config/meta', requireAuth, async (req: AuthRequest, res: Response) => {
+    try {
+        const { data: canal } = await getSupabase(req)
+            .from('wa_channels')
+            .select('name, status, credentials')
+            .eq('provider', 'meta')
+            .eq('empresa_id', req.user!.empresa_id)
+            .maybeSingle();
+
+        const c = canal?.credentials || {};
+        const publicUrl = process.env.BACKEND_PUBLIC_URL || `https://${req.headers.host}`;
+
+        res.json({
+            success: true,
+            configurado: !!canal,
+            nome: canal?.name || null,
+            estado: canal?.status || null,
+            appId: c.appId || '',
+            wabaId: c.wabaId || '',
+            phoneNumberId: c.phoneNumberId || '',
+            verifyToken: c.verifyToken || '',
+            temToken: !!c.accessToken,
+            // O painel mostrava "https://seu-dominio.com/..." — um exemplo, nao
+            // um endereco. Quem o copiasse para a Meta punha la isso mesmo.
+            webhookUrl: `${publicUrl}/api/whatsapp/webhook/meta`,
+        });
+    } catch (e: any) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+/**
+ * Testar a ligacao sem gravar nada: diz se as credenciais servem e de que
+ * numero sao, antes de a pessoa as fixar.
+ */
+router.post('/config/meta/testar', requireAuth, exigirPermissao('wa.canal'), async (req: AuthRequest, res: Response) => {
+    try {
+        let { phoneNumberId, accessToken, wabaId } = req.body;
+
+        if (!accessToken || !phoneNumberId) {
+            const { data: canal } = await getSupabase(req)
+                .from('wa_channels')
+                .select('credentials')
+                .eq('provider', 'meta')
+                .eq('empresa_id', req.user!.empresa_id)
+                .maybeSingle();
+            accessToken = accessToken || canal?.credentials?.accessToken;
+            phoneNumberId = phoneNumberId || canal?.credentials?.phoneNumberId;
+            wabaId = wabaId || canal?.credentials?.wabaId;
+        }
+
+        if (!accessToken || !phoneNumberId) {
+            return res.status(400).json({ success: false, error: 'Faltam o ID do número e o token de acesso.' });
+        }
+
+        const r = await fetch(
+            `https://graph.facebook.com/v19.0/${phoneNumberId}?fields=verified_name,display_phone_number,quality_rating`,
+            { headers: { Authorization: `Bearer ${accessToken}` } },
+        );
+        const d: any = await r.json().catch(() => ({}));
+
+        if (!r.ok) {
+            return res.status(400).json({
+                success: false,
+                error: d?.error?.message || `A Meta recusou (estado ${r.status}).`,
+            });
+        }
+
+        // O WABA, se foi indicado, tambem se confirma: e com ele que os
+        // templates sao lidos, e um WABA errado so daria erro mais tarde.
+        let templatesOk: boolean | null = null;
+        if (wabaId) {
+            const t = await fetch(`https://graph.facebook.com/v19.0/${wabaId}/message_templates?limit=1`, {
+                headers: { Authorization: `Bearer ${accessToken}` },
+            });
+            templatesOk = t.ok;
+        }
+
+        res.json({
+            success: true,
+            nome: d.verified_name || null,
+            telefone: d.display_phone_number || null,
+            qualidade: d.quality_rating || null,
+            templatesOk,
+        });
+    } catch (e: any) {
+        res.status(500).json({ success: false, error: e.message });
     }
 });
 

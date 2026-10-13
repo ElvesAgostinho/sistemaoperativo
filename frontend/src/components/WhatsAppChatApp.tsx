@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { MessageSquare, Phone, MoreVertical, Search, Paperclip, Smile, Send, Bot, Settings, QrCode, Key, Plus, UserPlus, ClipboardList, Filter, Check, CheckCheck, Clock, AlertCircle, Users, Megaphone, LayoutTemplate, History, X } from 'lucide-react';
+import { MessageSquare, Phone, MoreVertical, Search, Paperclip, Smile, Send, Bot, Settings, QrCode, Key, Plus, UserPlus, ClipboardList, Filter, Check, CheckCheck, Clock, AlertCircle, Users, Megaphone, LayoutTemplate, History, X, Eye, EyeOff, Copy } from 'lucide-react';
 import EmojiPicker from 'emoji-picker-react';
 import { createClient } from '@supabase/supabase-js';
 import WhatsAppGruposApp from './WhatsAppGruposApp';
@@ -176,7 +176,14 @@ export default function WhatsAppChatApp({ podeFazer }: { podeFazer?: (accao: str
     const [qrStatus, setQrStatus] = useState<string>('');
 
     // Meta API Settings
-    const [metaConfig, setMetaConfig] = useState({ appId: '', phoneNumberId: '', accessToken: '', webhookUrl: '', verifyToken: '' });
+    const [metaConfig, setMetaConfig] = useState({ appId: '', wabaId: '', phoneNumberId: '', accessToken: '', webhookUrl: '', verifyToken: '' });
+    // O token de acesso nunca volta do servidor. Isto diz se ha um guardado, para
+    // o campo poder ficar vazio sem dar a entender que nao esta configurado.
+    const [metaTemToken, setMetaTemToken] = useState(false);
+    const [metaVerToken, setMetaVerToken] = useState(false);
+    const [metaCopiado, setMetaCopiado] = useState(false);
+    const [metaTeste, setMetaTeste] = useState<{ ok: boolean; texto: string } | null>(null);
+    const [metaATestar, setMetaATestar] = useState(false);
     
     // Status connection
     const [evolutionStatus, setEvolutionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
@@ -263,6 +270,69 @@ export default function WhatsAppChatApp({ podeFazer }: { podeFazer?: (accao: str
         }
     };
 
+    const CAMPO_META: React.CSSProperties = {
+        width: '100%', boxSizing: 'border-box', padding: '10px 12px',
+        border: '1px solid #D5D7DA', borderRadius: '2px', fontSize: '14px', outline: 'none',
+    };
+    const AJUDA_META: React.CSSProperties = {
+        fontSize: '11.5px', color: '#8696A0', marginTop: '5px', lineHeight: 1.55,
+    };
+
+    /** O que esta guardado, para o painel nao abrir sempre em branco. */
+    const carregarConfigMeta = async () => {
+        try {
+            const r = await fetch(import.meta.env.VITE_API_URL + '/api/whatsapp/config/meta', {
+                headers: { Authorization: `Bearer ${localStorage.getItem('os_auth_token')}` },
+            });
+            const d = await r.json();
+            if (!d.success) return;
+            setMetaConfig(c => ({
+                ...c,
+                appId: d.appId || '',
+                wabaId: d.wabaId || '',
+                phoneNumberId: d.phoneNumberId || '',
+                verifyToken: d.verifyToken || '',
+                webhookUrl: d.webhookUrl || c.webhookUrl,
+            }));
+            setMetaTemToken(!!d.temToken);
+            if (d.configurado) setMetaStatus('connected');
+        } catch { /* o painel abre vazio, que e o que ja fazia */ }
+    };
+
+    useEffect(() => { carregarConfigMeta(); }, []);
+
+    const handleTestarMeta = async () => {
+        setMetaATestar(true); setMetaTeste(null);
+        try {
+            const r = await fetch(import.meta.env.VITE_API_URL + '/api/whatsapp/config/meta/testar', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${localStorage.getItem('os_auth_token')}`,
+                },
+                body: JSON.stringify({
+                    phoneNumberId: metaConfig.phoneNumberId,
+                    wabaId: metaConfig.wabaId,
+                    accessToken: metaConfig.accessToken || undefined,
+                }),
+            });
+            const d = await r.json();
+            if (!r.ok || !d.success) {
+                setMetaTeste({ ok: false, texto: d.error || 'Não foi possível falar com a Meta.' });
+            } else {
+                const partes = [d.nome, d.telefone].filter(Boolean).join(' — ');
+                const mau = d.templatesOk === false
+                    ? ' Mas o ID da conta WhatsApp Business não serve: os templates não vão sincronizar.'
+                    : '';
+                setMetaTeste({ ok: d.templatesOk !== false, texto: `Ligou: ${partes || 'número confirmado'}.${mau}` });
+            }
+        } catch {
+            setMetaTeste({ ok: false, texto: 'Erro de rede a falar com o servidor.' });
+        } finally {
+            setMetaATestar(false);
+        }
+    };
+
     const handleSaveMeta = async () => {
         setMetaStatus('saving');
         try {
@@ -282,6 +352,8 @@ export default function WhatsAppChatApp({ podeFazer }: { podeFazer?: (accao: str
                     name: data.businessName,
                     phone: data.businessPhone
                 });
+                setMetaConfig(c => ({ ...c, accessToken: '' }));
+                carregarConfigMeta();
                 fetchTemplates();
             } else {
                 setMetaStatus('error');
@@ -330,13 +402,19 @@ export default function WhatsAppChatApp({ podeFazer }: { podeFazer?: (accao: str
     };
 
     const handleResetMeta = () => {
-        setMetaConfig({
+        // O endereço do webhook não se "repõe": é o deste servidor, e é o mesmo
+        // antes e depois. Antes voltava a ser "https://seu-dominio.com/…", um
+        // exemplo que quem o copiasse levava tal e qual para a Meta.
+        setMetaConfig(c => ({
             appId: '',
+            wabaId: '',
             phoneNumberId: '',
             accessToken: '',
             verifyToken: '',
-            webhookUrl: 'https://seu-dominio.com/api/whatsapp/webhook/meta'
-        });
+            webhookUrl: c.webhookUrl,
+        }));
+        setMetaTemToken(false);
+        setMetaTeste(null);
         setMetaStatus('disconnected');
         setMetaBusinessInfo(null);
     };
@@ -1289,182 +1367,12 @@ export default function WhatsAppChatApp({ podeFazer }: { podeFazer?: (accao: str
                         </div>
                     </>
                 ) : (
-                    <div style={{ padding: '20px', flex: 1, overflowY: 'auto', backgroundColor: '#fff' }}>
-                        <h3 style={{ margin: '0 0 20px 0', color: '#1D2D3E' }}>Gestão de Canais</h3>
-
-                        {/* Os botoes funcionam MESMO neste WhatsApp? So quem tem o
-                            telemovel na mao e que sabe — a API nao o diz. */}
-                        <TesteDosBotoes />
-
-                        {hasChatLicense ? (
-                            <div style={{ border: `1px solid ${aiFallbackEnabled ? '#D5D7DA' : '#F6DEDE'}`, borderRadius: '2px', padding: '16px', marginBottom: '20px', backgroundColor: aiFallbackEnabled ? 'white' : '#F6DEDE' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    <Bot size={22} color={aiFallbackEnabled ? '#0E5A6B' : '#8996A3'} />
-                                    <div style={{ flex: 1 }}>
-                                        <h4 style={{ margin: 0, fontSize: '15px', color: '#1D2D3E' }}>Assistente IA Automático</h4>
-                                        <p style={{ margin: '2px 0 0', fontSize: '12.5px', color: '#5B738B', lineHeight: 1.4 }}>
-                                            Responde sozinho no WhatsApp sempre que nenhuma automação do Autopilot apanha a mensagem
-                                            (usa tokens da OpenAI a cada resposta). <strong>Desativar uma automação não desliga isto.</strong>
-                                        </p>
-                                    </div>
-                                    <div
-                                        onClick={savingAiFallback ? undefined : toggleAiFallback}
-                                        style={{
-                                            width: '40px', height: '20px', borderRadius: '2px', flexShrink: 0,
-                                            backgroundColor: aiFallbackEnabled ? '#0E5A6B' : '#D5D7DA',
-                                            position: 'relative', cursor: savingAiFallback ? 'wait' : 'pointer', transition: 'background-color 0.3s'
-                                        }}
-                                        title={aiFallbackEnabled ? 'Desativar Assistente IA no WhatsApp' : 'Ativar Assistente IA no WhatsApp'}
-                                    >
-                                        <div style={{
-                                            width: '16px', height: '16px', backgroundColor: 'white', borderRadius: '50%',
-                                            position: 'absolute', top: '2px', left: aiFallbackEnabled ? '22px' : '2px', transition: 'left 0.3s'
-                                        }} />
-                                    </div>
-                                </div>
-                                {!aiFallbackEnabled && (
-                                    <p style={{ margin: '10px 0 0', fontSize: '12px', color: '#BB0000', fontWeight: 600 }}>
-                                        Desativado — as mensagens que não caírem numa automação ficam sem resposta automática.
-                                    </p>
-                                )}
-                            </div>
-                        ) : (
-                            <div style={{ border: '1px solid #D5D7DA', borderRadius: '2px', padding: '16px', marginBottom: '20px', backgroundColor: '#F5F6F7' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    <Bot size={22} color="#8996A3" />
-                                    <div style={{ flex: 1 }}>
-                                        <h4 style={{ margin: 0, fontSize: '15px', color: '#1D2D3E' }}>Assistente IA Automático</h4>
-                                        <p style={{ margin: '2px 0 0', fontSize: '12.5px', color: '#5B738B', lineHeight: 1.4 }}>
-                                            Não incluído no seu plano atual. Contacte o suporte para ativar este módulo.
-                                        </p>
-                                    </div>
-                                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#5B738B', backgroundColor: '#D5D7DA', padding: '4px 10px', borderRadius: '2px', flexShrink: 0 }}>Bloqueado</span>
-                                </div>
-                            </div>
-                        )}
-
-                        <div style={{ border: '1px solid #D5D7DA', borderRadius: '2px', padding: '16px', marginBottom: '20px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                                <QrCode size={24} color="#0E5A6B" />
-                                <h4 style={{ margin: 0, fontSize: '16px', color: '#1D2D3E' }}>Evolution API (QR Code / Pareamento)</h4>
-                                {evolutionStatus === 'connected' && (
-                                    <span style={{ marginLeft: 'auto', backgroundColor: '#DCEEE2', color: '#107E3E', padding: '4px 12px', borderRadius: '2px', fontSize: '12px', fontWeight: 'bold' }}>Ligado</span>
-                                )}
-                            </div>
-                            <p style={{ fontSize: '13px', color: '#5B738B', marginBottom: '16px' }}>
-                                Ligue o seu número do WhatsApp diretamente capturando o QR Code.
-                            </p>
-                            
-                            {evolutionStatus === 'connected' ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                    <div style={{ padding: '16px', backgroundColor: '#DCEEE2', border: '1px solid #DCEEE2', borderRadius: '2px' }}>
-                                        <h5 style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#107E3E' }}>WhatsApp Conectado com Sucesso</h5>
-                                        <p style={{ fontSize: '13px', color: '#107E3E', marginBottom: '12px', lineHeight: '1.4' }}>
-                                            O seu telemóvel está sincronizado e as mensagens já chegam ao sistema. O interruptor
-                                            "Assistente IA Automático" acima controla se a IA responde sozinha quando nenhuma automação apanha a mensagem.
-                                        </p>
-                                        <button 
-                                            onClick={handleEvolutionDisconnect}
-                                            style={{ padding: '8px 16px', backgroundColor: '#BB0000', color: 'white', border: 'none', borderRadius: '2px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}
-                                        >
-                                            Desconectar WhatsApp
-                                        </button>
-                                    </div>
-
-                                    <div style={{ padding: '16px', backgroundColor: '#F5F6F7', border: '1px solid #D5D7DA', borderRadius: '2px' }}>
-                                        <h5 style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#1D2D3E' }}>Sincronização Histórica</h5>
-                                        <p style={{ fontSize: '13px', color: '#5B738B', marginBottom: '12px', lineHeight: '1.4' }}>
-                                            Importe manualmente as conversas mais recentes do seu telemóvel para visualizar o histórico de mensagens e as fotos de perfil dos contactos aqui no CRM.
-                                        </p>
-                                        <button 
-                                            onClick={handleSyncChats}
-                                            disabled={isSyncingChats}
-                                            style={{ padding: '8px 16px', backgroundColor: isSyncingChats ? '#8996A3' : '#1D2D3E', color: 'white', border: 'none', borderRadius: '2px', cursor: isSyncingChats ? 'wait' : 'pointer', fontSize: '13px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px' }}
-                                        >
-                                            {isSyncingChats ? 'A Sincronizar...' : 'Sincronizar Conversas Antigas'}
-                                        </button>
-                                    </div>
-                                </div>
-                            ) : (
-                                <button onClick={() => { setConnectMode('qr'); setShowQr(true); }} style={{ width: '100%', padding: '10px', backgroundColor: '#0E5A6B', color: 'white', border: 'none', borderRadius: '2px', cursor: 'pointer', fontWeight: 500, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
-                                    <Plus size={16} /> Ligar WhatsApp
-                                </button>
-                            )}
-                        </div>
-
-                        <div style={{ border: '1px solid #D5D7DA', borderRadius: '2px', padding: '24px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                                <Key size={24} color="#0E5A6B" />
-                                <h4 style={{ margin: 0, fontSize: '18px', color: '#1D2D3E' }}>Meta Cloud API (Oficial)</h4>
-                                
-                                {metaStatus === 'connected' && (
-                                    <span style={{ marginLeft: 'auto', backgroundColor: '#DCEEE2', color: '#107E3E', padding: '4px 12px', borderRadius: '2px', fontSize: '12px', fontWeight: 'bold' }}>Ligado</span>
-                                )}
-                                {metaStatus === 'disconnected' && (
-                                    <span style={{ marginLeft: 'auto', backgroundColor: '#E7E9EB', color: '#5B738B', padding: '4px 12px', borderRadius: '2px', fontSize: '12px', fontWeight: 'bold' }}>Desligado</span>
-                                )}
-                            </div>
-                            <p style={{ fontSize: '14px', color: '#5B738B', marginBottom: '24px' }}>
-                                {metaStatus === 'connected' 
-                                    ? <>A API do WhatsApp Business está ligada. Conectado ao negócio: <strong style={{color:'#1D2D3E'}}>{metaBusinessInfo?.name} ({metaBusinessInfo?.phone})</strong></>
-                                    : 'A API está desligada. Preencha os dados e guarde para conectar o canal oficial.'}
-                            </p>
-                            
-                            {metaStatus === 'connected' && (
-                                <div style={{ marginBottom: '24px', padding: '16px', backgroundColor: '#E1EEF0', border: '1px solid #E1EEF0', borderRadius: '2px' }}>
-                                    <h5 style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#0E5A6B' }}>Gestão de Templates</h5>
-                                    <p style={{ fontSize: '13px', color: '#0E5A6B', marginBottom: '12px' }}>Sincronize os templates pré-aprovados na sua conta Meta.</p>
-                                    <button 
-                                        onClick={handleSyncTemplates} 
-                                        disabled={isSyncingTemplates}
-                                        style={{ padding: '8px 16px', backgroundColor: '#0E5A6B', color: 'white', border: 'none', borderRadius: '2px', cursor: isSyncingTemplates ? 'wait' : 'pointer', fontSize: '13px', fontWeight: 500 }}
-                                    >
-                                        {isSyncingTemplates ? 'A Sincronizar...' : `Sincronizar Templates (${templates.length} ativos)`}
-                                    </button>
-                                </div>
-                            )}
-                            
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '13px', color: '#5B738B', marginBottom: '6px', fontWeight: 500 }}>App ID</label>
-                                    <input type="text" value={metaConfig.appId} onChange={e => setMetaConfig({...metaConfig, appId: e.target.value})} placeholder="Ex: 1108136615719262" style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: '1px solid #D5D7DA', borderRadius: '2px', fontSize: '14px', outline: 'none' }} />
-                                </div>
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '13px', color: '#5B738B', marginBottom: '6px', fontWeight: 500 }}>Phone Number ID</label>
-                                    <input type="text" value={metaConfig.phoneNumberId} onChange={e => setMetaConfig({...metaConfig, phoneNumberId: e.target.value})} placeholder="Ex: 993787080042283" style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: '1px solid #D5D7DA', borderRadius: '2px', fontSize: '14px', outline: 'none' }} />
-                                </div>
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '13px', color: '#5B738B', marginBottom: '6px', fontWeight: 500 }}>Access Token</label>
-                                    <input type="password" value={metaConfig.accessToken} onChange={e => setMetaConfig({...metaConfig, accessToken: e.target.value})} placeholder="••••••••••••••••" style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: '1px solid #D5D7DA', borderRadius: '2px', fontSize: '14px', outline: 'none' }} />
-                                </div>
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '13px', color: '#5B738B', marginBottom: '6px', fontWeight: 500 }}>Verify Token</label>
-                                    <input type="text" value={metaConfig.verifyToken} onChange={e => setMetaConfig({...metaConfig, verifyToken: e.target.value})} placeholder="Token para webhook (ex: meu_token_secreto)" style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: '1px solid #D5D7DA', borderRadius: '2px', fontSize: '14px', outline: 'none' }} />
-                                </div>
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '13px', color: '#5B738B', marginBottom: '6px', fontWeight: 500 }}>Webhook URL (Copie para a Meta)</label>
-                                    <input type="text" value={metaConfig.webhookUrl} readOnly style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: '1px solid #D5D7DA', borderRadius: '2px', fontSize: '14px', outline: 'none', backgroundColor: '#E7E9EB', color: '#5B738B' }} />
-                                </div>
-                            </div>
-
-                            <div style={{ display: 'flex', gap: '12px' }}>
-                                <button 
-                                    onClick={handleSaveMeta}
-                                    disabled={metaStatus === 'saving' || !metaConfig.accessToken || !metaConfig.verifyToken}
-                                    style={{ flex: 1, padding: '12px', backgroundColor: metaStatus === 'saving' ? '#8996A3' : '#0E5A6B', color: 'white', border: 'none', borderRadius: '2px', cursor: (metaStatus === 'saving' || !metaConfig.accessToken || !metaConfig.verifyToken) ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '14px' }}
-                                >
-                                    {metaStatus === 'saving' ? 'A Guardar e Conectar...' : 'Testar e Guardar Configurações'}
-                                </button>
-                                <button
-                                    onClick={handleResetMeta}
-                                    style={{ padding: '12px', backgroundColor: '#BB0000', color: 'white', border: 'none', borderRadius: '2px', cursor: 'pointer', fontWeight: 600, fontSize: '14px' }}
-                                    title="Repor Configurações"
-                                >
-                                    Repor
-                                </button>
-                            </div>
-                        </div>
-
+                    <div style={{ padding: '18px 16px', flex: 1, overflowY: 'auto', backgroundColor: '#fff' }}>
+                        <h3 style={{ margin: '0 0 8px 0', color: '#1D2D3E', fontSize: '15px' }}>Gestão de Canais</h3>
+                        <p style={{ margin: 0, fontSize: '12.5px', color: '#5B738B', lineHeight: 1.65 }}>
+                            As definições abriram ao lado, onde há espaço para elas. Use o menu
+                            aqui em cima para voltar às conversas.
+                        </p>
                     </div>
                 )}
             </div>
@@ -1717,29 +1625,260 @@ export default function WhatsAppChatApp({ podeFazer }: { podeFazer?: (accao: str
                         </div>
                     </>
                 ) : (
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#5B738B' }}>
-                        {currentView === 'chats' ? (
-                            <>
-                                <div style={{ backgroundColor: '#F5F6F7', padding: '24px', borderRadius: '50%', marginBottom: '24px' }}>
-                                    <MessageSquare size={64} color="#0E5A6B" />
+                    currentView === 'chats' ? (
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#5B738B' }}>
+                            <div style={{ backgroundColor: '#F5F6F7', padding: '24px', borderRadius: '50%', marginBottom: '24px' }}>
+                                <MessageSquare size={64} color="#0E5A6B" />
+                            </div>
+                            <h2 style={{ fontWeight: 300, color: '#5B738B', fontSize: '32px', marginBottom: '16px' }}>WhatsApp Web Omnichannel</h2>
+                            <p style={{ fontSize: '14px', maxWidth: '400px', textAlign: 'center', lineHeight: '20px' }}>
+                                Envie e receba mensagens das suas APIs Evolution ou Meta. O Bot AI trata das respostas automáticas configuradas nos Workflows.
+                            </p>
+                        </div>
+                    ) : (
+                        /* As definições vivem aqui, e não na coluna estreita das
+                           conversas: um formulário com tokens e endereços de webhook
+                           não cabe em 300px. A largura máxima existe porque um campo
+                           esticado a 1200px é tão mau de ler como um espremido. */
+                        <div style={{ flex: 1, overflowY: 'auto', backgroundColor: '#fff' }}>
+                            <div style={{ maxWidth: '780px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
+                            <div style={{ padding: '24px 20px' }}>
+                                <h3 style={{ margin: '0 0 20px 0', color: '#1D2D3E', fontSize: '19px' }}>Gestão de Canais</h3>
+
+                                {/* Os botoes funcionam MESMO neste WhatsApp? So quem tem o
+                                    telemovel na mao e que sabe — a API nao o diz. */}
+                                <TesteDosBotoes />
+
+                                {hasChatLicense ? (
+                                    <div style={{ border: `1px solid ${aiFallbackEnabled ? '#D5D7DA' : '#F6DEDE'}`, borderRadius: '2px', padding: '16px', marginBottom: '20px', backgroundColor: aiFallbackEnabled ? 'white' : '#F6DEDE' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <Bot size={22} color={aiFallbackEnabled ? '#0E5A6B' : '#8996A3'} />
+                                            <div style={{ flex: 1 }}>
+                                                <h4 style={{ margin: 0, fontSize: '15px', color: '#1D2D3E' }}>Assistente IA Automático</h4>
+                                                <p style={{ margin: '2px 0 0', fontSize: '12.5px', color: '#5B738B', lineHeight: 1.4 }}>
+                                                    Responde sozinho no WhatsApp sempre que nenhuma automação do Autopilot apanha a mensagem
+                                                    (usa tokens da OpenAI a cada resposta). <strong>Desativar uma automação não desliga isto.</strong>
+                                                </p>
+                                            </div>
+                                            <div
+                                                onClick={savingAiFallback ? undefined : toggleAiFallback}
+                                                style={{
+                                                    width: '40px', height: '20px', borderRadius: '2px', flexShrink: 0,
+                                                    backgroundColor: aiFallbackEnabled ? '#0E5A6B' : '#D5D7DA',
+                                                    position: 'relative', cursor: savingAiFallback ? 'wait' : 'pointer', transition: 'background-color 0.3s'
+                                                }}
+                                                title={aiFallbackEnabled ? 'Desativar Assistente IA no WhatsApp' : 'Ativar Assistente IA no WhatsApp'}
+                                            >
+                                                <div style={{
+                                                    width: '16px', height: '16px', backgroundColor: 'white', borderRadius: '50%',
+                                                    position: 'absolute', top: '2px', left: aiFallbackEnabled ? '22px' : '2px', transition: 'left 0.3s'
+                                                }} />
+                                            </div>
+                                        </div>
+                                        {!aiFallbackEnabled && (
+                                            <p style={{ margin: '10px 0 0', fontSize: '12px', color: '#BB0000', fontWeight: 600 }}>
+                                                Desativado — as mensagens que não caírem numa automação ficam sem resposta automática.
+                                            </p>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div style={{ border: '1px solid #D5D7DA', borderRadius: '2px', padding: '16px', marginBottom: '20px', backgroundColor: '#F5F6F7' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <Bot size={22} color="#8996A3" />
+                                            <div style={{ flex: 1 }}>
+                                                <h4 style={{ margin: 0, fontSize: '15px', color: '#1D2D3E' }}>Assistente IA Automático</h4>
+                                                <p style={{ margin: '2px 0 0', fontSize: '12.5px', color: '#5B738B', lineHeight: 1.4 }}>
+                                                    Não incluído no seu plano atual. Contacte o suporte para ativar este módulo.
+                                                </p>
+                                            </div>
+                                            <span style={{ fontSize: '11px', fontWeight: 700, color: '#5B738B', backgroundColor: '#D5D7DA', padding: '4px 10px', borderRadius: '2px', flexShrink: 0 }}>Bloqueado</span>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div style={{ border: '1px solid #D5D7DA', borderRadius: '2px', padding: '16px', marginBottom: '20px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                                        <QrCode size={24} color="#0E5A6B" />
+                                        <h4 style={{ margin: 0, fontSize: '16px', color: '#1D2D3E' }}>Evolution API (QR Code / Pareamento)</h4>
+                                        {evolutionStatus === 'connected' && (
+                                            <span style={{ marginLeft: 'auto', backgroundColor: '#DCEEE2', color: '#107E3E', padding: '4px 12px', borderRadius: '2px', fontSize: '12px', fontWeight: 'bold' }}>Ligado</span>
+                                        )}
+                                    </div>
+                                    <p style={{ fontSize: '13px', color: '#5B738B', marginBottom: '16px' }}>
+                                        Ligue o seu número do WhatsApp diretamente capturando o QR Code.
+                                    </p>
+                            
+                                    {evolutionStatus === 'connected' ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            <div style={{ padding: '16px', backgroundColor: '#DCEEE2', border: '1px solid #DCEEE2', borderRadius: '2px' }}>
+                                                <h5 style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#107E3E' }}>WhatsApp Conectado com Sucesso</h5>
+                                                <p style={{ fontSize: '13px', color: '#107E3E', marginBottom: '12px', lineHeight: '1.4' }}>
+                                                    O seu telemóvel está sincronizado e as mensagens já chegam ao sistema. O interruptor
+                                                    "Assistente IA Automático" acima controla se a IA responde sozinha quando nenhuma automação apanha a mensagem.
+                                                </p>
+                                                <button 
+                                                    onClick={handleEvolutionDisconnect}
+                                                    style={{ padding: '8px 16px', backgroundColor: '#BB0000', color: 'white', border: 'none', borderRadius: '2px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}
+                                                >
+                                                    Desconectar WhatsApp
+                                                </button>
+                                            </div>
+
+                                            <div style={{ padding: '16px', backgroundColor: '#F5F6F7', border: '1px solid #D5D7DA', borderRadius: '2px' }}>
+                                                <h5 style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#1D2D3E' }}>Sincronização Histórica</h5>
+                                                <p style={{ fontSize: '13px', color: '#5B738B', marginBottom: '12px', lineHeight: '1.4' }}>
+                                                    Importe manualmente as conversas mais recentes do seu telemóvel para visualizar o histórico de mensagens e as fotos de perfil dos contactos aqui no CRM.
+                                                </p>
+                                                <button 
+                                                    onClick={handleSyncChats}
+                                                    disabled={isSyncingChats}
+                                                    style={{ padding: '8px 16px', backgroundColor: isSyncingChats ? '#8996A3' : '#1D2D3E', color: 'white', border: 'none', borderRadius: '2px', cursor: isSyncingChats ? 'wait' : 'pointer', fontSize: '13px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px' }}
+                                                >
+                                                    {isSyncingChats ? 'A Sincronizar...' : 'Sincronizar Conversas Antigas'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <button onClick={() => { setConnectMode('qr'); setShowQr(true); }} style={{ width: '100%', padding: '10px', backgroundColor: '#0E5A6B', color: 'white', border: 'none', borderRadius: '2px', cursor: 'pointer', fontWeight: 500, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+                                            <Plus size={16} /> Ligar WhatsApp
+                                        </button>
+                                    )}
                                 </div>
-                                <h2 style={{ fontWeight: 300, color: '#5B738B', fontSize: '32px', marginBottom: '16px' }}>WhatsApp Web Omnichannel</h2>
-                                <p style={{ fontSize: '14px', maxWidth: '400px', textAlign: 'center', lineHeight: '20px' }}>
-                                    Envie e receba mensagens das suas APIs Evolution ou Meta. O Bot AI trata das respostas automáticas configuradas nos Workflows.
-                                </p>
-                            </>
-                        ) : (
-                            <>
-                                <div style={{ backgroundColor: '#F5F6F7', padding: '24px', borderRadius: '50%', marginBottom: '24px' }}>
-                                    <Settings size={64} color="#5B738B" />
-                                </div>
-                                <h2 style={{ fontWeight: 300, color: '#5B738B', fontSize: '32px', marginBottom: '16px' }}>Definições dos Canais</h2>
-                                <p style={{ fontSize: '14px', maxWidth: '400px', textAlign: 'center', lineHeight: '20px' }}>
-                                    Configure no painel à esquerda as credenciais da Meta API ou use a Evolution API gerando um QR Code.
-                                </p>
-                            </>
-                        )}
+
+                                <div style={{ border: '1px solid #D5D7DA', borderRadius: '2px', padding: '24px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                                        <Key size={24} color="#0E5A6B" />
+                                        <h4 style={{ margin: 0, fontSize: '18px', color: '#1D2D3E' }}>Meta Cloud API (Oficial)</h4>
+                                
+                                        {metaStatus === 'connected' && (
+                                            <span style={{ marginLeft: 'auto', backgroundColor: '#DCEEE2', color: '#107E3E', padding: '4px 12px', borderRadius: '2px', fontSize: '12px', fontWeight: 'bold' }}>Ligado</span>
+                                        )}
+                                        {metaStatus === 'disconnected' && (
+                                            <span style={{ marginLeft: 'auto', backgroundColor: '#E7E9EB', color: '#5B738B', padding: '4px 12px', borderRadius: '2px', fontSize: '12px', fontWeight: 'bold' }}>Desligado</span>
+                                        )}
+                                    </div>
+                                    <p style={{ fontSize: '14px', color: '#5B738B', marginBottom: '24px' }}>
+                                        {metaStatus === 'connected' 
+                                            ? <>A API do WhatsApp Business está ligada. Conectado ao negócio: <strong style={{color:'#1D2D3E'}}>{metaBusinessInfo?.name} ({metaBusinessInfo?.phone})</strong></>
+                                            : 'A API está desligada. Preencha os dados e guarde para conectar o canal oficial.'}
+                                    </p>
+                            
+                                    {metaStatus === 'connected' && (
+                                        <div style={{ marginBottom: '24px', padding: '16px', backgroundColor: '#E1EEF0', border: '1px solid #E1EEF0', borderRadius: '2px' }}>
+                                            <h5 style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#0E5A6B' }}>Gestão de Templates</h5>
+                                            <p style={{ fontSize: '13px', color: '#0E5A6B', marginBottom: '12px' }}>Sincronize os templates pré-aprovados na sua conta Meta.</p>
+                                            <button 
+                                                onClick={handleSyncTemplates} 
+                                                disabled={isSyncingTemplates}
+                                                style={{ padding: '8px 16px', backgroundColor: '#0E5A6B', color: 'white', border: 'none', borderRadius: '2px', cursor: isSyncingTemplates ? 'wait' : 'pointer', fontSize: '13px', fontWeight: 500 }}
+                                            >
+                                                {isSyncingTemplates ? 'A Sincronizar...' : `Sincronizar Templates (${templates.length} ativos)`}
+                                            </button>
+                                        </div>
+                                    )}
+                            
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '13px', color: '#5B738B', marginBottom: '6px', fontWeight: 500 }}>ID do número de telefone</label>
+                                            <input type="text" value={metaConfig.phoneNumberId} onChange={e => setMetaConfig({ ...metaConfig, phoneNumberId: e.target.value })} placeholder="Ex: 1108136615719262" style={CAMPO_META} />
+                                            <div style={AJUDA_META}>Está no painel da Meta, em WhatsApp &rsaquo; Configuração da API.</div>
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '13px', color: '#5B738B', marginBottom: '6px', fontWeight: 500 }}>ID da conta WhatsApp Business</label>
+                                            <input type="text" value={metaConfig.wabaId} onChange={e => setMetaConfig({ ...metaConfig, wabaId: e.target.value })} placeholder="Ex: 993787080042283" style={CAMPO_META} />
+                                            <div style={AJUDA_META}>É com este que os templates são lidos. Sem ele, a sincronização de templates não funciona.</div>
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '13px', color: '#5B738B', marginBottom: '6px', fontWeight: 500 }}>Token de acesso permanente</label>
+                                            <div style={{ position: 'relative' }}>
+                                                <input
+                                                    type={metaVerToken ? 'text' : 'password'}
+                                                    value={metaConfig.accessToken}
+                                                    onChange={e => setMetaConfig({ ...metaConfig, accessToken: e.target.value })}
+                                                    placeholder={metaTemToken ? '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022' : 'Cole aqui o token permanente'}
+                                                    style={{ ...CAMPO_META, paddingRight: '40px' }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setMetaVerToken(v => !v)}
+                                                    title={metaVerToken ? 'Esconder' : 'Mostrar'}
+                                                    style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#5B738B', padding: 0, display: 'flex' }}
+                                                >
+                                                    {metaVerToken ? <EyeOff size={16} /> : <Eye size={16} />}
+                                                </button>
+                                            </div>
+                                            <div style={AJUDA_META}>
+                                                {metaTemToken
+                                                    ? 'O token est\u00e1 oculto por seguran\u00e7a. Introduza-o novamente s\u00f3 se o quiser mudar \u2014 deixar em branco mant\u00e9m o actual.'
+                                                    : 'Um token permanente, n\u00e3o o tempor\u00e1rio de 24 horas: esse expira e o canal cai sozinho.'}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '13px', color: '#5B738B', marginBottom: '6px', fontWeight: 500 }}>Token de verifica\u00e7\u00e3o do webhook</label>
+                                            <input type="text" value={metaConfig.verifyToken} onChange={e => setMetaConfig({ ...metaConfig, verifyToken: e.target.value })} placeholder="Crie um token de verifica\u00e7\u00e3o personalizado" style={CAMPO_META} />
+                                            <div style={AJUDA_META}>Uma palavra-passe criada por si. Tem de ser igual \u00e0 que puser nas configura\u00e7\u00f5es do webhook da Meta.</div>
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '13px', color: '#5B738B', marginBottom: '6px', fontWeight: 500 }}>URL de callback do webhook</label>
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <input type="text" value={metaConfig.webhookUrl} readOnly style={{ ...CAMPO_META, backgroundColor: '#E7E9EB', color: '#5B738B' }} />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        navigator.clipboard?.writeText(metaConfig.webhookUrl);
+                                                        setMetaCopiado(true);
+                                                        setTimeout(() => setMetaCopiado(false), 1800);
+                                                    }}
+                                                    title="Copiar"
+                                                    style={{ padding: '0 13px', border: '1px solid #D5D7DA', borderRadius: '2px', background: '#fff', cursor: 'pointer', color: '#0E5A6B', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '5px', fontSize: '13px', fontFamily: 'inherit' }}
+                                                >
+                                                    {metaCopiado ? <><Check size={14} /> Copiado</> : <><Copy size={14} /> Copiar</>}
+                                                </button>
+                                            </div>
+                                            <div style={AJUDA_META}>Use este endere\u00e7o como callback do webhook no painel da aplica\u00e7\u00e3o Meta.</div>
+                                        </div>
+                                    </div>
+
+                                    {metaTeste && (
+                                        <div style={{
+                                            marginBottom: '12px', padding: '10px 12px', borderRadius: '2px', fontSize: '13px', lineHeight: 1.6,
+                                            background: metaTeste.ok ? '#E8F5EC' : '#FDECEC',
+                                            border: `1px solid ${metaTeste.ok ? '#A8D5B8' : '#F5B5B5'}`,
+                                            color: metaTeste.ok ? '#107E3E' : '#B91C1C',
+                                        }}>
+                                            {metaTeste.texto}
+                                        </div>
+                                    )}
+
+                                    <div style={{ display: 'flex', gap: '12px' }}>
+                                        <button
+                                            onClick={handleTestarMeta}
+                                            disabled={metaATestar || !metaConfig.phoneNumberId}
+                                            style={{ padding: '12px 16px', backgroundColor: '#fff', color: '#0E5A6B', border: '1px solid #0E5A6B', borderRadius: '2px', cursor: (metaATestar || !metaConfig.phoneNumberId) ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '14px', fontFamily: 'inherit', flexShrink: 0 }}
+                                        >
+                                            {metaATestar ? 'A testar...' : 'Testar ligação à API'}
+                                        </button>
+                                        <button 
+                                            onClick={handleSaveMeta}
+                                            disabled={metaStatus === 'saving' || (!metaConfig.accessToken && !metaTemToken) || !metaConfig.verifyToken || !metaConfig.phoneNumberId}
+                                            style={{ flex: 1, padding: '12px', backgroundColor: metaStatus === 'saving' ? '#8996A3' : '#0E5A6B', color: 'white', border: 'none', borderRadius: '2px', cursor: (metaStatus === 'saving' || (!metaConfig.accessToken && !metaTemToken) || !metaConfig.verifyToken || !metaConfig.phoneNumberId) ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '14px' }}
+                                        >
+                                            {metaStatus === 'saving' ? 'A Guardar e Conectar...' : 'Testar e Guardar Configurações'}
+                                        </button>
+                                        <button
+                                            onClick={handleResetMeta}
+                                            style={{ padding: '12px', backgroundColor: '#BB0000', color: 'white', border: 'none', borderRadius: '2px', cursor: 'pointer', fontWeight: 600, fontSize: '14px' }}
+                                            title="Repor Configurações"
+                                        >
+                                            Repor
+                                        </button>
+                            </div>
+                        </div>
+
                     </div>
+                            </div>
+                        </div>
+                    )
                 )}
             </div>
 

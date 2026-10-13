@@ -302,6 +302,50 @@ const conversa = () => tabela('wa_conversations')[0];
         assert(r.status === 404, `devia recusar, deu ${r.status}`);
     });
 
+    console.log('\n=== A Meta a verificar o webhook ===\n');
+
+    await test('aceita o token que a EMPRESA escreveu no painel', async () => {
+        // Este era o erro. O painel pedia a cada empresa um token de
+        // verificacao e guardava-o no canal dela, mas a rota so comparava com
+        // uma variavel de ambiente unica, igual para toda a gente. O token
+        // escrito no painel nunca era usado: a Meta recusava a verificacao e
+        // ninguem percebia porque, porque o campo estava la, preenchido.
+        delete process.env.META_VERIFY_TOKEN;
+        tabela('wa_channels').push({
+            id: 'chan-meta', empresa_id: EMPRESA, provider: 'meta',
+            credentials: { phoneNumberId: '111', accessToken: 'tok', verifyToken: 'o-meu-segredo' },
+        });
+
+        const r = await fetchReal(
+            `${B}/api/whatsapp/webhook/meta?hub.mode=subscribe&hub.verify_token=o-meu-segredo&hub.challenge=12345`,
+        );
+        assert(r.status === 200, `devia aceitar, deu ${r.status}`);
+        assert((await r.text()) === '12345', 'tem de devolver o desafio da Meta tal e qual');
+    });
+
+    await test('recusa um token que nao e de ninguem', async () => {
+        const r = await fetchReal(
+            `${B}/api/whatsapp/webhook/meta?hub.mode=subscribe&hub.verify_token=adivinhado&hub.challenge=12345`,
+        );
+        assert(r.status === 403, `devia recusar, deu ${r.status}`);
+    });
+
+    await test('recusa sem token nenhum', async () => {
+        const r = await fetchReal(`${B}/api/whatsapp/webhook/meta?hub.mode=subscribe&hub.challenge=12345`);
+        assert(r.status === 403, `devia recusar, deu ${r.status}`);
+    });
+
+    await test('o token do servidor continua a valer, para quem ja o tinha', async () => {
+        // Quem ja tinha isto a funcionar pela variavel de ambiente nao pode
+        // ficar sem webhook por causa desta mudanca.
+        process.env.META_VERIFY_TOKEN = 'o-do-servidor';
+        const r = await fetchReal(
+            `${B}/api/whatsapp/webhook/meta?hub.mode=subscribe&hub.verify_token=o-do-servidor&hub.challenge=9`,
+        );
+        assert(r.status === 200, `devia aceitar, deu ${r.status}`);
+        delete process.env.META_VERIFY_TOKEN;
+    });
+
     servidor.unref();
     console.log(`\n=== Resultado: ${passed} passaram, ${failed} falharam ===`);
     if (falhas.length) console.log('Falhou:\n  - ' + falhas.join('\n  - '));
