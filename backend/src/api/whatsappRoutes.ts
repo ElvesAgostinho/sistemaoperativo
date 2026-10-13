@@ -755,7 +755,17 @@ async function inspecionarToken(token: string): Promise<string | null> {
         );
         const d: any = await r.json().catch(() => ({}));
         const i = d?.data;
-        if (!i) return null;
+
+        // O `debug_token` precisa de um token que a Meta ainda aceite. Se nem
+        // ele passa, o token nao serve para chamada nenhuma — e isso vale mais
+        // do que meio diagnostico: afasta de uma vez as permissoes, o endereco
+        // errado e os ids trocados. O que sobra e o token em si.
+        if (!i) {
+            return 'A Meta nem sequer deixa inspeccionar este token — recusa-o em todas as chamadas, '
+                + 'incluindo a que serve para o examinar. Não é falta de permissões nem ID errado: '
+                + 'o token em si já não é aceite. Gere um novo e cole-o no campo (sem o deixar em branco, '
+                + 'senão volta a ser usado este).';
+        }
 
         const quando = (seg: any) => {
             const n = Number(seg);
