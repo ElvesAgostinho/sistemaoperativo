@@ -398,6 +398,58 @@ const conversa = () => tabela('wa_conversations')[0];
         assert(!/the session is invalid/i.test(semOriginal), `nao devia vir em ingles: ${semOriginal}`);
     });
 
+    console.log('\n=== Com dois canais, qual e que vale ===\n');
+
+    const canais = (lista: any[]) => { db['wa_channels'] = lista; };
+    const META = { id: 'c-meta', empresa_id: EMPRESA, provider: 'meta', status: 'connected', credentials: { phoneNumberId: '1', accessToken: 'a', wabaId: 'w' } };
+    const EVO = { id: 'c-evo', empresa_id: EMPRESA, provider: 'evolution', status: 'connected', credentials: { instanceName: 'INST_1' } };
+
+    const verCanal = async () => {
+        const r = await fetchReal(`${B}/api/whatsapp/canal/botoes`);
+        return r.json() as any;
+    };
+
+    await test('com a Meta ligada, o painel ve a Meta e nao a Evolution', async () => {
+        // Era o que estava a travar tudo. A empresa ligou a API oficial, mas as
+        // rotas liam `.limit(1)` sem ordem nenhuma e apanhavam o canal da
+        // Evolution. O painel dizia "sem botoes" com a Meta ligada ao lado, e os
+        // menus continuavam a sair como lista numerada — a funcionalidade estava
+        // pronta e invisivel.
+        canais([EVO, META]);
+        const d = await verCanal();
+        assert(d.provider === 'meta', `devia ver a Meta, viu ${d.provider}`);
+        assert(d.funcionam === true, 'pela Meta os botoes funcionam sempre');
+    });
+
+    await test('a ordem na base de dados nao decide nada', async () => {
+        canais([META, EVO]);
+        const d = await verCanal();
+        assert(d.provider === 'meta', `devia ver a Meta, viu ${d.provider}`);
+    });
+
+    await test('sem Meta, continua a ser a Evolution', async () => {
+        canais([EVO]);
+        const d = await verCanal();
+        assert(d.provider === 'evolution', `devia ver a Evolution, viu ${d.provider}`);
+        assert(d.funcionam === false, 'na Evolution os botoes nao chegam');
+    });
+
+    await test('um canal Meta por ligar nao rouba o lugar ao que funciona', async () => {
+        // Guarda-se um canal 'pending' so para a Meta validar o webhook. Se ele
+        // ganhasse a escolha, o painel prometia botoes por um canal cujo token
+        // ainda nem serve.
+        canais([EVO, { ...META, id: 'c-meta-pend', status: 'pending' }]);
+        const d = await verCanal();
+        assert(d.provider === 'evolution', `devia ficar na Evolution, viu ${d.provider}`);
+    });
+
+    await test('so com o canal por ligar, e esse mesmo — nao se finge que nao ha nada', async () => {
+        canais([{ ...META, status: 'pending' }]);
+        const d = await verCanal();
+        assert(d.success === true, JSON.stringify(d));
+        assert(d.provider === 'meta', `devia ver o canal que ha: ${d.provider}`);
+    });
+
     servidor.unref();
     console.log(`\n=== Resultado: ${passed} passaram, ${failed} falharam ===`);
     if (falhas.length) console.log('Falhou:\n  - ' + falhas.join('\n  - '));

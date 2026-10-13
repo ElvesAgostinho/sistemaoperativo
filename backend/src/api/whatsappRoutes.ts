@@ -715,6 +715,10 @@ router.post('/config/meta', requireAuth, exigirPermissao('wa.canal'), async (req
             await getSupabase(req).from('wa_channels').update({
                 credentials: creds,
                 status: 'connected',
+                // O nome ficava "WhatsApp Business (por ligar)" para sempre: era
+                // o nome provisorio de quando so se guardou o token de
+                // verificacao. Agora que a Meta confirmou, usa-se o verdadeiro.
+                name: businessName,
                 updated_at: new Date().toISOString()
             }).eq('id', existingChannel.id);
         } else {
@@ -738,6 +742,31 @@ router.post('/config/meta', requireAuth, exigirPermissao('wa.canal'), async (req
         res.status(500).json({ success: false, error: err.message });
     }
 });
+
+/**
+ * O canal que vale para esta empresa, quando ha mais do que um.
+ *
+ * Uma empresa pode ter o numero antigo pela Evolution e o novo pela API oficial
+ * ao mesmo tempo — e tem, durante a mudanca. A ordem nao e arbitraria: a Meta
+ * ligada ganha porque e a unica onde os botoes e os menus chegam mesmo, e e
+ * isso que o painel tem de mostrar a quem configura.
+ *
+ * Um canal 'pending' e o ultimo de todos: existe so para a Meta validar o
+ * webhook, e o token dele ainda nao serve.
+ */
+async function canalPreferido(client: any, empresaId: string | null, campos = 'id, provider, credentials, status') {
+    const { data } = await client.from('wa_channels').select(campos).eq('empresa_id', empresaId);
+    const canais: any[] = Array.isArray(data) ? data : (data ? [data] : []);
+    if (!canais.length) return null;
+
+    const vivos = canais.filter(c => c.status !== 'pending');
+    const lista = vivos.length ? vivos : canais;
+
+    return lista.find(c => c.provider === 'meta' && c.status === 'connected')
+        || lista.find(c => c.status === 'connected')
+        || lista.find(c => c.provider === 'meta')
+        || lista[0];
+}
 
 /**
  * O que a Meta diz sobre o proprio token.
@@ -1102,8 +1131,7 @@ router.get('/conversations/:id/audit', requireAuth, exigirPermissao('wa.auditori
 router.post('/canal/testar-botoes', requireAuth, exigirPermissao('wa.canal'), async (req: AuthRequest, res: Response) => {
     try {
         const empresaId = req.user!.empresa_id;
-        const { data: canal } = await getSupabase(req).from('wa_channels')
-            .select('id, provider, credentials').eq('empresa_id', empresaId).limit(1).maybeSingle();
+        const canal: any = await canalPreferido(getSupabase(req), empresaId);
         if (!canal) return res.status(404).json({ success: false, error: 'Não há nenhum canal de WhatsApp ligado.' });
 
         const telefone = String(req.body?.telefone || '').replace(/\D/g, '');
@@ -1180,8 +1208,7 @@ router.put('/canal/botoes', requireAuth, exigirPermissao('wa.canal'), async (req
         const empresaId = req.user!.empresa_id;
         const funcionam = req.body?.funcionam === true;
 
-        const { data: canal } = await getSupabase(req).from('wa_channels')
-            .select('id, credentials').eq('empresa_id', empresaId).limit(1).maybeSingle();
+        const canal: any = await canalPreferido(getSupabase(req), empresaId);
         if (!canal) return res.status(404).json({ success: false, error: 'Não há nenhum canal de WhatsApp ligado.' });
 
         const credenciais = { ...(canal.credentials || {}), botoesFiaveis: funcionam };
@@ -1206,8 +1233,7 @@ router.put('/canal/botoes', requireAuth, exigirPermissao('wa.canal'), async (req
 /** O estado actual, para o ecra saber o que mostrar. */
 router.get('/canal/botoes', requireAuth, async (req: AuthRequest, res: Response) => {
     try {
-        const { data: canal } = await getSupabase(req).from('wa_channels')
-            .select('provider, credentials').eq('empresa_id', req.user!.empresa_id).limit(1).maybeSingle();
+        const canal: any = await canalPreferido(getSupabase(req), String(req.user!.empresa_id));
         res.json({
             success: true,
             provider: canal?.provider || null,
