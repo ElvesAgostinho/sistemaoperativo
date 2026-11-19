@@ -240,14 +240,20 @@ async function test(nome: string, fn: () => Promise<void>) {
     console.log('\n=== Botões de acção ===\n');
 
     /**
-     * Os testes de formato abaixo descrevem um canal onde os botões JÁ foram
-     * confirmados a chegar (o interruptor "Botões nos menus", ou a API oficial
-     * da Meta). Num canal comum eles nem se tentam — ver os dois testes a seguir.
+     * Um canal da Evolution gravado ANTES desta regra, com o interruptor antigo
+     * "Botões nos menus" ligado. O interruptor já não vale: com ele, os botões
+     * saíam com 201, ficavam em PENDING e o cliente não recebia nada.
      */
-    const comBotoesConfirmados = () => {
+    const comInterruptorAntigo = () => {
         db['wa_channels'] = [{
             id: 'chan-1', empresa_id: 'empresa-1', provider: 'evolution',
             credentials: { instanceName: 'INST_1', botoesFiaveis: true },
+        }];
+    };
+    const pelaMeta = () => {
+        db['wa_channels'] = [{
+            id: 'chan-1', empresa_id: 'empresa-1', provider: 'meta',
+            credentials: { phoneNumberId: '123', accessToken: 'tok' },
         }];
     };
 
@@ -278,52 +284,38 @@ async function test(nome: string, fn: () => Promise<void>) {
         assert(t.includes('244 928 053 925'), `o número devia ir escrito: ${t}`);
     });
 
-    await test('um botão de link sai no formato certo', async () => {
-        comBotoesConfirmados();
-        await Blocos.enviar([{
+    await test('na Evolution, mesmo com o interruptor antigo ligado, o botão vai escrito', async () => {
+        comInterruptorAntigo();
+        const r = await Blocos.enviar([{
             tipo: 'texto', texto: 'Veja o e-book',
             botoes: [{ tipo: 'link', rotulo: 'COMPRAR E-BOOK', valor: 'https://exemplo.pt/ebook' }],
         }], DESTINO, parse);
-
-        const p = pedidos[0];
-        assert(/sendButtons/.test(p.url), p.url);
-        assert(p.corpo.buttons[0].type === 'url', JSON.stringify(p.corpo.buttons[0]));
-        assert(p.corpo.buttons[0].url === 'https://exemplo.pt/ebook', JSON.stringify(p.corpo.buttons[0]));
+        assert(pedidos.length === 0, `não devia ter chamado o sendButtons: ${pedidos.map(p => p.url).join(", ")}`);
+        assert(r.falhados.length === 0, JSON.stringify(r.falhados));
+        const t = JSON.stringify(saiu[0]);
+        assert(saiu[0]?.tipo === 'texto' && t.includes('COMPRAR E-BOOK: https://exemplo.pt/ebook'), t);
     });
 
-    await test('um botão de chamada leva o número limpo', async () => {
-        comBotoesConfirmados();
-        await Blocos.enviar([{
-            tipo: 'texto', texto: 'Ligue-nos',
-            botoes: [{ tipo: 'chamada', rotulo: 'Ligar agora', valor: '+244 928 053 925' }],
-        }], DESTINO, parse);
-        const b = pedidos[0].corpo.buttons[0];
-        assert(b.type === 'call' && b.phoneNumber === '244928053925', JSON.stringify(b));
-    });
-
-    await test('um botão de copiar leva o código', async () => {
-        comBotoesConfirmados();
+    await test('na Evolution, o código de copiar também vai escrito', async () => {
+        comInterruptorAntigo();
         await Blocos.enviar([{
             tipo: 'texto', texto: 'O seu código',
-            botoes: [{ tipo: 'copiar', rotulo: 'Copiar', valor: 'PROMO20' }],
+            botoes: [{ tipo: 'copiar', rotulo: 'Código', valor: 'PROMO20' }],
         }], DESTINO, parse);
-        const b = pedidos[0].corpo.buttons[0];
-        assert(b.type === 'copy' && b.copyCode === 'PROMO20', JSON.stringify(b));
+        assert(pedidos.length === 0, 'não devia ter chamado o sendButtons');
+        assert(saiu[0].conteudo.includes('Código: PROMO20'), saiu[0].conteudo);
     });
 
-    await test('nunca vão mais de três botões', async () => {
-        // O WhatsApp recusa a mensagem inteira acima de três, e aí o cliente
-        // não recebia nada.
-        comBotoesConfirmados();
+    await test('nunca vão mais de três botões, nem escritos', async () => {
         await Blocos.enviar([{
             tipo: 'texto', texto: 'x',
             botoes: [1, 2, 3, 4, 5].map(i => ({ tipo: 'link', rotulo: 'B' + i, valor: 'https://x/' + i })),
         }], DESTINO, parse);
-        assert(pedidos[0].corpo.buttons.length === 3, `foram ${pedidos[0].corpo.buttons.length}`);
+        const t = saiu[0].conteudo;
+        assert(t.includes('B3: https://x/3') && !t.includes('B4'), t);
     });
 
     await test('botões sem rótulo ou sem destino são deitados fora', async () => {
-        comBotoesConfirmados();
         await Blocos.enviar([{
             tipo: 'texto', texto: 'x',
             botoes: [
@@ -332,26 +324,29 @@ async function test(nome: string, fn: () => Promise<void>) {
                 { tipo: 'link', rotulo: 'Sem destino', valor: '' },
             ],
         }], DESTINO, parse);
-        assert(pedidos[0].corpo.buttons.length === 1, `só o bom devia passar: ${JSON.stringify(pedidos[0].corpo.buttons)}`);
+        const t = saiu[0].conteudo;
+        assert(t.includes('Bom: https://x') && !t.includes('Sem destino'), t);
     });
 
-    await test('um rótulo comprido é encurtado, não recusado', async () => {
-        comBotoesConfirmados();
-        await Blocos.enviar([{
-            tipo: 'texto', texto: 'x',
-            botoes: [{ tipo: 'link', rotulo: 'Carregue aqui para comprar o e-book completo hoje', valor: 'https://x' }],
-        }], DESTINO, parse);
-        assert(pedidos[0].corpo.buttons[0].displayText.length <= 20, pedidos[0].corpo.buttons[0].displayText);
-    });
-
-    await test('as variáveis também funcionam nos botões', async () => {
-        comBotoesConfirmados();
+    await test('as variáveis também funcionam nos botões escritos', async () => {
         await Blocos.enviar([{
             tipo: 'texto', texto: 'x',
             botoes: [{ tipo: 'link', rotulo: 'Para {{nome}}', valor: 'https://x/{{nome}}' }],
         }], DESTINO, parse);
-        const b = pedidos[0].corpo.buttons[0];
-        assert(b.displayText === 'Para Ana' && b.url === 'https://x/Ana', JSON.stringify(b));
+        assert(saiu[0].conteudo.includes('Para Ana: https://x/Ana'), saiu[0].conteudo);
+    });
+
+    await test('pela Meta, um link sai como botão a clicar, com o rótulo cortado aos 20', async () => {
+        pelaMeta();
+        await Blocos.enviar([{
+            tipo: 'texto', texto: 'Veja o e-book',
+            botoes: [{ tipo: 'link', rotulo: 'Carregue aqui, {{nome}}, para comprar', valor: 'https://x/{{nome}}' }],
+        }], DESTINO, parse);
+        const p = pedidos[0];
+        assert(p && /graph.facebook.com/.test(p.url), `devia ir à Meta: ${p?.url}`);
+        const par = p.corpo.interactive?.action?.parameters || {};
+        assert(p.corpo.interactive?.type === 'cta_url', JSON.stringify(p.corpo).slice(0, 200));
+        assert(par.url === 'https://x/Ana' && par.display_text.length <= 20, JSON.stringify(par));
     });
 
     await test('um texto sem botões não passa pelo sendButtons', async () => {

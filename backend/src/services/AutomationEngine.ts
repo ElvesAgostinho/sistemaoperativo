@@ -43,6 +43,9 @@ const ESPERA_EM_MEMORIA_MAX = 120;
 const ESTADO_FLUXO_VALIDADE_MS = 6 * 60 * 60 * 1000;
 // Respostas fora das opções seguidas antes de seguir pela saída "sem resposta".
 const MENU_MAX_TENTATIVAS = 3;
+
+/** Uma opção de menu como sai para o cliente, com a opção gravada no fluxo ao lado. */
+interface OpcaoDoMenu { id: string; rotulo: string; descricao?: string; seccao?: string; original: any }
 // "Voltar ao menu" seguidos numa só passagem (proteção contra ciclos mal feitos).
 const MAX_SALTOS_DE_MENU = 10;
 
@@ -420,13 +423,22 @@ export class AutomationEngine {
      * sempre. So serve para o simulador nao prometer o que o cliente nao vai
      * receber.
      */
-    private static async canalFazBotoes(empresaId: any): Promise<boolean> {
+    private static async canalFazBotoes(empresaId: any, canaisDoFluxo?: any): Promise<boolean> {
         if (!empresaId) return false;
         try {
+            // Antes lia UM canal qualquer (`limit(1)`). Com a Meta e a Evolution
+            // lado a lado, calhava a Meta, o simulador dizia "botões a clicar" e
+            // quem escrevia para o número da Evolution recebia a lista numerada.
             const { data } = await supabase.from('wa_channels')
-                .select('provider, credentials').eq('empresa_id', empresaId).limit(1).maybeSingle();
-            if (!data) return false;
-            return data.provider === 'meta' || data.credentials?.botoesFiaveis === true;
+                .select('id, provider, status').eq('empresa_id', empresaId);
+            let canais: any[] = (Array.isArray(data) ? data : []).filter(c => c.status !== 'pending');
+            if (Array.isArray(canaisDoFluxo) && canaisDoFluxo.length) {
+                const escolhidos = canaisDoFluxo.map(String);
+                canais = canais.filter(c => escolhidos.includes(String(c.id)));
+            }
+            // Botões só se TODOS os números onde o fluxo responde forem da Meta.
+            // Basta um da Evolution para haver clientes a receber a lista.
+            return canais.length > 0 && canais.every(c => c.provider === 'meta');
         } catch {
             return false;
         }
@@ -440,7 +452,7 @@ export class AutomationEngine {
         // O que o canal desta empresa CONSEGUE mesmo enviar. Sem isto o
         // simulador dizia "chega como botoes" e o cliente recebia uma sondagem
         // — uma simulacao que mente e pior do que nenhuma.
-        const podeBotoes = await this.canalFazBotoes(automation.empresa_id);
+        const podeBotoes = await this.canalFazBotoes(automation.empresa_id, trigger?.data?.canais);
 
         const contextoBase = {
             telefone: '244900000000', nome_whatsapp: 'Cliente de teste', tags: '',
@@ -709,10 +721,15 @@ export class AutomationEngine {
                         currentNodeId = saidaSemResposta.target;
                         continue;
                     }
-                    const aviso = node.data?.mensagemInvalida
-                        || (node.data?.pergunta ? `Não percebi essa resposta.\n\n${node.data.pergunta}` : null)
-                        || `Não percebi essa resposta. ${(node.data?.options || []).map((o: any, i: number) => `${o.matchValue || i + 1} - ${o.label || ''}`).join(' | ')}`;
-                    await this.responderNoWhatsApp(context, this.parseString(aviso, context), sim);
+                    // O aviso vai COM as opções outra vez. Antes repetia só a
+                    // pergunta ("Não percebi. Como posso ajudar?"), sem os
+                    // números — e na Evolution, onde o menu é uma lista que se
+                    // escreve, o cliente ficava sem saber o que responder.
+                    const aviso = this.parseString(
+                        node.data?.mensagemInvalida || 'Não percebi essa resposta. Responda só com o número da opção.',
+                        context,
+                    );
+                    await this.perguntarMenu(node, context, empresa_id, sim, true, aviso);
                     registar(node, 'Menu: resposta fora das opções', `tentativa ${tentativas}`);
                     if (sim) { sim.pendente = { nodeId: node.id, contexto: context, tentativas }; return context; }
                     if (podeEsperar) await this.guardarEstadoFluxo(conversationId!, automationId ?? null, node.id, context, tentativas);
@@ -1053,7 +1070,7 @@ export class AutomationEngine {
         }
     }
 
-    private static async perguntarMenu(node: FlowNode, context: any, empresaId: any, sim?: Simulacao, soAPergunta = false): Promise<void> {
+    private static async perguntarMenu(node: FlowNode, context: any, empresaId: any, sim?: Simulacao, soAPergunta = false, antes?: string): Promise<void> {
         // Um menu tambem pode ter blocos antes da pergunta: uma saudacao, uma
         // foto do produto, uma pausa para a conversa respirar.
         //
@@ -1061,20 +1078,13 @@ export class AutomationEngine {
         // saiu da primeira vez.
         if (!soAPergunta) await this.enviarBlocosDoNo(node, context, empresaId, sim);
 
-        const pergunta = this.parseString(node.data?.pergunta || '', context);
-        const opcoes = (Array.isArray(node.data?.options) ? node.data.options : [])
-            .map((o: any, i: number) => ({
-                // O id da opção é o que liga à saída certa no desenho, e é ele
-                // que volta no toque — por isso acerta sempre, sem depender de
-                // maiúsculas, acentos ou de dois rótulos parecidos.
-                id: String(o.id || o.matchValue || i + 1),
-                rotulo: this.parseString(String(o.label || o.matchValue || `Opção ${i + 1}`), context),
-                descricao: o.descricao ? this.parseString(String(o.descricao), context) : undefined,
-                // Agrupa as opções sob um título, só na lista. Quem não puser
-                // nada fica com um grupo só, que é o que havia antes.
-                seccao: o.seccao ? this.parseString(String(o.seccao), context) : undefined,
-            }))
-            .filter((o: any) => o.rotulo.trim());
+        // `antes` é o "Não percebi essa resposta" — vai na MESMA mensagem que as
+        // opções, para o cliente ver logo os números que pode escrever.
+        const pergunta = [antes, this.parseString(node.data?.pergunta || '', context)]
+            .filter(t => t && t.trim()).join('\n\n');
+        // Pela ordem em que o cliente as lê — a mesma que o evaluateMenu usa
+        // para saber que opção é o "2" que ele escreveu.
+        const opcoes = this.opcoesDoMenu(node.data, context).map(({ original, ...o }) => o);
 
         if (sim) {
             // O simulador mostrava so a pergunta — exactamente como quando os
@@ -1151,10 +1161,19 @@ export class AutomationEngine {
         // chega deixa o cliente à espera sem ninguém dar por isso.
         console.error('[AUTOPILOT] O menu não chegou a sair:',
             r.tentativas.map(t => `${t.formato}: ${t.erro}`).join(' | '));
+
+        // E tenta-se ainda o caminho simples das outras respostas do fluxo. Se
+        // foi a leitura do canal que falhou (e não o envio), este passa — e o
+        // cliente recebe a lista numerada na mesma.
+        await this.responderNoWhatsApp(context, WhatsAppInterativoService.comoTexto({
+            empresaId, channelId: context.channel_id, telefone: context.telefone,
+            texto: pergunta, opcoes, cabecalho,
+        }), sim);
     }
 
     private static evaluateMenu(data: any, context: any): { id: string } | undefined {
-        const mensagem = this.normalizarTexto(this.resolverVariavel(data?.variable || '{{mensagem}}', context));
+        const bruta = this.resolverVariavel(data?.variable || '{{mensagem}}', context);
+        const mensagem = this.normalizarTexto(bruta);
         const options: any[] = Array.isArray(data?.options) ? data.options : [];
         // Correspondência exata primeiro — essencial para menus numerados: sem isto,
         // responder "1" também "batia" na opção "10"/"11" (o "1" está contido lá
@@ -1166,12 +1185,68 @@ export class AutomationEngine {
         const porId = options.find(opt => opt.id && mensagem === this.normalizarTexto(String(opt.id)));
         if (porId) return porId;
 
+        // O NÚMERO que o cliente leu. Na Evolution o menu chega como "1 - Ver
+        // preços / 2 - Fazer reserva", e o cliente escreve "1". Esse número é a
+        // posição na lista que ele tem à frente — não o "valor" da opção.
+        //
+        // Antes só se aceitava o número se alguém o tivesse escrito à mão no
+        // valor da opção. Um menu com valores "precos" / "reservar" respondia
+        // "Não percebi" a quem escrevia "1"; e num menu onde se apagou a
+        // primeira opção, os valores ficavam "2" e "3" e o "2" levava o cliente
+        // para a opção que ele lia como 1. A posição manda, porque é ela que
+        // está no ecrã do cliente.
+        const n = AutomationEngine.numeroDaOpcao(bruta);
+        if (n !== null) {
+            const ordem = this.opcoesDoMenu(data, context);
+            if (n >= 1 && n <= ordem.length) return ordem[n - 1].original;
+        }
+
         const exact = options.find(opt => opt.matchValue && mensagem === this.normalizarTexto(opt.matchValue));
         if (exact) return exact;
         // Também aceita a etiqueta escrita por extenso ("preços" em vez de "1").
         const porEtiqueta = options.find(opt => opt.label && this.normalizarTexto(opt.label) === mensagem);
         if (porEtiqueta) return porEtiqueta;
         return options.find(opt => opt.matchValue && mensagem.includes(this.normalizarTexto(opt.matchValue)));
+    }
+
+    /**
+     * "1", "1.", "1)", "1️⃣", "opção 1" → 1. Tudo o resto → null.
+     *
+     * Só um número sozinho conta: "quero 2 quartos" não é a opção 2.
+     */
+    public static numeroDaOpcao(texto: any): number | null {
+        const t = String(texto ?? '')
+            .replace(/[️⃣]/g, '')            // o 1️⃣ é "1" + dois sinais invisíveis
+            .normalize('NFD').replace(/[̀-ͯ]/g, '')
+            .trim().toLowerCase();
+        const m = /^(?:opcao|op\.?|n\.?º?|numero)?\s*(\d{1,2})\s*[.)ºª-]?$/.exec(t);
+        return m ? Number(m[1]) : null;
+    }
+
+    /**
+     * As opções de um menu pela ordem em que o cliente as lê.
+     *
+     * É a mesma numeração do texto que sai ("1 - Ver preços"): opções sem
+     * rótulo ficam de fora, e as secções juntam as suas opções. Quem envia e
+     * quem lê a resposta usam ESTA função — duas contas separadas e o "2" do
+     * cliente cairia na opção errada assim que alguém usasse secções.
+     */
+    private static opcoesDoMenu(data: any, context: any): OpcaoDoMenu[] {
+        const lidas: OpcaoDoMenu[] = (Array.isArray(data?.options) ? data.options : [])
+            .map((o: any, i: number) => ({
+                // O id da opção é o que liga à saída certa no desenho, e é ele
+                // que volta no toque — por isso acerta sempre, sem depender de
+                // maiúsculas, acentos ou de dois rótulos parecidos.
+                id: String(o.id || o.matchValue || i + 1),
+                rotulo: this.parseString(String(o.label || o.matchValue || `Opção ${i + 1}`), context),
+                descricao: o.descricao ? this.parseString(String(o.descricao), context) : undefined,
+                // Agrupa as opções sob um título. Quem não puser nada fica com
+                // um grupo só, que é o que havia antes.
+                seccao: o.seccao ? this.parseString(String(o.seccao), context) : undefined,
+                original: o,
+            }))
+            .filter((o: any) => o.rotulo.trim());
+        return WhatsAppInterativoService.agrupar(lidas, '').flatMap(g => g.opcoes);
     }
 
     /**

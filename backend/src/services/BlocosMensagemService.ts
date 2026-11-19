@@ -174,9 +174,9 @@ export class BlocosMensagemService {
      * Texto com botões de acção (link, chamada, copiar).
      *
      * Os três tipos são aceites pela Evolution (201) mas NUNCA entregues —
-     * provado no número do dono e num segundo número. Por isso, sem
-     * `botoesFiaveis`, o endereço vai escrito no texto. Só pela API oficial da
-     * Meta é que eles chegam mesmo como botões.
+     * provado no número do dono e num segundo número. Por isso, na Evolution,
+     * o endereço vai sempre escrito no texto. Só pela API oficial da Meta é
+     * que eles chegam mesmo como botões.
      */
     private static async enviarTextoComBotoes(
         texto: string,
@@ -194,39 +194,15 @@ export class BlocosMensagemService {
             // sistema contava o bloco como enviado e o cliente não recebia nada
             // — não só perdia os botões, perdia a mensagem inteira, em silêncio.
             //
-            // Enquanto os botões não estiverem confirmados neste canal, o link
-            // (ou o número, ou o código) vai escrito no texto. Fica menos
-            // bonito e chega — que é a única coisa que conta. É a mesma decisão
-            // que os menus tomam em WhatsAppInterativoService.formatoIdeal.
-            if (canal.credentials?.botoesFiaveis !== true) {
-                const { WhatsAppChannelManager } = require('./WhatsAppChannelManager');
-                return !!(await WhatsAppChannelManager.sendMessage(
-                    supabase, destino.channelId, destino.telefone,
-                    BlocosMensagemService.botoesComoTexto(texto, botoes, parse),
-                ));
-            }
-
-            const base = (process.env.EVOLUTION_API_URL || '').trim().replace(/\/+$/, '');
-            const instancia = canal.credentials?.instanceName;
-            if (!base || !instancia) throw new Error('Evolution sem URL ou sem instância');
-
-            const r = await fetch(`${base}/message/sendButtons/${instancia}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', apikey: process.env.AUTHENTICATION_API_KEY || '' },
-                body: JSON.stringify({
-                    number: String(destino.telefone).replace(/\D/g, ''),
-                    title: '',
-                    description: texto,
-                    footer: '',
-                    buttons: botoes.map(x => BlocosMensagemService.botaoEvolution(x, parse)),
-                }),
-            });
-            if (r.status >= 300) {
-                const d: any = await r.json().catch(() => ({}));
-                const m = d?.response?.message || d?.message || `estado ${r.status}`;
-                throw new Error(typeof m === 'string' ? m : JSON.stringify(m).slice(0, 180));
-            }
-            return true;
+            // Por isso, na Evolution, o link (ou o número, ou o código) vai
+            // SEMPRE escrito no texto. Fica menos bonito e chega — que é a única
+            // coisa que conta. É a mesma regra dos menus, em
+            // WhatsAppInterativoService.canal.
+            const { WhatsAppChannelManager } = require('./WhatsAppChannelManager');
+            return !!(await WhatsAppChannelManager.sendMessage(
+                supabase, destino.channelId, destino.telefone,
+                BlocosMensagemService.botoesComoTexto(texto, botoes, parse),
+            ));
         }
 
         if (canal.provider === 'meta') {
@@ -261,13 +237,6 @@ export class BlocosMensagemService {
         }
 
         throw new Error(`provedor desconhecido: ${canal.provider}`);
-    }
-
-    private static botaoEvolution(b: BotaoAccao, parse: (t: string) => string): any {
-        const rotulo = parse(b.rotulo).slice(0, 20);
-        if (b.tipo === 'link') return { type: 'url', displayText: rotulo, url: parse(b.valor) };
-        if (b.tipo === 'chamada') return { type: 'call', displayText: rotulo, phoneNumber: parse(b.valor).replace(/\D/g, '') };
-        return { type: 'copy', displayText: rotulo, copyCode: parse(b.valor) };
     }
 
     /** Os botões escritos, para onde eles não existem. */

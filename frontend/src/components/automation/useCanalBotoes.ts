@@ -21,7 +21,7 @@ export interface CanalBotoes {
 }
 
 export function useCanalBotoes(): CanalBotoes {
-    const [canal, setCanal] = useState<{ funcionam: boolean; provider: string | null } | null>(null);
+    const [canal, setCanal] = useState<{ funcionam: boolean; lista: boolean } | null>(null);
     const [aCarregar, setACarregar] = useState(true);
 
     useEffect(() => {
@@ -32,7 +32,9 @@ export function useCanalBotoes(): CanalBotoes {
                     headers: { Authorization: `Bearer ${localStorage.getItem('os_auth_token')}` },
                 });
                 const d = await r.json();
-                if (vivo && d.success) setCanal({ funcionam: d.funcionam, provider: d.provider });
+                // Basta um número da Evolution para haver clientes a receber a
+                // lista numerada — o servidor já responde a pensar nisso.
+                if (vivo && d.success) setCanal({ funcionam: d.funcionam === true, lista: d.lista ?? d.provider === 'meta' });
             } catch {
                 // Sem resposta assume-se o caso conservador: sem botões. Prometer
                 // um botão que não chega é pior do que prometer menos.
@@ -45,7 +47,7 @@ export function useCanalBotoes(): CanalBotoes {
 
     return {
         botoesFiaveis: canal?.funcionam === true,
-        listaDisponivel: canal?.provider === 'meta',
+        listaDisponivel: canal?.lista === true,
         aCarregar,
     };
 }

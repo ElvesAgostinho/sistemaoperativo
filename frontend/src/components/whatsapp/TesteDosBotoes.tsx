@@ -1,201 +1,69 @@
 import { useState, useEffect } from 'react';
-import { MousePointerClick, Send, Check, X, Loader, AlertTriangle } from 'lucide-react';
+import { MousePointerClick, ListOrdered } from 'lucide-react';
 
 /**
- * Os botões funcionam MESMO neste WhatsApp?
+ * Como os menus chegam ao cliente, em cada número da empresa.
  *
- * Não há como saber pela API. A Evolution devolve 201 e não guarda recibo de
- * entrega nenhum; em algumas versões — a 2.3.7 é uma delas — a mensagem sai e
- * nunca chega: fica em PENDING para sempre e o cliente não recebe nada.
+ * Havia aqui um teste de botões e um interruptor para os ligar na Evolution.
+ * Saíram os dois: nunca houve uma Evolution onde os botões chegassem (falhou na
+ * 2.3.6, na 2.3.7 e com dois números), e com o interruptor ligado a mensagem
+ * ficava em PENDING — o cliente não recebia nem o texto da pergunta.
  *
- * Quem sabe é quem tem o telemóvel na mão. Aqui manda-se um botão de teste, a
- * pessoa olha, e diz. Se os botões chegarem, os menus passam a usá-los; se não
- * chegarem, fica a lista numerada — o cliente escreve "1" — que chega sempre.
- * Quem decide é quem viu o telemóvel, não relatos da internet.
+ * Agora a regra é fixa e fica escrita aqui, para quem configura:
+ *  - Evolution (o número ligado por QR code): lista numerada, o cliente
+ *    responde com o número; os links, telefones e códigos vão escritos.
+ *  - API oficial da Meta: botões e menus a clicar.
  */
-export default function TesteDosBotoes({ telefoneDaEmpresa }: { telefoneDaEmpresa?: string }) {
-  const [estado, setEstado] = useState<{ funcionam: boolean; decidivel: boolean; provider: string | null } | null>(null);
-  const [telefone, setTelefone] = useState(telefoneDaEmpresa || '');
-  const [aEnviar, setAEnviar] = useState(false);
-  const [enviado, setEnviado] = useState(false);
-  const [resultado, setResultado] = useState<{ textoOk?: boolean; botoesOk?: boolean } | null>(null);
-  const [aGravar, setAGravar] = useState(false);
-  const [erro, setErro] = useState('');
+export default function TesteDosBotoes() {
+  const [estado, setEstado] = useState<{ temEvolution: boolean; temMeta: boolean } | null>(null);
 
-  const API = import.meta.env.VITE_API_URL;
-  const cab = () => ({
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${localStorage.getItem('os_auth_token')}`,
-  });
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch(`${import.meta.env.VITE_API_URL}/api/whatsapp/canal/botoes`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('os_auth_token')}` },
+        });
+        const d = await r.json();
+        if (d.success) {
+          setEstado({
+            temEvolution: d.temEvolution ?? d.provider === 'evolution',
+            temMeta: d.temMeta ?? d.provider === 'meta',
+          });
+        }
+      } catch { /* o painel funciona sem isto */ }
+    })();
+  }, []);
 
-  const ler = async () => {
-    try {
-      const r = await fetch(`${API}/api/whatsapp/canal/botoes`, { headers: cab() });
-      const d = await r.json();
-      if (d.success) setEstado({ funcionam: d.funcionam, decidivel: d.decidivel, provider: d.provider });
-    } catch { /* o painel funciona sem isto */ }
-  };
+  if (!estado || (!estado.temEvolution && !estado.temMeta)) return null;
 
-  useEffect(() => { ler(); }, []);
-
-  const testar = async () => {
-    setAEnviar(true); setErro(''); setEnviado(false);
-    try {
-      const r = await fetch(`${API}/api/whatsapp/canal/testar-botoes`, {
-        method: 'POST', headers: cab(), body: JSON.stringify({ telefone }),
-      });
-      const d = await r.json();
-      if (!r.ok || !d.success) throw new Error(d.error || 'Não foi possível enviar o teste.');
-      setResultado({ textoOk: d.textoOk, botoesOk: d.botoesOk });
-      setEnviado(true);
-    } catch (e: any) {
-      setErro(e.message);
-    } finally {
-      setAEnviar(false);
-    }
-  };
-
-  const responder = async (funcionam: boolean) => {
-    setAGravar(true); setErro('');
-    try {
-      const r = await fetch(`${API}/api/whatsapp/canal/botoes`, {
-        method: 'PUT', headers: cab(), body: JSON.stringify({ funcionam }),
-      });
-      const d = await r.json();
-      if (!r.ok || !d.success) throw new Error(d.error || 'Não foi possível guardar.');
-      setEnviado(false);
-      await ler();
-    } catch (e: any) {
-      setErro(e.message);
-    } finally {
-      setAGravar(false);
-    }
-  };
-
-  if (!estado) return null;
-
-  // Pela Meta não há nada a decidir: lá os botões funcionam sempre.
-  if (!estado.decidivel) {
+  const linha = (icone: any, cor: string, titulo: string, texto: React.ReactNode) => {
+    const Icone = icone;
     return (
-      <div style={{
-        border: '1px solid #D5D7DA', borderRadius: '2px', padding: '16px', marginBottom: '20px',
-        background: '#fff', fontSize: '13px', color: '#5B738B', lineHeight: 1.6,
-      }}>
-        <b style={{ color: '#1D2D3E' }}>Botões nos menus</b><br />
-        Este canal usa a API oficial da Meta — os botões e os menus funcionam sempre.
+      <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', marginTop: '10px' }}>
+        <Icone size={16} color={cor} style={{ flexShrink: 0, marginTop: '2px' }} />
+        <div style={{ fontSize: '12.5px', color: '#5B738B', lineHeight: 1.65 }}>
+          <b style={{ color: '#1D2D3E' }}>{titulo}</b><br />{texto}
+        </div>
       </div>
     );
-  }
-
-  const botaoResposta = (sim: boolean) => ({
-    flex: 1, padding: '10px', borderRadius: '6px', cursor: aGravar ? 'default' : 'pointer',
-    fontSize: '13px', fontWeight: 600, fontFamily: 'inherit',
-    border: `1px solid ${sim ? '#107E3E' : '#D5D7DA'}`,
-    background: sim ? '#DCEEE2' : '#fff',
-    color: sim ? '#107E3E' : '#5B738B',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-  } as React.CSSProperties);
+  };
 
   return (
     <div style={{
-      border: `1px solid ${estado.funcionam ? '#9FC4CC' : '#FDE68A'}`, borderRadius: '2px',
-      padding: '16px', marginBottom: '20px',
-      background: estado.funcionam ? '#F4FAFB' : '#FFFBEB',
+      border: '1px solid #D5D7DA', borderRadius: '2px', padding: '16px', marginBottom: '20px', background: '#fff',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-        <MousePointerClick size={17} color={estado.funcionam ? '#0E5A6B' : '#B45309'} />
-        <b style={{ color: '#1D2D3E', fontSize: '14px' }}>Botões nos menus</b>
-        <span style={{
-          marginLeft: 'auto', fontSize: '11.5px', fontWeight: 700, padding: '2px 9px', borderRadius: '999px',
-          background: estado.funcionam ? '#DCEEE2' : '#FEF3C7',
-          color: estado.funcionam ? '#107E3E' : '#92400E',
-        }}>
-          {estado.funcionam ? 'A usar botões' : 'A usar lista numerada'}
-        </span>
-      </div>
+      <b style={{ color: '#1D2D3E', fontSize: '14px' }}>Como os menus chegam ao cliente</b>
 
-      <p style={{ margin: '0 0 12px', fontSize: '12.5px', color: '#5B738B', lineHeight: 1.65 }}>
-        Em algumas versões da Evolution os botões saem sem erro nenhum e <b>nunca chegam</b> ao
-        telemóvel do cliente. Não há forma de o saber pela API — só olhando. Mande o teste abaixo,
-        veja no WhatsApp, e diga o que viu. Enquanto não chegarem, os menus saem como
-        <b>lista numerada</b>: o cliente responde com o número da opção.
-      </p>
+      {estado.temEvolution && linha(ListOrdered, '#5B738B', 'Número da Evolution (QR code) — lista numerada', <>
+        O menu chega como texto: <i>"1 - Ver preços / 2 - Fazer reserva"</i>, e o cliente responde
+        com o <b>número</b>. Os botões de link, chamada e copiar vão escritos no texto. Esta via não
+        entrega botões a clicar — por isso o sistema nunca os tenta aqui.
+      </>)}
 
-      {!enviado ? (
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <input
-            value={telefone}
-            onChange={e => setTelefone(e.target.value)}
-            placeholder="Número que recebe o teste (ex: 244928053925)"
-            style={{
-              flex: 1, padding: '9px 11px', border: '1px solid #D5D7DA',
-              borderRadius: '6px', fontSize: '13px', outline: 'none', fontFamily: 'inherit',
-            }}
-          />
-          <button
-            onClick={testar}
-            disabled={aEnviar || telefone.replace(/\D/g, '').length < 8}
-            style={{
-              padding: '9px 16px', borderRadius: '6px', border: 'none',
-              background: aEnviar ? '#7FA9B3' : '#0E5A6B', color: '#fff',
-              fontSize: '13px', fontWeight: 600, cursor: aEnviar ? 'default' : 'pointer',
-              display: 'flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit',
-            }}
-          >
-            {aEnviar ? <Loader size={14} className="girar" /> : <Send size={14} />}
-            {aEnviar ? 'A enviar...' : 'Enviar teste'}
-          </button>
-        </div>
-      ) : (
-        <div>
-          <div style={{
-            padding: '10px 12px', borderRadius: '6px', background: '#fff',
-            border: '1px solid #D5D7DA', fontSize: '12.5px', color: '#1D2D3E',
-            lineHeight: 1.6, marginBottom: '10px',
-          }}>
-            Enviadas <b>duas</b> mensagens para esse número: a <b>TESTE 1 de 2</b> é texto
-            simples, a <b>TESTE 2 de 2</b> devia trazer dois botões por baixo.
-            {resultado && resultado.botoesOk === false && (
-              <> O servidor já recusou a segunda, por isso só a primeira deve chegar.</>
-            )}
-            <div style={{ marginTop: '7px', color: '#5B738B', fontSize: '11.5px', lineHeight: 1.7 }}>
-              Se não chegar <b>nenhuma</b>, o problema é o número (indicativo, ou não ter
-              WhatsApp) — não os botões. Se chegar só a primeira, são os botões.
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button onClick={() => responder(true)} disabled={aGravar} style={botaoResposta(true)}>
-              <Check size={15} /> Vi dois botões a clicar
-            </button>
-            <button onClick={() => responder(false)} disabled={aGravar} style={botaoResposta(false)}>
-              <X size={15} /> Só vi texto
-            </button>
-          </div>
-        </div>
-      )}
-
-      {erro && (
-        <div style={{
-          marginTop: '10px', padding: '9px 11px', borderRadius: '6px',
-          background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C',
-          fontSize: '12px', display: 'flex', gap: '7px', alignItems: 'flex-start', lineHeight: 1.6,
-        }}>
-          <AlertTriangle size={13} style={{ flexShrink: 0, marginTop: '2px' }} /> {erro}
-        </div>
-      )}
-
-      {!estado.funcionam && (
-        <div style={{ marginTop: '12px', fontSize: '11.5px', color: '#92400E', lineHeight: 1.7 }}>
-          <b>Se não funcionarem</b>, os menus saem como lista numerada e tudo continua a
-          trabalhar — o cliente escreve o número da opção. Para os ter a clicar, o caminho
-          que resta é ligar este número pela <b>API oficial da Meta</b>, onde funcionam
-          sempre e estão documentados. Já experimentámos descer a Evolution à versão 2.3.6
-          e <b>não resolveu</b>: o menu continuou avariado e os botões continuaram a não
-          chegar.
-        </div>
-      )}
-
-      <style>{`.girar { animation: girar 1s linear infinite; } @keyframes girar { 100% { transform: rotate(360deg); } }`}</style>
+      {estado.temMeta && linha(MousePointerClick, '#0E5A6B', 'Número da API oficial da Meta — botões a clicar', <>
+        Até 3 opções chegam como botões; mais do que isso, como um menu que abre. O cliente
+        também pode escrever o número, e funciona na mesma.
+      </>)}
     </div>
   );
 }

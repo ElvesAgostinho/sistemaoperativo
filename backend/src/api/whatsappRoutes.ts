@@ -761,31 +761,6 @@ router.post('/config/meta', requireAuth, exigirPermissao('wa.canal'), async (req
 });
 
 /**
- * O canal que vale para esta empresa, quando ha mais do que um.
- *
- * Uma empresa pode ter o numero antigo pela Evolution e o novo pela API oficial
- * ao mesmo tempo — e tem, durante a mudanca. A ordem nao e arbitraria: a Meta
- * ligada ganha porque e a unica onde os botoes e os menus chegam mesmo, e e
- * isso que o painel tem de mostrar a quem configura.
- *
- * Um canal 'pending' e o ultimo de todos: existe so para a Meta validar o
- * webhook, e o token dele ainda nao serve.
- */
-async function canalPreferido(client: any, empresaId: string | null, campos = 'id, provider, credentials, status') {
-    const { data } = await client.from('wa_channels').select(campos).eq('empresa_id', empresaId);
-    const canais: any[] = Array.isArray(data) ? data : (data ? [data] : []);
-    if (!canais.length) return null;
-
-    const vivos = canais.filter(c => c.status !== 'pending');
-    const lista = vivos.length ? vivos : canais;
-
-    return lista.find(c => c.provider === 'meta' && c.status === 'connected')
-        || lista.find(c => c.status === 'connected')
-        || lista.find(c => c.provider === 'meta')
-        || lista[0];
-}
-
-/**
  * Põe o canal Meta com o nome e o estado certos, depois de ele provar que funciona.
  *
  * O nome provisorio ("WhatsApp Business (por ligar)") e o estado 'pending' vinham
@@ -1267,128 +1242,40 @@ router.get('/conversations/:id/audit', requireAuth, exigirPermissao('wa.auditori
 });
 
 /**
- * Os botoes funcionam MESMO neste WhatsApp?
+ * O que os menus e os botões dos blocos vão parecer no telemóvel do cliente.
  *
- * Nao ha forma de o saber pela API: a Evolution devolve 201 e nao guarda recibo
- * de entrega nenhum. Em algumas versoes (a 2.3.7, por exemplo) a mensagem sai e
- * nunca chega — fica em PENDING para sempre e o cliente nao recebe nada.
+ * Havia aqui um teste ("mande um botão e diga se o viu") e um interruptor para
+ * ligar os botões na Evolution. Saíram os dois: nunca houve uma Evolution onde
+ * os botões chegassem — falhou na 2.3.6, na 2.3.7 e com dois números — e o
+ * interruptor ligado calava o menu inteiro, porque a mensagem com botões fica
+ * em PENDING e o cliente não recebe nada. Na Evolution é sempre a lista
+ * numerada; botões, só pela API oficial da Meta.
  *
- * Quem sabe e quem tem o telemovel na mao. Esta rota manda um botao de teste
- * para o proprio numero da empresa; a pessoa olha e diz. Se funcionar, liga o
- * interruptor e o sistema passa a usar botoes em vez de sondagens.
+ * O editor pergunta isto para mostrar o menu como ele vai chegar. Um fluxo pode
+ * responder em qualquer número da empresa, por isso basta UM número da
+ * Evolution para o editor mostrar a lista numerada — prometer botões a quem os
+ * não vai receber é pior do que prometer menos.
  */
-router.post('/canal/testar-botoes', requireAuth, exigirPermissao('wa.canal'), async (req: AuthRequest, res: Response) => {
-    try {
-        const empresaId = req.user!.empresa_id;
-        const canal: any = await canalPreferido(getSupabase(req), empresaId);
-        if (!canal) return res.status(404).json({ success: false, error: 'Não há nenhum canal de WhatsApp ligado.' });
-
-        const telefone = String(req.body?.telefone || '').replace(/\D/g, '');
-        if (telefone.length < 8) {
-            return res.status(400).json({ success: false, error: 'Indique o número que vai receber o teste.' });
-        }
-
-        if (canal.provider !== 'evolution') {
-            return res.json({ success: true, enviado: false, nota: 'Pela API oficial da Meta os botões funcionam sempre — não é preciso testar.' });
-        }
-
-        const base = (process.env.EVOLUTION_API_URL || '').trim().replace(/\/+$/, '');
-        const instancia = canal.credentials?.instanceName;
-        if (!base || !instancia) return res.status(400).json({ success: false, error: 'Canal sem instância configurada.' });
-
-        // PRIMEIRO um texto simples, como controlo.
-        //
-        // Sem ele, um "nao recebi nada" nao se consegue ler: pode ser que os
-        // botoes nao sejam entregues, ou pode ser que o numero nem receba (mal
-        // escrito, sem indicativo, bloqueado). Sao dois problemas diferentes com
-        // dois consertos diferentes, e a resposta tem de dizer qual deles e.
-        let textoOk = false;
-        let erroTexto: string | null = null;
-        try {
-            const { WhatsAppChannelManager } = require('../services/WhatsAppChannelManager');
-            textoOk = !!(await WhatsAppChannelManager.sendMessage(
-                getSupabase(req), canal.id, telefone,
-                'TESTE 1 de 2 — texto simples.\n\nSe recebeu esta mensagem, o número está a receber bem. A seguir vai a segunda, com botões.',
-            ));
-        } catch (e: any) {
-            erroTexto = e?.message || 'falhou';
-        }
-
-        // DEPOIS os botoes.
-        let botoesOk = false;
-        let erroBotoes: string | null = null;
-        const r = await fetch(`${base}/message/sendButtons/${instancia}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', apikey: process.env.AUTHENTICATION_API_KEY || '' },
-            body: JSON.stringify({
-                number: telefone, title: '', footer: '',
-                description: 'TESTE 2 de 2 — botões.\n\nSe vir dois botões a clicar por baixo desta mensagem, eles funcionam no seu WhatsApp. Se vir só este texto, nao funcionam.',
-                buttons: [
-                    { type: 'reply', displayText: 'Vejo os botões', id: 'sim' },
-                    { type: 'reply', displayText: 'Só vejo texto', id: 'nao' },
-                ],
-            }),
-        });
-        if (r.status < 300) {
-            botoesOk = true;
-        } else {
-            const d: any = await r.json().catch(() => ({}));
-            const m = d?.response?.message || d?.message || `estado ${r.status}`;
-            erroBotoes = typeof m === 'string' ? m : JSON.stringify(m).slice(0, 200);
-        }
-
-        // Se NENHUMA das duas saiu, nao ha nada para a pessoa ir ver.
-        if (!textoOk && !botoesOk) {
-            return res.status(400).json({
-                success: false,
-                error: erroTexto || erroBotoes || 'Não foi possível enviar o teste.',
-            });
-        }
-
-        res.json({ success: true, enviado: true, textoOk, botoesOk, erroTexto, erroBotoes });
-    } catch (e: any) {
-        res.status(500).json({ success: false, error: e.message });
-    }
-});
-
-/** Ligar ou desligar os botoes, depois de a pessoa ver o teste no telemovel. */
-router.put('/canal/botoes', requireAuth, exigirPermissao('wa.canal'), async (req: AuthRequest, res: Response) => {
-    try {
-        const empresaId = req.user!.empresa_id;
-        const funcionam = req.body?.funcionam === true;
-
-        const canal: any = await canalPreferido(getSupabase(req), empresaId);
-        if (!canal) return res.status(404).json({ success: false, error: 'Não há nenhum canal de WhatsApp ligado.' });
-
-        const credenciais = { ...(canal.credentials || {}), botoesFiaveis: funcionam };
-        const { error } = await getSupabase(req).from('wa_channels')
-            .update({ credentials: credenciais }).eq('id', canal.id).eq('empresa_id', empresaId);
-        if (error) throw error;
-
-        await AuditoriaService.registar({
-            empresaId, quemId: req.user!.id, accao: 'canal_botoes',
-            alvoTipo: 'conversa', alvoId: canal.id,
-            detalhes: funcionam
-                ? 'confirmou que os botões funcionam neste WhatsApp — os menus passam a sair como botões.'
-                : 'marcou que os botões não funcionam neste WhatsApp — os menus saem como sondagem.',
-        });
-
-        res.json({ success: true, funcionam });
-    } catch (e: any) {
-        res.status(500).json({ success: false, error: e.message });
-    }
-});
-
-/** O estado actual, para o ecra saber o que mostrar. */
 router.get('/canal/botoes', requireAuth, async (req: AuthRequest, res: Response) => {
     try {
-        const canal: any = await canalPreferido(getSupabase(req), String(req.user!.empresa_id));
+        const { data } = await getSupabase(req).from('wa_channels')
+            .select('id, provider, status').eq('empresa_id', String(req.user!.empresa_id));
+        const todos: any[] = Array.isArray(data) ? data : [];
+        // Um canal 'pending' existe só para a Meta validar o webhook: não conta
+        // ao lado de um que funciona. Mas se for o único, é esse que se mostra
+        // — não se finge que não há nada.
+        const ligados = todos.filter(c => c.status !== 'pending');
+        const vivos = ligados.length ? ligados : todos;
+        const temEvolution = vivos.some(c => c.provider === 'evolution');
+        const temMeta = vivos.some(c => c.provider === 'meta');
+        const soMeta = temMeta && !temEvolution;
         res.json({
             success: true,
-            provider: canal?.provider || null,
-            funcionam: canal?.provider === 'meta' || canal?.credentials?.botoesFiaveis === true,
-            // Pela Meta nao ha nada a decidir: funciona sempre.
-            decidivel: canal?.provider === 'evolution',
+            provider: temEvolution ? 'evolution' : (temMeta ? 'meta' : null),
+            funcionam: soMeta,
+            lista: soMeta,
+            temEvolution,
+            temMeta,
         });
     } catch (e: any) {
         res.status(500).json({ success: false, error: e.message });

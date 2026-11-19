@@ -1721,8 +1721,8 @@ ${data.diagnostico}` : '')
                             <div style={{ padding: '24px 20px' }}>
                                 <h3 style={{ margin: '0 0 20px 0', color: '#1D2D3E', fontSize: '19px' }}>Gestão de Canais</h3>
 
-                                {/* Os botoes funcionam MESMO neste WhatsApp? So quem tem o
-                                    telemovel na mao e que sabe — a API nao o diz. */}
+                                {/* Como os menus chegam ao cliente em cada numero: lista
+                                    numerada na Evolution, botoes so pela Meta. */}
                                 <TesteDosBotoes />
 
                                 {hasChatLicense ? (

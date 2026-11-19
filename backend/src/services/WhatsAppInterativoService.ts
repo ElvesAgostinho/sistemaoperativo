@@ -158,9 +158,9 @@ export class WhatsAppInterativoService {
      * Quem não puser secção nenhuma fica com uma só, sem título — que é
      * exactamente o que havia antes, e continua a ser o caso normal.
      */
-    public static agrupar(opcoes: OpcaoEscolha[], tituloPorOmissao = 'Opções'): { titulo: string; opcoes: OpcaoEscolha[] }[] {
+    public static agrupar<T extends OpcaoEscolha>(opcoes: T[], tituloPorOmissao = 'Opções'): { titulo: string; opcoes: T[] }[] {
         const ordem: string[] = [];
-        const grupos: Record<string, OpcaoEscolha[]> = {};
+        const grupos: Record<string, T[]> = {};
 
         for (const o of opcoes) {
             const chave = (o.seccao || '').trim() || tituloPorOmissao;
@@ -224,18 +224,20 @@ export class WhatsAppInterativoService {
         // O que este canal consegue mesmo fazer.
         //
         // Pela Meta (API oficial) tudo funciona e esta documentado. Pela
-        // Evolution 2.3.x a lista rebenta (erro interno do Baileys) e os botoes
-        // saem sem erro mas nao sao entregues — a mensagem fica em PENDING.
-        // So a sondagem esta confirmada a chegar.
+        // Evolution a lista rebenta (erro interno do Baileys) e os botoes saem
+        // sem erro mas nao sao entregues — a mensagem fica em PENDING e o
+        // cliente nao recebe NADA, nem o texto da pergunta.
         //
-        // Quem tiver uma Evolution onde os botoes funcionem (a 2.3.6, por
-        // exemplo) liga-os na configuracao do canal, e eles voltam a ser o
-        // primeiro formato.
+        // Havia um interruptor (`credentials.botoesFiaveis`) para quem tivesse
+        // uma Evolution onde eles chegassem. Nunca houve nenhuma: falhou na
+        // 2.3.6, na 2.3.7 e com dois numeros diferentes. Um interruptor que so
+        // serve para calar o menu inteiro nao fica — na Evolution e sempre a
+        // lista numerada.
         const meta = data.provider === 'meta';
         return {
             ...data,
             listaDisponivel: meta,
-            botoesFiaveis: meta || data.credentials?.botoesFiaveis === true,
+            botoesFiaveis: meta,
             // Desligadas por omissao: o cliente nao as quer, e com razao. Ficam
             // disponiveis para quem as queira ligar.
             sondagensAtivas: data.credentials?.sondagens === true,

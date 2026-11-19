@@ -416,22 +416,36 @@ const conversa = () => tabela('wa_conversations')[0];
         return r.json() as any;
     };
 
-    await test('com a Meta ligada, o painel ve a Meta e nao a Evolution', async () => {
-        // Era o que estava a travar tudo. A empresa ligou a API oficial, mas as
-        // rotas liam `.limit(1)` sem ordem nenhuma e apanhavam o canal da
-        // Evolution. O painel dizia "sem botoes" com a Meta ligada ao lado, e os
-        // menus continuavam a sair como lista numerada — a funcionalidade estava
-        // pronta e invisivel.
+    await test('com a Meta E a Evolution ligadas, o editor mostra a lista numerada', async () => {
+        // Um fluxo responde em qualquer numero da empresa. Mostrar "botoes"
+        // porque a Meta esta ligada era prometer botoes a quem escreve para o
+        // numero da Evolution — e esse recebe a lista numerada. Foi assim que o
+        // editor enganou: dizia botoes, e o cliente nao via botao nenhum.
         canais([EVO, META]);
         const d = await verCanal();
-        assert(d.provider === 'meta', `devia ver a Meta, viu ${d.provider}`);
-        assert(d.funcionam === true, 'pela Meta os botoes funcionam sempre');
+        assert(d.funcionam === false, 'basta um numero da Evolution para nao haver botoes garantidos');
+        assert(d.lista === false, 'nem o menu que abre');
+        assert(d.temMeta === true && d.temEvolution === true, `o painel tem de saber dos dois: ${JSON.stringify(d)}`);
     });
 
     await test('a ordem na base de dados nao decide nada', async () => {
         canais([META, EVO]);
         const d = await verCanal();
-        assert(d.provider === 'meta', `devia ver a Meta, viu ${d.provider}`);
+        assert(d.funcionam === false && d.temMeta === true && d.temEvolution === true, JSON.stringify(d));
+    });
+
+    await test('so com a Meta, ha botoes', async () => {
+        canais([META]);
+        const d = await verCanal();
+        assert(d.provider === 'meta' && d.funcionam === true && d.lista === true, JSON.stringify(d));
+    });
+
+    await test('na Evolution, o interruptor antigo gravado nao liga os botoes', async () => {
+        // Com ele ligado, a mensagem com botoes ficava em PENDING e o cliente
+        // nao recebia nem a pergunta.
+        canais([{ ...EVO, credentials: { instanceName: 'INST_1', botoesFiaveis: true } }]);
+        const d = await verCanal();
+        assert(d.funcionam === false, `nao devia prometer botoes: ${JSON.stringify(d)}`);
     });
 
     await test('sem Meta, continua a ser a Evolution', async () => {

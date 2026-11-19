@@ -161,19 +161,30 @@ async function test(nome: string, fn: () => Promise<void>) {
         assert(/1 - Op/.test(env.corpo.text || ''), `devia ir numerado: ${env.corpo.text}`);
     });
 
-    await test('num canal onde os botoes ESTAO confirmados, saem botoes', async () => {
-        // Quem tenha uma Evolution onde eles funcionem (a 2.3.6, por exemplo)
-        // liga-os na configuracao do canal.
+    await test('na Evolution, mesmo com o interruptor antigo ligado, NAO se tentam botoes', async () => {
+        // O interruptor `botoesFiaveis` ligado numa Evolution mandava botoes
+        // que ficavam em PENDING: o cliente nao recebia NADA, nem a pergunta.
+        // Canais antigos podem ainda o ter gravado — tem de ser ignorado.
         db['wa_channels'] = [{
             id: CANAL, empresa_id: EMPRESA, provider: 'evolution', status: 'connected',
             credentials: { instanceName: 'INST_1', botoesFiaveis: true },
         }];
         const r = await Interativo.perguntar(pedido(3));
+        assert(r.ok && r.formato === 'texto', `devia sair a lista numerada: ${JSON.stringify(r)}`);
+        assert(!enviados.some(e => /sendButtons|sendList/.test(e.url)), `nao devia ter tentado botoes: ${enviados.map(e => e.url).join(", ")}`);
+        assert(/1 - Opção 1/.test(enviados[enviados.length - 1].corpo.text || ''), 'devia ir numerado');
+    });
+
+    await test('num canal Meta, tres opcoes saem como botoes com o id', async () => {
+        db['wa_channels'] = [{
+            id: CANAL, empresa_id: EMPRESA, provider: 'meta', status: 'connected',
+            credentials: { phoneNumberId: '123', accessToken: 'tok' },
+        }];
+        const r = await Interativo.perguntar(pedido(3));
         assert(r.ok && r.formato === 'botoes', `devia enviar botões: ${JSON.stringify(r)}`);
-        const env = enviados[0];
-        assert(/sendButtons/.test(env.url), `endpoint errado: ${env.url}`);
-        assert(env.corpo.buttons.length === 3, `deviam ir 3 botões, foram ${env.corpo.buttons.length}`);
-        assert(env.corpo.buttons[0].id === 'op1', `o id tem de ir no botão: ${env.corpo.buttons[0].id}`);
+        const bts = enviados[0].corpo.interactive?.action?.buttons || [];
+        assert(bts.length === 3, `deviam ir 3 botões, foram ${bts.length}`);
+        assert(bts[0].reply.id === 'op1', `o id tem de ir no botão: ${JSON.stringify(bts[0])}`);
     });
 
     await test('com as sondagens ligadas, cinco opcoes saem como sondagem', async () => {
@@ -190,13 +201,22 @@ async function test(nome: string, fn: () => Promise<void>) {
 
     await test('se os botões falharem, cai no texto sozinho', async () => {
         db['wa_channels'] = [{
-            id: CANAL, empresa_id: EMPRESA, provider: 'evolution', status: 'connected',
-            credentials: { instanceName: 'INST_1', botoesFiaveis: true },
+            id: CANAL, empresa_id: EMPRESA, provider: 'meta', status: 'connected',
+            credentials: { phoneNumberId: '123', accessToken: 'tok' },
         }];
-        recusar = ['sendButtons'];
-        const r = await Interativo.perguntar(pedido(3));
-        assert(r.ok && r.formato === 'texto', `devia cair no texto: ${JSON.stringify(r)}`);
-        assert(r.tentativas.length === 1 && r.tentativas[0].formato === 'botoes', 'devia dizer o que falhou');
+        let primeira = true;
+        const fetchAntes = (global as any).fetch;
+        (global as any).fetch = async (url: string, opts: any) => {
+            if (primeira) { primeira = false; enviados.push({ url: String(url), corpo: JSON.parse(opts.body) }); return { ok: false, status: 400, json: async () => ({ error: { message: 'recusado' } }) } as any; }
+            return fetchAntes(url, opts);
+        };
+        try {
+            const r = await Interativo.perguntar(pedido(3));
+            assert(r.ok && r.formato === 'texto', `devia cair no texto: ${JSON.stringify(r)}`);
+            assert(r.tentativas.length === 1 && r.tentativas[0].formato === 'botoes', 'devia dizer o que falhou');
+        } finally {
+            (global as any).fetch = fetchAntes;
+        }
     });
 
     await test('se tudo falhar, sai o texto numerado de sempre', async () => {
@@ -235,18 +255,19 @@ async function test(nome: string, fn: () => Promise<void>) {
             opcoes: [{ id: 'a', rotulo: 'Quero saber os preços dos quartos para o próximo mês inteiro' }],
         });
         assert(r.ok, 'devia enviar na mesma');
-        // Com botoes fiaveis, o limite e 20 e o corte tem de existir: o WhatsApp
-        // recusa a mensagem inteira se passar, e ai o cliente nao recebia nada.
+        // Nos botoes (so pela Meta) o limite e 20 e o corte tem de existir: o
+        // WhatsApp recusa a mensagem inteira se passar, e ai o cliente nao
+        // recebia nada.
         db['wa_channels'] = [{
-            id: CANAL, empresa_id: EMPRESA, provider: 'evolution', status: 'connected',
-            credentials: { instanceName: 'INST_1', botoesFiaveis: true },
+            id: CANAL, empresa_id: EMPRESA, provider: 'meta', status: 'connected',
+            credentials: { phoneNumberId: '123', accessToken: 'tok' },
         }];
         enviados.length = 0;
         await Interativo.perguntar({
             ...pedido(1),
             opcoes: [{ id: 'a', rotulo: 'Quero saber os preços dos quartos para o próximo mês inteiro' }],
         });
-        const rotulo = enviados[0].corpo.buttons[0].displayText;
+        const rotulo = enviados[0].corpo.interactive.action.buttons[0].reply.title;
         assert(rotulo.length <= 20, `${rotulo.length} caracteres é demais: "${rotulo}"`);
         assert(rotulo.endsWith('…'), `devia mostrar que foi cortado: "${rotulo}"`);
     });

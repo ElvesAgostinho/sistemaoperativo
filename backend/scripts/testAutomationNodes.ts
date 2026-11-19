@@ -272,6 +272,96 @@ async function testGraphNodes() {
         assert(!sentWhatsApp.some(m => m.content === 'X'), 'não devia ter seguido o ramo da opção');
     });
 
+    // Na Evolution o menu chega como "1 - Ver preços / 2 - Fazer reserva". O
+    // cliente escreve o NÚMERO que leu — e as opções deste menu têm valores
+    // em palavras, como o fluxo que estava em produção.
+    const menuEmPalavras = () => ([
+        { id: 'm1', type: 'menu', data: { variable: '{{mensagem}}', pergunta: 'Como posso ajudar?', options: [
+            { id: 'precos', label: 'Ver preços', matchValue: 'precos' },
+            { id: 'reservar', label: 'Fazer reserva', matchValue: 'reservar' },
+            { id: 'pessoa', label: 'Falar com alguém', matchValue: 'pessoa' },
+        ] } },
+        { id: 'r1', type: 'action', data: { actionType: 'REPLY_MESSAGE', config: { mensagem: 'PRECOS' } } },
+        { id: 'r2', type: 'action', data: { actionType: 'REPLY_MESSAGE', config: { mensagem: 'RESERVA' } } },
+        { id: 'r3', type: 'action', data: { actionType: 'REPLY_MESSAGE', config: { mensagem: 'PESSOA' } } },
+    ]);
+    const ligacoes = [
+        { id: 'e1', source: 'm1', target: 'r1', sourceHandle: 'precos' },
+        { id: 'e2', source: 'm1', target: 'r2', sourceHandle: 'reservar' },
+        { id: 'e3', source: 'm1', target: 'r3', sourceHandle: 'pessoa' },
+    ];
+    const ctxMenu = (mensagem: string) => ({ mensagem, telefone: '244900000000', channel_id: 'chan-1' });
+
+    await test('MENU: o cliente escreve o número que leu, e vai para essa opção', async () => {
+        // Antes, "1" num menu com valores em palavras dava "Não percebi".
+        for (const [escrito, esperado] of [['1', 'PRECOS'], ['2', 'RESERVA'], ['3', 'PESSOA'], [' 2 ', 'RESERVA'], ['3.', 'PESSOA'], ['1️⃣', 'PRECOS'], ['opção 2', 'RESERVA']]) {
+            sentWhatsApp.length = 0;
+            await runGraph(menuEmPalavras(), ligacoes, 'm1', ctxMenu(escrito), 'empresa-mock-1', COMO_RESPOSTA);
+            assert(sentWhatsApp.map(m => m.content).join() === esperado, `"${escrito}" devia dar ${esperado}, deu: ${sentWhatsApp.map(m => m.content).join(" | ")}`);
+        }
+    });
+
+    await test('MENU: a palavra continua a servir', async () => {
+        await runGraph(menuEmPalavras(), ligacoes, 'm1', ctxMenu('Preços'), 'empresa-mock-1', COMO_RESPOSTA);
+        assert(sentWhatsApp[0]?.content === 'PRECOS', `veio: ${sentWhatsApp[0]?.content}`);
+    });
+
+    await test('MENU: a POSIÇÃO manda, não o valor que ficou gravado', async () => {
+        // Apagou-se a primeira opção de um menu "1, 2, 3": ficaram os valores
+        // "2" e "3". O cliente lê "1 - Reservar" e escreve 1 — tem de ir para
+        // Reservar, não para "Não percebi" nem para a opção do valor "2".
+        const nodes = [
+            { id: 'm1', type: 'menu', data: { variable: '{{mensagem}}', pergunta: '?', options: [
+                { id: 'a', label: 'Reservar', matchValue: '2' },
+                { id: 'b', label: 'Pessoa', matchValue: '3' },
+            ] } },
+            { id: 'ra', type: 'action', data: { actionType: 'REPLY_MESSAGE', config: { mensagem: 'RESERVA' } } },
+            { id: 'rb', type: 'action', data: { actionType: 'REPLY_MESSAGE', config: { mensagem: 'PESSOA' } } },
+        ];
+        const e = [{ id: 'e1', source: 'm1', target: 'ra', sourceHandle: 'a' }, { id: 'e2', source: 'm1', target: 'rb', sourceHandle: 'b' }];
+        await runGraph(nodes, e, 'm1', ctxMenu('1'), 'empresa-mock-1', COMO_RESPOSTA);
+        assert(sentWhatsApp[0]?.content === 'RESERVA', `"1" devia dar RESERVA, deu: ${sentWhatsApp[0]?.content}`);
+        sentWhatsApp.length = 0;
+        await runGraph(nodes, e, 'm1', ctxMenu('2'), 'empresa-mock-1', COMO_RESPOSTA);
+        assert(sentWhatsApp[0]?.content === 'PESSOA', `"2" devia dar PESSOA, deu: ${sentWhatsApp[0]?.content}`);
+    });
+
+    await test('MENU: com secções, o número segue a ordem em que o cliente as lê', async () => {
+        // Com secções as opções juntam-se por grupo, e a numeração do texto
+        // segue os grupos. "2" é a segunda linha que o cliente vê.
+        const nodes = [
+            { id: 'm1', type: 'menu', data: { variable: '{{mensagem}}', pergunta: '?', options: [
+                { id: 'q1', label: 'Simples', seccao: 'Quartos' },
+                { id: 's1', label: 'Spa', seccao: 'Serviços' },
+                { id: 'q2', label: 'Duplo', seccao: 'Quartos' },
+            ] } },
+            { id: 'rq2', type: 'action', data: { actionType: 'REPLY_MESSAGE', config: { mensagem: 'DUPLO' } } },
+        ];
+        await runGraph(nodes, [{ id: 'e', source: 'm1', target: 'rq2', sourceHandle: 'q2' }], 'm1', ctxMenu('2'), 'empresa-mock-1', COMO_RESPOSTA);
+        assert(sentWhatsApp[0]?.content === 'DUPLO', `"2" devia ser o Duplo (2.ª linha de Quartos), deu: ${sentWhatsApp[0]?.content}`);
+    });
+
+    await test('MENU: um número fora da lista não é uma opção', async () => {
+        await runGraph(menuEmPalavras(), ligacoes, 'm1', ctxMenu('7'), 'empresa-mock-1', COMO_RESPOSTA);
+        assert(!sentWhatsApp.some(m => ['PRECOS', 'RESERVA', 'PESSOA'].includes(m.content)), 'não devia ter seguido ramo nenhum');
+        assert(/não percebi/i.test(sentWhatsApp[0]?.content || ''), `devia avisar: ${sentWhatsApp[0]?.content}`);
+    });
+
+    await test('MENU: "quero 2 quartos" não é a opção 2', async () => {
+        assert(Engine.numeroDaOpcao('quero 2 quartos') === null, 'uma frase com um número não é escolher');
+        assert(Engine.numeroDaOpcao('2') === 2 && Engine.numeroDaOpcao('2)') === 2 && Engine.numeroDaOpcao('Opção 3') === 3, 'o número sozinho é');
+    });
+
+    await test('MENU: ao não perceber, repete as opções COM os números', async () => {
+        // Repetia só a pergunta ("Não percebi. Como posso ajudar?"), sem os
+        // números — e o cliente ficava sem saber o que escrever.
+        await runGraph(menuEmPalavras(), ligacoes, 'm1', ctxMenu('bom dia'), 'empresa-mock-1', COMO_RESPOSTA);
+        const t = sentWhatsApp.map(m => m.content).join(' || ');
+        assert(/não percebi/i.test(t), t);
+        assert(/1 - Ver preços/.test(t) && /3 - Falar com alguém/.test(t), `as opções numeradas deviam ir: ${t}`);
+        assert(sentWhatsApp.length === 1, `devia ser UMA mensagem, foram ${sentWhatsApp.length}`);
+    });
+
     await test('ADD_TAG / REMOVE_TAG lê e junta tags corretamente', async () => {
         activeResponses['clientes:select'] = { data: { tags: ['antigo'], custom_fields: {} }, error: null };
         const nodes = [{ id: 'a1', type: 'action', data: { actionType: 'ADD_TAG', config: { tag: 'vip, interessado' } } }];
