@@ -36,14 +36,15 @@ export default function MenuNode({ id, data, selected }: NodeProps) {
         {options.length === 0 && (
           <div style={{ fontSize: '10px', color: '#94a3b8', fontStyle: 'italic' }}>Sem opções configuradas</div>
         )}
-        {options.map(opt => (
+        {/* Como o cliente o lê: "1 - Ver preços". O número é o que ele escreve. */}
+        {options.map((opt, i) => (
           <div key={opt.id} style={{
             fontSize: '11px', padding: '5px 8px', borderRadius: '7px',
             background: '#f0fdfa', border: '1px solid #99f6e4', color: '#0f766e',
-            display: 'flex', justifyContent: 'space-between', gap: '6px'
+            display: 'flex', gap: '6px'
           }}>
+            <span style={{ fontWeight: 700, flexShrink: 0 }}>{i + 1}</span>
             <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{opt.label || 'Opção'}</span>
-            <span style={{ color: '#5eead4', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{opt.matchValue}</span>
           </div>
         ))}
       </div>

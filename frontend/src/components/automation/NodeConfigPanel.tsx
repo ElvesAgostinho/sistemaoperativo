@@ -7,7 +7,6 @@ import { duracaoDaPausa, emSegundos, pausaPorExtenso, UNIDADES, ESPERA_GUARDADA_
 import EditorBlocos, { type Bloco, ACCOES_COM_BLOCOS } from './EditorBlocos';
 import CampoFicheiro from './CampoFicheiro';
 import SelectorCanais from './SelectorCanais';
-import ConstrutorMenu from './ConstrutorMenu';
 
 interface NodeConfigPanelProps {
   node: AutomationNode;
@@ -223,13 +222,18 @@ export default function NodeConfigPanel({ node, todosOsNos = [], automations, cu
     }
 
     if (node.type === 'menu') {
+      // O menu simples, como era no início: uma pergunta e as opções. É o que
+      // a Evolution entrega — a pergunta segue com as opções numeradas por
+      // baixo, e o cliente responde com o número.
+      //
+      // Saíram daqui o cabeçalho com imagem, as secções, as descrições, o
+      // rodapé, o "como sai", a pré-visualização do telemóvel e os blocos de
+      // cada opção. Eram da API oficial e confundiam quem montava o menu.
       const d = node.data as MenuNodeData;
       const options = d.options || [];
+      const extra = d as any;
 
-      const cab = (d as any).cabecalho || {};
-      const mudarCabecalho = (patch: any) => updateData({ cabecalho: { ...cab, ...patch } } as any);
-
-      const updateOption = (id: string, patch: Partial<{ label: string; matchValue: string; seccao: string }>) => {
+      const updateOption = (id: string, patch: Partial<{ label: string; matchValue: string }>) => {
         updateData({ options: options.map(o => o.id === id ? { ...o, ...patch } : o) });
       };
       const addOption = () => {
@@ -239,51 +243,85 @@ export default function NodeConfigPanel({ node, todosOsNos = [], automations, cu
         updateData({ options: options.filter(o => o.id !== id) });
       };
 
+      // Menus montados na versão anterior podem ainda trazer essas coisas. O
+      // servidor continua a enviá-las — por isso diz-se aqui, em vez de as
+      // esconder, e dá-se a forma de as tirar.
+      const restos: string[] = [];
+      if (Array.isArray(extra.blocos) && extra.blocos.length) restos.push('mensagens antes da pergunta');
+      if (extra.cabecalho?.tipo) restos.push('cabeçalho');
+      if (extra.rodape || extra.textoDoBotao || extra.formatoPreferido) restos.push('formato de botões');
+      if (options.some((o: any) => o.seccao || o.descricao)) restos.push('secções/descrições');
+      if (options.some((o: any) => Array.isArray(o.blocos) && o.blocos.length)) restos.push('mensagens dentro das opções');
+      const limparRestos = () => updateData({
+        blocos: undefined, cabecalho: undefined, rodape: undefined, textoDoBotao: undefined, formatoPreferido: undefined,
+        options: options.map(o => ({ id: o.id, label: o.label, matchValue: o.matchValue })),
+      });
+
+      const comoChega = [
+        (d.pergunta || '').trim() || '(escreva a pergunta)',
+        '',
+        ...options.map((o, i) => `${i + 1} - ${o.label || `Opção ${i + 1}`}`),
+      ].join('\n');
+
       return (
         <>
-          {/* Blocos ANTES da pergunta: uma saudacao, uma foto, uma pausa. Sem
-              isto era preciso um no de mensagem antes de cada menu, ligado por
-              uma seta, so para dizer "ola". */}
-          <EditorBlocos
-            blocos={Array.isArray((d as any).blocos) ? (d as any).blocos : []}
-            aoMudar={(b: Bloco[]) => updateData({ blocos: b } as any)}
-          />
+          {restos.length > 0 && (
+            <div style={{ marginBottom: '12px', padding: '10px 12px', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '6px', fontSize: '11.5px', color: '#92400E', lineHeight: 1.6 }}>
+              Este menu ainda tem coisas da versão anterior: <b>{restos.join(', ')}</b>. Continuam a ser enviadas.
+              <button onClick={limparRestos} style={{ display: 'block', marginTop: '6px', padding: '4px 10px', background: '#fff', border: '1px solid #FCD34D', borderRadius: '5px', color: '#92400E', fontSize: '11.5px', fontWeight: 600, cursor: 'pointer' }}>
+                Tirar e deixar o menu simples
+              </button>
+            </div>
+          )}
 
-          {/* Montar a ver o que o cliente recebe. O painel antigo era um
-              formulario: so se descobria o resultado depois de gravar e de
-              escrever para o numero. */}
-          <ConstrutorMenu
-            pergunta={d.pergunta || ''}
-            opcoes={options as any}
-            cabecalho={(d as any).cabecalho}
-            rodape={(d as any).rodape}
-            textoDoBotao={(d as any).textoDoBotao}
-            aoMudarPergunta={v => updateData({ pergunta: v })}
-            aoMudarOpcoes={o => updateData({ options: o as any })}
-            aoMudarCabecalho={c => updateData({ cabecalho: c } as any)}
-            aoMudarRodape={v => updateData({ rodape: v } as any)}
-            aoMudarTextoDoBotao={v => updateData({ textoDoBotao: v } as any)}
-            formatoPreferido={(d as any).formatoPreferido}
-            aoMudarFormato={f => updateData({ formatoPreferido: f } as any)}
-          />
+          <label style={labelStyle}>Pergunta a enviar</label>
+          <textarea style={{ ...fieldStyle, minHeight: '70px' }} value={d.pergunta || ''} onChange={e => updateData({ pergunta: e.target.value })}
+            placeholder="Como posso ajudar? Responda com o número da opção." />
 
-          {/* ---------- O que fazer quando a resposta nao bate ---------- */}
-          <div style={{ marginTop: '18px', fontSize: '11px', fontWeight: 700, letterSpacing: '.04em', color: '#475569' }}>
-            SE A RESPOSTA NÃO FOR NENHUMA DELAS
+          <div style={{ marginTop: '16px', fontSize: '11px', fontWeight: 'bold', color: '#475569' }}>OPÇÕES</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+            {options.map((opt, i) => (
+              <div key={opt.id} style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px 10px', position: 'relative' }}>
+                <button
+                  onClick={() => removeOption(opt.id)}
+                  title="Remover opção"
+                  style={{ position: 'absolute', top: '6px', right: '6px', background: 'none', border: 'none', cursor: 'pointer', color: '#f87171', padding: 0 }}
+                >
+                  <X size={14} />
+                </button>
+                <label style={{ ...labelStyle, marginTop: 0 }}>Opção {i + 1}</label>
+                <input style={fieldStyle} type="text" value={opt.label} onChange={e => updateOption(opt.id, { label: e.target.value })} placeholder="Ex: Ver preços" />
+                <label style={labelStyle}>Também aceita a palavra (opcional)</label>
+                <input style={fieldStyle} type="text" value={opt.matchValue} onChange={e => updateOption(opt.id, { matchValue: e.target.value })} placeholder="Ex: preços" />
+              </div>
+            ))}
           </div>
 
-          <label style={labelStyle}>O que responder</label>
+          <button
+            onClick={addOption}
+            style={{
+              marginTop: '10px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+              padding: '8px', background: '#ecfeff', color: '#0891b2', border: '1px dashed #67e8f9',
+              borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold'
+            }}
+          >
+            <Plus size={14} /> Adicionar Opção
+          </button>
+
+          <label style={labelStyle}>Chega ao cliente assim</label>
+          <div style={{ whiteSpace: 'pre-wrap', padding: '9px 11px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '6px', fontSize: '12px', color: '#1D2D3E', lineHeight: 1.55 }}>
+            {comoChega}
+          </div>
+          <div style={{ fontSize: '11px', color: '#666', marginTop: '4px', lineHeight: 1.5 }}>
+            O cliente responde com o número. Ligue cada opção ao caminho dela no cartão.
+          </div>
+
+          <label style={labelStyle}>Se a resposta não for nenhuma das opções</label>
           <input style={fieldStyle} type="text" value={d.mensagemInvalida || ''} onChange={e => updateData({ mensagemInvalida: e.target.value })}
-            placeholder="(por omissão repete a pergunta)" />
+            placeholder="Não percebi. Responda só com o número da opção." />
 
           <label style={labelStyle}>Tentativas antes de desistir</label>
           <input style={fieldStyle} type="number" min={1} max={10} value={d.maxTentativas ?? 3} onChange={e => updateData({ maxTentativas: Number(e.target.value) })} />
-
-          <label style={labelStyle}>Variável avaliada</label>
-          <input style={fieldStyle} type="text" value={d.variable || '{{mensagem}}'} onChange={e => updateData({ variable: e.target.value })} />
-          <div style={{ fontSize: '11px', color: '#666', marginTop: '4px', lineHeight: 1.5 }}>
-            Deixe <code>{'{{mensagem}}'}</code> — é o que o cliente escreveu ou tocou.
-          </div>
         </>
       );
     }
@@ -779,10 +817,7 @@ export default function NodeConfigPanel({ node, todosOsNos = [], automations, cu
   return (
     <div style={{
       position: 'absolute', top: 0, right: 0, bottom: 0,
-      // O menu monta-se a ver o telemovel ao lado, e isso nao cabe em 320px:
-      // as duas colunas sobrepunham-se e o painel ficava ilegivel. E o no mais
-      // complexo que ha — merece a largura.
-      width: node.type === 'menu' ? 'min(780px, 94vw)' : '320px',
+      width: '320px',
       backgroundColor: 'white', borderLeft: '1px solid var(--odoo-border)',
       boxShadow: '-4px 0 12px rgba(0,0,0,0.05)', zIndex: 20,
       display: 'flex', flexDirection: 'column'
