@@ -4,6 +4,7 @@ import { supabase, getSupabase } from '../lib/supabaseClient';
 import { requireAuth, AuthRequest } from '../middleware/authMiddleware';
 import { AuditoriaService } from '../services/AuditoriaService';
 import { WhatsAppEscolhaRecebida } from '../services/WhatsAppEscolhaRecebida';
+import { WhatsAppLidService } from '../services/WhatsAppLidService';
 import { EsperaFluxoService } from '../services/EsperaFluxoService';
 import { exigirPermissao } from '../middleware/permissaoMiddleware';
 import { ErroMeta } from '../services/ErroMeta';
@@ -263,6 +264,148 @@ async function tratarVotoDeSondagem(msg: any, voto: { texto: string }, instanceN
 }
 
 /**
+ * Uma mensagem (não de grupo) que a Evolution recebeu ou enviou: lê-a, acha o
+ * número e o nome, e entrega-a ao motor (conversa, CRM, fluxos).
+ *
+ * É o caminho do webhook e também o do recuperador de mensagens
+ * (RecuperarMensagensService), para que uma mensagem recuperada seja tratada
+ * EXATAMENTE como uma que chegou na hora.
+ *
+ * `soGuardar`: grava na conversa sem correr fluxos — para mensagens antigas
+ * recuperadas, a que responder agora seria fora de tempo.
+ */
+export async function tratarMensagemEvolution(
+    msg: any,
+    instanceName: string,
+    opcoes: { pushNameDoEvento?: string; soGuardar?: boolean; aguardar?: boolean } = {},
+): Promise<boolean> {
+    if (!msg?.key || msg.key.remoteJid?.includes('@g.us')) return false;
+
+    // Mensagens que o próprio utilizador escreveu (do telemóvel ou da app)
+    // também fazem parte da conversa: entram como "outbound" e NÃO passam pelos
+    // fluxos — responder à nossa própria mensagem seria um ciclo sem fim.
+    const souEu = !!msg.key.fromMe;
+
+    // O número. Quando o WhatsApp manda só o código interno do contacto
+    // ("…@lid"), vai-se buscar o número às outras mensagens dele: sem isto a
+    // mensagem caía numa conversa à parte que ninguém via.
+    WhatsAppLidService.aprender(instanceName, msg.key);
+    let phoneNumber = '';
+    const remoteJid = String(msg.key.remoteJid || '');
+    const alt = String(msg.key.remoteJidAlt || msg.key.senderPn || '');
+    if (alt.includes('@s.whatsapp.net')) {
+        phoneNumber = alt;
+    } else if (remoteJid.endsWith('@lid')) {
+        const resolvido = await WhatsAppLidService.resolver(instanceName, remoteJid);
+        phoneNumber = resolvido || remoteJid;
+    } else {
+        phoneNumber = remoteJid;
+    }
+    if (!phoneNumber.includes('@lid')) {
+        phoneNumber = phoneNumber.split('@')[0];
+        if (phoneNumber.includes(':')) phoneNumber = phoneNumber.split(':')[0];
+        phoneNumber = phoneNumber.replace(/\D/g, '');
+    }
+
+    // O que esta mensagem diz, seja texto, foto, áudio ou ficheiro.
+    const lido = await extrairConteudo(msg, instanceName);
+    const content = lido.content;
+    const mediaUrl = lido.mediaUrl;
+    const mediaType = lido.mediaType;
+    const mediaFilename = lido.mediaFilename;
+
+    // Numa mensagem nossa, o pushName é o NOSSO nome, não o de quem está do
+    // outro lado. E nas mensagens que chegam só com o código "@lid", o
+    // "nome" vem trocado pelo próprio código — um número não é um nome.
+    let contactName = souEu ? '' : (msg.pushName || opcoes.pushNameDoEvento || msg.message?.pushName || '');
+    if (/^[+\d\s()-]+$/.test(contactName)) contactName = '';
+    const evolutionUrl = process.env.EVOLUTION_API_URL || 'https://evolution.topconsultores.pt';
+    const apikey = process.env.AUTHENTICATION_API_KEY || '';
+    if (!contactName && !souEu && phoneNumber && !phoneNumber.includes('@lid') && instanceName && apikey) {
+        try {
+            const profileRes = await fetch(`${evolutionUrl}/chat/fetchProfile/${instanceName}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'apikey': apikey },
+                body: JSON.stringify({ number: phoneNumber })
+            });
+            if (profileRes.ok) {
+                const profileData = await profileRes.json();
+                contactName = profileData.name || profileData.pushName || '';
+            }
+        } catch (e) {
+            console.error('Erro ao buscar perfil da Evolution API:', e);
+        }
+    }
+    contactName = contactName || phoneNumber;
+
+    // Foto de perfil — os links da CDN do WhatsApp expiram, por isso vai-se
+    // buscar de novo a cada mensagem (não numa recuperada: já não é "agora").
+    let contactPicture: string | null = null;
+    if (!opcoes.soGuardar && phoneNumber && !phoneNumber.includes('@lid') && instanceName && apikey) {
+        try {
+            const picRes = await fetch(`${evolutionUrl}/chat/fetchProfilePictureUrl/${instanceName}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'apikey': apikey },
+                body: JSON.stringify({ number: phoneNumber })
+            });
+            if (picRes.ok) {
+                const picData = await picRes.json();
+                if (picData.profilePictureUrl) contactPicture = picData.profilePictureUrl;
+            }
+        } catch (e) { /* silent fail — não bloqueia a mensagem por causa da foto */ }
+    }
+
+    if (!phoneNumber || !content) return false;
+
+    // Buscar canal evolution correto usando instanceName
+    const { data: channelData, error: rpcErr } = await supabase
+        .from('wa_channels')
+        .select('id')
+        .eq('provider', 'evolution')
+        .filter('credentials->>instanceName', 'eq', instanceName)
+        .maybeSingle();
+    const channelId = channelData?.id;
+    if (!channelId) {
+        console.error('[Webhook Evolution] Canal não encontrado:', rpcErr);
+        return false;
+    }
+
+    // Uma mensagem enviada pela própria app já foi gravada pela rota /send com
+    // o id que o WhatsApp devolveu. O webhook traz essa mesma mensagem de volta
+    // como "minha" — sem esta verificação aparecia duas vezes no inbox.
+    if (souEu && msg.key.id) {
+        const { data: jaGravada } = await supabase.from('wa_messages')
+            .select('id').eq('message_id', msg.key.id).maybeSingle();
+        if (jaGravada) return false;
+    }
+
+    // No webhook não se espera: um nó "Aguardar" deixaria o pedido pendente e a
+    // Evolution reenviava-o por timeout. O recuperador espera (aguardar), para
+    // tratar as mensagens de uma conversa pela ordem.
+    const processar = AutomationEngine.processIncomingWhatsAppMessage({
+        channel_id: channelId,
+        phone_number: phoneNumber,
+        contact_name: contactName,
+        contact_picture: contactPicture,
+        content: content,
+        direction: souEu ? 'outbound' : 'inbound',
+        id: msg.key.id,
+        timestamp: Number(msg.messageTimestamp) || undefined,
+    }, { soGuardar: !!opcoes.soGuardar }).catch(err => console.error('[Webhook Evolution] Erro no processamento assíncrono do Automation Engine:', err));
+    if (opcoes.aguardar) await processar;
+
+    // Porta opcional do módulo de Documentos: uma foto de um papel ou um PDF
+    // enviado para o WhatsApp da empresa vai para a fila de arquivo. Só imagens
+    // e documentos, e só para empresas com o módulo e a captura ligada.
+    if (!souEu && !opcoes.soGuardar && mediaUrl && (mediaType === 'image' || mediaType === 'document') && !msg.message?.stickerMessage) {
+        capturarMediaParaDocumentos(channelId, mediaUrl, mediaFilename || 'ficheiro', msg.key.id, contactName, phoneNumber)
+            .catch(err => console.error('[Webhook Evolution] Falha a capturar para Documentos:', err?.message));
+    }
+    return true;
+}
+
+
+/**
  * Webhook para Evolution API
  * Evolution envia os eventos em POST para esta rota
  */
@@ -364,122 +507,7 @@ router.post('/webhook/evolution', async (req: Request, res: Response) => {
                     continue;
                 }
 
-                // FIX #1 — Extrair número limpo (sem @lid, sem @s.whatsapp.net)
-                let realJid = msg.key.remoteJidAlt || msg.key.remoteJid;
-                let phoneNumber = realJid || '';
-                if (!phoneNumber.includes('@lid')) {
-                    phoneNumber = phoneNumber.split('@')[0];
-                    if (phoneNumber.includes(':')) phoneNumber = phoneNumber.split(':')[0];
-                    phoneNumber = phoneNumber.replace(/\D/g, '');
-                }
-
-                // O que esta mensagem diz, seja texto, foto, áudio ou ficheiro.
-                const instanceName = body.instance || req.body?.instance;
-                const lido = await extrairConteudo(msg, instanceName);
-                let content = lido.content;
-                const mediaUrl = lido.mediaUrl;
-                const mediaType = lido.mediaType;
-                const mediaFilename = lido.mediaFilename;
-
-                // FIX #1 — Usar número limpo (phoneNumber) para buscar perfil, não o JID raw
-                //
-                // Numa mensagem nossa, o pushName é o NOSSO nome, não o de quem está
-                // do outro lado. Usá-lo aqui renomeava a conversa do cliente com o
-                // nome do dono da empresa.
-                let contactName = souEu ? '' : (msg.pushName || body.data?.pushName || msg.message?.pushName || '');
-                if (!contactName && phoneNumber && !phoneNumber.includes('@lid')) {
-                    const evolutionUrl = process.env.EVOLUTION_API_URL || 'https://evolution.topconsultores.pt';
-                    const apikey = process.env.AUTHENTICATION_API_KEY || '';
-                    if (instanceName && apikey) {
-                        try {
-                            const profileRes = await fetch(`${evolutionUrl}/chat/fetchProfile/${instanceName}`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json', 'apikey': apikey },
-                                body: JSON.stringify({ number: phoneNumber }) // USA NÚMERO LIMPO, não o JID
-                            });
-                            if (profileRes.ok) {
-                                const profileData = await profileRes.json();
-                                contactName = profileData.name || profileData.pushName || '';
-                            }
-                        } catch (e) {
-                            console.error('Erro ao buscar perfil da Evolution API:', e);
-                        }
-                    }
-                }
-                contactName = contactName || phoneNumber;
-
-                // Foto de perfil — os links da CDN do WhatsApp expiram ao fim de algum
-                // tempo, por isso vamos buscar de novo a cada mensagem recebida (não só
-                // na sincronização manual), para a foto se manter atualizada nas
-                // conversas que continuam ativas.
-                let contactPicture: string | null = null;
-                if (phoneNumber && !phoneNumber.includes('@lid')) {
-                    const evolutionUrl = process.env.EVOLUTION_API_URL || 'https://evolution.topconsultores.pt';
-                    const apikey = process.env.AUTHENTICATION_API_KEY || '';
-                    if (instanceName && apikey) {
-                        try {
-                            const picRes = await fetch(`${evolutionUrl}/chat/fetchProfilePictureUrl/${instanceName}`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json', 'apikey': apikey },
-                                body: JSON.stringify({ number: phoneNumber })
-                            });
-                            if (picRes.ok) {
-                                const picData = await picRes.json();
-                                if (picData.profilePictureUrl) contactPicture = picData.profilePictureUrl;
-                            }
-                        } catch (e) { /* silent fail — não bloqueia a mensagem por causa da foto */ }
-                    }
-                }
-
-                if (!phoneNumber || !content) continue;
-
-                // Buscar canal evolution correto usando instanceName
-                const { data: channelData, error: rpcErr } = await supabase
-                    .from('wa_channels')
-                    .select('id')
-                    .eq('provider', 'evolution')
-                    .filter('credentials->>instanceName', 'eq', instanceName)
-                    .maybeSingle();
-                const channelId = channelData?.id;
-                
-                if (!channelId) {
-                    console.error('[Webhook Evolution] Canal não encontrado:', rpcErr);
-                    continue;
-                }
-
-                // Uma mensagem enviada pela própria app já foi gravada pela rota
-                // /send com o id que o WhatsApp devolveu. O webhook traz essa mesma
-                // mensagem de volta como "minha" — sem esta verificação, cada
-                // mensagem enviada pelo sistema aparecia duas vezes no inbox.
-                if (souEu && msg.key.id) {
-                    const { data: jaGravada } = await supabase.from('wa_messages')
-                        .select('id').eq('message_id', msg.key.id).maybeSingle();
-                    if (jaGravada) continue;
-                }
-
-                // Não aguardamos aqui: se a automação tiver um nó "Aguardar", esperar por
-                // ela deixaria o webhook pendente e o Evolution/Meta poderiam reenviar o
-                // evento por timeout. O processamento continua em background.
-                // (Para as nossas próprias mensagens o motor só grava e sai — não corre
-                // nenhum fluxo, porque a direção não é "inbound".)
-                AutomationEngine.processIncomingWhatsAppMessage({
-                    channel_id: channelId,
-                    phone_number: phoneNumber,
-                    contact_name: contactName,
-                    contact_picture: contactPicture,
-                    content: content,
-                    direction: souEu ? 'outbound' : 'inbound',
-                    id: msg.key.id
-                }).catch(err => console.error('[Webhook Evolution] Erro no processamento assíncrono do Automation Engine:', err));
-
-                // Porta opcional do módulo de Documentos: uma foto de um papel ou um
-                // PDF enviado para o WhatsApp da empresa vai para a fila de arquivo.
-                // Só imagens e documentos (não áudio/vídeo/stickers), e só para
-                // empresas com o módulo e com a captura por WhatsApp ligada.
-                if (!souEu && mediaUrl && (mediaType === 'image' || mediaType === 'document') && !msg.message?.stickerMessage) {
-                    capturarMediaParaDocumentos(channelId, mediaUrl, mediaFilename || 'ficheiro', msg.key.id, contactName, phoneNumber)
-                        .catch(err => console.error('[Webhook Evolution] Falha a capturar para Documentos:', err?.message));
-                }
+                await tratarMensagemEvolution(msg, body.instance || req.body?.instance, { pushNameDoEvento: body.data?.pushName });
             }
         }
         res.status(200).send('OK');
@@ -1082,7 +1110,10 @@ router.get('/conversations', requireAuth, async (req: AuthRequest, res: Response
         .select('*, wa_channels(name, provider)')
         .eq('empresa_id', req.user!.empresa_id)
         .neq('status', 'archived')
-        .not('phone_number', 'like', '%@lid%')
+        // As conversas "…@lid" (o WhatsApp entregou o contacto sem número)
+        // eram escondidas daqui — e com elas as mensagens reais desses
+        // clientes. O recuperador junta-as à do número quando o descobre; as
+        // que sobram são clientes à espera de resposta, e aparecem.
         .order('last_message_at', { ascending: false });
 
     if (req.user && req.user.role !== 'admin' && req.user.role !== 'supervisor' && req.user.role !== 'superadmin') {

@@ -225,10 +225,15 @@ export default function WhatsAppChatApp({ podeFazer }: { podeFazer?: (accao: str
 
     const formatPhoneNumber = (phone: string) => formatPhoneNumberGlobal(phone);
 
+    // Um contacto "@lid" é alguém que o WhatsApp entregou sem o número (só com
+    // um código interno). O sistema junta-o à conversa do número assim que o
+    // descobre; até lá aparece assim — com o nome, se o WhatsApp o mandou.
     const displayContactName = (name: string, phone: string) => {
-        if (!name) return formatPhoneNumber(phone);
-        if (name.includes('@lid')) return 'Cliente Oculto (Anúncio Meta)';
-        return name;
+        const semNumero = String(phone || '').includes('@lid');
+        const nomeValido = name && !name.includes('@lid') && !/^[+\d\s()-]+$/.test(name);
+        if (nomeValido) return name;
+        if (semNumero) return 'Contacto sem número';
+        return name || formatPhoneNumber(phone);
     };
 
     // Empresas antigas nunca chegaram a ter modulos_contratados persistido —

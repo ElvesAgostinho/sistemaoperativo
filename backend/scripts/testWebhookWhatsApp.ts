@@ -221,6 +221,104 @@ const conversa = () => tabela('wa_conversations')[0];
         assert(conversa().contact_name === 'Maria Cliente', `a conversa ficou com o nome errado: ${conversa().contact_name}`);
     });
 
+    console.log('\n=== Contactos que o WhatsApp manda sem número ("@lid") ===\n');
+
+    // Visto em produção a 22/11/2026 (aqui com dados inventados): um cliente
+    // passou a chegar só como "…@lid", com o "nome" trocado pelo código. A
+    // mensagem caía numa conversa à parte, escondida — para a empresa, ele
+    // não escrevia.
+    const soLid = (id: string, conteudo: string) => ({
+        key: { id, remoteJid: '11112222333344@lid', fromMe: false },
+        pushName: '11112222333344',
+        message: { conversation: conteudo },
+        messageTimestamp: Math.floor(Date.now() / 1000),
+    });
+
+    await test('sem número, vai buscá-lo às outras mensagens do contacto e entra na conversa dele', async () => {
+        const { WhatsAppLidService } = require(path.join(__dirname, '..', 'src', 'services', 'WhatsAppLidService'));
+        WhatsAppLidService.limparCache();
+        historicoDaEvolution = [
+            { key: { id: 'antiga', remoteJid: '11112222333344@lid', remoteJidAlt: '244923000222@s.whatsapp.net', fromMe: false } },
+        ];
+        tabela('wa_conversations').push({ id: 'conv-y', channel_id: CANAL, empresa_id: EMPRESA, phone_number: '244923000222', contact_name: 'Joana Cliente' });
+        await webhook(evento(soLid('nova', 'Bom dia, ainda tem?')));
+        const m = mensagens().find(x => x.message_id === 'nova');
+        assert(m, 'a mensagem devia ter entrado');
+        assert(m.conversation_id === 'conv-y', `devia ir para a conversa do número: ${m.conversation_id}`);
+        assert(!tabela('wa_conversations').some(c => String(c.phone_number).includes('@lid')), 'não devia nascer uma conversa "@lid"');
+        assert(conversa().contact_name === 'Joana Cliente', `o código não substitui o nome: ${conversa().contact_name}`);
+    });
+
+    await test('aprende o número com uma mensagem que traz os dois, sem perguntar à Evolution', async () => {
+        const { WhatsAppLidService } = require(path.join(__dirname, '..', 'src', 'services', 'WhatsAppLidService'));
+        WhatsAppLidService.limparCache();
+        await webhook(evento({
+            key: { id: 'com-alt', remoteJid: '999@lid', remoteJidAlt: '244911222333@s.whatsapp.net', fromMe: false },
+            pushName: 'Ana', message: { conversation: 'Olá' }, messageTimestamp: Math.floor(Date.now() / 1000),
+        }));
+        historicoDaEvolution = [];   // a Evolution já não ajuda
+        await webhook(evento({ key: { id: 'so-lid', remoteJid: '999@lid', fromMe: false }, pushName: '999', message: { conversation: 'Está aí?' }, messageTimestamp: Math.floor(Date.now() / 1000) }));
+        const convs = tabela('wa_conversations');
+        assert(convs.length === 1 && convs[0].phone_number === '244911222333', `as duas deviam ficar na mesma conversa do número: ${JSON.stringify(convs.map(c => c.phone_number))}`);
+    });
+
+    await test('se não houver forma de saber o número, a mensagem entra na mesma (não se perde)', async () => {
+        const { WhatsAppLidService } = require(path.join(__dirname, '..', 'src', 'services', 'WhatsAppLidService'));
+        WhatsAppLidService.limparCache();
+        historicoDaEvolution = [];
+        await webhook(evento(soLid('perdida', 'Alguém me responde?')));
+        assert(mensagens().some(x => x.message_id === 'perdida'), 'a mensagem tinha de entrar');
+        assert(conversa().phone_number === '11112222333344@lid', conversa().phone_number);
+    });
+
+    await test('uma mensagem antiga recuperada entra à hora em que foi enviada e não faz o fluxo responder', async () => {
+        const { tratarMensagemEvolution } = require(path.join(__dirname, '..', 'src', 'api', 'whatsappRoutes'));
+        tabela('automations').push({
+            id: 7, empresa_id: EMPRESA, nome: 'Responde a tudo', ativo: true,
+            nodes: JSON.stringify([
+                { id: 't', type: 'trigger', data: { triggerKind: 'whatsapp_message', matchMode: 'any' } },
+                { id: 'r', type: 'action', data: { actionType: 'REPLY_MESSAGE', config: { mensagem: 'RESPOSTA DO FLUXO' } } },
+            ]),
+            edges: JSON.stringify([{ id: 'e', source: 't', target: 'r' }]),
+        });
+        const ontem = Math.floor(Date.now() / 1000) - 86400;
+        const ok = await tratarMensagemEvolution(
+            { key: { id: 'antiga-1', remoteJid: `${TELEFONE}@s.whatsapp.net`, fromMe: false }, pushName: 'Rui', message: { conversation: 'Ainda tem stock?' }, messageTimestamp: ontem },
+            INSTANCIA, { soGuardar: true, aguardar: true });
+        assert(ok === true, 'devia ter tratado a mensagem');
+        const m = mensagens().find(x => x.message_id === 'antiga-1');
+        assert(m && m.content === 'Ainda tem stock?', 'a mensagem devia estar na conversa');
+        assert(Math.abs(new Date(m.created_at).getTime() / 1000 - ontem) < 2, `devia ficar à hora original: ${m.created_at}`);
+        assert(!enviadas.some((e: any) => JSON.stringify(e).includes('RESPOSTA DO FLUXO')), 'nenhum fluxo devia responder a uma mensagem de ontem');
+    });
+
+    await test('…e a mesma mensagem, recuperada logo (até 10 min), faz o fluxo responder', async () => {
+        // O contraponto do teste anterior: prova que aqui os fluxos correm
+        // mesmo, e que foi o "só guardar" que os calou.
+        const { tratarMensagemEvolution } = require(path.join(__dirname, '..', 'src', 'api', 'whatsappRoutes'));
+        tabela('automations').push({
+            id: 8, empresa_id: EMPRESA, nome: 'Responde a tudo', ativo: true,
+            nodes: JSON.stringify([
+                { id: 't', type: 'trigger', data: { triggerKind: 'whatsapp_message', matchMode: 'any' } },
+                { id: 'r', type: 'action', data: { actionType: 'REPLY_MESSAGE', config: { mensagem: 'RESPOSTA DO FLUXO' } } },
+            ]),
+            edges: JSON.stringify([{ id: 'e', source: 't', target: 'r' }]),
+        });
+        await tratarMensagemEvolution(
+            { key: { id: 'recente-1', remoteJid: `${TELEFONE}@s.whatsapp.net`, fromMe: false }, pushName: 'Rui', message: { conversation: 'Olá' }, messageTimestamp: Math.floor(Date.now() / 1000) - 60 },
+            INSTANCIA, { soGuardar: false, aguardar: true });
+        assert(enviadas.some((e: any) => JSON.stringify(e).includes('RESPOSTA DO FLUXO')), `o fluxo devia ter respondido: ${JSON.stringify(enviadas)}`);
+    });
+
+    await test('a caixa de conversas já não esconde os contactos sem número', async () => {
+        // A lista de conversas filtrava "…@lid" — e com isso escondia mensagens
+        // reais de clientes. (Lido do código: a rota precisa de mais do que este
+        // simulador da base de dados tem.)
+        const fonte = require('fs').readFileSync(path.join(__dirname, '..', 'src', 'api', 'whatsappRoutes.ts'), 'utf8');
+        const rota = fonte.slice(fonte.indexOf("router.get('/conversations',"), fonte.indexOf("router.get('/conversations',") + 900);
+        assert(!/not\('phone_number',\s*'like',\s*'%@lid%'\)/.test(rota), 'a lista voltou a esconder as conversas @lid');
+    });
+
     console.log('\n=== Áudios ===\n');
 
     await test('o áudio que recebemos fica pronto a ouvir', async () => {

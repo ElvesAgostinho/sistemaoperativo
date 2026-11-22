@@ -15,6 +15,8 @@ export interface WhatsAppMessage {
     contact_picture?: string | null;
     content: string;
     direction: 'inbound' | 'outbound';
+    /** Quando a mensagem foi enviada (segundos). Conta numa mensagem recuperada mais tarde. */
+    timestamp?: number;
 }
 
 interface FlowNode {
@@ -130,7 +132,7 @@ export class AutomationEngine {
      * handover humano (bot_paused), testa os triggers "whatsapp_message" das automações
      * ativas e, se nada corresponder, cai no fallback de IA.
      */
-    public static async processIncomingWhatsAppMessage(message: WhatsAppMessage) {
+    public static async processIncomingWhatsAppMessage(message: WhatsAppMessage, opts: { soGuardar?: boolean } = {}) {
         try {
             // O Evolution/Meta reentregam o mesmo evento quando o webhook demora ou
             // falha. Sem isto, a mesma mensagem era gravada e respondida duas vezes.
@@ -152,6 +154,14 @@ export class AutomationEngine {
             await this.saveMessage(conversationId, message);
 
             if (message.direction !== 'inbound') return;
+
+            // Mensagem antiga recuperada (o WhatsApp só a entregou depois): fica na
+            // conversa e no CRM, mas nenhum fluxo lhe responde — responder agora a
+            // uma mensagem de ontem seria fora de tempo, e quem atende já a vê.
+            if (opts.soGuardar) {
+                await this.syncCrmFromMessage(message, empresaId);
+                return;
+            }
 
             // O fluxo estava numa pausa longa ("esperar 2 dias") e o cliente
             // escreveu entretanto? Então a pausa deixa de fazer sentido: a
@@ -2188,14 +2198,19 @@ export class AutomationEngine {
     private static async getOrCreateConversation(message: WhatsAppMessage): Promise<string> {
         const { data: existing } = await supabase
             .from('wa_conversations')
-            .select('id')
+            .select('id, last_message_at, last_client_message_at')
             .eq('channel_id', message.channel_id)
             .eq('phone_number', message.phone_number)
             .single();
 
-        const updates: any = { last_message_at: new Date().toISOString() };
-        if (message.direction === 'inbound') {
-            updates.last_client_message_at = updates.last_message_at;
+        // A hora da mensagem — a de agora, ou a original numa recuperada. Nunca
+        // recua: uma mensagem de ontem recuperada hoje não apaga a de há 5 minutos.
+        const quando = AutomationEngine.horaDaMensagem(message) || new Date().toISOString();
+        const maisRecente = (atual?: string | null) => !atual || new Date(quando).getTime() > new Date(atual).getTime();
+        const updates: any = {};
+        if (maisRecente(existing?.last_message_at)) updates.last_message_at = quando;
+        if (message.direction === 'inbound' && maisRecente(existing?.last_client_message_at)) {
+            updates.last_client_message_at = quando;
         }
 
         if (existing) {
@@ -2208,7 +2223,7 @@ export class AutomationEngine {
             if (message.contact_picture) {
                 updates.contact_picture = message.contact_picture;
             }
-            await supabase.from('wa_conversations').update(updates).eq('id', existing.id);
+            if (Object.keys(updates).length) await supabase.from('wa_conversations').update(updates).eq('id', existing.id);
             return existing.id;
         }
 
@@ -2258,13 +2273,27 @@ export class AutomationEngine {
     }
 
     private static async saveMessage(conversationId: string, message: WhatsAppMessage) {
-        await supabase.from('wa_messages').insert({
+        const linha: any = {
             conversation_id: conversationId,
             message_id: message.id || Date.now().toString(),
             direction: message.direction,
             content: message.content,
             status: 'delivered'
-        });
+        };
+        // Uma mensagem recuperada mais tarde fica à hora a que foi ENVIADA, no
+        // sítio certo da conversa — e não no fim, com a hora de agora.
+        const quando = AutomationEngine.horaDaMensagem(message);
+        if (quando) linha.created_at = quando;
+        await supabase.from('wa_messages').insert(linha);
+    }
+
+    /** A hora da mensagem, se ela a trouxer e for do passado (até 30 dias). */
+    private static horaDaMensagem(message: WhatsAppMessage): string | null {
+        const t = Number(message.timestamp);
+        if (!t || !Number.isFinite(t)) return null;
+        const ms = t * 1000;
+        if (ms > Date.now() || ms < Date.now() - 30 * 86400000) return null;
+        return new Date(ms).toISOString();
     }
 
     // Interruptor geral: dá ao dono da empresa controlo real sobre se o

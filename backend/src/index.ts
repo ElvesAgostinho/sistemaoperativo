@@ -27,6 +27,7 @@ import { CampaignService } from './services/CampaignService';
 import { EmailCampaignService } from './services/EmailCampaignService';
 import { FluxoDisparoService } from './services/FluxoDisparoService';
 import { EsperaFluxoService } from './services/EsperaFluxoService';
+import { RecuperarMensagensService } from './services/RecuperarMensagensService';
 import documentosRoutes from './api/documentosRoutes';
 import { DocumentosService } from './services/DocumentosService';
 import { requireAuth } from './middleware/authMiddleware';
@@ -133,6 +134,15 @@ app.listen(port, () => {
   setInterval(() => {
     EsperaFluxoService.processarFila().catch(console.error);
   }, 20 * 1000);
+
+  // Mensagens que a Evolution recebeu e o webhook nunca trouxe (o WhatsApp só
+  // as entregou depois, numa sincronização). Sem isto, o cliente escrevia e
+  // para a empresa era como se não tivesse escrito. A primeira passagem, um
+  // minuto depois de arrancar, recupera os últimos 3 dias.
+  setTimeout(() => RecuperarMensagensService.recuperar().catch(console.error), 60 * 1000);
+  setInterval(() => {
+    RecuperarMensagensService.recuperar().catch(console.error);
+  }, 2 * 60 * 1000);
 
   // Documentos que ficaram a meio (ex: o servidor reiniciou durante a leitura
   // por IA) retomam sozinhos; o intervalo apanha tambem os que entram por
