@@ -124,7 +124,10 @@ const amanha = () => { const d = new Date(); d.setDate(d.getDate() + 1); return 
         assert(linha.hora_fim === '15:00', `fim devia ser 15:00 (60 min): ${linha.hora_fim}`);
         assert(linha.cliente_nome === 'Ana Paula' && linha.cliente_telefone === '244923000111', 'cliente mal gravado');
         assert(linha.origem === 'fluxo', `origem devia ser "fluxo": ${linha.origem}`);
-        assert(enviadas.some(m => /confirmada/i.test(m)), 'o cliente devia receber a confirmação');
+        // A confirmação é a mensagem que o fluxo manda a seguir ao "Criar
+        // marcação". Se o módulo também confirmasse, o cliente recebia DUAS
+        // seguidas — foi o que o teste ao vivo de 22/11/2026 mostrou.
+        assert(!enviadas.some(m => /confirmada/i.test(m)), `o módulo não devia mandar uma segunda confirmação: ${enviadas.join(' | ')}`);
     });
 
     await test('não deixa marcar em cima de outra marcação', async () => {

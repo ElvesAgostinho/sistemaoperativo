@@ -104,7 +104,11 @@ export class AgendamentoService {
         empresaId: string,
         dados: { servico_id: number; profissional_id?: number; cliente_nome: string; cliente_telefone: string; data: string; hora_inicio: string; notas?: string; dados?: Record<string, any> },
         origem: 'manual' | 'cliente' | 'whatsapp',
-        client: any = supabase
+        client: any = supabase,
+        // Um fluxo do Autopilot confirma ele próprio, com a mensagem que o
+        // dono escreveu a seguir ao "Criar marcação". Confirmar aqui também
+        // mandava DUAS confirmações seguidas ao cliente.
+        notificar = true
     ) {
         const { data: servico } = await client.from('agendamento_servicos')
             .select('duracao_minutos, nome').eq('id', dados.servico_id).eq('empresa_id', empresaId).single();
@@ -138,10 +142,12 @@ export class AgendamentoService {
 
         if (error) throw error;
 
-        await AgendamentoService.notificarCliente(empresaId, dados.cliente_telefone,
-            `Olá ${dados.cliente_nome}! A sua marcação para *${servico.nome}* no dia ${AgendamentoService.formatarData(dados.data)} às ${dados.hora_inicio} foi confirmada. Para remarcar ou cancelar, é só responder esta mensagem.`,
-            client
-        );
+        if (notificar) {
+            await AgendamentoService.notificarCliente(empresaId, dados.cliente_telefone,
+                `Olá ${dados.cliente_nome}! A sua marcação para *${servico.nome}* no dia ${AgendamentoService.formatarData(dados.data)} às ${dados.hora_inicio} foi confirmada. Para remarcar ou cancelar, é só responder esta mensagem.`,
+                client
+            );
+        }
 
         return agendamento.id;
     }

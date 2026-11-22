@@ -165,7 +165,7 @@ export class AgendamentoFluxoService {
             const id = await AgendamentoService.criarAgendamento(empresaId, {
                 servico_id: servico.id, cliente_nome: nome, cliente_telefone: telefone,
                 data, hora_inicio: hora, notas: entrada.notas
-            }, 'whatsapp');
+            }, 'whatsapp', supabase, false);   // a confirmação é a do fluxo, não uma segunda
 
             // Dados extra, ligação ao CRM e ao fluxo que a criou.
             const { data: cliente } = await supabase.from('clientes').select('id')

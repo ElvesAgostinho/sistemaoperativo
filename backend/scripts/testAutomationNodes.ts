@@ -187,6 +187,20 @@ async function testPureFunctions() {
         assert(out === 'Valor: ', `esperado "Valor: ", veio "${out}"`);
     });
 
+    await test('uma variável vazia não deixa buracos ("Olá !" → "Olá!")', async () => {
+        assert(Engine.parseString('Olá {{nome}}!', {}) === 'Olá!', Engine.parseString('Olá {{nome}}!', {}));
+        assert(Engine.parseString('Olá {{nome}}, tudo bem?', {}) === 'Olá, tudo bem?', Engine.parseString('Olá {{nome}}, tudo bem?', {}));
+        assert(Engine.parseString('Olá {{nome}} tudo bem', {}) === 'Olá tudo bem', Engine.parseString('Olá {{nome}} tudo bem', {}));
+        assert(Engine.parseString('Olá {{nome}}!', { nome: 'Ana' }) === 'Olá Ana!', 'com nome fica igual');
+        assert(Engine.parseString('Estado {{s}}', { s: 0 }) === 'Estado 0', `0 é um valor: ${Engine.parseString('Estado {{s}}', { s: 0 })}`);
+    });
+
+    await test('sem nome no WhatsApp, o cliente não é tratado pelo número', async () => {
+        assert(Engine.nomeDoCliente({ contact_name: '244923000000', phone_number: '244923000000' }) === '', 'o número não é um nome');
+        assert(Engine.nomeDoCliente({ contact_name: '+244 923 000 000' }) === '', 'nem formatado');
+        assert(Engine.nomeDoCliente({ contact_name: 'Ana Paula' }) === 'Ana Paula', 'um nome fica');
+    });
+
     await test('evaluateCondition "contains" (verdadeiro)', async () => {
         const ok = Engine.evaluateCondition({ variable: '{{mensagem}}', operator: 'contains', value: 'preço' }, { mensagem: 'qual o preço?' });
         assert(ok === true, 'esperado true');
@@ -360,6 +374,67 @@ async function testGraphNodes() {
         assert(/não percebi/i.test(t), t);
         assert(/1 - Ver preços/.test(t) && /3 - Falar com alguém/.test(t), `as opções numeradas deviam ir: ${t}`);
         assert(sentWhatsApp.length === 1, `devia ser UMA mensagem, foram ${sentWhatsApp.length}`);
+    });
+
+    await test('MENU: à terceira resposta errada, sem saída "sem resposta", despede-se e liberta a conversa', async () => {
+        // Antes repetia o menu para sempre: quem queria falar de outra coisa
+        // ficava preso, a levar "Não percebi" a cada mensagem.
+        await runGraph(menuEmPalavras(), ligacoes, 'm1', ctxMenu('bom dia'), 'empresa-mock-1',
+            { mensagemDisponivel: true, tentativas: 2, conversationId: 'conv-1', automationId: 1 });
+        const t = sentWhatsApp.map(m => m.content).join(' || ');
+        assert(/Não consegui perceber/.test(t), `devia despedir-se: ${t}`);
+        assert(!/1 - Ver preços/.test(t), `não devia repetir o menu outra vez: ${t}`);
+        const limpo = callLog.find(c => c.table === 'wa_conversations' && c.op === 'update' && c.payload?.fluxo_node_id === null);
+        assert(limpo, 'a conversa devia ficar livre (sem fluxo à espera)');
+    });
+
+    await test('MENU: à terceira, com "sem resposta" ligada, segue por lá', async () => {
+        const e = [...ligacoes, { id: 'ef', source: 'm1', target: 'r3', sourceHandle: 'fallback' }];
+        await runGraph(menuEmPalavras(), e, 'm1', ctxMenu('bom dia'), 'empresa-mock-1', { mensagemDisponivel: true, tentativas: 2 });
+        assert(sentWhatsApp.some(m => m.content === 'PESSOA'), `devia seguir pela saída sem resposta: ${sentWhatsApp.map(m => m.content).join(' | ')}`);
+    });
+
+    await test('IA sem instrução escrita responde ao que o cliente escreveu', async () => {
+        activeResponses['wa_channels:select'] = { data: { id: 'chan-1' }, error: null };
+        const nodes = [{ id: 'a', type: 'action', data: { actionType: 'AI_REPLY', config: {} } }];
+        const ctx = await runGraph(nodes, [], 'a', { mensagem: 'Qual é o horário?', telefone: '244900000000', channel_id: 'chan-1' });
+        assert(sentWhatsApp.length === 1, `devia ter respondido: ${sentWhatsApp.length}`);
+        assert(ctx.ai_ok === 'sim', `ai_ok: ${ctx.ai_ok}`);
+    });
+
+    await test('o email diz se saiu ({{email_ok}})', async () => {
+        const nodes = [{ id: 'a', type: 'action', data: { actionType: 'SEND_EMAIL', config: { para: 'x@exemplo.pt', assunto: 'A', mensagem: 'B' } } }];
+        const ok = await runGraph(nodes, [], 'a', {});
+        assert(ok.email_ok === 'sim', `devia dizer sim: ${ok.email_ok}`);
+        const semDestino = await runGraph([{ id: 'a', type: 'action', data: { actionType: 'SEND_EMAIL', config: { assunto: 'A', mensagem: 'B' } } }], [], 'a', {});
+        assert(semDestino.email_ok === 'nao' && /destinatário/.test(semDestino.email_erro), JSON.stringify(semDestino));
+    });
+
+    await test('um pedido externo que não responde não prende o fluxo', async () => {
+        const fetchAntes = (global as any).fetch;
+        (global as any).fetch = (_u: string, o: any) => new Promise((_res, rej) => {
+            o?.signal?.addEventListener('abort', () => { const e: any = new Error('abortado'); e.name = 'AbortError'; rej(e); });
+        });
+        const setTimeoutAntes = global.setTimeout;
+        (global as any).setTimeout = (fn: any) => setTimeoutAntes(fn, 10);   // os 15 s passam num instante
+        try {
+            const ctx = await runGraph([{ id: 'a', type: 'action', data: { actionType: 'EXTERNAL_REQUEST', config: { url: 'https://lento.exemplo' } } }], [], 'a', {});
+            assert(ctx.external_ok === 'nao' && ctx.external_status === 0, JSON.stringify({ ok: ctx.external_ok, s: ctx.external_status }));
+        } finally {
+            (global as any).fetch = fetchAntes;
+            (global as any).setTimeout = setTimeoutAntes;
+        }
+    });
+
+    await test('sem número na conversa, fala pelo da Evolution que está ligado (não pela Meta)', async () => {
+        activeResponses['wa_channels:select'] = { data: [
+            { id: 'meta-1', provider: 'meta', status: 'connected' },
+            { id: 'evo-off', provider: 'evolution', status: 'disconnected' },
+            { id: 'evo-1', provider: 'evolution', status: 'connected' },
+        ], error: null };
+        const nodes = [{ id: 'a', type: 'action', data: { actionType: 'REPLY_MESSAGE', config: { mensagem: 'Olá' } } }];
+        await runGraph(nodes, [], 'a', { telefone: '244900000000' });
+        assert(sentWhatsApp[0]?.channelId === 'evo-1', `devia ir pela Evolution ligada: ${sentWhatsApp[0]?.channelId}`);
     });
 
     // "Saltar para outro fluxo": a opção do menu liga a um fluxo já feito.

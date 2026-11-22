@@ -322,6 +322,9 @@ export default function NodeConfigPanel({ node, todosOsNos = [], automations, cu
 
           <label style={labelStyle}>Tentativas antes de desistir</label>
           <input style={fieldStyle} type="number" min={1} max={10} value={d.maxTentativas ?? 3} onChange={e => updateData({ maxTentativas: Number(e.target.value) })} />
+          <div style={{ fontSize: '11px', color: '#666', marginTop: '4px', lineHeight: 1.5 }}>
+            Ao fim destas tentativas, segue pela saída <b>"sem resposta"</b> do cartão (à direita) — ligue-a, por exemplo, a "Passar a humano". Se não estiver ligada, o menu despede-se e a conversa fica livre.
+          </div>
         </>
       );
     }
@@ -518,6 +521,7 @@ export default function NodeConfigPanel({ node, todosOsNos = [], automations, cu
                 Depois deste bloco: <code>{'{{agendamento_ok}}'}</code> vale "sim" ou "nao" — ligue-o a uma condição para responder ao cliente.
                 Em caso de falha, <code>{'{{agendamento_erro}}'}</code> traz o motivo em português (ex: "Esse horário deixou de estar disponível").
                 Quando corre bem tem <code>{'{{agendamento_id}}'}</code>, <code>{'{{agendamento_data_extenso}}'}</code> e <code>{'{{agendamento_hora}}'}</code>.
+                <br /><b>A confirmação ao cliente é a mensagem que puser a seguir</b> — o sistema não manda outra, para o cliente não receber duas.
               </div>
             </>
           )}

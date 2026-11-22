@@ -228,7 +228,7 @@ export class AutomationEngine {
             for (const { automation, nodes, edges, trigger } of candidatos) {
                 const context: Record<string, any> = {
                     telefone: message.phone_number,
-                    nome_whatsapp: message.contact_name,
+                    nome_whatsapp: AutomationEngine.nomeDoCliente(message),
                     mensagem: message.content,
                     channel_id: message.channel_id,
                     client_id: crmInfo.clienteId,
@@ -392,7 +392,7 @@ export class AutomationEngine {
 
         const context: Record<string, any> = {
             telefone: message.phone_number,
-            nome_whatsapp: message.contact_name || '',
+            nome_whatsapp: AutomationEngine.nomeDoCliente(message),
             mensagem: message.content || '',
             channel_id: message.channel_id,
             client_id: crmInfo.clienteId,
@@ -592,7 +592,7 @@ export class AutomationEngine {
         const context: Record<string, any> = {
             ...(conv.fluxo_contexto || {}),
             telefone: message.phone_number,
-            nome_whatsapp: message.contact_name,
+            nome_whatsapp: AutomationEngine.nomeDoCliente(message),
             mensagem: message.content,
             resposta: message.content,
             channel_id: message.channel_id,
@@ -732,8 +732,20 @@ export class AutomationEngine {
                     const maxTentativas = Number(node.data?.maxTentativas ?? MENU_MAX_TENTATIVAS);
                     const saidaSemResposta = edges.find(e => e.source === node.id && e.sourceHandle === 'fallback');
                     if (tentativas >= maxTentativas && saidaSemResposta) {
+                        registar(node, 'Menu: segue por "Sem resposta"', `${tentativas} respostas fora das opções`);
                         currentNodeId = saidaSemResposta.target;
                         continue;
+                    }
+                    // Sem a saída "Sem resposta" ligada, o menu repetia-se PARA
+                    // SEMPRE: quem queria falar de outra coisa levava com "Não
+                    // percebi" a cada mensagem, preso no menu. Uma pessoa, à
+                    // terceira, desistia com educação — e é o que se faz.
+                    if (tentativas >= maxTentativas) {
+                        const despedida = node.data?.mensagemDesistencia
+                            || 'Não consegui perceber a sua resposta. Quando quiser, escreva de novo.';
+                        await this.responderNoWhatsApp(context, this.parseString(despedida, context), sim);
+                        registar(node, 'Menu: desistiu', `${tentativas} respostas fora das opções — a conversa fica livre`);
+                        break;
                     }
                     // O aviso vai COM as opções outra vez. Antes repetia só a
                     // pergunta ("Não percebi. Como posso ajudar?"), sem os
@@ -1289,6 +1301,29 @@ export class AutomationEngine {
     }
 
     /**
+     * O número de WhatsApp da empresa, quando o fluxo não sabe por qual falar
+     * (começado à mão, por disparo, por um webhook). Quando sabe — a conversa
+     * entrou por um número — é sempre esse.
+     *
+     * Antes era "um canal qualquer" (`limit(1)`). Com a Meta e a Evolution lado
+     * a lado calhava a Meta, e a Meta recusa mensagens a quem não escreveu nas
+     * últimas 24 horas. Agora: um número LIGADO, a Evolution primeiro.
+     */
+    private static async canalDaEmpresa(empresaId: any): Promise<string | null> {
+        if (!empresaId) return null;   // sem empresa nunca se escolhe canal: seria falar pelo número de outro cliente
+        try {
+            const { data } = await supabase.from('wa_channels').select('id, provider, status').eq('empresa_id', empresaId);
+            const canais: any[] = Array.isArray(data) ? data : (data ? [data] : []);
+            const ligados = canais.filter(c => c.status === 'connected');
+            const escolhido = ligados.find(c => c.provider === 'evolution') || ligados[0]
+                || canais.find(c => c.status !== 'pending') || canais[0];
+            return escolhido?.id || null;
+        } catch {
+            return null;
+        }
+    }
+
+    /**
      * O fluxo para onde um "Saltar para outro fluxo" vai.
      *
      * Pelo id, que não muda quando se muda o nome. Os nós antigos só guardavam
@@ -1544,19 +1579,31 @@ export class AutomationEngine {
                     break;
                 }
 
+                // Um site que não responde deixava o fluxo — e o cliente — à espera
+                // para sempre. Ao fim de 15 segundos desiste, e o fluxo segue com
+                // {{external_status}} = 0 para uma condição poder tratar disso.
+                const limite = new AbortController();
+                const relogio = setTimeout(() => limite.abort(), 15000);
                 try {
                     const res = await fetch(url, {
                         method,
                         headers: { 'Content-Type': 'application/json' },
-                        body: (method !== 'GET' && method !== 'HEAD' && bodyTemplate) ? bodyTemplate : undefined
+                        body: (method !== 'GET' && method !== 'HEAD' && bodyTemplate) ? bodyTemplate : undefined,
+                        signal: limite.signal,
                     });
                     let responseText = '';
                     try { responseText = await res.text(); } catch {}
                     context['external_response'] = responseText;
                     context['external_status'] = res.status;
+                    context['external_ok'] = res.ok ? 'sim' : 'nao';
                     console.log(`[AUTOPILOT] EXTERNAL_REQUEST ${method} ${url} -> ${res.status}`);
-                } catch (e) {
-                    console.error('[AUTOPILOT] EXTERNAL_REQUEST falhou:', e);
+                } catch (e: any) {
+                    context['external_response'] = '';
+                    context['external_status'] = 0;
+                    context['external_ok'] = 'nao';
+                    console.error('[AUTOPILOT] EXTERNAL_REQUEST falhou:', e?.name === 'AbortError' ? 'sem resposta em 15s' : e);
+                } finally {
+                    clearTimeout(relogio);
                 }
                 break;
             }
@@ -1652,13 +1699,16 @@ export class AutomationEngine {
                         const { WhatsAppChannelManager } = require('./WhatsAppChannelManager');
                         let finalChannel = waChannelId;
                         if (!finalChannel) {
-                            const { data: channel } = empresa_id
-                            ? await supabase.from('wa_channels').select('id').eq('empresa_id', empresa_id).limit(1).single()
-                            : { data: null }; // sem empresa_id não há como escolher um canal em segurança — nunca usar "o primeiro canal da tabela toda" (vazamento cross-tenant)
-                            if (channel) finalChannel = channel.id;
+                            finalChannel = await this.canalDaEmpresa(empresa_id);
                         }
                         if (finalChannel) {
-                            await WhatsAppChannelManager.sendMessage(supabase, finalChannel, handoffPhone, avisoMensagem);
+                            const sentId = await WhatsAppChannelManager.sendMessage(supabase, finalChannel, handoffPhone, avisoMensagem);
+                            if (sentId && context['conversation_id']) {
+                                await this.saveMessage(context['conversation_id'], {
+                                    id: typeof sentId === 'string' ? sentId : undefined, channel_id: finalChannel,
+                                    phone_number: handoffPhone, contact_name: 'Autopilot', content: avisoMensagem, direction: 'outbound',
+                                });
+                            }
                         }
                     }
                     console.log(`[AUTOPILOT] HANDOFF_HUMAN: bot pausado para ${handoffPhone}`);
@@ -1675,10 +1725,14 @@ export class AutomationEngine {
                 // tools de sistema de ficheiros, Excel, etc. — pesadas demais para uma
                 // resposta pontual num fluxo).
                 const aiPhone = this.parseString(config.telefone || config.phone || '{{telefone}}', context);
-                const aiPromptTemplate = this.parseString(config.prompt, context);
+                // Sem instrução escrita, a IA responde ao que o cliente escreveu —
+                // é o que se espera de um "responder com IA". Antes não respondia
+                // nada, em silêncio.
+                const aiPromptTemplate = this.parseString(config.prompt || '{{mensagem}}', context);
 
-                if (!aiPhone || !aiPromptTemplate) {
-                    console.error('[AUTOPILOT] AI_REPLY falhou: falta telefone ou prompt.');
+                if (!aiPhone || !aiPromptTemplate.trim()) {
+                    console.error('[AUTOPILOT] AI_REPLY falhou: falta telefone ou não há nada a que responder.');
+                    context['ai_ok'] = 'nao';
                     break;
                 }
 
@@ -1705,17 +1759,26 @@ export class AutomationEngine {
                         const { WhatsAppChannelManager } = require('./WhatsAppChannelManager');
                         let finalChannel = waChannelId;
                         if (!finalChannel) {
-                            const { data: channel } = empresa_id
-                                ? await supabase.from('wa_channels').select('id').eq('empresa_id', empresa_id).limit(1).single()
-                                : { data: null };
-                            if (channel) finalChannel = channel.id;
+                            finalChannel = await this.canalDaEmpresa(empresa_id);
                         }
                         if (finalChannel) {
-                            await WhatsAppChannelManager.sendMessage(supabase, finalChannel, aiPhone, aiText);
+                            const sentId = await WhatsAppChannelManager.sendMessage(supabase, finalChannel, aiPhone, aiText);
+                            context['ai_ok'] = sentId ? 'sim' : 'nao';
                             console.log(`[AUTOPILOT] AI_REPLY enviado para ${aiPhone}`);
+                            // Como as outras respostas: sem isto, a resposta da IA
+                            // chegava ao cliente mas não aparecia na conversa no sistema.
+                            if (sentId && context['conversation_id']) {
+                                await this.saveMessage(context['conversation_id'], {
+                                    id: typeof sentId === 'string' ? sentId : undefined, channel_id: finalChannel,
+                                    phone_number: aiPhone, contact_name: 'Autopilot', content: aiText, direction: 'outbound',
+                                });
+                            }
                         }
+                    } else {
+                        context['ai_ok'] = 'nao';
                     }
                 } catch (e) {
+                    context['ai_ok'] = 'nao';
                     console.error('[AUTOPILOT] Erro em AI_REPLY:', e);
                 }
                 break;
@@ -1729,14 +1792,25 @@ export class AutomationEngine {
                 const emailSubject = this.parseString(config.assunto || config.subject, context);
                 const emailBody = this.parseString(config.mensagem || config.corpo || config.body, context);
 
-                if (emailTo && emailSubject && emailBody) {
-                    try {
-                        const { EmailService } = require('./EmailService');
-                        await EmailService.enviarEmailPersonalizado(emailTo, emailSubject, emailBody, empresa_id);
-                        console.log(`[AUTOPILOT] Email enviado para ${emailTo}`);
-                    } catch (e) {
-                        console.error('[AUTOPILOT] Erro ao enviar email:', e);
-                    }
+                // O resultado fica em {{email_ok}} / {{email_erro}}, como no
+                // "Notificar equipa": um email que não sai não pode passar por enviado.
+                if (!emailTo || !emailSubject || !emailBody) {
+                    context['email_ok'] = 'nao';
+                    context['email_erro'] = 'Falta o destinatário, o assunto ou a mensagem do email.';
+                    console.error('[AUTOPILOT] SEND_EMAIL:', context['email_erro']);
+                    break;
+                }
+                try {
+                    const { EmailService } = require('./EmailService');
+                    const enviado = await EmailService.enviarEmailPersonalizado(emailTo, emailSubject, emailBody, empresa_id);
+                    if (enviado === false) throw new Error('o email não foi aceite (verifique o SMTP em Definições)');
+                    context['email_ok'] = 'sim';
+                    context['email_erro'] = '';
+                    console.log(`[AUTOPILOT] Email enviado para ${emailTo}`);
+                } catch (e: any) {
+                    context['email_ok'] = 'nao';
+                    context['email_erro'] = e?.message || 'não foi possível enviar o email';
+                    console.error('[AUTOPILOT] Erro ao enviar email:', e);
                 }
                 break;
             }
@@ -1815,8 +1889,7 @@ export class AutomationEngine {
                     }
                     let canalId = config.channel_id || context['channel_id'];
                     if (!canalId && empresa_id) {
-                        const { data: c } = await supabase.from('wa_channels').select('id').eq('empresa_id', empresa_id).limit(1).maybeSingle();
-                        canalId = c?.id;
+                        canalId = await this.canalDaEmpresa(empresa_id);
                     }
                     const { data: canal } = await supabase.from('wa_channels').select('*').eq('id', canalId).maybeSingle();
                     if (!canal) { console.error('[AUTOPILOT] Canal não encontrado para enviar o template.'); break; }
@@ -1846,9 +1919,7 @@ export class AutomationEngine {
                 if (!waChannelId && empresa_id) {
                     // Sem empresa_id nao ha como escolher um canal em seguranca:
                     // "o primeiro canal da tabela toda" era uma fuga entre empresas.
-                    const { data: channel } = await supabase.from('wa_channels')
-                        .select('id').eq('empresa_id', empresa_id).limit(1).single();
-                    if (channel) waChannelId = channel.id;
+                    waChannelId = await this.canalDaEmpresa(empresa_id);
                 }
 
                 // Um no de mensagem pode ter varios BLOCOS — texto, imagem, video,
@@ -1978,10 +2049,7 @@ export class AutomationEngine {
                     const { WhatsAppChannelManager } = require('./WhatsAppChannelManager');
                     let finalChannel = mediaChannelId;
                     if (!finalChannel) {
-                        const { data: channel } = empresa_id
-                            ? await supabase.from('wa_channels').select('id').eq('empresa_id', empresa_id).limit(1).single()
-                            : { data: null }; // sem empresa_id não há como escolher um canal em segurança — nunca usar "o primeiro canal da tabela toda" (vazamento cross-tenant)
-                        if (channel) finalChannel = channel.id;
+                        finalChannel = await this.canalDaEmpresa(empresa_id);
                     }
 
                     if (finalChannel) {
@@ -2320,12 +2388,34 @@ export class AutomationEngine {
     }
 
     /**
+     * O nome para tratar o cliente. Quando o WhatsApp não manda o nome, o
+     * sistema guardava o NÚMERO no lugar dele — e o fluxo dizia "Olá
+     * 244923000000!". Uma pessoa diria só "Olá!".
+     */
+    public static nomeDoCliente(message: { contact_name?: string; phone_number?: string }): string {
+        const nome = String(message?.contact_name || '').trim();
+        if (!nome || /^[+\d\s()-]+$/.test(nome) || nome === message?.phone_number) return '';
+        return nome;
+    }
+
+    /**
      * Substitui variáveis {{chave}} pelos valores reais do contexto de execução.
      */
     private static parseString(template: string, context: any): string {
         if (!template) return '';
-        return template.replace(/{{(.*?)}}/g, (_, key) => {
-            return context[key.trim()] || '';
+        const VAZIO = '\u0000';
+        const out = template.replace(/{{(.*?)}}/g, (_, key) => {
+            const v = context[key.trim()];
+            // 0 é um valor (ex: {{external_status}} sem resposta), não um vazio.
+            const s = v === undefined || v === null ? '' : String(v);
+            return s === '' ? VAZIO : s;
         });
+        if (!out.includes(VAZIO)) return out;
+        // Uma variável vazia não deixa buracos: "Olá {{nome_whatsapp}}!" fica
+        // "Olá!" (e não "Olá !"), e "Olá {{nome}} tudo bem" não fica com dois espaços.
+        return out
+            .replace(/[ \t]*\u0000(?=[!?.,;:)])/g, '')
+            .replace(/(\S) \u0000 (?=\S)/g, '$1 ')
+            .replace(/\u0000/g, '');
     }
 }

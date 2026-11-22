@@ -58,6 +58,18 @@ export default function MenuNode({ id, data, selected }: NodeProps) {
           style={{ background: '#0891b2', width: 8, height: 8, left: `${((i + 1) / (options.length + 1)) * 100}%` }}
         />
       ))}
+
+      {/* "Sem resposta": por onde segue quando o cliente, ao fim das
+          tentativas, não escolheu nenhuma opção — por exemplo para "Passar a
+          humano". Sem ligação, o menu despede-se e a conversa fica livre. */}
+      <div style={{ marginTop: '6px', textAlign: 'right', fontSize: '9.5px', color: '#94a3b8', paddingRight: '10px' }}>sem resposta →</div>
+      <Handle
+        type="source"
+        id="fallback"
+        position={Position.Right}
+        title="Sem resposta: o cliente não escolheu nenhuma opção"
+        style={{ background: '#f59e0b', width: 8, height: 8, top: 'auto', bottom: '14px' }}
+      />
     </div>
   );
 }
