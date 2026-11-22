@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { Video, AlertTriangle, Mic } from 'lucide-react';
+import { Video, AlertTriangle, Mic, ExternalLink, LogOut, CheckCircle2 } from 'lucide-react';
 
 interface MeetingRoomProps {
     reuniaoId: string;
-    /** URL completo da sala Jitsi (auto-hospedada no VPS), já com o token JWT embutido (?jwt=...) — mintado no backend, nunca cru/partilhável. */
+    /** Link da sala no Jitsi público (https://meet.jit.si/<sala>). */
     jitsiUrl: string | null;
     titulo: string;
     participanteNome: string;
@@ -13,44 +13,39 @@ interface MeetingRoomProps {
     endLoading?: boolean;
 }
 
-const loadJitsiScript = (domain: string): Promise<void> => {
-    return new Promise((resolve, reject) => {
-        if ((window as any).JitsiMeetExternalAPI) return resolve();
-        const existing = document.getElementById('jitsi-external-api-script');
-        if (existing) {
-            existing.addEventListener('load', () => resolve());
-            existing.addEventListener('error', reject);
-            return;
-        }
-        const script = document.createElement('script');
-        script.id = 'jitsi-external-api-script';
-        script.src = `https://${domain}/external_api.js`;
-        script.async = true;
-        script.onload = () => resolve();
-        script.onerror = reject;
-        document.body.appendChild(script);
-    });
+/**
+ * O link da sala com o nome da pessoa já preenchido, para ela não ter de o
+ * escrever outra vez no Jitsi.
+ */
+const linkComNome = (jitsiUrl: string, nome: string): string => {
+    const base = jitsiUrl.split('#')[0];
+    return `${base}#userInfo.displayName=${encodeURIComponent(JSON.stringify(nome))}`;
 };
 
 /**
- * Sala de reunião reutilizável (Jitsi auto-hospedado no VPS, via External API +
- * gravação do próprio microfone no navegador), usada tanto pelo anfitrião
- * autenticado (ReunioesApp) quanto pelo convidado externo sem login
- * (pages/public/ReuniaoConvidado).
+ * Sala de reunião — usada pelo anfitrião (ReunioesApp) e pelo convidado sem
+ * login (pages/public/ReuniaoConvidado).
  *
- * Em vez de transcrever ao vivo no browser (frágil, só Chrome/Edge), cada
- * participante grava o próprio áudio (MediaRecorder, pedido de microfone
- * independente do que o Jitsi já usa para falar na chamada) e envia um único
- * ficheiro no fim. O backend transcreve com Whisper e gera a ata — ver
- * ReuniaoService.gerarAtaAPartirDeGravacoes.
+ * A VIDEOCHAMADA ABRE NUMA JANELA NOVA DO JITSI. Esta página metia o
+ * meet.jit.si dentro de si (iframe / External API), e o meet.jit.si deixou de
+ * o permitir — a configuração deles tem `disableIframeAPI: true` e quem
+ * entrava, anfitrião ou convidado, via um erro. O Jitsi diz que meter o
+ * meet.jit.si dentro de outro site "já não é possível"; só o JaaS (pago acima
+ * de 25 pessoas por mês) o faz. Abrir na janela do próprio Jitsi é grátis e
+ * funciona.
+ *
+ * A GRAVAÇÃO CONTINUA AQUI. Cada participante grava o próprio microfone nesta
+ * página (MediaRecorder) e envia um ficheiro no fim; o backend transcreve com
+ * Whisper e gera a ata (ReuniaoService.gerarAtaAPartirDeGravacoes). Por isso
+ * esta página tem de ficar aberta durante a reunião, e o fim é um botão — já
+ * não há como saber quando a chamada do Jitsi acaba.
  */
 export default function MeetingRoom({ reuniaoId, jitsiUrl, titulo, participanteNome, participanteTipo, onEnd, endLoading }: MeetingRoomProps) {
-    const jitsiContainerRef = useRef<HTMLDivElement>(null);
-    const jitsiApiRef = useRef<any>(null);
+    const [entrou, setEntrou] = useState(false);
+    const [saiu, setSaiu] = useState(false);
     const [isRecording, setIsRecording] = useState(false);
     const [recordingUnsupported, setRecordingUnsupported] = useState(false);
     const [uploadingRecording, setUploadingRecording] = useState(false);
-    const [jitsiError, setJitsiError] = useState<string | null>(null);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const chunksRef = useRef<Blob[]>([]);
     const streamRef = useRef<MediaStream | null>(null);
@@ -79,14 +74,15 @@ export default function MeetingRoom({ reuniaoId, jitsiUrl, titulo, participanteN
     };
 
     const iniciarGravacao = async () => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') return;
         if (typeof MediaRecorder === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
             setRecordingUnsupported(true);
             return;
         }
         try {
             // Pedido de microfone próprio desta página — independente do que o
-            // Jitsi já pede dentro do seu próprio iframe para a pessoa falar na
-            // chamada. É normal aparecerem dois pedidos de permissão.
+            // Jitsi pede na janela dele para a pessoa falar na chamada. É normal
+            // aparecerem dois pedidos de permissão.
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             streamRef.current = stream;
 
@@ -117,77 +113,45 @@ export default function MeetingRoom({ reuniaoId, jitsiUrl, titulo, participanteN
         await enviarGravacao();
     };
 
+    const abrirVideochamada = () => {
+        if (!jitsiUrl) return;
+        // Abre JÁ, ainda dentro do clique: depois de um `await` o navegador
+        // trataria a janela como pop-up e bloqueava-a.
+        window.open(linkComNome(jitsiUrl, participanteNome), '_blank', 'noopener');
+        setEntrou(true);
+        iniciarGravacao();
+    };
+
+    // Fechar esta página a meio perde a gravação — o navegador pergunta antes.
     useEffect(() => {
-        if (!jitsiContainerRef.current || !jitsiUrl) return;
-        let disposed = false;
+        if (!isRecording) return;
+        const avisar = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+        window.addEventListener('beforeunload', avisar);
+        return () => window.removeEventListener('beforeunload', avisar);
+    }, [isRecording]);
 
-        let domain = '';
-        let roomName = '';
-        let jwt: string | undefined;
-        try {
-            const parsed = new URL(jitsiUrl);
-            domain = parsed.hostname;
-            roomName = parsed.pathname.replace(/^\//, '');
-            jwt = parsed.searchParams.get('jwt') || undefined;
-        } catch {
-            setJitsiError('Link de acesso à sala inválido.');
-            return;
-        }
-
-        loadJitsiScript(domain).then(() => {
-            if (disposed || !jitsiContainerRef.current) return;
-            const JitsiMeetExternalAPI = (window as any).JitsiMeetExternalAPI;
-            const api = new JitsiMeetExternalAPI(domain, {
-                roomName,
-                jwt,
-                parentNode: jitsiContainerRef.current,
-                width: '100%',
-                height: '100%',
-                configOverwrite: { prejoinPageEnabled: false },
-                userInfo: { displayName: participanteNome }
-            });
-            jitsiApiRef.current = api;
-
-            api.addListener('videoConferenceJoined', () => {
-                iniciarGravacao();
-            });
-            api.addListener('videoConferenceLeft', () => {
-                pararGravacaoEEnviar();
-            });
-            api.addListener('readyToClose', () => {
-                pararGravacaoEEnviar();
-            });
-            api.addListener('errorOccurred', (e: any) => {
-                console.error('[Jitsi] errorOccurred:', e);
-                setJitsiError('Ocorreu um erro na videochamada. Tente recarregar a página.');
-            });
-            api.addListener('connectionFailed', () => {
-                setJitsiError('Falha na ligação à videochamada. Verifique a sua rede e tente novamente.');
-            });
-        }).catch((e: any) => {
-            console.error('Erro ao carregar a Jitsi External API:', e);
-            setJitsiError('Não foi possível carregar a videochamada. Verifique a sua ligação à internet.');
-        });
-
-        return () => {
-            disposed = true;
-            pararGravacaoEEnviar();
-            if (jitsiApiRef.current) {
-                jitsiApiRef.current.dispose();
-                jitsiApiRef.current = null;
-            }
-        };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [jitsiUrl]);
+    // Sair do ecrã da reunião dentro do sistema também envia o que se gravou.
+    useEffect(() => () => { pararGravacaoEEnviar(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleEndClick = async () => {
         await pararGravacaoEEnviar();
         onEnd?.();
     };
 
+    const sairComoConvidado = async () => {
+        await pararGravacaoEEnviar();
+        setSaiu(true);
+    };
+
+    const botao = (cor: string, fundo: string, borda = fundo) => ({
+        background: fundo, color: cor, border: `1px solid ${borda}`, padding: '11px 20px', borderRadius: '10px',
+        fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+        display: 'inline-flex', alignItems: 'center', gap: '8px',
+    } as React.CSSProperties);
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'white', color: '#0f172a' }}>
-            <div style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #E2E8E6', background: '#F5F8F7', fontFamily: "'IBM Plex Sans', 'Segoe UI', sans-serif" }}>
+            <div style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap', borderBottom: '1px solid #E2E8E6', background: '#F5F8F7', fontFamily: "'IBM Plex Sans', 'Segoe UI', sans-serif" }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <div style={{ width: '34px', height: '34px', borderRadius: '9px', background: '#E3F3F1', color: '#0E5A6B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <Video size={18} />
@@ -195,7 +159,7 @@ export default function MeetingRoom({ reuniaoId, jitsiUrl, titulo, participanteN
                     <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 800, fontFamily: "'Manrope', sans-serif", color: '#16211F' }}>{titulo}</h2>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                    {!recordingUnsupported && (
+                    {entrou && !recordingUnsupported && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', color: '#54656f' }}>
                             <div className={isRecording ? 'pulse-dot' : ''} style={{ width: '8px', height: '8px', borderRadius: '50%', background: isRecording ? '#B23A3A' : '#94a3b8' }}></div>
                             <Mic size={13} />
@@ -205,33 +169,78 @@ export default function MeetingRoom({ reuniaoId, jitsiUrl, titulo, participanteN
                     {onEnd && (
                         <button
                             onClick={handleEndClick}
-                            disabled={endLoading}
+                            disabled={endLoading || uploadingRecording}
                             style={{ background: '#B23A3A', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '10px', fontWeight: 700, fontSize: '13.5px', cursor: endLoading ? 'wait' : 'pointer', fontFamily: 'inherit' }}
                         >
-                            {endLoading ? 'A processar...' : 'Terminar Reunião'}
+                            {endLoading || uploadingRecording ? 'A processar...' : 'Terminar Reunião'}
                         </button>
                     )}
                 </div>
             </div>
 
-            {jitsiError && (
-                <div style={{ padding: '10px 16px', background: '#fef2f2', color: '#991b1b', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #fecaca' }}>
-                    <AlertTriangle size={16} /> {jitsiError}
-                </div>
-            )}
             {recordingUnsupported && (
                 <div style={{ padding: '10px 16px', background: '#fffbeb', color: '#92400e', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #fde68a' }}>
                     <AlertTriangle size={16} /> Não foi possível gravar o seu áudio para a ata (navegador sem suporte, ou microfone recusado). A videochamada continua normalmente — se outra pessoa na reunião conseguir gravar, a ata ainda é gerada a partir da parte dela.
                 </div>
             )}
 
-            <div style={{ flex: 1, position: 'relative' }}>
-                <div ref={jitsiContainerRef} style={{ width: '100%', height: '100%' }} />
-                {!jitsiUrl && (
-                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#991b1b', fontSize: '13px', gap: '8px' }}>
-                        <AlertTriangle size={16} /> Não foi possível gerar o acesso à sala. Recarregue a página ou contacte o suporte.
-                    </div>
-                )}
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', fontFamily: "'IBM Plex Sans', 'Segoe UI', sans-serif" }}>
+                <div style={{ maxWidth: '520px', width: '100%', textAlign: 'center', color: '#334155', fontSize: '14px', lineHeight: 1.65 }}>
+                    {!jitsiUrl ? (
+                        <div style={{ color: '#991b1b', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                            <AlertTriangle size={16} /> Não foi possível obter o link da sala. Recarregue a página ou contacte o suporte.
+                        </div>
+                    ) : saiu ? (
+                        <>
+                            <CheckCircle2 size={40} color="#107E3E" />
+                            <h3 style={{ margin: '12px 0 6px', color: '#16211F' }}>Obrigado por participar</h3>
+                            <p style={{ margin: 0 }}>A sua parte da gravação foi enviada para a ata. Já pode fechar esta página.</p>
+                        </>
+                    ) : !entrou ? (
+                        <>
+                            <Video size={40} color="#0E5A6B" />
+                            <h3 style={{ margin: '12px 0 6px', color: '#16211F' }}>A videochamada abre numa janela nova</h3>
+                            <p style={{ margin: '0 0 18px' }}>
+                                Ao entrar, <b>deixe esta página aberta</b>: é aqui que se grava o seu áudio para a ata da reunião.
+                            </p>
+                            <button onClick={abrirVideochamada} style={botao('#fff', '#0E5A6B')}>
+                                <ExternalLink size={16} /> Entrar na videochamada
+                            </button>
+                            {participanteTipo === 'host' ? (
+                                <p style={{ margin: '18px 0 0', fontSize: '12.5px', color: '#64748b' }}>
+                                    No Jitsi, quem abre a reunião tem de entrar com uma conta <b>Google, GitHub ou Facebook</b> para a começar. Os convidados entram a seguir.
+                                </p>
+                            ) : (
+                                <p style={{ margin: '18px 0 0', fontSize: '12.5px', color: '#64748b' }}>
+                                    Se o Jitsi disser que está à espera do anfitrião, aguarde — entra assim que ele começar a reunião.
+                                </p>
+                            )}
+                        </>
+                    ) : (
+                        <>
+                            <Mic size={40} color={isRecording ? '#B23A3A' : '#0E5A6B'} />
+                            <h3 style={{ margin: '12px 0 6px', color: '#16211F' }}>A reunião está aberta na outra janela</h3>
+                            <p style={{ margin: '0 0 18px' }}>
+                                <b>Não feche esta página</b> até ao fim da reunião — é ela que grava o seu áudio para a ata.
+                            </p>
+                            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                                <button onClick={() => window.open(linkComNome(jitsiUrl, participanteNome), '_blank', 'noopener')} style={botao('#0E5A6B', '#fff', '#9FC4CC')}>
+                                    <ExternalLink size={16} /> Abrir a videochamada outra vez
+                                </button>
+                                {participanteTipo === 'convidado' && (
+                                    <button onClick={sairComoConvidado} disabled={uploadingRecording} style={botao('#fff', '#B23A3A')}>
+                                        <LogOut size={16} /> {uploadingRecording ? 'A enviar...' : 'Sair e enviar a minha gravação'}
+                                    </button>
+                                )}
+                            </div>
+                            {participanteTipo === 'host' && (
+                                <p style={{ margin: '18px 0 0', fontSize: '12.5px', color: '#64748b' }}>
+                                    No fim, carregue em <b>Terminar Reunião</b> (em cima): a gravação é enviada e o resumo é gerado.
+                                </p>
+                            )}
+                        </>
+                    )}
+                </div>
             </div>
 
             <style>{`
