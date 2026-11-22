@@ -1347,11 +1347,26 @@ router.get('/evolution/instance/state', requireAuth, async (req: AuthRequest, re
     const apiUrl = process.env.EVOLUTION_API_URL || 'https://evolution.topconsultores.pt';
     const apiKey = process.env.AUTHENTICATION_API_KEY || '';
 
+    // Para a faixa "O WhatsApp está desligado": só faz sentido a quem tem mesmo
+    // um número pela Evolution (quem só usa a Meta não tem instância, e a
+    // Evolution responde 404). E a última mensagem que chegou, para a faixa
+    // dizer há quanto tempo não entra nada.
+    const { data: canaisEvo } = await getSupabase(req).from('wa_channels')
+        .select('id').eq('provider', 'evolution').eq('empresa_id', empresaId);
+    const temCanal = Array.isArray(canaisEvo) && canaisEvo.length > 0;
+    let ultimaMensagemRecebida: string | null = null;
+    if (temCanal) {
+        const { data: ultima } = await getSupabase(req).from('wa_conversations')
+            .select('last_client_message_at').in('channel_id', canaisEvo!.map((c: any) => c.id))
+            .not('last_client_message_at', 'is', null).order('last_client_message_at', { ascending: false }).limit(1).maybeSingle();
+        ultimaMensagemRecebida = ultima?.last_client_message_at || null;
+    }
+
     try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-        const stateRes = await fetch(`${apiUrl}/instance/connectionState/${instanceName}`, { 
+        const stateRes = await fetch(`${apiUrl}/instance/connectionState/${instanceName}`, {
             headers: { 'apikey': apiKey },
             signal: controller.signal
         });
@@ -1360,7 +1375,7 @@ router.get('/evolution/instance/state', requireAuth, async (req: AuthRequest, re
         if (stateRes.status === 404) {
             // Instância não existe — garantir que BD reflecte isso
             await getSupabase(req).from('wa_channels').update({ status: 'disconnected' }).eq('provider', 'evolution').eq('empresa_id', empresaId);
-            return res.json({ success: true, state: 'disconnected', message: 'Instância não encontrada' });
+            return res.json({ success: true, state: 'disconnected', temCanal, ultimaMensagemRecebida, message: 'Instância não encontrada' });
         }
 
         const stateData = await stateRes.json();
@@ -1379,7 +1394,7 @@ router.get('/evolution/instance/state', requireAuth, async (req: AuthRequest, re
                 .eq('empresa_id', empresaId);
         }
 
-        return res.json({ success: true, state: evolutionState });
+        return res.json({ success: true, state: evolutionState, temCanal, ultimaMensagemRecebida });
     } catch (err: any) {
         return res.status(500).json({ error: err.name === 'AbortError' ? 'Timeout ao contactar Evolution API' : err.message });
     }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Building, Users, CheckCircle, XCircle, Clock, Loader2, AlertCircle, Settings, Save, X, Trash2 } from 'lucide-react';
+import { Shield, Building, Users, CheckCircle, XCircle, Clock, Loader2, AlertCircle, Settings, Save, X, Trash2, MessageSquare } from 'lucide-react';
+import WhatsAppClientes from './superadmin/WhatsAppClientes';
 
 interface Empresa {
   id: string;
@@ -20,7 +21,7 @@ interface Utilizador {
 }
 
 const SuperAdminApp = () => {
-  const [activeTab, setActiveTab] = useState<'empresas' | 'users'>('empresas');
+  const [activeTab, setActiveTab] = useState<'empresas' | 'users' | 'whatsapp'>('empresas');
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   // Empresas repetidas (mesmo nome) que ficaram sem utilizador nenhum.
   const [vazias, setVazias] = useState<Set<string>>(new Set());
@@ -57,6 +58,8 @@ const SuperAdminApp = () => {
   }, [activeTab]);
 
   const fetchData = async () => {
+    // O separador do WhatsApp lê os seus próprios dados.
+    if (activeTab === 'whatsapp') { setLoading(false); return; }
     setLoading(true);
     setError('');
     try {
@@ -231,6 +234,15 @@ const SuperAdminApp = () => {
         >
           <Users size={18} /> Utilizadores Globais
         </button>
+        <button
+          onClick={() => setActiveTab('whatsapp')}
+          style={{
+            padding: '12px 24px', background: 'none', border: 'none', borderBottom: activeTab === 'whatsapp' ? '3px solid #0E5A6B' : '3px solid transparent',
+            color: activeTab === 'whatsapp' ? '#0E5A6B' : '#5B738B', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px'
+          }}
+        >
+          <MessageSquare size={18} /> WhatsApp dos clientes
+        </button>
       </div>
 
       {error && (
@@ -239,7 +251,9 @@ const SuperAdminApp = () => {
         </div>
       )}
 
-      {loading ? (
+      {activeTab === 'whatsapp' ? (
+        <WhatsAppClientes />
+      ) : loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}><Loader2 className="animate-spin" size={32} color="#0E5A6B" /></div>
       ) : activeTab === 'empresas' ? (
         <div style={{ background: 'white', borderRadius: '2px', border: '1px solid #D5D7DA', overflow: 'hidden' }}>

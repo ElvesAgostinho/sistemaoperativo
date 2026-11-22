@@ -188,6 +188,10 @@ export default function WhatsAppChatApp({ podeFazer }: { podeFazer?: (accao: str
     
     // Status connection
     const [evolutionStatus, setEvolutionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
+    // A faixa "O WhatsApp está desligado". Só para quem tem mesmo um número
+    // pela Evolution — e com a última mensagem que entrou, para se perceber há
+    // quanto tempo não chega nada.
+    const [whatsDesligado, setWhatsDesligado] = useState<{ ultima: string | null } | null>(null);
     const [isSyncingChats, setIsSyncingChats] = useState(false);
     const [metaStatus, setMetaStatus] = useState<'disconnected' | 'saving' | 'connected' | 'error'>('disconnected');
     const [metaBusinessInfo, setMetaBusinessInfo] = useState<{name: string, phone: string} | null>(null);
@@ -499,6 +503,7 @@ ${data.diagnostico}` : '')
             if (data.success) {
                 const isConnected = data.state === 'open' || data.state === 'connected';
                 setEvolutionStatus(isConnected ? 'connected' : 'disconnected');
+                setWhatsDesligado(data.temCanal && !isConnected ? { ultima: data.ultimaMensagemRecebida || null } : null);
                 if (isConnected && showQr) {
                     setShowQr(false); // Fechar QR ao conectar
                 }
@@ -644,6 +649,8 @@ ${data.diagnostico}` : '')
 
         // Polling moderado para conversas (fallback)
         const pollInterval = setInterval(() => fetchConversations(), 8000);
+        // O estado do número de minuto a minuto: a faixa aparece se ele se desligar.
+        const estadoInterval = setInterval(() => fetchEvolutionState(), 60000);
 
         // Realtime subscription em wa_conversations — o nome do canal tem de ser
         // único por montagem: o cliente Realtime do Supabase devolve o MESMO
@@ -662,6 +669,7 @@ ${data.diagnostico}` : '')
 
         return () => {
             clearInterval(pollInterval);
+            clearInterval(estadoInterval);
             supabaseRealtime.removeChannel(convChannel);
         };
     }, []);
@@ -1308,6 +1316,24 @@ ${data.diagnostico}` : '')
                         podeVerAuditoria={pode('wa.auditoria')}
                     />
                 </div>
+
+                {/* O número da Evolution está desligado: nada chega, nada responde.
+                    Uma empresa ficou assim um mês sem dar por isso — o estado só
+                    aparecia dentro de "Gestão de Canais". */}
+                {whatsDesligado && (
+                    <div role="alert" style={{ background: '#FDECEC', borderBottom: '1px solid #F5C2C2', color: '#8A1F1F', padding: '10px 14px', fontSize: '12.5px', lineHeight: 1.5 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}>
+                            <AlertCircle size={15} style={{ flexShrink: 0 }} /> O WhatsApp está desligado
+                        </div>
+                        <div style={{ marginTop: '2px' }}>
+                            As mensagens dos clientes não estão a chegar e a automação não responde.
+                            {whatsDesligado.ultima && <> Última mensagem recebida: {new Date(whatsDesligado.ultima).toLocaleString('pt-PT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}.</>}
+                        </div>
+                        <button onClick={() => setCurrentView('settings')} style={{ marginTop: '7px', padding: '5px 12px', background: '#B23A3A', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 700, fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit' }}>
+                            Ligar agora
+                        </button>
+                    </div>
+                )}
 
                 {currentView === 'chats' ? (
                     <>

@@ -187,4 +187,18 @@ router.put('/empresas/:id/modulos', requireAuth, requireSuperAdmin, async (req: 
     }
 });
 
+/**
+ * O WhatsApp de cada cliente: ligado, desligado (desde quando), ou nunca
+ * ligado — e a última mensagem que entrou. Para o dono da plataforma ligar a
+ * quem estiver parado antes que se queixe.
+ */
+router.get('/whatsapp', requireAuth, requireSuperAdmin, async (_req: AuthRequest, res: Response) => {
+    try {
+        const { AvisoWhatsAppDesligadoService } = require('../services/AvisoWhatsAppDesligadoService');
+        res.json({ success: true, numeros: await AvisoWhatsAppDesligadoService.estadoDeTodos() });
+    } catch (e: any) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 export default router;

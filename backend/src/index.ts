@@ -29,6 +29,7 @@ import { FluxoDisparoService } from './services/FluxoDisparoService';
 import { EsperaFluxoService } from './services/EsperaFluxoService';
 import { RecuperarMensagensService } from './services/RecuperarMensagensService';
 import { VigiaCanaisService } from './services/VigiaCanaisService';
+import { AvisoWhatsAppDesligadoService } from './services/AvisoWhatsAppDesligadoService';
 import documentosRoutes from './api/documentosRoutes';
 import { DocumentosService } from './services/DocumentosService';
 import { requireAuth } from './middleware/authMiddleware';
@@ -149,6 +150,12 @@ app.listen(port, () => {
   // inteiro sem uma mensagem na hora). Reinicia-os, de dia, como se fez à mão.
   setInterval(() => {
     VigiaCanaisService.vigiar().catch(console.error);
+  }, 5 * 60 * 1000);
+
+  // Números que se desligam: o dono da plataforma é avisado por email (logo, e
+  // num resumo diário às 08:00), e cada empresa vê uma faixa no ecrã das conversas.
+  setInterval(() => {
+    AvisoWhatsAppDesligadoService.vigiar().catch(console.error);
   }, 5 * 60 * 1000);
 
   // Documentos que ficaram a meio (ex: o servidor reiniciou durante a leitura
