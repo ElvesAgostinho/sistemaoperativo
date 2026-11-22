@@ -325,17 +325,20 @@ export class WhatsAppChannelManager {
 
                 const endpoint = `${evolutionUrl}/message/sendMedia/${instanceName}`;
 
-                // Evolution API v2 payload (formato correcto verificado)
+                // Os campos vão SOLTOS, ao nível de cima. O formato antigo, com
+                // tudo dentro de `mediaMessage`, era o da Evolution v1: a 2.3
+                // responde 400 "instance requires property mediatype" e NENHUMA
+                // imagem, vídeo ou documento saía — blocos dos fluxos,
+                // campanhas, anexos da conversa, comprovativos. Provado na
+                // instância de produção a 22/11/2026: com isto, 201 e entregue.
                 const payload = {
                     number: formattedPhone,
-                    options: { delay: 1200, presence: 'composing' },
-                    mediaMessage: {
-                        mediatype,
-                        mimetype,
-                        caption: caption || '',
-                        fileName,
-                        media: base64Str   // base64 puro SEM o prefixo data:...
-                    }
+                    delay: 1200,
+                    mediatype,
+                    mimetype,
+                    caption: caption || '',
+                    fileName,
+                    media: base64Str   // base64 puro SEM o prefixo data:..., ou um link http(s)
                 };
 
                 const response = await fetch(endpoint, {

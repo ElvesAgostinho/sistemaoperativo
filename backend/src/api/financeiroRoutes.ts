@@ -84,7 +84,9 @@ const fotoValida = (f: any) => {
 const erro = (res: any, err: any) => {
     const msg = err?.message || 'Erro inesperado.';
     // A tabela ainda não existe: a migração não foi corrida.
-    if (/relation .*(produtos|vendas).* does not exist|ajustar_stock_produto/i.test(msg)) {
+    // O Postgres diz "relation ... does not exist"; a API da Supabase diz
+    // "Could not find the table 'public.produtos' in the schema cache".
+    if (/relation .*(produtos|vendas).* does not exist|could not find the (table|function) .*(produtos|vendas|ajustar_stock)|ajustar_stock_produto/i.test(msg)) {
         return res.status(503).json({ success: false, error: 'O módulo de Produtos ainda não está ativo nesta instalação (falta correr a migração migration_produtos_vendas.sql).' });
     }
     res.status(400).json({ success: false, error: msg });
