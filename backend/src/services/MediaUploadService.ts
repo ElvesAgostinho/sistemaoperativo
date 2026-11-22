@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabaseClient';
 
 export type TipoMedia = 'imagem' | 'video' | 'audio' | 'documento';
-export type Pasta = 'workflows' | 'campanhas' | 'conhecimento' | 'documentos';
+export type Pasta = 'workflows' | 'campanhas' | 'conhecimento' | 'documentos' | 'produtos';
 
 /**
  * Guarda multimédia enviada pelo utilizador (nós do Autopilot, campanhas) no

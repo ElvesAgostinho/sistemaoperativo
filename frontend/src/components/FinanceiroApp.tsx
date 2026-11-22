@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
 import ConfiguracaoProforma from './settings/ConfiguracaoProforma';
+import ProdutosTab from './financeiro/ProdutosTab';
 import './FinanceiroApp.css';
 
 const authFetch = (url: string, options: any = {}) => {
@@ -21,13 +22,27 @@ function formatKz(value: number) {
 
 const CATEGORIAS: Record<'entrada' | 'saida', string[]> = {
   entrada: ['Vendas', 'Serviços Prestados', 'Outras Receitas'],
-  saida: ['Salários', 'Fornecedores', 'Renda', 'Impostos', 'Marketing', 'Equipamento', 'Água / Luz / Internet', 'Outras Despesas'],
+  saida: ['Salários', 'Fornecedores', 'Compra de mercadoria', 'Renda', 'Impostos', 'Marketing', 'Equipamento', 'Água / Luz / Internet', 'Outras Despesas'],
 };
+
+/** Abre um anexo do armazenamento privado (link temporário pedido na hora). */
+async function abrirAnexoPrivado(caminho: string) {
+  const janela = window.open('', '_blank');
+  try {
+    const r = await authFetch(`${API}/api/financeiro/ficheiro?caminho=${encodeURIComponent(caminho)}`);
+    const d = await r.json();
+    if (!d.success) throw new Error(d.error);
+    if (janela) janela.location.href = d.url; else window.location.href = d.url;
+  } catch (e: any) {
+    janela?.close();
+    alert(e.message || 'Não foi possível abrir o anexo.');
+  }
+}
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 export default function FinanceiroApp() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'transacoes' | 'salarios' | 'avancado' | 'documentos'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'transacoes' | 'produtos' | 'salarios' | 'avancado' | 'documentos'>('dashboard');
 
   return (
     <div className="fin-modern">
@@ -39,6 +54,7 @@ export default function FinanceiroApp() {
         <div className="fin-pillnav">
           <button className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => setActiveTab('dashboard')}>Visão Geral</button>
           <button className={activeTab === 'transacoes' ? 'active' : ''} onClick={() => setActiveTab('transacoes')}>Transações</button>
+          <button className={activeTab === 'produtos' ? 'active' : ''} onClick={() => setActiveTab('produtos')}>Produtos e Vendas</button>
           <button className={activeTab === 'salarios' ? 'active' : ''} onClick={() => setActiveTab('salarios')}>Salários</button>
           <button className={activeTab === 'avancado' ? 'active' : ''} onClick={() => setActiveTab('avancado')}>Avançado</button>
           <button className={activeTab === 'documentos' ? 'active' : ''} onClick={() => setActiveTab('documentos')}>Documentos</button>
@@ -48,6 +64,7 @@ export default function FinanceiroApp() {
       <div className="fin-body">
         {activeTab === 'dashboard' && <DashboardTab onIrParaTransacoes={() => setActiveTab('transacoes')} />}
         {activeTab === 'transacoes' && <TransacoesTab />}
+        {activeTab === 'produtos' && <ProdutosTab />}
         {activeTab === 'salarios' && <SalariosTab />}
         {activeTab === 'avancado' && <AvancadoTab />}
         {activeTab === 'documentos' && (
@@ -274,7 +291,11 @@ function TransacoesTab() {
                 <td><span className="fin-tag">{t.categoria}</span></td>
                 <td>{t.descricao || '—'}</td>
                 <td>
-                  {t.anexo_path ? (
+                  {t.anexo_path && String(t.anexo_path).startsWith('documentos:') ? (
+                    // As faturas das compras de produtos ficam no armazenamento
+                    // privado: pede-se um link temporário na hora.
+                    <button className="fin-attach-link" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }} onClick={() => abrirAnexoPrivado(t.anexo_path)}><Paperclip size={12} /> Ver</button>
+                  ) : t.anexo_path ? (
                     <a className="fin-attach-link" href={`${API}${t.anexo_path}`} target="_blank" rel="noreferrer"><Paperclip size={12} /> Ver</a>
                   ) : '—'}
                 </td>

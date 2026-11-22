@@ -492,6 +492,126 @@ Esta declaração é emitida a pedido do(a) interessado(a) para os fins que se m
         });
     }
 
+    /**
+     * Comprovativo de venda (Produtos e Vendas, no Financeiro).
+     *
+     * NÃO é uma fatura e diz isso em destaque, logo por baixo do título: é o
+     * registo interno da venda, que o dono guarda e pode dar ao cliente se
+     * quiser. Devolve o PDF em memória — quem chama guarda-o no bucket privado
+     * (o disco do servidor apaga-se a cada publicação).
+     */
+    public static async gerarComprovativoVendaPdf(
+        venda: { id: number; numero: number; data: string; cliente_nome?: string | null; cliente_telefone?: string | null; forma_pagamento?: string | null; total: number },
+        itens: Array<{ produto_nome: string; quantidade: number; preco_unitario: number; total: number }>,
+        empresaId?: string | number
+    ): Promise<Buffer> {
+        const confMap = await PdfService.getCompanyConfig(empresaId as any);
+
+        return new Promise((resolve, reject) => {
+            try {
+                const doc = new PDFDocument(OPCOES_PDF);
+                const partes: Buffer[] = [];
+                doc.on('data', (c: Buffer) => partes.push(c));
+                doc.on('error', reject);
+
+                if (confMap['COMPANY_LOGO_BASE64']) {
+                    PdfService.applyCompanyLogo(doc, confMap['COMPANY_LOGO_BASE64'], confMap['COMPANY_LOGO_POSITION'] || 'top-left');
+                }
+
+                const largura = doc.page.width - 100;
+                const companyName = confMap['COMPANY_NAME'] || 'A minha empresa';
+                const linhaEmpresa = [
+                    confMap['COMPANY_ADDRESS'],
+                    confMap['COMPANY_NIF'] ? `NIF: ${confMap['COMPANY_NIF']}` : null,
+                    confMap['COMPANY_PHONE'] ? `Tel: ${confMap['COMPANY_PHONE']}` : null,
+                    confMap['COMPANY_EMAIL'],
+                ].filter(Boolean).join(' | ');
+
+                doc.rect(50, 40, largura, 80).fill('#f8f9fa');
+                doc.strokeColor('#dee2e6').lineWidth(1).rect(50, 40, largura, 80).stroke();
+                doc.fillColor('#212529').fontSize(20).font('Helvetica-Bold').text(companyName, 70, 58, { width: largura - 40 });
+                if (linhaEmpresa) doc.fontSize(9.5).font('Helvetica').fillColor('#6c757d').text(linhaEmpresa, 70, 86, { width: largura - 40 });
+
+                const numero = String(venda.numero).padStart(4, '0');
+                const dataTxt = new Date(`${venda.data}T12:00:00`).toLocaleDateString('pt-PT');
+                doc.fillColor('#0E5A6B').fontSize(16).font('Helvetica-Bold').text('COMPROVATIVO DE VENDA', 50, 142);
+                doc.fillColor('#495057').fontSize(10).font('Helvetica').text(`Nº ${numero}    ·    Data: ${dataTxt}`, 50, 163);
+
+                // O aviso vai logo a seguir ao título, onde ninguém o deixa de ler.
+                let y = 186;
+                const aviso = 'ESTE DOCUMENTO NÃO É UMA FATURA E NÃO SUBSTITUI A FATURA. Serve apenas como comprovativo da venda, sem validade fiscal.';
+                const altAviso = doc.fontSize(9.5).font('Helvetica-Bold').heightOfString(aviso, { width: largura - 24 }) + 16;
+                doc.rect(50, y, largura, altAviso).fill('#FFF4D6');
+                doc.strokeColor('#E8B84A').lineWidth(1).rect(50, y, largura, altAviso).stroke();
+                doc.fillColor('#7A4E00').fontSize(9.5).font('Helvetica-Bold').text(aviso, 62, y + 8, { width: largura - 24 });
+                y += altAviso + 16;
+
+                if (venda.cliente_nome || venda.cliente_telefone) {
+                    doc.fillColor('#495057').fontSize(9).font('Helvetica-Bold').text('CLIENTE', 50, y);
+                    const cliente = [venda.cliente_nome, venda.cliente_telefone ? `Tel: ${venda.cliente_telefone}` : null].filter(Boolean).join('   ·   ');
+                    doc.font('Helvetica').fontSize(10.5).fillColor('#212529').text(cliente, 50, y + 13, { width: largura });
+                    y += 38;
+                }
+
+                doc.rect(50, y, largura, 22).fill('#e9ecef');
+                doc.fillColor('#495057').fontSize(9).font('Helvetica-Bold');
+                doc.text('PRODUTO', 60, y + 7);
+                doc.text('QTD', 330, y + 7, { width: 50, align: 'right' });
+                doc.text('PREÇO UNIT.', 385, y + 7, { width: 90, align: 'right' });
+                doc.text('TOTAL', 480, y + 7, { width: 85, align: 'right' });
+                y += 22;
+
+                doc.font('Helvetica').fontSize(10).fillColor('#212529');
+                for (const item of itens) {
+                    const alt = Math.max(26, doc.heightOfString(item.produto_nome, { width: 260 }) + 14);
+                    if (y + alt > doc.page.height - 120) { doc.addPage(); y = 50; }
+                    doc.text(item.produto_nome, 60, y + 7, { width: 260 });
+                    doc.text(String(Number(item.quantidade)), 330, y + 7, { width: 50, align: 'right' });
+                    doc.text(PdfService.formatCurrency(Number(item.preco_unitario)), 385, y + 7, { width: 90, align: 'right' });
+                    doc.text(PdfService.formatCurrency(Number(item.total)), 480, y + 7, { width: 85, align: 'right' });
+                    doc.moveTo(50, y + alt).lineTo(doc.page.width - 50, y + alt).strokeColor('#f1f3f5').lineWidth(1).stroke();
+                    y += alt;
+                }
+
+                y += 10;
+                doc.rect(330, y, doc.page.width - 380, 34).fill('#0E5A6B');
+                doc.fillColor('#ffffff').fontSize(12).font('Helvetica-Bold');
+                doc.text('TOTAL', 345, y + 11);
+                doc.text(PdfService.formatCurrency(Number(venda.total)), 420, y + 11, { width: 145, align: 'right' });
+                y += 50;
+
+                if (venda.forma_pagamento) {
+                    doc.fillColor('#495057').fontSize(9.5).font('Helvetica').text(`Forma de pagamento: ${venda.forma_pagamento}`, 50, y);
+                }
+
+                doc.fillColor('#adb5bd').fontSize(8.5).font('Helvetica')
+                    .text('Comprovativo de venda gerado pelo sistema. Não é uma fatura e não tem validade fiscal.', 50, doc.page.height - 50, { align: 'center', width: largura });
+
+                doc.on('end', () => {
+                    const buffer = Buffer.concat(partes);
+                    // Também fica no arquivo de Documentos, se a empresa o tiver.
+                    setImmediate(async () => {
+                        try {
+                            const { DocumentosService } = require('./DocumentosService');
+                            await DocumentosService.registarGerado({
+                                empresaId, buffer, nomeFicheiro: `Comprovativo_Venda_${numero}.pdf`,
+                                titulo: `Comprovativo de venda nº ${numero}${venda.cliente_nome ? ` — ${venda.cliente_nome}` : ''}`,
+                                area: 'Financeiro', tipo: 'Comprovativo de venda',
+                                resumo: `Venda de ${Number(venda.total).toLocaleString('pt-PT')} Kz.`, origemRef: `venda-${venda.id}`,
+                            });
+                        } catch (e: any) {
+                            console.error('[PdfService] Comprovativo não registado no arquivo:', e?.message);
+                        }
+                    });
+                    resolve(buffer);
+                });
+                doc.end();
+            } catch (error) {
+                reject(error);
+            }
+        });
+    }
+
     // Ata de reunião gerada pela IA — usa o mesmo resumo/pontos-altos/pontos-baixos/
     // recomendações já guardados em reunioes (ver processarTranscricao), mais as
     // tarefas extraídas para a mesma reunião. Só desenha o PDF; a leitura dos dados
