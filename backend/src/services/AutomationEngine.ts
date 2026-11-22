@@ -57,7 +57,8 @@ const MAX_SALTOS_DE_MENU = 10;
 export interface Simulacao {
     passos: { nodeId: string; tipo: string; titulo: string; detalhe?: string }[];
     mensagens: { de: 'bot'; texto: string; tipo?: string }[];
-    pendente: { nodeId: string; contexto: any; tentativas: number } | null;
+    /** automationId: o fluxo onde a conversa ficou — pode ser outro, depois de um "Saltar para outro fluxo". */
+    pendente: { nodeId: string; contexto: any; tentativas: number; automationId?: number } | null;
     terminou: boolean;
 }
 
@@ -68,6 +69,8 @@ interface ExecOpcoes {
     automationId?: number | null;
     tentativas?: number;            // respostas inválidas já dadas no nó onde retomámos
     simulacao?: Simulacao;          // execução a seco (nada sai para o mundo real)
+    /** Preenchido pelo próprio executeGraph: o fluxo parou à espera (menu, pergunta, pausa longa). */
+    esperou?: boolean;
 }
 // Profundidade máxima de "Saltar para Outro Fluxo" encadeados (A chama B, que
 // chama C, ...). Um fluxo que precise de mais do que isto está mal desenhado.
@@ -444,7 +447,15 @@ export class AutomationEngine {
         }
     }
 
-    public static async simular(automation: any, mensagem: string, estado: { nodeId: string; contexto: any; tentativas: number } | null, contextoInicial: Record<string, any> = {}): Promise<Simulacao> {
+    public static async simular(automationPedida: any, mensagem: string, estado: { nodeId: string; contexto: any; tentativas: number; automationId?: number } | null, contextoInicial: Record<string, any> = {}): Promise<Simulacao> {
+        // A conversa pode ter ficado noutro fluxo, depois de um "Saltar para
+        // outro fluxo": a resposta continua LÁ — e só dentro da mesma empresa.
+        let automation = automationPedida;
+        if (estado?.automationId && Number(estado.automationId) !== Number(automationPedida.id)) {
+            const { data: outro } = await supabase.from('automations').select('*')
+                .eq('id', Number(estado.automationId)).eq('empresa_id', automationPedida.empresa_id).maybeSingle();
+            if (outro) automation = outro;
+        }
         const { nodes, edges } = this.parseGraph(automation);
         const sim: Simulacao = { passos: [], mensagens: [], pendente: null, terminou: false };
         const trigger = nodes.find((n: FlowNode) => n.type === 'trigger');
@@ -470,7 +481,7 @@ export class AutomationEngine {
             // do cliente) precisam dela para mostrar dados reais na simulação. Os que
             // gravam ficam travados pelo `simulacao` no executeAction.
             await this.executeGraph(nodes, edges, estado.nodeId, contextoBase, automation.empresa_id ?? null, [automation.id],
-                { mensagemDisponivel: true, tentativas: estado.tentativas || 0, simulacao: sim });
+                { mensagemDisponivel: true, tentativas: estado.tentativas || 0, simulacao: sim, automationId: Number(automation.id) });
             return sim;
         }
 
@@ -492,7 +503,7 @@ export class AutomationEngine {
             return sim;
         }
         await this.executeGraph(nodes, edges, primeira.target, contextoBase, automation.empresa_id ?? null, [automation.id],
-            { mensagemDisponivel: false, simulacao: sim });
+            { mensagemDisponivel: false, simulacao: sim, automationId: Number(automation.id) });
         return sim;
     }
 
@@ -563,7 +574,10 @@ export class AutomationEngine {
         }
 
         const { data: automation } = await supabase.from('automations').select('*').eq('id', conv.fluxo_automation_id).eq('empresa_id', empresaId).maybeSingle();
-        if (!automation || !automation.ativo) {
+        // Um fluxo desligado não retoma — exceto se a conversa lá chegou por um
+        // "Saltar para outro fluxo": esses ficam desligados de propósito.
+        const chegouPorSalto = automation && String(conv.fluxo_contexto?.__fluxo_por_salto) === String(automation.id);
+        if (!automation || (!automation.ativo && !chegouPorSalto)) {
             await this.limparEstadoFluxo(conversationId);
             return false;
         }
@@ -702,12 +716,12 @@ export class AutomationEngine {
                     }
                     voltouAoMenu = false;
                     registar(node, 'Menu: à espera da resposta');
-                    if (sim) { sim.pendente = { nodeId: node.id, contexto: context, tentativas: 0 }; return context; }
+                    if (sim) { sim.pendente = { nodeId: node.id, contexto: context, tentativas: 0, automationId: automationId ?? undefined }; opts.esperou = true; return context; }
                     if (podeEsperar) {
                         await this.guardarEstadoFluxo(conversationId!, automationId ?? null, node.id, context, 0);
                         console.log(`[AUTOPILOT] Menu ${node.id}: à espera da resposta do cliente.`);
                     }
-                    return context;
+                    opts.esperou = true; return context;
                 }
                 mensagemDisponivel = false;
                 const matchedOption = this.evaluateMenu(node.data, context);
@@ -731,9 +745,9 @@ export class AutomationEngine {
                     );
                     await this.perguntarMenu(node, context, empresa_id, sim, true, aviso);
                     registar(node, 'Menu: resposta fora das opções', `tentativa ${tentativas}`);
-                    if (sim) { sim.pendente = { nodeId: node.id, contexto: context, tentativas }; return context; }
+                    if (sim) { sim.pendente = { nodeId: node.id, contexto: context, tentativas, automationId: automationId ?? undefined }; opts.esperou = true; return context; }
                     if (podeEsperar) await this.guardarEstadoFluxo(conversationId!, automationId ?? null, node.id, context, tentativas);
-                    return context;
+                    opts.esperou = true; return context;
                 }
                 registar(node, `Menu: opção "${(matchedOption as any).label || matchedOption.id}"`);
 
@@ -781,6 +795,57 @@ export class AutomationEngine {
                     continue;
                 }
 
+                // "Saltar para outro fluxo": a conversa continua NOUTRO fluxo já
+                // feito — por exemplo, a opção "Preços" de um menu liga ao fluxo
+                // de preços. Faz-se aqui, e não no executeAction, porque o fluxo
+                // de destino tem de poder esperar respostas: um menu ou uma
+                // pergunta lá dentro guardam o ponto da conversa com o id DELE,
+                // e a resposta do cliente retoma lá. Antes saltava sem isso, e a
+                // primeira pergunta do outro fluxo ficava sem resposta.
+                if (node.data?.actionType === 'JUMP_TO_WORKFLOW') {
+                    const alvo = await this.fluxoDoSalto(node.data?.config || {}, empresa_id);
+                    if (!alvo) {
+                        registar(node, 'Saltar para outro fluxo', 'o fluxo escolhido já não existe');
+                        console.warn(`[JUMP_TO_WORKFLOW] Fluxo de destino não encontrado no nó ${node.id}.`);
+                        break;
+                    }
+                    // Travão de ciclos: sem isto, dois fluxos a saltarem um para
+                    // o outro (A→B→A) chamavam-se para sempre até derrubarem o
+                    // backend — de todas as empresas.
+                    if (cadeiaFluxos.map(Number).includes(Number(alvo.id)) || cadeiaFluxos.length >= MAX_SALTOS_ENCADEADOS) {
+                        registar(node, 'Saltar para outro fluxo', `"${alvo.nome}" já está nesta cadeia — salto ignorado`);
+                        console.warn(`[JUMP_TO_WORKFLOW] Ciclo ou limite de saltos: "${alvo.nome}" ignorado (${cadeiaFluxos.join(' → ')}).`);
+                        break;
+                    }
+                    const destino = this.parseGraph(alvo);
+                    const gatilho = destino.nodes.find((n: FlowNode) => n.type === 'trigger');
+                    const inicio = gatilho ? destino.edges.find((e: FlowEdge) => e.source === gatilho.id)?.target : undefined;
+                    if (!inicio) {
+                        registar(node, 'Saltar para outro fluxo', `"${alvo.nome}" não tem nada ligado ao gatilho`);
+                        break;
+                    }
+                    registar(node, `Saltar para o fluxo "${alvo.nome}"`);
+                    console.log(`[JUMP_TO_WORKFLOW] A conversa continua no fluxo "${alvo.nome}".`);
+                    // O fluxo de destino pode estar desligado — muitas vezes está,
+                    // para não atender toda a gente sozinho. A marca deixa a
+                    // resposta do cliente retomá-lo na mesma.
+                    context.__fluxo_por_salto = alvo.id;
+                    const optsDestino: ExecOpcoes = { mensagemDisponivel: false, conversationId, automationId: Number(alvo.id), simulacao: sim };
+                    context = await this.executeGraph(destino.nodes, destino.edges, inicio, context, alvo.empresa_id ?? empresa_id,
+                        [...cadeiaFluxos, Number(alvo.id)], optsDestino);
+
+                    // O outro fluxo parou numa pergunta: a conversa fica LÁ, e a
+                    // resposta retoma lá. Este fluxo acaba aqui.
+                    if (optsDestino.esperou) { opts.esperou = true; return context; }
+
+                    // Correu até ao fim sem perguntar nada: é um sub-fluxo, e
+                    // este continua a seguir ao salto — como sempre fez.
+                    delete context.__fluxo_por_salto;
+                    if (sim) sim.terminou = false;
+                    currentNodeId = edges.find(e => e.source === node.id)?.target;
+                    continue;
+                }
+
                 // "Aguardar resposta": pára aqui e continua na mensagem seguinte.
                 // Uma pausa longa não pode ser um temporizador em memória: bastava
                 // uma publicação de código a meio para o resto do fluxo nunca
@@ -803,7 +868,7 @@ export class AutomationEngine {
                         });
                         if (guardada) {
                             console.log(`[AUTOPILOT] Fluxo em pausa de ${this.pausaPorExtenso(segundos)}; continua no bloco ${seguinte}.`);
-                            return context;
+                            opts.esperou = true; return context;
                         }
                         // Não foi possível guardar (migração por correr, por exemplo):
                         // mais vale esperar o máximo que se consegue do que saltar
@@ -832,12 +897,12 @@ export class AutomationEngine {
                         const pergunta = node.data?.config?.mensagem;
                         if (pergunta) await this.responderNoWhatsApp(context, this.parseString(pergunta, context), sim);
                         registar(node, 'Aguardar resposta do cliente');
-                        if (sim) { sim.pendente = { nodeId: node.id, contexto: context, tentativas: 0 }; return context; }
+                        if (sim) { sim.pendente = { nodeId: node.id, contexto: context, tentativas: 0, automationId: automationId ?? undefined }; opts.esperou = true; return context; }
                         if (podeEsperar) {
                             await this.guardarEstadoFluxo(conversationId!, automationId ?? null, node.id, context, 0);
                             console.log(`[AUTOPILOT] Aguardar resposta no nó ${node.id}.`);
                         }
-                        return context;
+                        opts.esperou = true; return context;
                     }
                     // Retomámos aqui: a mensagem do cliente é a resposta.
                     mensagemDisponivel = false;
@@ -1221,6 +1286,32 @@ export class AutomationEngine {
             .trim().toLowerCase();
         const m = /^(?:opcao|op\.?|n\.?º?|numero)?\s*(\d{1,2})\s*[.)ºª-]?$/.exec(t);
         return m ? Number(m[1]) : null;
+    }
+
+    /**
+     * O fluxo para onde um "Saltar para outro fluxo" vai.
+     *
+     * Pelo id, que não muda quando se muda o nome. Os nós antigos só guardavam
+     * o nome — continuam a funcionar por ele. O destino NÃO tem de estar
+     * ligado: um fluxo de continuação costuma estar desligado, para não
+     * atender toda a gente sozinho.
+     */
+    private static async fluxoDoSalto(config: any, empresaId: any): Promise<any | null> {
+        if (!empresaId) return null;
+        try {
+            if (config?.target_workflow_id) {
+                const { data } = await supabase.from('automations').select('*')
+                    .eq('id', Number(config.target_workflow_id)).eq('empresa_id', empresaId).maybeSingle();
+                if (data) return data;
+            }
+            const nome = String(config?.target_workflow_nome || '').trim();
+            if (!nome) return null;
+            const { data } = await supabase.from('automations').select('*')
+                .eq('nome', nome).eq('empresa_id', empresaId).order('id', { ascending: true }).limit(1).maybeSingle();
+            return data || null;
+        } catch {
+            return null;
+        }
     }
 
     /**
@@ -1630,50 +1721,8 @@ export class AutomationEngine {
                 break;
             }
 
-            case 'JUMP_TO_WORKFLOW': {
-                const targetName = config.target_workflow_nome;
-                if (targetName) {
-                    try {
-                        // .limit(1).maybeSingle() em vez de .single(): os nomes das
-                        // automações não são únicos, e o .single() rebentava (e o
-                        // salto era silenciosamente ignorado) sempre que existissem
-                        // dois fluxos com o mesmo nome. O .order fixa qual deles é
-                        // escolhido, em vez de depender da ordem do Postgres.
-                        let targetQuery = supabase.from('automations').select('*').eq('nome', targetName).eq('ativo', true);
-                        if (empresa_id) targetQuery = targetQuery.eq('empresa_id', empresa_id);
-                        const { data: targetAuto } = await targetQuery.order('id', { ascending: true }).limit(1).maybeSingle();
-
-                        if (!targetAuto) {
-                            console.warn(`[JUMP_TO_WORKFLOW] Automação alvo não encontrada ou inativa: ${targetName}`);
-                            break;
-                        }
-
-                        // Travão de ciclos: sem isto, dois fluxos a saltarem um para o
-                        // outro (A→B→A) chamavam-se recursivamente para sempre até
-                        // esgotarem a memória e derrubarem o backend — de todas as
-                        // empresas, não só de quem configurou o ciclo.
-                        if (cadeiaFluxos.includes(targetAuto.id)) {
-                            console.warn(`[JUMP_TO_WORKFLOW] Ciclo detetado: "${targetName}" já está nesta cadeia de saltos (${cadeiaFluxos.join(' → ')}). Salto ignorado.`);
-                            break;
-                        }
-                        if (cadeiaFluxos.length >= MAX_SALTOS_ENCADEADOS) {
-                            console.warn(`[JUMP_TO_WORKFLOW] Limite de ${MAX_SALTOS_ENCADEADOS} saltos encadeados atingido. Salto para "${targetName}" ignorado.`);
-                            break;
-                        }
-
-                        console.log(`[JUMP_TO_WORKFLOW] A saltar para a automação: ${targetName}`);
-                        const { nodes: targetNodes, edges: targetEdges } = this.parseGraph(targetAuto);
-                        const targetTrigger = targetNodes.find(n => n.type === 'trigger');
-                        const targetFirstEdge = targetTrigger ? targetEdges.find(e => e.source === targetTrigger.id) : undefined;
-                        if (targetFirstEdge) {
-                            await this.executeGraph(targetNodes, targetEdges, targetFirstEdge.target, context, targetAuto.empresa_id, [...cadeiaFluxos, targetAuto.id]);
-                        }
-                    } catch (e) {
-                        console.error(`Erro ao saltar para workflow ${targetName}:`, e);
-                    }
-                }
-                break;
-            }
+            // JUMP_TO_WORKFLOW corre no executeGraph: o fluxo de destino precisa
+            // de poder esperar respostas, e isso só existe lá.
 
             case 'SEND_EMAIL': {
                 const emailTo = this.parseString(config.para || config.to, context);

@@ -700,13 +700,27 @@ export default function NodeConfigPanel({ node, todosOsNos = [], automations, cu
 
           {d.actionType === 'JUMP_TO_WORKFLOW' && (
             <>
-              <label style={labelStyle}>Fluxo Alvo</label>
-              <select style={fieldStyle} value={config.target_workflow_nome || ''} onChange={e => updateConfig({ target_workflow_nome: e.target.value })}>
+              <label style={labelStyle}>Continuar no fluxo</label>
+              {/* Guarda-se o id: mudar o nome do outro fluxo já não parte a
+                  ligação. Os nós antigos só tinham o nome — encontram-se por ele. */}
+              <select
+                style={fieldStyle}
+                value={String(config.target_workflow_id || automations.find(a => a.nome === config.target_workflow_nome)?.id || '')}
+                onChange={e => {
+                  const alvo = automations.find(a => String(a.id) === e.target.value);
+                  updateConfig({ target_workflow_id: alvo ? alvo.id : undefined, target_workflow_nome: alvo ? alvo.nome : '' });
+                }}
+              >
                 <option value="">Selecione um fluxo...</option>
                 {automations.filter(a => a.id !== currentAutomationId).map(a => (
-                  <option key={a.id} value={a.nome}>{a.nome}</option>
+                  <option key={a.id} value={String(a.id)}>{a.nome}{a.ativo ? '' : ' (desligado)'}</option>
                 ))}
               </select>
+              <div style={{ fontSize: '11px', color: '#666', marginTop: '6px', lineHeight: 1.55 }}>
+                Ligue aqui uma opção de um menu (ou qualquer nó). A conversa continua no início desse fluxo, e os menus e perguntas dele funcionam normalmente.
+                <br /><br />
+                O fluxo de destino <b>pode ficar desligado</b> (ou com "Só quando eu mandar") — assim só corre quando chega por aqui, e não responde sozinho a toda a gente.
+              </div>
             </>
           )}
 

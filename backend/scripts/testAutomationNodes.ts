@@ -362,6 +362,52 @@ async function testGraphNodes() {
         assert(sentWhatsApp.length === 1, `devia ser UMA mensagem, foram ${sentWhatsApp.length}`);
     });
 
+    // "Saltar para outro fluxo": a opção do menu liga a um fluxo já feito.
+    const fluxoDestino = (extra: any = {}) => ({
+        id: 99, nome: 'Fluxo de preços', empresa_id: 'empresa-mock-1', ativo: false,
+        nodes: JSON.stringify([
+            { id: 't', type: 'trigger', data: { triggerKind: 'manual' } },
+            { id: 'mp', type: 'menu', data: { variable: '{{mensagem}}', pergunta: 'Que quarto?', options: [{ id: 's', label: 'Simples' }, { id: 'd', label: 'Duplo' }] } },
+        ]),
+        edges: JSON.stringify([{ id: 'e', source: 't', target: 'mp' }]),
+        ...extra,
+    });
+    const menuComSalto = () => ({
+        nodes: [
+            { id: 'm1', type: 'menu', data: { variable: '{{mensagem}}', options: [{ id: 'precos', label: 'Ver preços' }] } },
+            { id: 'j', type: 'action', data: { actionType: 'JUMP_TO_WORKFLOW', config: { target_workflow_id: 99, target_workflow_nome: 'nome antigo' } } },
+        ],
+        edges: [{ id: 'e1', source: 'm1', target: 'j', sourceHandle: 'precos' }],
+    });
+
+    await test('SALTO: a opção do menu continua noutro fluxo, mesmo desligado', async () => {
+        activeResponses['automations:select'] = { data: fluxoDestino(), error: null };
+        const { nodes, edges } = menuComSalto();
+        await runGraph(nodes, edges, 'm1', { mensagem: '1', telefone: '244900000000', channel_id: 'chan-1' }, 'empresa-mock-1',
+            { mensagemDisponivel: true, conversationId: 'conv-1', automationId: 1 });
+        const t = sentWhatsApp.map(m => m.content).join(' || ');
+        assert(/Que quarto\?/.test(t) && /1 - Simples/.test(t), `devia ter perguntado o menu do outro fluxo: ${t}`);
+    });
+
+    await test('SALTO: a pergunta do outro fluxo fica à espera NELE (a resposta retoma lá)', async () => {
+        activeResponses['automations:select'] = { data: fluxoDestino(), error: null };
+        const { nodes, edges } = menuComSalto();
+        await runGraph(nodes, edges, 'm1', { mensagem: '1', telefone: '244900000000', channel_id: 'chan-1' }, 'empresa-mock-1',
+            { mensagemDisponivel: true, conversationId: 'conv-1', automationId: 1 });
+        const estado = callLog.find(c => c.table === 'wa_conversations' && c.op === 'update' && c.payload?.fluxo_node_id);
+        assert(estado, 'devia ter guardado o ponto da conversa');
+        assert(estado.payload.fluxo_automation_id === 99 && estado.payload.fluxo_node_id === 'mp', `devia esperar no menu do fluxo 99: ${JSON.stringify(estado.payload)}`);
+        assert(estado.payload.fluxo_contexto?.__fluxo_por_salto === 99, 'a marca do salto deixa retomar um fluxo desligado');
+    });
+
+    await test('SALTO: não entra em ciclo (A → B → A)', async () => {
+        activeResponses['automations:select'] = { data: fluxoDestino({ id: 1 }), error: null };
+        const { nodes, edges } = menuComSalto();
+        await Engine.executeGraph(nodes, edges, 'm1', { mensagem: '1', telefone: '244900000000', channel_id: 'chan-1' }, 'empresa-mock-1', [1],
+            { mensagemDisponivel: true });
+        assert(!sentWhatsApp.some(m => /Que quarto/.test(m.content)), 'não devia ter voltado a entrar no fluxo 1');
+    });
+
     await test('ADD_TAG / REMOVE_TAG lê e junta tags corretamente', async () => {
         activeResponses['clientes:select'] = { data: { tags: ['antigo'], custom_fields: {} }, error: null };
         const nodes = [{ id: 'a1', type: 'action', data: { actionType: 'ADD_TAG', config: { tag: 'vip, interessado' } } }];
