@@ -376,6 +376,44 @@ async function testGraphNodes() {
         assert(sentWhatsApp.length === 1, `devia ser UMA mensagem, foram ${sentWhatsApp.length}`);
     });
 
+    // Como se escreve no editor, visto num fluxo de cliente: vários valores
+    // por opção, separados por ";", e um ";" a mais no fim do rótulo.
+    const menuComVarios = () => ([
+        { id: 'm1', type: 'menu', data: { variable: '{{mensagem}}', pergunta: 'Escolha', options: [
+            { id: 'arb', label: 'Pacote Basico;', matchValue: '1; 01; Pacote Basico;' },
+            { id: 'cpf', label: 'Marcar visita;', matchValue: '2; 02; Marcar visita' },
+            { id: 'div', label: 'Pedir orcamento;', matchValue: '3; 03; Pedir orcamento' },
+        ] } },
+        { id: 'ra', type: 'action', data: { actionType: 'REPLY_MESSAGE', config: { mensagem: 'ARB' } } },
+        { id: 'rc', type: 'action', data: { actionType: 'REPLY_MESSAGE', config: { mensagem: 'CPF' } } },
+        { id: 'rd', type: 'action', data: { actionType: 'REPLY_MESSAGE', config: { mensagem: 'DIV' } } },
+    ]);
+    const ligaVarios = [
+        { id: 'e1', source: 'm1', target: 'ra', sourceHandle: 'arb' },
+        { id: 'e2', source: 'm1', target: 'rc', sourceHandle: 'cpf' },
+        { id: 'e3', source: 'm1', target: 'rd', sourceHandle: 'div' },
+    ];
+
+    await test('MENU: vários valores numa opção ("1; 01; Pacote Basico") — qualquer um serve', async () => {
+        for (const [escrito, esperado] of [['01', 'ARB'], ['Pacote Basico', 'ARB'], ['02', 'CPF'], ['quero pedir orcamento', 'DIV'], ['3', 'DIV']]) {
+            sentWhatsApp.length = 0;
+            await runGraph(menuComVarios(), ligaVarios, 'm1', ctxMenu(escrito), 'empresa-mock-1', COMO_RESPOSTA);
+            assert(sentWhatsApp.map(m => m.content).join() === esperado, `"${escrito}" devia dar ${esperado}, deu: ${sentWhatsApp.map(m => m.content).join(' | ')}`);
+        }
+    });
+
+    await test('MENU: um número dentro de outro não conta ("10" não é a opção "1")', async () => {
+        await runGraph(menuComVarios(), ligaVarios, 'm1', ctxMenu('10'), 'empresa-mock-1', COMO_RESPOSTA);
+        assert(!sentWhatsApp.some(m => ['ARB', 'CPF', 'DIV'].includes(m.content)), `não devia escolher: ${sentWhatsApp.map(m => m.content).join(' | ')}`);
+    });
+
+    await test('MENU: o ";" a mais no fim do rótulo não aparece ao cliente', async () => {
+        activeResponses['wa_channels:select'] = { data: { id: 'chan-1' }, error: null };
+        await runGraph(menuComVarios(), ligaVarios, 'm1', ctxMenu('olá'), 'empresa-mock-1', {});
+        const t = sentWhatsApp.map(m => m.content).join(' || ');
+        assert(/1 - Pacote Basico\n/.test(t + '\n') && !/Basico;/.test(t), `rótulo mal mostrado: ${t}`);
+    });
+
     await test('MENU: à terceira resposta errada, sem saída "sem resposta", despede-se e liberta a conversa', async () => {
         // Antes repetia o menu para sempre: quem queria falar de outra coisa
         // ficava preso, a levar "Não percebi" a cada mensagem.

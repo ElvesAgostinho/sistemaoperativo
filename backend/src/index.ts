@@ -28,6 +28,7 @@ import { EmailCampaignService } from './services/EmailCampaignService';
 import { FluxoDisparoService } from './services/FluxoDisparoService';
 import { EsperaFluxoService } from './services/EsperaFluxoService';
 import { RecuperarMensagensService } from './services/RecuperarMensagensService';
+import { VigiaCanaisService } from './services/VigiaCanaisService';
 import documentosRoutes from './api/documentosRoutes';
 import { DocumentosService } from './services/DocumentosService';
 import { requireAuth } from './middleware/authMiddleware';
@@ -143,6 +144,12 @@ app.listen(port, () => {
   setInterval(() => {
     RecuperarMensagensService.recuperar().catch(console.error);
   }, 2 * 60 * 1000);
+
+  // Números "ligados" que deixaram de receber (aconteceu a 22/11: um dia
+  // inteiro sem uma mensagem na hora). Reinicia-os, de dia, como se fez à mão.
+  setInterval(() => {
+    VigiaCanaisService.vigiar().catch(console.error);
+  }, 5 * 60 * 1000);
 
   // Documentos que ficaram a meio (ex: o servidor reiniciou durante a leitura
   // por IA) retomam sozinhos; o intervalo apanha tambem os que entram por

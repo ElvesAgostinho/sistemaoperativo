@@ -101,6 +101,34 @@ async function test(nome: string, fn: () => Promise<void>) {
         assert(tratadas[0].id === 'velha', 'pela ordem em que foram enviadas');
     });
 
+    await test('um lead de há 2 horas a quem ninguém respondeu é atendido agora (só a última mensagem dele)', async () => {
+        // O número esteve preso o dia todo: o lead escreveu, insistiu, e
+        // ninguém lhe respondeu. Quando a mensagem finalmente chega, o fluxo
+        // tem de lhe responder — tarde é melhor do que nunca.
+        chats = [chat('L@s.whatsapp.net', 30)];
+        mensagensPorJid['L@s.whatsapp.net'] = [msg('lead-1', 'L@s.whatsapp.net', 3 * 3600), msg('lead-2', 'L@s.whatsapp.net', 2 * 3600)];
+        await R.recuperarCanal(CANAL, 30 * 60);
+        assert(tratadas.find(t => t.id === 'lead-1')?.soGuardar === true, 'a primeira só entra na conversa');
+        assert(tratadas.find(t => t.id === 'lead-2')?.soGuardar === false, 'a última leva a resposta do fluxo');
+    });
+
+    await test('se alguém já lhe respondeu depois (o sistema ou pelo telemóvel), o fluxo não volta a responder', async () => {
+        chats = [chat('L@s.whatsapp.net', 30)];
+        mensagensPorJid['L@s.whatsapp.net'] = [
+            msg('lead-1', 'L@s.whatsapp.net', 2 * 3600),
+            msg('resposta', 'L@s.whatsapp.net', 3600, { key: { fromMe: true } }),
+        ];
+        await R.recuperarCanal(CANAL, 30 * 60);
+        assert(tratadas.length === 1 && tratadas[0].soGuardar === true, JSON.stringify(tratadas));
+    });
+
+    await test('um lead de há mais de 6 horas só entra na conversa (quem atende já o vê)', async () => {
+        chats = [chat('L@s.whatsapp.net', 30)];
+        mensagensPorJid['L@s.whatsapp.net'] = [msg('lead-velho', 'L@s.whatsapp.net', 8 * 3600)];
+        await R.recuperarCanal(CANAL, 30 * 60);
+        assert(tratadas[0]?.soGuardar === true, JSON.stringify(tratadas));
+    });
+
     await test('o que já está no sistema não volta a entrar', async () => {
         tabela('wa_messages').push({ message_id: 'ja-tem' });
         chats = [chat('A@s.whatsapp.net', 30)];

@@ -14,7 +14,8 @@ import { WhatsAppLidService } from './WhatsAppLidService';
  * De 2 em 2 minutos, para cada número ligado: as conversas mexidas há pouco
  * são comparadas com o que o sistema tem, e o que falta entra pelo MESMO
  * caminho do webhook. Uma mensagem com até 10 minutos é tratada como se
- * tivesse acabado de chegar (os fluxos respondem); mais antiga, só entra na
+ * tivesse acabado de chegar (os fluxos respondem). Um lead de há menos de 6
+ * horas a quem ninguém respondeu também é atendido. O resto só entra na
  * conversa — responder agora a uma mensagem de ontem seria fora de tempo.
  *
  * E as conversas "…@lid" (contactos que vieram sem número) juntam-se à do
@@ -25,6 +26,7 @@ const PRIMEIRA_JANELA_S = 3 * 86400;   // a primeira passagem, depois de publica
 const JANELA_S = 30 * 60;              // depois, as conversas mexidas na última meia hora
 const IDADE_MAXIMA_S = 3 * 86400;      // nunca vai buscar mais atrás do que isto
 const RESPONDER_ATE_S = 10 * 60;       // até aqui, os fluxos ainda respondem
+const LEAD_SEM_RESPOSTA_S = 6 * 3600;  // um lead que ninguém atendeu ainda é atendido até 6 h depois
 
 type Tratar = (msg: any, instancia: string, opcoes: { soGuardar?: boolean; aguardar?: boolean }) => Promise<boolean>;
 
@@ -91,7 +93,11 @@ export class RecuperarMensagensService {
         let recuperadas = 0;
         for (const ch of recentes) {
             const d = await this.evolution(`/chat/findMessages/${instancia}`, { where: { key: { remoteJid: ch.remoteJid } }, limit: 40, page: 1 });
-            const registos: any[] = (d?.messages?.records || [])
+            const todos: any[] = d?.messages?.records || [];
+            // A última vez que alguém respondeu a este contacto — o sistema, ou
+            // a pessoa pelo telemóvel (que fica gravado na Evolution na mesma).
+            const ultimaResposta = Math.max(0, ...todos.filter((m: any) => m?.key?.fromMe).map((m: any) => Number(m.messageTimestamp) || 0));
+            const registos: any[] = todos
                 // Só o que ENTROU: o que o sistema enviou está gravado com outro
                 // identificador, e trazê-lo outra vez seria duplicar a conversa.
                 .filter((m: any) => m?.key?.id && !m.key.fromMe && Number(m.messageTimestamp) >= agora - IDADE_MAXIMA_S);
@@ -111,10 +117,20 @@ export class RecuperarMensagensService {
                 .filter(m => !gravadas.has(m.key.id))
                 .sort((a, b) => Number(a.messageTimestamp) - Number(b.messageTimestamp));
 
+            // Um lead que escreveu há umas horas e a quem NINGUÉM respondeu
+            // (nem o sistema, nem a pessoa pelo telemóvel) é atendido agora: uma
+            // resposta tardia é melhor do que nenhuma. Só a última mensagem dele,
+            // para o fluxo arrancar uma vez — as anteriores entram na conversa.
+            const ultimaEmFalta = emFalta[emFalta.length - 1];
+            const leadSemResposta = !!ultimaEmFalta
+                && agora - Number(ultimaEmFalta.messageTimestamp) <= LEAD_SEM_RESPOSTA_S
+                && ultimaResposta < Number(ultimaEmFalta.messageTimestamp);
+
             for (const m of emFalta) {
                 const idade = agora - Number(m.messageTimestamp);
+                const responder = idade <= RESPONDER_ATE_S || (leadSemResposta && m === ultimaEmFalta);
                 try {
-                    if (await this.tratar(m, instancia, { soGuardar: idade > RESPONDER_ATE_S, aguardar: true })) recuperadas++;
+                    if (await this.tratar(m, instancia, { soGuardar: !responder, aguardar: true })) recuperadas++;
                 } catch (e: any) {
                     console.error(`[Recuperar] Mensagem ${m.key.id}:`, e?.message || e);
                 }

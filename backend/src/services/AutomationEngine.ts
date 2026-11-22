@@ -1288,12 +1288,24 @@ export class AutomationEngine {
             if (n >= 1 && n <= ordem.length) return ordem[n - 1].original;
         }
 
-        const exact = options.find(opt => opt.matchValue && mensagem === this.normalizarTexto(opt.matchValue));
+        // Vários valores numa opção: "1; 01; Pacote Basico". É assim que
+        // as pessoas os escrevem no editor (visto num fluxo de cliente), e o
+        // valor inteiro, lido como uma palavra só, nunca batia com nada.
+        const palavras = (opt: any) => String(opt.matchValue || '').split(/[;,|\n]+/)
+            .map(p => this.normalizarTexto(p)).filter(Boolean);
+        const exact = options.find(opt => palavras(opt).includes(mensagem));
         if (exact) return exact;
         // Também aceita a etiqueta escrita por extenso ("preços" em vez de "1").
-        const porEtiqueta = options.find(opt => opt.label && this.normalizarTexto(opt.label) === mensagem);
+        const porEtiqueta = options.find(opt => opt.label && AutomationEngine.semPontuacaoFinal(this.normalizarTexto(opt.label)) === mensagem);
         if (porEtiqueta) return porEtiqueta;
-        return options.find(opt => opt.matchValue && mensagem.includes(this.normalizarTexto(opt.matchValue)));
+        // "Contém": só palavras. Um número contido noutro ("1" em "10") não é
+        // escolher a opção 1.
+        return options.find(opt => palavras(opt).some(p => !/^\d+$/.test(p) && mensagem.includes(p)));
+    }
+
+    /** "Pacote Basico;" → "Pacote Basico". */
+    private static semPontuacaoFinal(t: string): string {
+        return String(t || '').replace(/[\s;,.|]+$/, '').trim();
     }
 
     /**
@@ -1374,7 +1386,8 @@ export class AutomationEngine {
                 // que volta no toque — por isso acerta sempre, sem depender de
                 // maiúsculas, acentos ou de dois rótulos parecidos.
                 id: String(o.id || o.matchValue || i + 1),
-                rotulo: this.parseString(String(o.label || o.matchValue || `Opção ${i + 1}`), context),
+                // Sem o ";" que às vezes fica no fim ("Pacote Basico;").
+                rotulo: AutomationEngine.semPontuacaoFinal(this.parseString(String(o.label || o.matchValue || `Opção ${i + 1}`), context)),
                 descricao: o.descricao ? this.parseString(String(o.descricao), context) : undefined,
                 // Agrupa as opções sob um título. Quem não puser nada fica com
                 // um grupo só, que é o que havia antes.
