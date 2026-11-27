@@ -114,31 +114,28 @@ export const adicionarFragmentoTranscricao = async (req: Request, res: Response)
     }
 };
 
-// NÃO fica dentro de /tmp (essa pasta é servida publicamente por express.static
-// em index.ts) — áudio de reunião é sensível, não deve ficar acessível a quem
-// adivinhar o nome do ficheiro.
-const gravacaoStorage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const dir = path.join(__dirname, '..', '..', 'gravacoes_reunioes');
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        cb(null, dir);
-    },
-    filename: (req, file, cb) => cb(null, `${req.params.id}_${Date.now()}.webm`)
-});
-const uploadGravacao = multer({ storage: gravacaoStorage, limits: { fileSize: 100 * 1024 * 1024 } });
+// Cada PARTE da gravação (4 minutos, ver gravadorSegmentado.ts no frontend)
+// chega aqui assim que fica pronta. Fica no bucket privado da Supabase e não no
+// disco do servidor: o disco apaga-se a cada publicação, e uma reunião de uma
+// hora pode atravessar uma.
+const uploadGravacao = multer({ storage: multer.memoryStorage(), limits: { fileSize: 30 * 1024 * 1024 } });
+
+const TIPOS_GRAVACAO = ['host', 'convidado', 'sala'];
 
 /**
- * Recebe o áudio gravado no navegador de UM participante (o seu próprio
- * microfone, via MediaRecorder — ver MeetingRoom.tsx) no fim da chamada. Mesmo
- * modelo de confiança sem autenticação de adicionarFragmentoTranscricao acima:
- * protegido só pelo UUID aleatório da reunião.
+ * Recebe uma parte do áudio de UM participante — o microfone dele, ou (do
+ * anfitrião) o som da chamada inteira, "sala". Sem autenticação, como os
+ * fragmentos de transcrição acima: protegido pelo UUID aleatório da reunião.
+ *
+ * `inicio_em` é a hora real (ms) a que a parte começou: é por ela que as falas
+ * de várias pessoas ficam pela ordem certa na ata. Vai no nome do ficheiro.
  */
 export const receberGravacao = [uploadGravacao.single('audio'), async (req: Request, res: Response) => {
     try {
         const id = req.params.id;
         const { participante_nome, participante_tipo } = req.body;
 
-        if (!req.file) {
+        if (!req.file || !req.file.buffer?.length) {
             return res.status(400).json({ success: false, error: 'Ficheiro de áudio em falta.' });
         }
 
@@ -148,16 +145,37 @@ export const receberGravacao = [uploadGravacao.single('audio'), async (req: Requ
             .eq('id', id)
             .single();
         if (reuniaoErr || !reuniao) {
-            fs.unlink(req.file.path, () => {});
             return res.status(404).json({ success: false, error: 'Reunião não encontrada.' });
+        }
+
+        const tipo = TIPOS_GRAVACAO.includes(participante_tipo) ? participante_tipo : 'convidado';
+        // A hora de início, se for credível (até um dia para trás); senão, agora.
+        const pedida = Number(req.body?.inicio_em);
+        const inicio = Number.isFinite(pedida) && pedida > Date.now() - 86400000 && pedida <= Date.now() + 60000 ? Math.round(pedida) : Date.now();
+        // A extensão diz à transcrição o formato: o iPhone grava em MP4, não WebM.
+        const mime = String(req.file.mimetype || '');
+        const ext = /mp4|m4a|aac/.test(mime) ? 'mp4' : /ogg/.test(mime) ? 'ogg' : 'webm';
+        const nome = `reuniao_${id}_${inicio}_${tipo}.${ext}`;
+
+        let ficheiro_path: string;
+        try {
+            const { MediaUploadService } = require('../services/MediaUploadService');
+            ficheiro_path = 'storage:' + await MediaUploadService.guardarDocumento(req.file.buffer, String(reuniao.empresa_id), nome, req.file.mimetype || 'audio/webm');
+        } catch (e: any) {
+            // Sem a Supabase, fica no disco — melhor do que perder a parte.
+            console.error('[Reuniões] Parte guardada no disco (Supabase falhou):', e?.message);
+            const dir = path.join(__dirname, '..', '..', 'gravacoes_reunioes');
+            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+            ficheiro_path = path.join(dir, nome);
+            fs.writeFileSync(ficheiro_path, req.file.buffer);
         }
 
         const { error } = await supabase.from('reunioes_gravacoes').insert({
             empresa_id: reuniao.empresa_id,
             reuniao_id: id,
             participante_nome: String(participante_nome || 'Participante').slice(0, 200),
-            participante_tipo: participante_tipo === 'host' ? 'host' : 'convidado',
-            ficheiro_path: req.file.path
+            participante_tipo: tipo,
+            ficheiro_path,
         });
         if (error) throw error;
 

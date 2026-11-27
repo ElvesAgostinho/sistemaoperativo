@@ -28,7 +28,6 @@ import { EmailCampaignService } from './services/EmailCampaignService';
 import { FluxoDisparoService } from './services/FluxoDisparoService';
 import { EsperaFluxoService } from './services/EsperaFluxoService';
 import { RecuperarMensagensService } from './services/RecuperarMensagensService';
-import { VigiaCanaisService } from './services/VigiaCanaisService';
 import { AvisoWhatsAppDesligadoService } from './services/AvisoWhatsAppDesligadoService';
 import documentosRoutes from './api/documentosRoutes';
 import { DocumentosService } from './services/DocumentosService';
@@ -145,12 +144,6 @@ app.listen(port, () => {
   setInterval(() => {
     RecuperarMensagensService.recuperar().catch(console.error);
   }, 2 * 60 * 1000);
-
-  // Números "ligados" que deixaram de receber (aconteceu a 22/11: um dia
-  // inteiro sem uma mensagem na hora). Reinicia-os, de dia, como se fez à mão.
-  setInterval(() => {
-    VigiaCanaisService.vigiar().catch(console.error);
-  }, 5 * 60 * 1000);
 
   // Números que se desligam: o dono da plataforma é avisado por email (logo, e
   // num resumo diário às 08:00), e cada empresa vê uma faixa no ecrã das conversas.

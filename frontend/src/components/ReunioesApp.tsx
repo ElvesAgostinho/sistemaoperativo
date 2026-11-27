@@ -303,7 +303,6 @@ export default function ReunioesApp({ initialMeetingId, userName }: { initialMee
                 jitsiUrl={activeReuniao.daily_url || null}
                 titulo={activeReuniao.titulo}
                 participanteNome={userName || 'Anfitrião'}
-                participanteTipo="host"
                 onEnd={endMeeting}
                 endLoading={loading}
             />
